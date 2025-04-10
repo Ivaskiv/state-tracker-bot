@@ -1,0 +1,31 @@
+{
+  "name": "state-tracker-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ivaskiv/state-tracker-bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Ivaskiv/state-tracker-bot/issues"
+  },
+  "homepage": "https://github.com/Ivaskiv/state-tracker-bot#readme",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "mongodb": "^6.15.0",
+    "mongoose": "^8.13.2",
+    "natural": "^8.0.1",
+    "node-cron": "^3.0.3",
+    "node-nlp": "^5.0.0-alpha.5",
+    "telegraf": "^4.16.3"
+  }
+}
