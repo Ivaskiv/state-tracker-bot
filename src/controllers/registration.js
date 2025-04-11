@@ -1,14 +1,14 @@
-import { Scenes, Markup } from 'telegraf';
+import { Scenes } from 'telegraf';
 import User from '../models/user.js';
 import { configData } from '../config/configData.js';
 
 // Функція для завантаження налаштувань частоти
-const getFrequencyText = (frequency) => {
+export const getFrequencyText = (frequency) => {
   return configData.frequencyOptions[frequency] || `${frequency} хвилин`;
 };
 
 // Сцена для реєстрації користувача
-const registerScene = new Scenes.BaseScene('register');
+export const registerScene = new Scenes.BaseScene('register');
 
 registerScene.enter(async (ctx) => {
   const userId = ctx.from.id;

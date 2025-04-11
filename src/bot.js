@@ -156,7 +156,6 @@ bot.command('restart', async (ctx) => {
 
 bot.action('confirm_restart', (ctx) => {
   ctx.answerCbQuery(); 
-  ctx.session = null;
   ctx.reply('Ваші налаштування були скинуті. Ви можете почати знову.');
   sendMainMenu(ctx);
   ctx.scene.enter('register');
