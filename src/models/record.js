@@ -1,4 +1,3 @@
-// Файл models/record.js
 import mongoose from 'mongoose';
 
 const recordSchema = new mongoose.Schema({
@@ -39,9 +38,10 @@ const recordSchema = new mongoose.Schema({
   }
 });
 
-// Індекс TTL для автоматичного видалення старих записів (через 90 днів)
-recordSchema.index({ timestamp: 1 }, { expireAfterSeconds: 7776000 });
+// Додаткові індекси для оптимізації запитів
+recordSchema.index({ userId: 1 });
+recordSchema.index({ telegramId: 1 });
+recordSchema.index({ timestamp: 1 }, { expireAfterSeconds: 7776000 });  // TTL для автоматичного видалення
 
 const Record = mongoose.model('Record', recordSchema);
 export default Record;
-

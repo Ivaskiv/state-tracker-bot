@@ -1,4 +1,3 @@
-// Файл controllers/settings.js
 import { Scenes } from 'telegraf';
 import User from '../models/user.js';
 import { registration, getFrequencyText } from '../utils/templates.js';
@@ -18,12 +17,18 @@ settingsScene.enter(async (ctx) => {
       await ctx.reply('Спочатку потрібно зареєструватися. Використовуйте команду /start.');
       return ctx.scene.leave();
     }
-    
+
+    const userSettings = {
+      name: user.name,
+      frequency: getFrequencyText(user.frequency),
+      time: `${user.startTime}:00 - ${user.endTime}:00`
+    };
+
     await ctx.reply(
       `Твої поточні налаштування:\n` +
-      `- Ім'я: ${user.name}\n` +
-      `- Частота опитувань: ${getFrequencyText(user.frequency)}\n` +
-      `- Час: з ${user.startTime}:00 до ${user.endTime}:00\n\n` +
+      `- Ім'я: ${userSettings.name}\n` +
+      `- Частота опитувань: ${userSettings.frequency}\n` +
+      `- Час: ${userSettings.time}\n\n` +
       'Що ти хочеш змінити?',
       {
         reply_markup: {
@@ -42,7 +47,6 @@ settingsScene.enter(async (ctx) => {
     return ctx.scene.leave();
   }
 });
-
 // Обробка кнопки "Скасувати"
 settingsScene.action('cancel_settings', async (ctx) => {
   await ctx.answerCbQuery();

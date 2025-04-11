@@ -1,9 +1,10 @@
-// Файл models/user.js
 import mongoose from 'mongoose';
 
+// Оптимізована схема користувача
 const userSchema = new mongoose.Schema({
   telegramId: {
     type: Number,
+    index: true,
     required: true,
     unique: true
   },
@@ -34,5 +35,6 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+// Модель користувача
 const User = mongoose.model('User', userSchema);
 export default User;

@@ -1,4 +1,3 @@
-// Файл services/database.js
 import mongoose from 'mongoose';
 import User from '../models/user.js';
 import Record from '../models/record.js';
@@ -18,7 +17,7 @@ async function connectDatabase() {
     return true;
   } catch (err) {
     console.error('MongoDB connection error:', err);
-    return false;
+    throw new Error('Database connection failed');
   }
 }
 
@@ -34,6 +33,7 @@ async function setupIndices() {
     console.log('Indices set up successfully');
   } catch (err) {
     console.error('Error setting up indices:', err);
+    throw new Error('Failed to set up indices');
   }
 }
 
@@ -45,17 +45,21 @@ async function createUser(userData) {
     return user;
   } catch (err) {
     console.error('Error creating user:', err);
-    throw err;
+    throw new Error('Failed to create user');
   }
 }
 
 // Отримання користувача за telegramId
 async function getUser(telegramId) {
   try {
-    return await User.findOne({ telegramId });
+    const user = await User.findOne({ telegramId });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return user;
   } catch (err) {
     console.error('Error getting user:', err);
-    return null;
+    throw new Error('Failed to retrieve user');
   }
 }
 
@@ -67,10 +71,13 @@ async function updateUser(telegramId, updates) {
       { $set: updates },
       { new: true }
     );
+    if (!user) {
+      throw new Error('User not found');
+    }
     return user;
   } catch (err) {
     console.error('Error updating user:', err);
-    throw err;
+    throw new Error('Failed to update user');
   }
 }
 
@@ -82,23 +89,20 @@ async function createRecord(recordData) {
     return record;
   } catch (err) {
     console.error('Error creating record:', err);
-    throw err;
+    throw new Error('Failed to create record');
   }
 }
 
 // Отримання записів за період
 async function getRecords(telegramId, startDate, endDate) {
   try {
-    return await Record.find({
-      telegramId,
-      timestamp: { 
-        $gte: startDate, 
-        $lt: endDate || new Date() 
-      }
-    }).sort({ timestamp: 1 });
+    const query = { telegramId, timestamp: { $gte: startDate } };
+    if (endDate) query.timestamp.$lt = endDate;
+    const records = await Record.find(query).sort({ timestamp: 1 });
+    return records;
   } catch (err) {
     console.error('Error getting records:', err);
-    return [];
+    throw new Error('Failed to retrieve records');
   }
 }
 

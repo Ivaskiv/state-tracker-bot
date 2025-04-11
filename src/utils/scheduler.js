@@ -13,9 +13,7 @@ async function initScheduler(bot) {
     const users = await User.find();
     
     // Налаштовуємо розклад для кожного користувача
-    for (const user of users) {
-      await setupUserSchedule(bot, user);
-    }
+    await Promise.all(users.map(user => setupUserSchedule(bot, user)));
     
     console.log(`Scheduled tasks for ${users.length} users`);
   } catch (err) {
@@ -52,17 +50,14 @@ async function setupUserSchedule(bot, user) {
 
 // Налаштування щогодинного розкладу
 function setupHourlySchedule(bot, user) {
-  // Перевіряємо час роботи
-  const startHour = user.startTime;
-  const endHour = user.endTime;
+  const { startTime, endTime } = user;
   
-  // Щогодини
   const task = cron.schedule('0 * * * *', async () => {
     const now = new Date();
     const hour = now.getHours();
     
     // Перевіряємо, чи зараз робочий час
-    if (hour >= startHour && hour <= endHour) {
+    if (hour >= startTime && hour <= endTime) {
       await sendPollNotification(bot, user);
     }
   });
@@ -73,17 +68,14 @@ function setupHourlySchedule(bot, user) {
 
 // Налаштування розкладу кожні 2 години
 function setup2HoursSchedule(bot, user) {
-  // Перевіряємо час роботи
-  const startHour = user.startTime;
-  const endHour = user.endTime;
+  const { startTime, endTime } = user;
   
-  // Кожні 2 години (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
   const task = cron.schedule('0 0,2,4,6,8,10,12,14,16,18,20,22 * * *', async () => {
     const now = new Date();
     const hour = now.getHours();
     
     // Перевіряємо, чи зараз робочий час
-    if (hour >= startHour && hour <= endHour) {
+    if (hour >= startTime && hour <= endTime) {
       await sendPollNotification(bot, user);
     }
   });
@@ -94,16 +86,18 @@ function setup2HoursSchedule(bot, user) {
 
 // Налаштування розкладу зранку та ввечері
 function setupMorningEveningSchedule(bot, user) {
-  // Зранку (о 9:00, якщо в межах робочого часу)
-  if (9 >= user.startTime && 9 <= user.endTime) {
+  const { startTime, endTime } = user;
+
+  // Зранку
+  if (9 >= startTime && 9 <= endTime) {
     const morningTask = cron.schedule('0 9 * * *', async () => {
       await sendPollNotification(bot, user);
     });
     scheduleTasks[user.telegramId].push(morningTask);
   }
   
-  // Ввечері (о 19:00, якщо в межах робочого часу)
-  if (19 >= user.startTime && 19 <= user.endTime) {
+  // Ввечері
+  if (19 >= startTime && 19 <= endTime) {
     const eveningTask = cron.schedule('0 19 * * *', async () => {
       await sendPollNotification(bot, user);
     });

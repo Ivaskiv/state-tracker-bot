@@ -8,6 +8,7 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2020,
   },
+  
   extends: ['airbnb-base', 'eslint:recommended', 'prettier'],
   rules: {
     'class-methods-use-this': 'off',
