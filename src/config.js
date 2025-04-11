@@ -1,3 +1,4 @@
+//config.js
 import dotenv from 'dotenv';
 
 // Завантаження змінних середовища

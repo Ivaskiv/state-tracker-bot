@@ -1,0 +1,109 @@
+// defaultConfig.json
+{
+  "botName": "State Tracker Bot",
+  "welcomeMessage": "Ласкаво просимо до бота для відстеження емоційного стану!",
+  "errorMessage": "Щось пішло не так. Спробуйте ще раз.",
+  "startTime": "00:00",
+  "endTime": "23:59",
+  "admins": [], 
+  "ai": {
+    "model": "gpt-4",
+    "temperature": 0.7,
+    "maxTokens": 500
+  },
+  "pollSettings": {
+    "states": [
+      { "key": "resourceful", "text": "Ресурсний 💪" },
+      { "key": "neutral", "text": "Нейтральний 😐" },
+      { "key": "tense", "text": "Напружений 😬" },
+      { "key": "exhausted", "text": "Виснажений 💤" },
+      { "key": "anxious", "text": "Тривожний 😟" },
+      { "key": "panic", "text": "Панічний 😱" }
+    ],
+    "emotions": [
+      { "key": "joy", "text": "Радість 😀" },
+      { "key": "anger", "text": "Гнів 😡" },
+      { "key": "calm", "text": "Спокій 😌" },
+      { "key": "sadness", "text": "Сум 😢" },
+      { "key": "fear", "text": "Страх 😨" },
+      { "key": "gratitude", "text": "Вдячність 🙏" }
+    ],
+    "feelings": [
+      { "key": "love", "text": "Любов ❤️" },
+      { "key": "guilt", "text": "Провина 😔" },
+      { "key": "loneliness", "text": "Самотність 😞" },
+      { "key": "acceptance", "text": "Прийняття 👐" },
+      { "key": "shame", "text": "Сором 😳" },
+      { "key": "hope", "text": "Надія 🌟" }
+    ],
+    "actions": [
+      { "key": "work", "text": "Працював(ла) 💼" },
+      { "key": "eating", "text": "Їв(ла) 🍽️" },
+      { "key": "social_media", "text": "Був(ла) в соцмережах 📱" },
+      { "key": "communication", "text": "Спілкувався(лась) 🗣️" },
+      { "key": "exercise", "text": "Рухався(лась) / спорт 🏋️‍♂️" },
+      { "key": "rest", "text": "Відпочивав(ла) 🛋️" }
+    ]
+  },
+  "reportSettings": {
+    "maxDaysInWeeklyReport": 7,
+    "minRecordsForAnalysis": 3
+  },
+  "messages": {
+    "welcomeMessage": "Ласкаво просимо до бота для відстеження емоційного стану!",
+    "errorMessage": "Щось пішло не так. Спробуйте ще раз.",
+    "noRecords": "Ще немає записів за цей період. 🙁",
+    "sendReportSuccess": "Звіт успішно надіслано! 📬",
+    "sendEmailSuccess": "Звіт надіслано на ваш email! 📧",
+    "setupError": "Помилка при налаштуванні параметрів. 😞",
+    "sendPdfError": "Не вдалося надіслати PDF звіт. 😞",
+    "reportSettingsMessage": "Оберіть період або канал для звітів:",
+    "changeMessagePrompt": "Введіть нове повідомлення для: ",
+    "changeMessageSuccess": "Повідомлення успішно змінено! ✅"
+  },
+  "keyboard": {
+    "stateButtons": [
+      { "text": "Ресурсний 💪", "callback_data": "state_resourceful" },
+      { "text": "Нейтральний 😐", "callback_data": "state_neutral" },
+      { "text": "Напружений 😬", "callback_data": "state_tense" },
+      { "text": "Виснажений 💤", "callback_data": "state_exhausted" },
+      { "text": "Тривожний 😟", "callback_data": "state_anxious" },
+      { "text": "Панічний 😱", "callback_data": "state_panic" }
+    ],
+    "emotionButtons": [
+      { "text": "Радість 😀", "callback_data": "emotion_joy" },
+      { "text": "Гнів 😡", "callback_data": "emotion_anger" },
+      { "text": "Спокій 😌", "callback_data": "emotion_calm" },
+      { "text": "Сум 😢", "callback_data": "emotion_sadness" },
+      { "text": "Страх 😨", "callback_data": "emotion_fear" },
+      { "text": "Вдячність 🙏", "callback_data": "emotion_gratitude" }
+    ],
+    "feelingButtons": [
+      { "text": "Любов ❤️", "callback_data": "feeling_love" },
+      { "text": "Провина 😔", "callback_data": "feeling_guilt" },
+      { "text": "Самотність 😞", "callback_data": "feeling_loneliness" },
+      { "text": "Прийняття 👐", "callback_data": "feeling_acceptance" },
+      { "text": "Сором 😳", "callback_data": "feeling_shame" },
+      { "text": "Надія 🌟", "callback_data": "feeling_hope" }
+    ],
+    "actionButtons": [
+      { "text": "Працював(ла) 💼", "callback_data": "action_work" },
+      { "text": "Їв(ла) 🍽️", "callback_data": "action_eating" },
+      { "text": "Був(ла) в соцмережах 📱", "callback_data": "action_social_media" },
+      { "text": "Спілкувався(лась) 🗣️", "callback_data": "action_communication" },
+      { "text": "Рухався(лась) / спорт 🏋️‍♂️", "callback_data": "action_exercise" },
+      { "text": "Відпочивав(ла) 🛋️", "callback_data": "action_rest" }
+    ],
+    "reportSettings": [
+      { "label": "Щодня", "action": "daily" },
+      { "label": "Щотижня", "action": "weekly" },
+      { "label": "Щомісяця", "action": "monthly" },
+      { "label": "Отримувати через Telegram", "action": "telegram" },
+      { "label": "Отримувати на Email", "action": "email" },
+      { "label": "Змінити повідомлення (адмін)", "action": "changeMessage" }
+    ],
+    "adminSettings": [
+      { "label": "Змінити повідомлення", "action": "changeMessage" }
+    ]
+  }
+}
