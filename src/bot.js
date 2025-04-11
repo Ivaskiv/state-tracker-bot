@@ -21,6 +21,18 @@ mongoose.connect(process.env.MONGODB_URI)
 // Ініціалізація бота
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
+// Головне меню
+const mainMenu = Markup.inlineKeyboard([
+  [Markup.button.callback('Почати реєстрацію', 'start_registration')],
+  [Markup.button.callback('Переглянути налаштування', 'view_settings')],
+  [Markup.button.callback('Допомога', 'help')]
+]);
+
+// Функція для відправки головного меню
+const sendMainMenu = async (ctx) => {
+  await ctx.reply('Оберіть дію:', mainMenu);
+};
+
 // Налаштування сцен для реєстрації
 const stage = new Scenes.Stage([
   registration.registerScene,
@@ -33,7 +45,10 @@ bot.use(session());
 bot.use(stage.middleware());
 
 // Обробка команди /start
-bot.command('start', (ctx) => ctx.scene.enter('register'));
+bot.command('start', (ctx) => {
+  ctx.scene.enter('register');
+  sendMainMenu(ctx); // Показуємо головне меню після запуску
+});
 
 // Обробка команди /help
 bot.command('help', async (ctx) => {
@@ -45,6 +60,7 @@ bot.command('help', async (ctx) => {
     '/report - Отримати звіт за сьогодні\n' +
     '/weekly - Отримати тижневий звіт'
   );
+  sendMainMenu(ctx); // Показуємо головне меню після допомоги
 });
 
 // Налаштування команд і callbackів опитування
@@ -79,15 +95,8 @@ bot.action('confirm_restart', (ctx) => {
   // Повідомлення про скидання
   ctx.reply('Ваші налаштування були скинуті. Ви можете почати знову.');
 
-  // Показ меню після скидання
-  const menuKeyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('Почати реєстрацію', 'start_registration')],
-    [Markup.button.callback('Переглянути налаштування', 'view_settings')],
-    [Markup.button.callback('Допомога', 'help')]
-  ]);
-
-  // Відправляємо меню
-  ctx.reply('Оберіть дію:', menuKeyboard);
+  // Відправляємо головне меню
+  sendMainMenu(ctx);
 
   // Можна також перевести на сцену реєстрації або залишити на головному меню
   ctx.scene.enter('register');
@@ -99,6 +108,9 @@ bot.action('cancel_restart', (ctx) => {
 
   // Повідомлення про скасування скидання
   ctx.reply('Скидання сесії скасовано. Ваші налаштування збережено.');
+
+  // Відправляємо головне меню
+  sendMainMenu(ctx);
 });
 
 // Обробка команд для меню (це можна додати в окремі частини коду або сцену):
@@ -127,8 +139,9 @@ bot.action('help', (ctx) => {
     '/settings - Змінити налаштування опитувань\n' +
     '/report - Отримати звіт за сьогодні\n' +
     '/weekly - Отримати тижневий звіт');
+  sendMainMenu(ctx); // Відправляємо головне меню
 });
-//!
+
 // Налаштування розкладу (запускається при старті бота)
 scheduler.initScheduler(bot);
 
