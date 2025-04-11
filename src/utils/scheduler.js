@@ -1,116 +1,117 @@
-// Файл utils/scheduler.js
 import cron from 'node-cron';
 import User from '../models/user.js';
-import { startPoll } from '../controllers/polling.js';
 
-// Словник для зберігання завдань cron
+// Словник для зберігання активних задач
 const scheduleTasks = {};
 
-// Ініціалізація планувальника для всіх користувачів
+// Ініціалізація планувальника
 async function initScheduler(bot) {
   try {
-    // Отримуємо всіх користувачів
     const users = await User.find();
-    
-    // Налаштовуємо розклад для кожного користувача
     await Promise.all(users.map(user => setupUserSchedule(bot, user)));
-    
-    console.log(`Scheduled tasks for ${users.length} users`);
+    console.log(`🗓️ Scheduled tasks for ${users.length} users`);
   } catch (err) {
-    console.error('Error initializing scheduler:', err);
+    console.error('❌ Error initializing scheduler:', err);
   }
 }
 
-// Налаштування розкладу для конкретного користувача
+// Оновлення розкладу для конкретного користувача
+async function updateUserSchedule(bot, userId) {
+  try {
+    const user = await User.findOne({ telegramId: userId });
+    if (user) await setupUserSchedule(bot, user);
+  } catch (err) {
+    console.error(`❌ Error updating schedule for user ${userId}:`, err);
+  }
+}
+
+// Створення або оновлення задачі користувача
 async function setupUserSchedule(bot, user) {
-  // Очищаємо попередні завдання для користувача
-  if (scheduleTasks[user.telegramId]) {
-    scheduleTasks[user.telegramId].forEach(task => task.stop());
-    delete scheduleTasks[user.telegramId];
+  const { telegramId, frequency } = user;
+
+  // Зупиняємо та очищаємо попередні задачі
+  if (scheduleTasks[telegramId]) {
+    scheduleTasks[telegramId].forEach(task => task.stop());
   }
-  
-  // Створюємо масив для завдань
-  scheduleTasks[user.telegramId] = [];
-  
-  // Налаштування розкладу залежно від частоти
-  switch (user.frequency) {
-    case 'hourly':
-      setupHourlySchedule(bot, user);
-      break;
-    case '2hours':
-      setup2HoursSchedule(bot, user);
-      break;
-    case 'morning_evening':
-      setupMorningEveningSchedule(bot, user);
-      break;
-    default:
-      console.error(`Unknown frequency: ${user.frequency}`);
+  scheduleTasks[telegramId] = [];
+
+  console.log(`🔁 Setting up schedule for ${telegramId} [${frequency}]`);
+
+  // Вибір розкладу
+  const setupFunctions = {
+    hourly: setupHourlySchedule,
+    '2hours': setup2HoursSchedule,
+    morning_evening: setupMorningEveningSchedule
+  };
+
+  const setupFn = setupFunctions[frequency];
+  if (setupFn) {
+    setupFn(bot, user);
+  } else {
+    console.warn(`⚠️ Unknown frequency: ${frequency}`);
   }
 }
 
-// Налаштування щогодинного розкладу
+// Перевірка, чи поточна година в діапазоні
+function isWithinTimeRange(hour, start, end) {
+  return hour >= start && hour <= end;
+}
+
+// Загальна функція планування задачі
+function createCronTask(cronTime, conditionFn, taskFn) {
+  return cron.schedule(cronTime, async () => {
+    if (conditionFn()) {
+      await taskFn();
+    }
+  });
+}
+
+// Щогодини
 function setupHourlySchedule(bot, user) {
-  const { startTime, endTime } = user;
-  
-  const task = cron.schedule('0 * * * *', async () => {
-    const now = new Date();
-    const hour = now.getHours();
-    
-    // Перевіряємо, чи зараз робочий час
-    if (hour >= startTime && hour <= endTime) {
-      await sendPollNotification(bot, user);
-    }
-  });
-  
-  // Зберігаємо завдання
+  const task = createCronTask(
+    '0 * * * *',
+    () => isWithinTimeRange(new Date().getHours(), user.startTime, user.endTime),
+    () => sendPollNotification(bot, user)
+  );
   scheduleTasks[user.telegramId].push(task);
 }
 
-// Налаштування розкладу кожні 2 години
+// Кожні 2 години
 function setup2HoursSchedule(bot, user) {
-  const { startTime, endTime } = user;
-  
-  const task = cron.schedule('0 0,2,4,6,8,10,12,14,16,18,20,22 * * *', async () => {
-    const now = new Date();
-    const hour = now.getHours();
-    
-    // Перевіряємо, чи зараз робочий час
-    if (hour >= startTime && hour <= endTime) {
-      await sendPollNotification(bot, user);
+  const hours = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
+  hours.forEach(h => {
+    const task = createCronTask(
+      `0 ${h} * * *`,
+      () => isWithinTimeRange(h, user.startTime, user.endTime),
+      () => sendPollNotification(bot, user)
+    );
+    scheduleTasks[user.telegramId].push(task);
+  });
+}
+
+// Зранку та ввечері
+function setupMorningEveningSchedule(bot, user) {
+  const times = [9, 19]; // ранкове і вечірнє
+
+  times.forEach(h => {
+    if (isWithinTimeRange(h, user.startTime, user.endTime)) {
+      const task = createCronTask(
+        `0 ${h} * * *`,
+        () => true,
+        () => sendPollNotification(bot, user)
+      );
+      scheduleTasks[user.telegramId].push(task);
     }
   });
-  
-  // Зберігаємо завдання
-  scheduleTasks[user.telegramId].push(task);
 }
 
-// Налаштування розкладу зранку та ввечері
-function setupMorningEveningSchedule(bot, user) {
-  const { startTime, endTime } = user;
-
-  // Зранку
-  if (9 >= startTime && 9 <= endTime) {
-    const morningTask = cron.schedule('0 9 * * *', async () => {
-      await sendPollNotification(bot, user);
-    });
-    scheduleTasks[user.telegramId].push(morningTask);
-  }
-  
-  // Ввечері
-  if (19 >= startTime && 19 <= endTime) {
-    const eveningTask = cron.schedule('0 19 * * *', async () => {
-      await sendPollNotification(bot, user);
-    });
-    scheduleTasks[user.telegramId].push(eveningTask);
-  }
-}
-
-// Відправка повідомлення для опитування
+// Відправка повідомлення-опитування
 async function sendPollNotification(bot, user) {
   try {
+    console.log(`[${new Date().toISOString()}] 📩 Sending poll to ${user.telegramId}`);
     await bot.telegram.sendMessage(
       user.telegramId,
-      `Привіт, ${user.name}! Настав час перевірити твій емоційний стан.`,
+      `Привіт, ${user.name || 'користувачу'}! 🧘 Настав час перевірити твій емоційний стан.`,
       {
         reply_markup: {
           inline_keyboard: [
@@ -120,20 +121,7 @@ async function sendPollNotification(bot, user) {
       }
     );
   } catch (err) {
-    console.error(`Error sending poll notification to user ${user.telegramId}:`, err);
-  }
-}
-
-// Оновлення розкладу користувача
-async function updateUserSchedule(bot, userId) {
-  try {
-    const user = await User.findOne({ telegramId: userId });
-    
-    if (user) {
-      await setupUserSchedule(bot, user);
-    }
-  } catch (err) {
-    console.error(`Error updating schedule for user ${userId}:`, err);
+    console.error(`❌ Error sending poll to ${user.telegramId}:`, err);
   }
 }
 
