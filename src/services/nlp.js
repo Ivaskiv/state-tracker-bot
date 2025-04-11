@@ -1,5 +1,14 @@
 import { NlpManager } from 'node-nlp';
 import natural from 'natural';
+import { config } from 'dotenv';
+import openai from 'openai';
+
+// Завантажуємо змінні оточення з файлу .env
+config();
+
+// Ініціалізація GPT за допомогою OpenAI API
+const openaiApiKey = process.env.OPENAI_API_KEY; // Зчитуємо API ключ з .env
+openai.apiKey = openaiApiKey;
 
 // Створюємо NLP менеджер
 const manager = new NlpManager({ languages: ['uk'] });
@@ -52,7 +61,8 @@ async function analyzeText(text) {
       return {
         category,
         subcategory,
-        score: result.score
+        score: result.score,
+        emoji: getEmojiForCategory(category, subcategory)
       };
     }
     
@@ -62,56 +72,69 @@ async function analyzeText(text) {
     
     // Прості правила на основі ключових слів
     if (tokens.some(token => ['добре', 'чудово', 'прекрасно'].includes(token))) {
-      return { category: 'state', subcategory: 'positive', score: 0.7 };
+      return { category: 'state', subcategory: 'positive', score: 0.7, emoji: '😊' };
     } else if (tokens.some(token => ['погано', 'жахливо', 'тривожно'].includes(token))) {
-      return { category: 'state', subcategory: 'negative', score: 0.7 };
+      return { category: 'state', subcategory: 'negative', score: 0.7, emoji: '😞' };
     }
     
-    return { category: 'unknown', subcategory: 'unknown', score: 0 };
+    return { category: 'unknown', subcategory: 'unknown', score: 0, emoji: '🤔' };
   } catch (err) {
     console.error('Error analyzing text:', err);
-    return { category: 'unknown', subcategory: 'unknown', score: 0 };
+    return { category: 'unknown', subcategory: 'unknown', score: 0, emoji: '❓' };
   }
 }
 
-// Рекомендації на основі стану
-function getRecommendation(state, emotion) {
+// Рекомендації на основі GPT
+async function getGPTRecommendation(state, emotion) {
   try {
-    // Позитивні стани
-    if (state === 'resourceful' || state === 'neutral') {
-      if (emotion === 'joy' || emotion === 'calm' || emotion === 'gratitude') {
-        return 'Твій емоційний стан позитивний. Чудово! Продовжуй практики, які тебе наповнюють.';
-      } else {
-        return 'Твій стан досить хороший, але емоції змішані. Зверни увагу на те, що викликає твої емоції.';
-      }
-    }
+    const prompt = `Я відчуваю себе в стані ${state} і маю емоцію ${emotion}. Як мені діяти або що робити, щоб покращити свій стан?`;
+
+    const response = await openai.Completion.create({
+      model: 'gpt-3.5-turbo', // або GPT-4, залежно від вашого доступу
+      prompt: prompt,
+      max_tokens: 150
+    });
+
+    const recommendation = response.choices[0].text.trim();
     
-    // Напружені стани
-    if (state === 'tense' || state === 'anxious') {
-      return 'Ти відчуваєш напругу. Спробуй глибоке дихання (4-7-8): вдих на 4, затримка на 7, видих на 8 секунд.';
+    // Додаємо смайлики на основі стану та емоції
+    if (state === 'positive' && emotion === 'joy') {
+      return `${recommendation} 😊🎉`;
+    } else if (state === 'negative' && emotion === 'anger') {
+      return `${recommendation} 😡`;
+    } else if (state === 'neutral' && emotion === 'calm') {
+      return `${recommendation} 😌`;
+    } else if (state === 'anxious') {
+      return `${recommendation} 😟`;
+    } else {
+      return `${recommendation} 🙂`;
     }
-    
-    // Виснажені стани
-    if (state === 'exhausted') {
-      return 'Ти виснажений(а). Дозволь собі відпочити. Нагадую, що регулярні перерви підвищують продуктивність.';
-    }
-    
-    // Панічні стани
-    if (state === 'panic') {
-      return 'Схоже, ти в стані паніки. Спробуй заземлитися: назви 5 речей, які бачиш, 4 речі, до яких можеш доторкнутися, 3 звуки, які чуєш, 2 запахи і 1 смак.';
-    }
-    
-    // Загальна рекомендація
-    return 'Продовжуй відстежувати свій стан. Це допоможе тобі краще розуміти себе і свої емоції.';
   } catch (err) {
-    console.error('Error getting recommendation:', err);
-    return 'Сталась помилка при формуванні рекомендації. Спробуй ще раз.';
+    console.error('Error generating recommendation with GPT:', err);
+    return 'Не вдалося отримати рекомендацію. Спробуйте ще раз. 😕';
   }
+}
+
+// Функція для повернення смайлика на основі категорії та підкатегорії
+function getEmojiForCategory(category, subcategory) {
+  if (category === 'state') {
+    if (subcategory === 'positive') return '😊';
+    if (subcategory === 'neutral') return '😐';
+    if (subcategory === 'negative') return '😞';
+  } else if (category === 'emotion') {
+    if (subcategory === 'joy') return '😊';
+    if (subcategory === 'anger') return '😡';
+    if (subcategory === 'sadness') return '😢';
+    if (subcategory === 'calm') return '😌';
+    if (subcategory === 'gratitude') return '🙏';
+    if (subcategory === 'fear') return '😨';
+  }
+  return '🤔'; // За замовчуванням
 }
 
 // Експорт функцій
 export {
   initNLP,
   analyzeText,
-  getRecommendation
+  getGPTRecommendation
 };
