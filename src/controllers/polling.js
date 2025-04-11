@@ -1,100 +1,112 @@
 import { Telegraf } from 'telegraf';
 import fs from 'fs';
-
-import config from './defaultConfig.json';
+import dotenv from 'dotenv';
+import { configData } from '../config/configData.js'; // Імпортуємо ваш новий конфігураційний файл
+dotenv.config();
 
 // Створення екземпляру бота
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // Перевірка прав адміністратора
-const isAdmin = (ctx) => config.admins.includes(ctx.from.id);
+export const isAdmin = (ctx) => configData.admins.includes(ctx.from.id); // Перевірка з configData
 
 // Функція для створення клавіатур
-const createKeyboard = (buttons) => {
+export const createKeyboard = (buttons) => {
+  if (!buttons || !Array.isArray(buttons)) {
+    console.error('Invalid buttons format:', buttons);
+    return []; // Return empty array to prevent crashes
+  }
   return buttons.map(button => [{ text: button.text, callback_data: button.callback_data }]);
 };
 
 // Функція для зміни текстів в конфігурації
-const updateConfig = (key, value) => {
+export const updateConfig = (key, value) => {
   const [category, keyToChange] = key.split('.');
-  if (config[category] && config[category][keyToChange]) {
-    config[category][keyToChange] = value;
-    fs.writeFileSync('defaultConfig.json', JSON.stringify(config, null, 2), 'utf8');
+  try {
+    if (configData[category] && configData[category][keyToChange]) {
+      configData[category][keyToChange] = value;
+
+      // Зберігаємо зміни в configData.js
+      const configString = `export const configData = ${JSON.stringify(configData, null, 2)};`;
+      fs.writeFileSync('./config/configData.js', configString, 'utf8'); // Зберігаємо у configData.js
+    } else {
+      console.error(`Invalid key for configuration update: ${key}`);
+      throw new Error(`Invalid key: ${key}`);
+    }
+  } catch (err) {
+    console.error('Error updating config:', err);
+    return 'Сталася помилка при оновленні конфігурації. Спробуйте ще раз.';
   }
 };
 
 // Функція для динамічного формування повідомлення
-const generateMessage = (type, key) => {
-  const category = config.pollSettings[type];
+export const generateMessage = (type, key) => {
+  const category = configData.pollSettings[type];
   const item = category.find(item => item.key === key);
   return item ? `${type.charAt(0).toUpperCase() + type.slice(1)}: ${item.text}` : `Невідоме ${type}`;
 };
 
-// Привітальне повідомлення
-bot.start((ctx) => {
-  ctx.reply(config.messages.welcomeMessage, {
+// Функція для початку опитування - ось експорт функції, якої не вистачало
+export const startPoll = async (ctx) => {
+  ctx.reply(configData.messages.pollStartMessage, { 
     reply_markup: {
-      inline_keyboard: createKeyboard(config.keyboard.stateButtons)
+      inline_keyboard: createKeyboard(configData.keyboard.stateButtons)
     }
   });
-});
+};
 
-// Обробка кнопок стану
-bot.on('callback_query', async (ctx) => {
-  const action = ctx.callbackQuery.data;
+// Обробка відповіді про стан
+export const handleStateResponse = async (ctx) => {
+  const state = ctx.match[1];
+  console.log(`State selected: ${state}`);
+  console.log('Emotions buttons:', configData.keyboard.emotionButtons);
+  
+  const message = generateMessage('states', state);
+  ctx.reply(`${message}\n\nОбер\іть вашу емоцію:`, {
+    reply_markup: {
+      inline_keyboard: createKeyboard(configData.keyboard.emotionButtons)
+    }
+  }).catch(err => {
+    console.error('Error in handleStateResponse:', err);
+    ctx.reply('Сталася помилка при виборі емоції. Спробуйте ще раз.');
+  });
+};
 
-  // Якщо адміністратор хоче змінити текст повідомлення
-  if (action.startsWith('changeMessage_') && isAdmin(ctx)) {
-    const messageType = action.replace('changeMessage_', '');
-    ctx.reply(`Введіть новий текст для: ${messageType}`, {
-      reply_markup: {
-        remove_keyboard: true
-      }
-    });
-    bot.on('text', (ctx) => {
-      updateConfig(messageType, ctx.message.text);
-      ctx.reply(config.messages.changeMessageSuccess);
-    });
-  }
+// Обробка відповіді про емоцію
+export const handleEmotionResponse = async (ctx) => {
+  const emotion = ctx.match[1];
+  const message = generateMessage('emotions', emotion);
+  ctx.reply(`${message}\n\nОберіть ваше відчуття:`, {
+    reply_markup: {
+      inline_keyboard: createKeyboard(configData.keyboard.feelingButtons)
+    }
+  });
+};
 
-  // Обробка кнопок для вибору стану, емоції, відчуття, дії
-  if (action.startsWith('state_')) {
-    const stateKey = action.replace('state_', '');
-    const message = generateMessage('states', stateKey);
-    ctx.reply(message, {
-      reply_markup: {
-        inline_keyboard: createKeyboard(config.keyboard.emotionButtons)
-      }
-    });
-  } else if (action.startsWith('emotion_')) {
-    const emotionKey = action.replace('emotion_', '');
-    const message = generateMessage('emotions', emotionKey);
-    ctx.reply(message, {
-      reply_markup: {
-        inline_keyboard: createKeyboard(config.keyboard.feelingButtons)
-      }
-    });
-  } else if (action.startsWith('feeling_')) {
-    const feelingKey = action.replace('feeling_', '');
-    const message = generateMessage('feelings', feelingKey);
-    ctx.reply(message, {
-      reply_markup: {
-        inline_keyboard: createKeyboard(config.keyboard.actionButtons)
-      }
-    });
-  } else if (action.startsWith('action_')) {
-    const actionKey = action.replace('action_', '');
-    const message = generateMessage('actions', actionKey);
-    ctx.reply(message);
-  }
-});
+// Обробка відповіді про відчуття
+export const handleFeelingResponse = async (ctx) => {
+  const feeling = ctx.match[1];
+  const message = generateMessage('feelings', feeling);
+  ctx.reply(`${message}\n\nЯка дія може допомогти?`, {
+    reply_markup: {
+      inline_keyboard: createKeyboard(configData.keyboard.actionButtons)
+    }
+  });
+};
+
+// Обробка відповіді про дію
+export const handleActionResponse = async (ctx) => {
+  const action = ctx.match[1];
+  const message = generateMessage('actions', action);
+  ctx.reply(`${message}\n\nДякую за вашу відповідь! Опитування завершено.`);
+};
 
 // Обробка інших повідомлень
 bot.on('text', (ctx) => {
-  ctx.reply(config.messages.errorMessage);
+  ctx.reply(configData.messages.errorMessage); // Використовуємо повідомлення з configData
 });
 
-// Запуск бота
-bot.launch().then(() => {
-  console.log('State Tracker Bot is running...');
-});
+// Примітка: Залишаємо, але не запускаємо бота в цьому файлі, оскільки він запускається в bot.js
+// bot.launch().then(() => {
+//   console.log('State Tracker Bot is running...');
+// });

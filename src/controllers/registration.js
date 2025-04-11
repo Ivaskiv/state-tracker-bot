@@ -1,16 +1,10 @@
 import { Scenes, Markup } from 'telegraf';
 import User from '../models/user.js';
-import { loadConfig } from '../utils/configUtils.js';
+import { configData } from '../config/configData.js';
 
 // Функція для завантаження налаштувань частоти
 const getFrequencyText = (frequency) => {
-  switch (frequency) {
-    case '15': return '15 хвилин';
-    case '30': return '30 хвилин';
-    case '60': return '1 година';
-    case '120': return '2 години';
-    default: return `${frequency} хвилин`;
-  }
+  return configData.frequencyOptions[frequency] || `${frequency} хвилин`;
 };
 
 // Сцена для реєстрації користувача
@@ -18,7 +12,6 @@ const registerScene = new Scenes.BaseScene('register');
 
 registerScene.enter(async (ctx) => {
   const userId = ctx.from.id;
-  const config = loadConfig();
 
   // Реєстрація або перевірка існуючого користувача
   let user = await User.findOne({ telegramId: userId });
@@ -59,15 +52,18 @@ registerScene.action('keep_settings', (ctx) => {
   ctx.scene.leave();
 });
 
-// Основне меню
-const sendMainMenu = async (ctx) => {
-  const mainMenu = Markup.inlineKeyboard([
-    [Markup.button.callback('Почати реєстрацію', 'start_registration')],
-    [Markup.button.callback('Переглянути налаштування', 'view_settings')],
-    [Markup.button.callback('Допомога', 'help')],
-    [Markup.button.callback('Очистити чат', 'clear_chat')]
-  ]);
-  await ctx.reply('Оберіть дію:', mainMenu);
-};
+// Сцена для вибору частоти опитувань
+const frequencyScene = new Scenes.BaseScene('frequency');
+frequencyScene.enter((ctx) => {
+  ctx.reply('Оберіть частоту опитувань:');
+});
+frequencyScene.on('text', (ctx) => ctx.reply('Частота: ' + ctx.message.text));
 
-export { registerScene, sendMainMenu };
+// Сцена для вибору часу опитувань
+const timeScene = new Scenes.BaseScene('time');
+timeScene.enter((ctx) => {
+  ctx.reply('Введіть час початку та закінчення опитування (наприклад: 09:00 18:00):');
+});
+timeScene.on('text', (ctx) => ctx.reply('Час: ' + ctx.message.text));
+
+export { registerScene, frequencyScene, timeScene };

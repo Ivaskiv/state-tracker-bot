@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import User from '../models/user.js';
+import config from '../config/config.js';
 
 // Словник для зберігання активних задач
 const scheduleTasks = {};
@@ -28,7 +29,7 @@ async function updateUserSchedule(bot, userId) {
 // Створення або оновлення задачі користувача
 async function setupUserSchedule(bot, user) {
   const { telegramId, frequency } = user;
-
+  
   // Зупиняємо та очищаємо попередні задачі
   if (scheduleTasks[telegramId]) {
     scheduleTasks[telegramId].forEach(task => task.stop());
@@ -108,6 +109,9 @@ function setupMorningEveningSchedule(bot, user) {
 // Відправка повідомлення-опитування
 async function sendPollNotification(bot, user) {
   try {
+    // Вибір теми для опитування (замість використання глобального config)
+    const { pollSettings } = config.themes[user.theme] || config.themes.emotionTracking;  // За замовчуванням - emotionTracking
+
     console.log(`[${new Date().toISOString()}] 📩 Sending poll to ${user.telegramId}`);
     await bot.telegram.sendMessage(
       user.telegramId,
@@ -115,7 +119,18 @@ async function sendPollNotification(bot, user) {
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: 'Пройти опитування', callback_data: 'start_poll' }]
+            ...pollSettings.states.map(state => 
+              ({ text: state.text, callback_data: `state_${state.key}` })
+            ),
+            ...pollSettings.emotions.map(emotion => 
+              ({ text: emotion.text, callback_data: `emotion_${emotion.key}` })
+            ),
+            ...pollSettings.feelings.map(feeling => 
+              ({ text: feeling.text, callback_data: `feeling_${feeling.key}` })
+            ),
+            ...pollSettings.actions.map(action => 
+              ({ text: action.text, callback_data: `action_${action.key}` })
+            )
           ]
         }
       }

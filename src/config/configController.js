@@ -1,5 +1,5 @@
-import { loadConfig, saveConfig, validatePollSettings } from '../config/settings.js';
 import { Markup } from 'telegraf';
+import { loadConfig } from './settings.js';
 
 // Команда для зміни налаштувань
 export async function handleSettingsCommand(ctx) {
@@ -16,6 +16,7 @@ export async function handleSettingsCommand(ctx) {
     await ctx.reply('У вас немає доступу до налаштувань.');
   }
 }
+
 
 // Обробка зміни часу роботи бота
 export async function handleChangeTime(ctx) {
