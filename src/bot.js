@@ -7,7 +7,6 @@ dotenv.config();
 const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
 
-// Бібліотеки
 const states = ['Ресурсний', 'Нейтральний', 'Напружений', 'Виснажений', 'Тривожний', 'Панічний', 'Спустошений', 'Інший'];
 const emotions = ['Радість', 'Гнів', 'Спокій', 'Сум', 'Страх', 'Вдячність', 'Невпевненість', 'Захоплення', 'Інший'];
 const feelings = ['Любов', 'Провина', 'Самотність', 'Прийняття', 'Сором', 'Надія', 'Невпевненість', 'Інший'];
@@ -17,11 +16,20 @@ const microFormulas = ['Твій стан — твій всесвіт. Хоче�
 const affirmations = ['Я обираю свій стан. Я обираю свою силу.', 'Я довіряю собі і своєму шляху.'];
 const dailyQuotes = ['Ти або віриш у свою силу — або служиш своїм страхам.', 'Кожна твоя дія — це крок до нового себе. Обирай уважно.'];
 const tasks = ['Запиши одну фразу, яка підніме тебе.', 'Зроби сьогодні щось маленьке, що дає тобі ресурс.'];
+function parseScheduleInput(input) {
+  const normalized = input.trim().toLowerCase();
 
-// Маніфест
+  if (['1', 'once', 'раз', 'раз на день'].includes(normalized)) return 'Once';
+  if (['2', 'twice', 'двічі', 'два рази'].includes(normalized)) return 'Twice';
+  if (['3', 'threetimes', 'тричі'].includes(normalized)) return 'ThreeTimes';
+  if (['4', 'fourtimes', 'чотири', 'чотири рази'].includes(normalized)) return 'FourTimes';
+  if (['5', 'hourly', 'щогодини'].includes(normalized)) return 'Hourly';
+
+  return null;
+}
+
 const manifest = `Тут ми не шукаємо виправдань...\n[весь маніфест з вашого запиту]`;
 
-// Стан користувача
 const userStates = new Map();
 
 bot.start((ctx) => {
@@ -40,7 +48,7 @@ bot.on('text', (ctx) => {
   const text = ctx.message.text;
 
   if (userState.step === 'schedule') {
-    const schedule = text === '1' ? 'Once' : text === '2' ? 'Twice' : text === '3' ? 'ThreeTimes' : text === '4' ? 'FourTimes' : text === '5' ? 'Hourly' : null;
+const schedule = parseScheduleInput(text);
     if (schedule) {
       const now = new Date();
       let nextTime = new Date(now);
@@ -58,9 +66,7 @@ bot.on('text', (ctx) => {
       }, (err, record) => {
         if (err) ctx.reply('Помилка збереження.');
         else {
-          const reminderText = schedule === 'Once' ? 'Раз на день о 9:00' : schedule === 'Twice' ? 'Двічі на день о 9:00 та о 18:00' : schedule === 'ThreeTimes' ? 'Тричі на день о 9:00, 15:00, 18:00' : schedule === 'FourTimes' ? 'Чотири рази на день о 9:00, 12:00, 15:00, 18:00' : 'Щогодини з 9:00 до 21:00';
-          const firstReminder = nextTime.toDateString() === new Date().toDateString() ? `сьогодні о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `вже завтра о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-          ctx.reply(`Ти зареєстрований як ${ctx.from.first_name}. Ви обрали ${schedule}, тому будете отримувати нагадування:\n${reminderText}.\nОчікуйте перше нагадування ${firstReminder}.`);
+  ctx.reply('Невірний вибір. Спробуй написати 1-5 або словами: "Once", "Twice", "Hourly" тощо.');
         }
       });
       userStates.delete(userId);
@@ -118,7 +124,6 @@ function sendReminder(userId, schedule) {
   });
 }
 
-// Щоденний підсумок (22:00)
 setInterval(() => {
   const now = new Date();
   if (now.getHours() === 22 && now.getMinutes() === 0) {
@@ -132,9 +137,8 @@ setInterval(() => {
       });
     });
   }
-}, 60000); // Кожну хвилину перевіряємо
+}, 60000);
 
-// Тижневий звіт (неділя 23:00)
 setInterval(() => {
   const now = new Date();
   if (now.getHours() === 23 && now.getMinutes() === 0 && now.getDay() === 0) {
@@ -147,9 +151,8 @@ setInterval(() => {
       });
     });
   }
-}, 60000); // Кожну хвилину перевіряємо
+}, 60000);
 
-// Щомісячний звіт (1-е число 23:00)
 setInterval(() => {
   const now = new Date();
   if (now.getHours() === 23 && now.getMinutes() === 0 && now.getDate() === 1) {
@@ -162,9 +165,8 @@ setInterval(() => {
       });
     });
   }
-}, 60000); // Кожну хвилину перевіряємо
+}, 60000);
 
-// Щоранку (8:00)
 setInterval(() => {
   const now = new Date();
   if (now.getHours() === 8 && now.getMinutes() === 0) {
@@ -173,13 +175,12 @@ setInterval(() => {
         bot.telegram.sendMessage(record.get('tg_id'), dailyQuotes[Math.floor(Math.random() * dailyQuotes.length)]);
         setTimeout(() => {
           bot.telegram.sendMessage(record.get('tg_id'), tasks[Math.floor(Math.random() * tasks.length)]);
-        }, 10000); // 10 секунд пауза
+        }, 10000);
       });
     });
   }
-}, 60000); // Кожну хвилину перевіряємо
+}, 60000);
 
-// Запуск бота
 bot.launch();
 console.log('TELEGRAM_TOKEN:', process.env.TELEGRAM_TOKEN);
 console.log('Бот Надя запущено!');
