@@ -1,179 +1,105 @@
-import { Scenes } from 'telegraf';
-import { configData } from '../config/configData.js'; 
-import User from '../models/user.js';
+import { Scenes, Markup } from 'telegraf';
+import { config } from '../config/config.js';
+import { createUser, updateUser } from '../utils/airtable.js';
+import { setupUserSchedule } from '../utils/scheduler.js';
 
 const registerScene = new Scenes.BaseScene('register');
 
 registerScene.enter(async (ctx) => {
-  try {
+  await ctx.reply('Введіть ваше ім’я:');
+  ctx.scene.state = {};
+});
+
+registerScene.on('text', async (ctx) => {
+  if (!ctx.scene.state.name) {
+    ctx.scene.state.name = ctx.message.text;
+    await ctx.reply('Введіть ваш email:');
+  } else if (!ctx.scene.state.email) {
+    const email = ctx.message.text;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return ctx.reply('Невірний формат email. Спробуйте ще раз.');
+    }
+    ctx.scene.state.email = email;
+
     const userId = ctx.from.id;
+    await updateUser(userId.toString(), {
+      Name: ctx.scene.state.name,
+      Email: email,
+      Status: 'Registered',
+    });
 
-    let user = await User.findOne({ telegramId: userId });
-    if (!user) {
-      user = new User({
-        telegramId: userId,
-        firstName: ctx.from.first_name,
-        lastName: ctx.from.last_name,
-        username: ctx.from.username,
-      });
-      await user.save();
-      console.log(`Створено нового користувача: ${userId}`);
-    }
-
-    if (!configData || !configData.frequencyOptions) {
-      console.error('Помилка: configData або frequencyOptions не визначені');
-      await ctx.reply('Виникла помилка з налаштуваннями. Зверніться до адміністратора.');
-      return ctx.scene.leave();
-    }
-
-    const frequencyText = (user.pollFrequency !== undefined && configData.frequencyOptions[user.pollFrequency]) 
-      ? configData.frequencyOptions[user.pollFrequency] 
-      : "Не налаштовано";
-    
-    let reportText = "Не налаштовано";
-    if (configData.reportSettings && configData.reportSettings.reportTypes && 
-        Array.isArray(configData.reportSettings.reportTypes)) {
-      reportText = configData.reportSettings.reportTypes
-        .map(report => report.label)
-        .join(", ");
-    }
-
-    await ctx.reply(
-      `Вітаємо, ${user.firstName || 'користувач'}! Ваші поточні налаштування:\n` +
-      `Частота опитувань: ${frequencyText}\n` +
-      `Доступні типи звітів: ${reportText}`
-    );
-
-    await ctx.reply('Бажаєте змінити налаштування?', {
+    await ctx.reply('Оберіть розклад:', {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Так, змінити налаштування 🔧', callback_data: 'change_settings' }],
-          [{ text: 'Ні, залишити без змін ✅', callback_data: 'keep_settings' }],
-        ],
+        inline_keyboard: config.keyboard.frequencyButtons.map(button => [
+          Markup.button.callback(button.text, button.callback_data),
+        ]),
       },
     });
-  } catch (error) {
-    console.error('Помилка в сцені реєстрації:', error);
-    await ctx.reply('Виникла помилка. Спробуйте ще раз пізніше або зверніться до адміністратора.');
-    ctx.scene.leave();
-  }
-});
-
-registerScene.action('change_settings', (ctx) => {
-  try {
-    ctx.answerCbQuery();
     ctx.scene.enter('frequency');
-  } catch (error) {
-    console.error('Помилка при зміні налаштувань:', error);
-    ctx.reply('Виникла помилка. Спробуйте ще раз.');
-    ctx.scene.leave();
-  }
-});
-
-registerScene.action('keep_settings', (ctx) => {
-  try {
-    ctx.answerCbQuery();
-    ctx.reply('Чудово! Ваші налаштування залишаються без змін.');
-    ctx.scene.leave();
-  } catch (error) {
-    console.error('Помилка при збереженні налаштувань:', error);
-    ctx.reply('Виникла помилка. Спробуйте ще раз.');
-    ctx.scene.leave();
   }
 });
 
 const frequencyScene = new Scenes.BaseScene('frequency');
 
 frequencyScene.enter(async (ctx) => {
-  try {
-    if (!configData || !configData.frequencyOptions || !Array.isArray(configData.frequencyOptions)) {
-      console.error('Помилка: опції частоти не визначені');
-      await ctx.reply('Виникла помилка з налаштуваннями частоти. Зверніться до адміністратора.');
-      return ctx.scene.leave();
-    }
+  await ctx.reply('Обери розклад:', {
+    reply_markup: {
+      inline_keyboard: config.keyboard.frequencyButtons.map(button => [
+        Markup.button.callback(button.text, button.callback_data),
+      ]),
+    },
+  });
+});
 
-    const frequencyButtons = configData.frequencyOptions.map((option, index) => {
-      return [{ text: option, callback_data: `freq_${index}` }];
+frequencyScene.action(/^freq_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const userId = ctx.from.id;
+  const schedule = ctx.match[1];
+
+  // Визначаємо наступне нагадування на основі розкладу
+  const now = new Date();
+  let nextTime = new Date(now);
+  if (schedule === 'Once') {
+    nextTime.setHours(9, 0, 0, 0);
+  } else if (schedule === 'Twice') {
+    nextTime.setHours(now.getHours() < 9 ? 9 : 18, 0, 0, 0);
+  } else if (schedule === 'ThreeTimes') {
+    nextTime.setHours(now.getHours() < 9 ? 9 : now.getHours() < 15 ? 15 : 18, 0, 0, 0);
+  } else if (schedule === 'FourTimes') {
+    nextTime.setHours(now.getHours() < 9 ? 9 : now.getHours() < 12 ? 12 : now.getHours() < 15 ? 15 : 18, 0, 0, 0);
+  } else if (schedule === 'Hourly') {
+    nextTime.setHours(now.getHours() + 1, 0, 0, 0);
+  }
+  if (nextTime <= now) {
+    nextTime.setDate(nextTime.getDate() + 1);
+  }
+
+  // Зберігаємо розклад і наступне нагадування в Airtable
+  try {
+    await updateUser(userId.toString(), {
+      Schedule: schedule,
+      NextReminder: nextTime.toISOString(),
     });
-
-    await ctx.reply('Оберіть частоту опитувань:', {
-      reply_markup: {
-        inline_keyboard: frequencyButtons,
-      },
-    });
   } catch (error) {
-    console.error('Помилка в сцені частоти:', error);
-    await ctx.reply('Виникла помилка. Спробуйте ще раз пізніше.');
-    ctx.scene.leave();
+    console.error('Помилка збереження розкладу в Airtable:', error);
+    await ctx.reply(config.errorMessage);
+    return;
   }
+
+  // Формуємо текст підтвердження
+  const reminderText = config.frequencyOptions[schedule];
+  const firstReminder = nextTime.toDateString() === now.toDateString()
+    ? `сьогодні о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : `вже завтра о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+  await ctx.reply(
+    `Ти обрав ${reminderText}. Перше нагадування буде ${firstReminder}.\n\n` +
+    `Ось підтримуюча фраза для тебе:\n${await getRandomPhrase(userId)}`
+  );
+
+  // Налаштовуємо розклад для користувача
+  await setupUserSchedule(ctx.bot, { telegramId: userId, schedule });
+  ctx.scene.leave();
 });
 
-frequencyScene.action(/^freq_(\d+)$/, async (ctx) => {
-  try {
-    const frequencyIndex = parseInt(ctx.match[1]);
-    const userId = ctx.from.id;
-
-    await User.findOneAndUpdate(
-      { telegramId: userId }, 
-      { pollFrequency: frequencyIndex }
-    );
-
-    const frequencyText = configData.frequencyOptions[frequencyIndex];
-    await ctx.reply(`Частота опитувань встановлена: ${frequencyText}`);
-    
-    ctx.scene.enter('time');
-  } catch (error) {
-    console.error('Помилка при збереженні частоти:', error);
-    await ctx.reply('Виникла помилка при збереженні. Спробуйте ще раз.');
-    ctx.scene.leave();
-  }
-});
-
-frequencyScene.on('text', (ctx) => {
-  ctx.reply('Будь ласка, використовуйте кнопки для вибору частоти.');
-});
-
-const timeScene = new Scenes.BaseScene('time');
-
-timeScene.enter(async (ctx) => {
-  try {
-    await ctx.reply('Введіть час початку та закінчення опитування (наприклад: 09:00 18:00):');
-  } catch (error) {
-    console.error('Помилка в сцені часу:', error);
-    await ctx.reply('Виникла помилка. Спробуйте ще раз пізніше.');
-    ctx.scene.leave();
-  }
-});
-
-timeScene.on('text', async (ctx) => {
-  try {
-    const timeInput = ctx.message.text;
-    const timePattern = /^([01]?[0-9]|2[0-3]):([0-5][0-9])\s+([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
-    
-    if (!timePattern.test(timeInput)) {
-      return ctx.reply('Неправильний формат часу. Спробуйте ще раз (наприклад: 09:00 18:00):');
-    }
-    
-    const [startTime, endTime] = timeInput.split(' ');
-    const userId = ctx.from.id;
-
-    await User.findOneAndUpdate(
-      { telegramId: userId },
-      { 
-        pollStartTime: startTime,
-        pollEndTime: endTime
-      }
-    );
-
-    await ctx.reply(`Час опитування встановлено: ${startTime} - ${endTime}`);
-    await ctx.reply('Налаштування збережено успішно! ✅');
-    
-    ctx.scene.leave();
-  } catch (error) {
-    console.error('Помилка при збереженні часу:', error);
-    await ctx.reply('Виникла помилка при збереженні. Спробуйте ще раз.');
-    ctx.scene.leave();
-  }
-});
-
-export { registerScene, frequencyScene, timeScene };
+export { registerScene, frequencyScene };
