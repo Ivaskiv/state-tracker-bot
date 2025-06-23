@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import User from '../models/user.js';
+import User from '../models/User.js';
 import config from '../config/config.js';
 
 // Словник для зберігання активних задач

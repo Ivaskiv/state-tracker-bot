@@ -1,5 +1,5 @@
 import { Markup } from 'telegraf';
-import User from '../models/user.js';
+import User from '../models/User.js';
 import fs from 'fs';
 import { configData } from '../config/configData.js';
 
@@ -29,6 +29,21 @@ export async function sendWeeklyReport(ctx) {
     await ctx.reply('Ваш тижневий звіт: [дані звіту будуть тут]');
   } catch (err) {
     console.error('Weekly report error:', err);
+    await ctx.reply('Сталася помилка при формуванні звіту. Спробуйте пізніше.');
+  }
+}
+
+// Функція для відправки загального звіту - за сесь період
+export async function sendAllReport(ctx) {
+  const telegramId = ctx.from.id;
+  try {
+    const user = await User.findOne({ telegramId });
+    if (!user) return ctx.reply(configData.messages.welcomeMessage);
+    
+    // Тут має бути логіка генерації тижневого звіту
+    await ctx.reply('Ваш загальний звіт: [дані звіту будуть тут]');
+  } catch (err) {
+    console.error('All report error:', err);
     await ctx.reply('Сталася помилка при формуванні звіту. Спробуйте пізніше.');
   }
 }

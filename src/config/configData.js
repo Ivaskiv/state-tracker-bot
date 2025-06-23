@@ -93,9 +93,22 @@ export  const configData = {
     sendPdfError: "Не вдалося надіслати PDF звіт. 😞",
     reportSettingsMessage: "Оберіть період або канал для звітів:",
     changeMessagePrompt: "Введіть нове повідомлення для: ",
-    changeMessageSuccess: "Повідомлення успішно змінено! ✅"
+    changeMessageSuccess: "Повідомлення успішно змінено! ✅",
+
+    moodStep: "Як ти себе почуваєш?",
+    energyStep: "Скільки в тебе енергії?",
+    thoughtsStep: "Що в тебе на думці?",
+    defaultStep: "Оберіть варіант:"
   },
   keyboard: {
+    mainMenu:[
+      { text: 'Почати реєстрацію', callback_data: 'start_registration' },
+      { text: 'Переглянути налаштування', callback_data: 'view_settings' },
+      { text: 'Допомога', callback_data: 'help' },
+      { text: 'Очистити чат', callback_data: 'clear_chat' },
+      { text: '📊 Переглянути звіт', callback_data: 'view_report' },
+      { text: '📝 Почати опитування', callback_data: 'poll' }
+    ],
     stateButtons: [
       { text: "Ресурсний 💪", callback_data: "state_resourceful" },
       { text: "Нейтральний 😐", callback_data: "state_neutral" },
@@ -131,7 +144,8 @@ export  const configData = {
     reportSettings: [
       { label: "Щодня", action: "dailyReport" },
       { label: "Щотижня", action: "weeklyReport" },
-      { label: "Щомісяця", action: "monthlyReport" }
+      { label: "Щомісяця", action: "monthlyReport" },
+      { label: "Всі", action: "allReport" }
     ]
   }
 };

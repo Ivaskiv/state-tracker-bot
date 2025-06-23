@@ -12,26 +12,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  frequency: {
-    type: String,
-    enum: ['hourly', '2hours', 'morning_evening'],
-    default: 'morning_evening'
-  },
-  startTime: {
-    type: Number,
-    default: 9,
-    min: 0,
-    max: 23
-  },
-  endTime: {
-    type: Number,
-    default: 21,
-    min: 0,
-    max: 23
-  },
-  createdAt: {
+  username: String,
+  pollFrequency: { type: String, default: 'daily' },
+  pollStartTime: { type: Number, default: 9 },
+  pollEndTime: { type: Number, default: 18 },
+    createdAt: {
     type: Date,
     default: Date.now
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   }
 });
 

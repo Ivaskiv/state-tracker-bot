@@ -1,36 +1,75 @@
-import { Telegraf } from 'telegraf';
-import fs from 'fs';
-import dotenv from 'dotenv';
-import { configData } from '../config/configData.js'; // Імпортуємо ваш новий конфігураційний файл
-dotenv.config();
+import { configData } from "../config/configData.js";
+import { Markup } from "telegraf";
+import fs from "fs";
+import path from "path";
 
-// Створення екземпляру бота
-const bot = new Telegraf(process.env.BOT_TOKEN);
+// Тимчасове сховище відповідей користувачів
+const userResponses = new Map();
 
-// Перевірка прав адміністратора
-export const isAdmin = (ctx) => configData.admins.includes(ctx.from.id); // Перевірка з configData
+// Helper: Приведення першої літери до верхнього регістру
+const capitalizeFirst = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
-// Функція для створення клавіатур
+/**
+ * Функція для отримання кнопок для конкретного кроку (наприклад, state, emotion, feeling, action)
+ * за замовчуванням для теми, що вказана в BOT_THEME (якщо не задана – використовується 'emotionTracking').
+ */
+export const getButtonsForStep = (step) => {
+  // Наприклад, очікується, що конфігурація має ключі: stateButtons, emotionButtons, feelingButtons, actionButtons
+  return configData.keyboard?.[`${step}Buttons`] || [];
+};
+
+/**
+ * Функція для отримання тексту наступного запитання.
+ * Якщо для даної теми (BOT_THEME) задано текст для кроку, він повертається,
+ * інакше – шукається відповідне повідомлення в configData.messages.
+ */
+export const getStepMessage = (step) => {
+  const theme = process.env.BOT_THEME || 'emotionTracking';
+  return configData.themes?.[theme]?.[step] ||
+         configData.messages?.[`${step}Step`] ||
+         configData.messages?.defaultStep ||
+         'Оберіть варіант:';
+};
+
+/**
+ * Функція для визначення порядку кроків в опитуванні.
+ * За замовчуванням використовуємо порядок: state, emotion, feeling, action.
+ */
+export const getThemeSteps = () => {
+  return ['state', 'emotion', 'feeling', 'action'];
+};
+
+/**
+ * Функція для отримання наступного кроку після поточного.
+ */
+export const getNextStep = (currentStep) => {
+  const steps = getThemeSteps();
+  const currentIndex = steps.indexOf(currentStep);
+  return steps[currentIndex + 1];
+};
+
+/**
+ * Універсальна функція для створення інлайн-клавіатури.
+ */
 export const createKeyboard = (buttons) => {
   if (!buttons || !Array.isArray(buttons)) {
     console.error('Invalid buttons format:', buttons);
-    return []; // Return empty array to prevent crashes
+    return [];
   }
-  return buttons.map(button => [{ text: button.text, callback_data: button.callback_data }]);
+  return buttons.map(button => [Markup.button.callback(button.text, button.callback_data)]);
 };
 
-// Функція для зміни текстів в конфігурації
+/**
+ * Функція для оновлення конфігурації.
+ */
 export const updateConfig = (key, value) => {
   const [category, keyToChange] = key.split('.');
   try {
     if (configData[category] && configData[category][keyToChange]) {
       configData[category][keyToChange] = value;
-
-      // Зберігаємо зміни в configData.js
       const configString = `export const configData = ${JSON.stringify(configData, null, 2)};`;
-      fs.writeFileSync('./config/configData.js', configString, 'utf8'); // Зберігаємо у configData.js
+      fs.writeFileSync('./config/configData.js', configString, 'utf8');
     } else {
-      console.error(`Invalid key for configuration update: ${key}`);
       throw new Error(`Invalid key: ${key}`);
     }
   } catch (err) {
@@ -39,74 +78,109 @@ export const updateConfig = (key, value) => {
   }
 };
 
-// Функція для динамічного формування повідомлення
-export const generateMessage = (type, key) => {
-  const category = configData.pollSettings[type];
+/**
+ * Генерує текст для поточного кроку опитування.
+ * Шукає відповідний запис у configData.pollSettings для даного кроку.
+ */
+export const generateMessage = (step, key) => {
+  const category = configData.pollSettings[step];
   const item = category.find(item => item.key === key);
-  return item ? `${type.charAt(0).toUpperCase() + type.slice(1)}: ${item.text}` : `Невідоме ${type}`;
+  return item ? `${capitalizeFirst(step)}: ${item.text}` : `Невідоме ${step}`;
 };
 
-// Функція для початку опитування - ось експорт функції, якої не вистачало
+/**
+ * Запуск опитування.
+ * Відправляє початкове повідомлення (startMessage) та кнопки для першого кроку (state).
+ */
 export const startPoll = async (ctx) => {
-  ctx.reply(configData.messages.pollStartMessage, { 
-    reply_markup: {
-      inline_keyboard: createKeyboard(configData.keyboard.stateButtons)
-    }
-  });
-};
+  const theme = process.env.BOT_THEME || 'emotionTracking';
+  const pollSettings = configData.pollSettings[theme] || {};
+  const initialButtons = getButtonsForStep('state');
 
-// Обробка відповіді про стан
-export const handleStateResponse = async (ctx) => {
-  const state = ctx.match[1];
-  console.log(`State selected: ${state}`);
-  console.log('Emotions buttons:', configData.keyboard.emotionButtons);
+  // Ініціалізуємо сховище відповідей для користувача
+  userResponses.set(ctx.from.id, {});
   
-  const message = generateMessage('states', state);
-  ctx.reply(`${message}\n\nОбер\іть вашу емоцію:`, {
-    reply_markup: {
-      inline_keyboard: createKeyboard(configData.keyboard.emotionButtons)
+  await ctx.reply(
+    pollSettings.startMessage || 'Привіт! Починаємо опитування...',
+    {
+      reply_markup: {
+        inline_keyboard: createKeyboard(initialButtons)
+      }
     }
-  }).catch(err => {
-    console.error('Error in handleStateResponse:', err);
-    ctx.reply('Сталася помилка при виборі емоції. Спробуйте ще раз.');
-  });
+  );
 };
 
-// Обробка відповіді про емоцію
+/**
+ * Універсальний хендлер відповіді для будь-якого кроку опитування.
+ * Зберігає відповідь, визначає наступний крок та відправляє повідомлення відповідно.
+ */
+export const handleStepResponse = async (ctx, currentStep) => {
+  const userId = ctx.from.id;
+  const value = ctx.match[1]; // Значення вибору (ключ кнопки)
+  let responses = userResponses.get(userId) || {};
+  responses[currentStep] = value;
+  userResponses.set(userId, responses);
+
+  const currentMessage = generateMessage(currentStep, value);
+  const nextStep = getNextStep(currentStep);
+
+  if (nextStep) {
+    const nextMessage = getStepMessage(nextStep);
+    const nextButtons = getButtonsForStep(nextStep);
+    await ctx.reply(
+      `${currentMessage}\n\n${nextMessage}`,
+      { reply_markup: { inline_keyboard: createKeyboard(nextButtons) } }
+    );
+  } else {
+    // Фінальний крок – завершення опитування
+    const theme = process.env.BOT_THEME || 'emotionTracking';
+    const finalMessage = configData.themes?.[theme]?.completion || 'Дякую! Ваші відповіді збережено.';
+    const filePath = path.resolve(`./data/${userId}_${Date.now()}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(userResponses.get(userId), null, 2), 'utf8');
+    userResponses.delete(userId);
+    await ctx.reply(`${currentMessage}\n\n${finalMessage}`);
+    // Опціонально: повернути користувача в головне меню
+    // await sendMainMenu(ctx);
+  }
+};
+
+// Хендлери конкретних кроків, що викликають універсальний хендлер:
+export const handleStateResponse = async (ctx) => {
+  await handleStepResponse(ctx, 'state');
+};
+
 export const handleEmotionResponse = async (ctx) => {
-  const emotion = ctx.match[1];
-  const message = generateMessage('emotions', emotion);
-  ctx.reply(`${message}\n\nОберіть ваше відчуття:`, {
-    reply_markup: {
-      inline_keyboard: createKeyboard(configData.keyboard.feelingButtons)
-    }
-  });
+  await handleStepResponse(ctx, 'emotion');
 };
 
-// Обробка відповіді про відчуття
 export const handleFeelingResponse = async (ctx) => {
-  const feeling = ctx.match[1];
-  const message = generateMessage('feelings', feeling);
-  ctx.reply(`${message}\n\nЯка дія може допомогти?`, {
-    reply_markup: {
-      inline_keyboard: createKeyboard(configData.keyboard.actionButtons)
-    }
-  });
+  await handleStepResponse(ctx, 'feeling');
 };
 
-// Обробка відповіді про дію
 export const handleActionResponse = async (ctx) => {
-  const action = ctx.match[1];
-  const message = generateMessage('actions', action);
-  ctx.reply(`${message}\n\nДякую за вашу відповідь! Опитування завершено.`);
+  await handleStepResponse(ctx, 'action');
 };
 
-// Обробка інших повідомлень
-bot.on('text', (ctx) => {
-  ctx.reply(configData.messages.errorMessage); // Використовуємо повідомлення з configData
-});
+/**
+ * Спеціальний хендлер для фінального кроку (якщо потрібний окремо).
+ * Зберігає результат та повертає користувача до головного меню.
+ */
+export const handleFinalStep = async (ctx, finalKey) => {
+  const value = ctx.match[1];
+  const message = generateMessage(finalKey, value);
+  const userData = { [finalKey]: value };
+  fs.writeFileSync(
+    path.resolve(`./data/${ctx.from.id}_results.json`),
+    JSON.stringify(userData, null, 2),
+    'utf8'
+  );
+  await ctx.reply(`${message}\n\nДякую за вашу відповідь! Опитування завершено.`);
+  await sendMainMenu(ctx);
+};
 
-// Примітка: Залишаємо, але не запускаємо бота в цьому файлі, оскільки він запускається в bot.js
-// bot.launch().then(() => {
-//   console.log('State Tracker Bot is running...');
-// });
+/**
+ * Фолбек: якщо текстове повідомлення не відповідає очікуваним варіантам.
+ */
+export const handleTextFallback = (ctx) => {
+  ctx.reply(configData.messages?.errorMessage || 'Вибач, я не зрозумів повідомлення.');
+};

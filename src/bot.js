@@ -1,209 +1,184 @@
+import { Telegraf } from 'telegraf';
+import Airtable from 'airtable';
 import dotenv from 'dotenv';
-import TelegrafPkg from 'telegraf';
-import mongoose from 'mongoose';
-import { Markup } from 'telegraf';
-import fs from 'fs';
-import path from 'path';
 
-// Імпорт контролерів
-import * as polling from './controllers/polling.js';
-import * as reporting from './controllers/reporting.js';
-import * as registration from './controllers/registration.js'; 
-
-// Імпорт сервісів
-import * as scheduler from './utils/scheduler.js';
-import User from './models/user.js';
-import { configData } from './config/configData.js';
-import { getFrequencyText } from './utils/templates.js';
-
-const { Telegraf, Scenes, session } = TelegrafPkg;
-
-// Підключення до бази даних
 dotenv.config();
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
+const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
 
-// Ініціалізація бота
-const bot = new Telegraf(process.env.BOT_TOKEN);
-const ADMIN_ID = process.env.ADMIN_ID; // ID адміна
+// Бібліотеки
+const states = ['Ресурсний', 'Нейтральний', 'Напружений', 'Виснажений', 'Тривожний', 'Панічний', 'Спустошений', 'Інший'];
+const emotions = ['Радість', 'Гнів', 'Спокій', 'Сум', 'Страх', 'Вдячність', 'Невпевненість', 'Захоплення', 'Інший'];
+const feelings = ['Любов', 'Провина', 'Самотність', 'Прийняття', 'Сором', 'Надія', 'Невпевненість', 'Інший'];
+const actions = ['Працював(ла)', 'Їв(ла)', 'Був(ла) в соцмережах', 'Спілкувався(лася)', 'Рухався(лася)', 'Відпочивав(ла)', 'Медитував(ла)', 'Інший'];
+const supportPhrases = ['Ти не слабкий(а). Ти просто забув(ла), хто ти. Згадай.', 'Ти вже маєш силу. Час перестати її ховати.', 'Те, у що ти віриш про себе — або будує тебе, або знищує. Вибирай.'];
+const microFormulas = ['Твій стан — твій всесвіт. Хочеш змінити життя — змінюй себе.', 'Ти — не вчора. Ти — вибір сьогодні.'];
+const affirmations = ['Я обираю свій стан. Я обираю свою силу.', 'Я довіряю собі і своєму шляху.'];
+const dailyQuotes = ['Ти або віриш у свою силу — або служиш своїм страхам.', 'Кожна твоя дія — це крок до нового себе. Обирай уважно.'];
+const tasks = ['Запиши одну фразу, яка підніме тебе.', 'Зроби сьогодні щось маленьке, що дає тобі ресурс.'];
 
-// Головне меню
-const mainMenu = Markup.inlineKeyboard([
-  [Markup.button.callback('Почати реєстрацію', 'start_registration')],
-  [Markup.button.callback('Переглянути налаштування', 'view_settings')],
-  [Markup.button.callback('Допомога', 'help')],
-  [Markup.button.callback('Очистити чат', 'clear_chat')]
-]);
+// Маніфест
+const manifest = `Тут ми не шукаємо виправдань...\n[весь маніфест з вашого запиту]`;
 
-// Функція для відправки головного меню
-const sendMainMenu = async (ctx) => {
-  await ctx.reply('Оберіть дію:', mainMenu);
-};
+// Стан користувача
+const userStates = new Map();
 
-// Ініціалізація сцен для реєстрації
-const stage = new Scenes.Stage([
-  registration.registerScene,  // Ваша сцена реєстрації
-  registration.frequencyScene,  // Сцена для частоти
-  registration.timeScene        // Сцена для часу
-]);
-
-// Налаштування сесій і сцен
-bot.use(session());
-bot.use(stage.middleware());  // Додаємо middleware для сцен
-
-// Обробка команди /start
-bot.command('start', async (ctx) => {
-  console.log('Received /start command');
-  let user = await User.findOne({ telegramId: ctx.from.id });
-  if (!user) {
-    console.log('Creating new user...');
-    user = new User({
-      telegramId: ctx.from.id,
-      firstName: ctx.from.first_name,
-      lastName: ctx.from.last_name,
-      username: ctx.from.username,
-    });
-    await user.save();
-  }
-  console.log('Sending welcome message...');
-  await ctx.reply('Ласкаво просимо! Ви зареєстровані.');
-  sendMainMenu(ctx);
+bot.start((ctx) => {
+  ctx.reply(manifest);
+  ctx.reply('Напиши /set_schedule, щоб обрати розклад.');
 });
 
-// Обробка команди /help
-bot.command('help', async (ctx) => {
-  await ctx.reply(
-    'Я допоможу відстежувати твій емоційний стан. Доступні команди:\n' +
-    '/start - Почати або перезапустити бота\n' +
-    '/poll - Пройти опитування прямо зараз\n' +
-    '/settings - Змінити налаштування опитувань\n' +
-    '/report - Отримати звіт за сьогодні\n' +
-    '/weekly - Отримати тижневий звіт'
-  );
-  sendMainMenu(ctx);
+bot.command('set_schedule', (ctx) => {
+  ctx.reply('Обери розклад:\n1. Once - Раз на день о 9:00\n2. Twice - Двічі о 9:00 та 18:00\n3. ThreeTimes - Тричі о 9:00, 15:00, 18:00\n4. FourTimes - Чотири рази о 9:00, 12:00, 15:00, 18:00\n5. Hourly - Щогодини з 9:00 до 21:00');
+  userStates.set(ctx.from.id, { step: 'schedule' });
 });
 
-// Перевірка прав адміна
-const isAdmin = (ctx) => ctx.from.id === ADMIN_ID;
+bot.on('text', (ctx) => {
+  const userId = ctx.from.id;
+  const userState = userStates.get(userId) || {};
+  const text = ctx.message.text;
 
-// Адмін панель
-bot.command('admin', async (ctx) => {
-  if (!isAdmin(ctx)) {
-    return ctx.reply('❌ У вас немає доступу до адмін-панелі.');
-  }
-  await ctx.reply('🔧 Адмін-панель', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🛠 Змінити старт/енд час для всіх', callback_data: 'change_time_all' }],
-        [{ text: '📤 Експортувати налаштування', callback_data: 'export_config' }],
-        [{ text: '➕ Додати адміна', callback_data: 'add_admin' }]
-      ]
+  if (userState.step === 'schedule') {
+    const schedule = text === '1' ? 'Once' : text === '2' ? 'Twice' : text === '3' ? 'ThreeTimes' : text === '4' ? 'FourTimes' : text === '5' ? 'Hourly' : null;
+    if (schedule) {
+      const now = new Date();
+      let nextTime = new Date(now);
+      if (schedule === 'Once') nextTime.setHours(9, 0, 0, 0);
+      else if (schedule === 'Twice') nextTime.setHours(now.getHours() < 9 ? 9 : 18, 0, 0, 0);
+      else if (schedule === 'ThreeTimes') nextTime.setHours(now.getHours() < 9 ? 9 : now.getHours() < 15 ? 15 : 18, 0, 0, 0);
+      else if (schedule === 'FourTimes') nextTime.setHours(now.getHours() < 9 ? 9 : now.getHours() < 12 ? 12 : now.getHours() < 15 ? 15 : 18, 0, 0, 0);
+      else if (schedule === 'Hourly') nextTime.setHours(now.getHours() + 1, 0, 0, 0);
+      if (nextTime <= now) nextTime.setDate(nextTime.getDate() + 1);
+      base('Users').create({
+        tg_id: userId.toString(),
+        name: ctx.from.first_name,
+        schedule,
+        next_reminder: nextTime.toISOString(),
+      }, (err, record) => {
+        if (err) ctx.reply('Помилка збереження.');
+        else {
+          const reminderText = schedule === 'Once' ? 'Раз на день о 9:00' : schedule === 'Twice' ? 'Двічі на день о 9:00 та о 18:00' : schedule === 'ThreeTimes' ? 'Тричі на день о 9:00, 15:00, 18:00' : schedule === 'FourTimes' ? 'Чотири рази на день о 9:00, 12:00, 15:00, 18:00' : 'Щогодини з 9:00 до 21:00';
+          const firstReminder = nextTime.toDateString() === new Date().toDateString() ? `сьогодні о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `вже завтра о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+          ctx.reply(`Ти зареєстрований як ${ctx.from.first_name}. Ви обрали ${schedule}, тому будете отримувати нагадування:\n${reminderText}.\nОчікуйте перше нагадування ${firstReminder}.`);
+        }
+      });
+      userStates.delete(userId);
+      setReminder(userId, schedule);
+    } else {
+      ctx.reply('Невірний вибір. Спробуй 1-5.');
     }
+  } else if (userState.step === 'response') {
+    const [state, emotion, feeling, action] = text.split('\n').map(s => s.trim());
+    base('Users').update([{ id: userState.recordId, fields: { last_state: state, last_emotion: emotion, last_feeling: feeling, last_action: action } }], (err) => {
+      if (err) ctx.reply('Помилка оновлення.');
+      else {
+        if (['Напружений', 'Виснажений', 'Тривожний', 'Панічний', 'Спустошений'].includes(state)) {
+          ctx.reply(supportPhrases[Math.floor(Math.random() * supportPhrases.length)]);
+        }
+        ctx.reply(microFormulas[Math.floor(Math.random() * microFormulas.length)]);
+        ctx.reply(affirmations[Math.floor(Math.random() * affirmations.length)]);
+      }
+    });
+    userStates.delete(userId);
+    setReminder(userId, userState.schedule);
+  } else if (text === '/support') {
+    ctx.reply(supportPhrases[Math.floor(Math.random() * supportPhrases.length)]);
+    ctx.reply(microFormulas[Math.floor(Math.random() * microFormulas.length)]);
+    ctx.reply(affirmations[Math.floor(Math.random() * affirmations.length)]);
+  }
+});
+
+function setReminder(userId, schedule) {
+  base('Users').find('recXXXXX', (err, record) => { // Заміни на реальний record ID
+    if (err) return;
+    const now = new Date();
+    let nextTime = new Date(now);
+    if (schedule === 'Once' && now.getHours() >= 9) nextTime.setDate(now.getDate() + 1);
+    nextTime.setHours(schedule === 'Once' ? 9 : schedule === 'Twice' ? (now.getHours() < 9 ? 9 : 18) : schedule === 'ThreeTimes' ? (now.getHours() < 9 ? 9 : now.getHours() < 15 ? 15 : 18) : schedule === 'FourTimes' ? (now.getHours() < 9 ? 9 : now.getHours() < 12 ? 12 : now.getHours() < 15 ? 15 : 18) : now.getHours() + 1, 0, 0, 0);
+    if (nextTime <= now) nextTime.setDate(nextTime.getDate() + 1);
+    if (schedule === 'Hourly' && nextTime.getHours() >= 21) nextTime.setDate(nextTime.getDate() + 1, 9, 0, 0, 0);
+    base('Users').update([{ id: record.id, fields: { next_reminder: nextTime.toISOString() } }], () => {
+      if (now.getHours() >= 9 && now.getHours() < 21) {
+        setTimeout(() => sendReminder(userId, schedule), nextTime - now);
+      }
+    });
   });
-});
+}
 
-// Зміна часу для всіх користувачів
-bot.action('change_time_all', async (ctx) => {
-  if (!isAdmin(ctx)) {
-    return ctx.reply('❌ У вас немає доступу до цієї функції.');
-  }
-  await ctx.reply('⏰ Введіть нові проміжки часу для бота (формат: "початок кінець", наприклад "09:00 18:00")');
-  ctx.scene.state.action = 'time_all';
-});
-
-// Експорт налаштувань
-bot.action('export_config', async (ctx) => {
-  if (!isAdmin(ctx)) {
-    return ctx.reply('❌ У вас немає доступу до цієї функції.');
-  }
-  const config = await configData();
-  const configJson = JSON.stringify(config, null, 2);
-  fs.writeFileSync(path.resolve(__dirname, './exported_configData.json'), configJson);
-  await ctx.replyWithDocument({ source: path.resolve(__dirname, './exported_configData.json') });
-});
-
-// Додавання адміна
-bot.action('add_admin', async (ctx) => {
-  if (!isAdmin(ctx)) {
-    return ctx.reply('❌ У вас немає доступу до цієї функції.');
-  }
-  await ctx.reply('📢 Введіть ID користувача, якого ви хочете додати адміном:');
-  ctx.scene.state.action = 'add_admin';
-});
-
-// Опитування
-bot.command('poll', polling.startPoll);
-bot.action(/state_(.+)/, polling.handleStateResponse);
-bot.action(/emotion_(.+)/, polling.handleEmotionResponse);
-bot.action(/feeling_(.+)/, polling.handleFeelingResponse);
-bot.action(/action_(.+)/, polling.handleActionResponse);
-
-// Звіти
-bot.command('report', reporting.sendDailyReport);
-bot.command('weekly', reporting.sendWeeklyReport);
-
-// Команда /restart
-bot.command('restart', async (ctx) => {
-  await ctx.reply('Ви хочете скинути всі налаштування та почати з початку? Ця дія незворотна.', 
-    Markup.inlineKeyboard([
-      [Markup.button.callback('Так, скинути', 'confirm_restart')],
-      [Markup.button.callback('Ні, залишити все як є', 'cancel_restart')]
-    ])
-  );
-});
-
-bot.action('confirm_restart', (ctx) => {
-  ctx.answerCbQuery(); 
-  ctx.reply('Ваші налаштування були скинуті. Ви можете почати знову.');
-  sendMainMenu(ctx);
-  ctx.scene.enter('register');
-});
-
-bot.action('cancel_restart', (ctx) => {
-  ctx.answerCbQuery();
-  ctx.reply('Скидання сесії скасовано. Ваші налаштування збережено.');
-  sendMainMenu(ctx);
-});
-
-// Очищення чату
-bot.action('clear_chat', async (ctx) => {
-  ctx.deleteMessage();
-  await ctx.reply('Чат очищено! Ось кнопка для початку:', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Старт', callback_data: 'start_again' }],
-      ],
-    },
+function sendReminder(userId, schedule) {
+  base('Users').find('recXXXXX', (err, record) => { // Заміни на реальний record ID
+    if (err) return;
+    const nextTime = new Date(record.get('next_reminder'));
+    const reminderText = schedule === 'Once' ? 'Раз на день о 9:00' : schedule === 'Twice' ? 'Двічі на день о 9:00 та о 18:00' : schedule === 'ThreeTimes' ? 'Тричі на день о 9:00, 15:00, 18:00' : schedule === 'FourTimes' ? 'Чотири рази на день о 9:00, 12:00, 15:00, 18:00' : 'Щогодини з 9:00 до 21:00';
+    const firstReminder = nextTime.toDateString() === new Date().toDateString() ? `сьогодні о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `вже завтра о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    bot.telegram.sendMessage(userId, `Ви обрали ${schedule}, тому будете отримувати нагадування:\n${reminderText}.\nОчікуйте перше нагадування ${firstReminder}.`);
+    bot.telegram.sendMessage(userId, 'Зупинись. Як ти зараз почуваєшся?\nСтан:\nЕмоція:\nПочуття:\nДія:');
+    userStates.set(userId, { step: 'response', schedule, recordId: record.id });
   });
-});
+}
 
-bot.action('start_again', (ctx) => {
-  sendMainMenu(ctx);
-});
-
-// Перегляд налаштувань
-bot.action('view_settings', async (ctx) => {
-  const user = await User.findOne({ telegramId: ctx.from.id });
-  if (user) {
-    await ctx.reply(`Ваші поточні налаштування:\n` +
-      `Частота опитувань: ${getFrequencyText(user.pollFrequency)}\n` +
-      `Час опитувань: ${user.pollStartTime}:00 - ${user.pollEndTime}:00`
-    );
-  } else {
-    await ctx.reply('Ви ще не зареєстровані.');
+// Щоденний підсумок (22:00)
+setInterval(() => {
+  const now = new Date();
+  if (now.getHours() === 22 && now.getMinutes() === 0) {
+    base('Users').select().eachPage((records) => {
+      records.forEach(record => {
+        const summary = `Щоденний звіт: Переважав ${record.get('last_state') || 'невідомо'}, емоція ${record.get('last_emotion') || 'невідомо'}.`;
+        base('Users').update([{ id: record.id, fields: { daily_summary: summary } }], () => {
+          bot.telegram.sendMessage(record.get('tg_id'), summary);
+        });
+        bot.telegram.sendMessage(record.get('tg_id'), supportPhrases[Math.floor(Math.random() * supportPhrases.length)]);
+      });
+    });
   }
-});
+}, 60000); // Кожну хвилину перевіряємо
 
-// Налаштування розкладу
-scheduler.initScheduler(bot);
+// Тижневий звіт (неділя 23:00)
+setInterval(() => {
+  const now = new Date();
+  if (now.getHours() === 23 && now.getMinutes() === 0 && now.getDay() === 0) {
+    base('Users').select().eachPage((records) => {
+      records.forEach(record => {
+        const summary = `Тижневий звіт: Переважав ${record.get('last_state') || 'невідомо'}.`;
+        base('Users').update([{ id: record.id, fields: { weekly_summary: summary } }], () => {
+          bot.telegram.sendMessage(record.get('tg_id'), summary);
+        });
+      });
+    });
+  }
+}, 60000); // Кожну хвилину перевіряємо
+
+// Щомісячний звіт (1-е число 23:00)
+setInterval(() => {
+  const now = new Date();
+  if (now.getHours() === 23 && now.getMinutes() === 0 && now.getDate() === 1) {
+    base('Users').select().eachPage((records) => {
+      records.forEach(record => {
+        const summary = `Щомісячний звіт: Переважав ${record.get('last_state') || 'невідомо'}.`;
+        base('Users').update([{ id: record.id, fields: { monthly_summary: summary } }], () => {
+          bot.telegram.sendMessage(record.get('tg_id'), summary);
+        });
+      });
+    });
+  }
+}, 60000); // Кожну хвилину перевіряємо
+
+// Щоранку (8:00)
+setInterval(() => {
+  const now = new Date();
+  if (now.getHours() === 8 && now.getMinutes() === 0) {
+    base('Users').select().eachPage((records) => {
+      records.forEach(record => {
+        bot.telegram.sendMessage(record.get('tg_id'), dailyQuotes[Math.floor(Math.random() * dailyQuotes.length)]);
+        setTimeout(() => {
+          bot.telegram.sendMessage(record.get('tg_id'), tasks[Math.floor(Math.random() * tasks.length)]);
+        }, 10000); // 10 секунд пауза
+      });
+    });
+  }
+}, 60000); // Кожну хвилину перевіряємо
 
 // Запуск бота
-bot.catch((err) => {
-  console.error('Bot error:', err);
-});
-
-// Обробка зупинки
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+bot.launch();
+console.log('Бот Надя запущено!');
