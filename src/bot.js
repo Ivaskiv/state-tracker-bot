@@ -181,4 +181,5 @@ setInterval(() => {
 
 // Запуск бота
 bot.launch();
+console.log('TELEGRAM_TOKEN:', process.env.TELEGRAM_TOKEN);
 console.log('Бот Надя запущено!');

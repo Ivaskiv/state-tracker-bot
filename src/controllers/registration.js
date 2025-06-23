@@ -1,6 +1,7 @@
+//controllers/registration.js
 import { Scenes } from 'telegraf';
-import User from '../models/User.js';
-import { configData } from '../config/configData.js'; // Додаємо імпорт configData
+import { configData } from '../config/configData.js'; 
+import User from '../models/user.js';
 
 export const registerScene = new Scenes.BaseScene('register');
 
@@ -20,19 +21,16 @@ registerScene.enter(async (ctx) => {
       console.log(`Створено нового користувача: ${userId}`);
     }
 
-    // Перевіряємо наявність configData перед використанням
     if (!configData || !configData.frequencyOptions) {
       console.error('Помилка: configData або frequencyOptions не визначені');
       await ctx.reply('Виникла помилка з налаштуваннями. Зверніться до адміністратора.');
       return ctx.scene.leave();
     }
 
-    // Отримуємо текст частоти опитувань з безпечною перевіркою
     const frequencyText = (user.pollFrequency !== undefined && configData.frequencyOptions[user.pollFrequency]) 
       ? configData.frequencyOptions[user.pollFrequency] 
       : "Не налаштовано";
     
-    // Безпечно формуємо текст типів звітів
     let reportText = "Не налаштовано";
     if (configData.reportSettings && configData.reportSettings.reportTypes && 
         Array.isArray(configData.reportSettings.reportTypes)) {
@@ -41,14 +39,12 @@ registerScene.enter(async (ctx) => {
         .join(", ");
     }
 
-    // Відправляємо повідомлення з поточними налаштуваннями
     await ctx.reply(
       `Вітаємо, ${user.firstName || 'користувач'}! Ваші поточні налаштування:\n` +
       `Частота опитувань: ${frequencyText}\n` +
       `Доступні типи звітів: ${reportText}`
     );
 
-    // Запит на зміни налаштувань
     await ctx.reply('Бажаєте змінити налаштування?', {
       reply_markup: {
         inline_keyboard: [
@@ -91,14 +87,12 @@ export const frequencyScene = new Scenes.BaseScene('frequency');
 
 frequencyScene.enter(async (ctx) => {
   try {
-    // Перевіряємо наявність опцій частоти
     if (!configData || !configData.frequencyOptions || !Array.isArray(configData.frequencyOptions)) {
       console.error('Помилка: опції частоти не визначені');
       await ctx.reply('Виникла помилка з налаштуваннями частоти. Зверніться до адміністратора.');
       return ctx.scene.leave();
     }
 
-    // Створюємо кнопки з доступними опціями частоти
     const frequencyButtons = configData.frequencyOptions.map((option, index) => {
       return [{ text: option, callback_data: `freq_${index}` }];
     });
@@ -115,13 +109,11 @@ frequencyScene.enter(async (ctx) => {
   }
 });
 
-// Обробка вибору частоти
 frequencyScene.action(/^freq_(\d+)$/, async (ctx) => {
   try {
     const frequencyIndex = parseInt(ctx.match[1]);
     const userId = ctx.from.id;
 
-    // Збереження вибраної частоти в БД
     await User.findOneAndUpdate(
       { telegramId: userId }, 
       { pollFrequency: frequencyIndex }
@@ -130,7 +122,6 @@ frequencyScene.action(/^freq_(\d+)$/, async (ctx) => {
     const frequencyText = configData.frequencyOptions[frequencyIndex];
     await ctx.reply(`Частота опитувань встановлена: ${frequencyText}`);
     
-    // Перехід до налаштування часу
     ctx.scene.enter('time');
   } catch (error) {
     console.error('Помилка при збереженні частоти:', error);
@@ -139,7 +130,6 @@ frequencyScene.action(/^freq_(\d+)$/, async (ctx) => {
   }
 });
 
-// Обробка текстового введення (як запасний варіант)
 frequencyScene.on('text', (ctx) => {
   ctx.reply('Будь ласка, використовуйте кнопки для вибору частоти.');
 });
@@ -168,7 +158,6 @@ timeScene.on('text', async (ctx) => {
     const [startTime, endTime] = timeInput.split(' ');
     const userId = ctx.from.id;
 
-    // Збереження часу в БД
     await User.findOneAndUpdate(
       { telegramId: userId },
       { 

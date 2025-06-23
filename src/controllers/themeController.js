@@ -1,3 +1,4 @@
+//controllers/themeController.js
 // In your themeController.js file:
 import { Scenes } from 'telegraf';
 import Theme from '../models/Theme.js';

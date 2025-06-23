@@ -1,7 +1,8 @@
+//controllers/reporting.js
 import { Markup } from 'telegraf';
-import User from '../models/User.js';
 import fs from 'fs';
 import { configData } from '../config/configData.js';
+import User from '../models/user.js';
 
 // Функція для відправки щоденного звіту
 export async function sendDailyReport(ctx) {

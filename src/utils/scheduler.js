@@ -1,12 +1,16 @@
 import cron from 'node-cron';
-import User from '../models/User.js';
+import User from '../models/user.js';
 import config from '../config/config.js';
 
-// Словник для зберігання активних задач
 const scheduleTasks = {};
 
-// Ініціалізація планувальника
-async function initScheduler(bot) {
+const frequencies = {
+  hourly: () => ['0 * * * *'],
+  '2hours': () => Array.from({ length: 12 }, (_, i) => `0 ${i * 2} * * *`),
+  morning_evening: () => ['0 9 * * *', '0 19 * * *']
+};
+
+export async function initScheduler(bot) {
   try {
     const users = await User.find();
     await Promise.all(users.map(user => setupUserSchedule(bot, user)));
@@ -16,8 +20,7 @@ async function initScheduler(bot) {
   }
 }
 
-// Оновлення розкладу для конкретного користувача
-async function updateUserSchedule(bot, userId) {
+export async function updateUserSchedule(bot, userId) {
   try {
     const user = await User.findOne({ telegramId: userId });
     if (user) await setupUserSchedule(bot, user);
@@ -26,91 +29,43 @@ async function updateUserSchedule(bot, userId) {
   }
 }
 
-// Створення або оновлення задачі користувача
-async function setupUserSchedule(bot, user) {
-  const { telegramId, frequency } = user;
-  
-  // Зупиняємо та очищаємо попередні задачі
+export async function setupUserSchedule(bot, user) {
+  const { telegramId, frequency, startTime, endTime } = user;
+
   if (scheduleTasks[telegramId]) {
     scheduleTasks[telegramId].forEach(task => task.stop());
   }
   scheduleTasks[telegramId] = [];
 
+  const cronExpressions = frequencies[frequency]?.();
+  if (!cronExpressions) {
+    console.warn(`⚠️ Unknown frequency: ${frequency}`);
+    return;
+  }
+
   console.log(`🔁 Setting up schedule for ${telegramId} [${frequency}]`);
 
-  // Вибір розкладу
-  const setupFunctions = {
-    hourly: setupHourlySchedule,
-    '2hours': setup2HoursSchedule,
-    morning_evening: setupMorningEveningSchedule
-  };
-
-  const setupFn = setupFunctions[frequency];
-  if (setupFn) {
-    setupFn(bot, user);
-  } else {
-    console.warn(`⚠️ Unknown frequency: ${frequency}`);
-  }
-}
-
-// Перевірка, чи поточна година в діапазоні
-function isWithinTimeRange(hour, start, end) {
-  return hour >= start && hour <= end;
-}
-
-// Загальна функція планування задачі
-function createCronTask(cronTime, conditionFn, taskFn) {
-  return cron.schedule(cronTime, async () => {
-    if (conditionFn()) {
-      await taskFn();
-    }
+  cronExpressions.forEach(expr => {
+    const task = cron.schedule(expr, async () => {
+      const nowHour = new Date().getHours();
+      if (nowHour >= startTime && nowHour <= endTime) {
+        await sendPollNotification(bot, user);
+      }
+    });
+    scheduleTasks[telegramId].push(task);
   });
 }
 
-// Щогодини
-function setupHourlySchedule(bot, user) {
-  const task = createCronTask(
-    '0 * * * *',
-    () => isWithinTimeRange(new Date().getHours(), user.startTime, user.endTime),
-    () => sendPollNotification(bot, user)
-  );
-  scheduleTasks[user.telegramId].push(task);
-}
-
-// Кожні 2 години
-function setup2HoursSchedule(bot, user) {
-  const hours = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
-  hours.forEach(h => {
-    const task = createCronTask(
-      `0 ${h} * * *`,
-      () => isWithinTimeRange(h, user.startTime, user.endTime),
-      () => sendPollNotification(bot, user)
-    );
-    scheduleTasks[user.telegramId].push(task);
-  });
-}
-
-// Зранку та ввечері
-function setupMorningEveningSchedule(bot, user) {
-  const times = [9, 19]; // ранкове і вечірнє
-
-  times.forEach(h => {
-    if (isWithinTimeRange(h, user.startTime, user.endTime)) {
-      const task = createCronTask(
-        `0 ${h} * * *`,
-        () => true,
-        () => sendPollNotification(bot, user)
-      );
-      scheduleTasks[user.telegramId].push(task);
-    }
-  });
-}
-
-// Відправка повідомлення-опитування
 async function sendPollNotification(bot, user) {
   try {
-    // Вибір теми для опитування (замість використання глобального config)
-    const { pollSettings } = config.themes[user.theme] || config.themes.emotionTracking;  // За замовчуванням - emotionTracking
+    const { pollSettings } = config.themes[user.theme] || config.themes.emotionTracking;
+    const keyboard = ['states', 'emotions', 'feelings', 'actions']
+      .flatMap(key =>
+        pollSettings[key].map(item => ({
+          text: item.text,
+          callback_data: `${key.slice(0, -1)}_${item.key}`
+        }))
+      );
 
     console.log(`[${new Date().toISOString()}] 📩 Sending poll to ${user.telegramId}`);
     await bot.telegram.sendMessage(
@@ -118,20 +73,7 @@ async function sendPollNotification(bot, user) {
       `Привіт, ${user.name || 'користувачу'}! 🧘 Настав час перевірити твій емоційний стан.`,
       {
         reply_markup: {
-          inline_keyboard: [
-            ...pollSettings.states.map(state => 
-              ({ text: state.text, callback_data: `state_${state.key}` })
-            ),
-            ...pollSettings.emotions.map(emotion => 
-              ({ text: emotion.text, callback_data: `emotion_${emotion.key}` })
-            ),
-            ...pollSettings.feelings.map(feeling => 
-              ({ text: feeling.text, callback_data: `feeling_${feeling.key}` })
-            ),
-            ...pollSettings.actions.map(action => 
-              ({ text: action.text, callback_data: `action_${action.key}` })
-            )
-          ]
+          inline_keyboard: chunkArray(keyboard, 2) // показуємо по 2 кнопки в ряд
         }
       }
     );
@@ -140,8 +82,11 @@ async function sendPollNotification(bot, user) {
   }
 }
 
-export {
-  initScheduler,
-  setupUserSchedule,
-  updateUserSchedule
-};
+// Допоміжна функція: розбиває масив на частини
+function chunkArray(arr, size) {
+  const res = [];
+  for (let i = 0; i < arr.length; i += size) {
+    res.push(arr.slice(i, i + size));
+  }
+  return res;
+}
