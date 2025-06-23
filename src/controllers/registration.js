@@ -2,7 +2,7 @@ import { Scenes } from 'telegraf';
 import { configData } from '../config/configData.js'; 
 import User from '../models/user.js';
 
-export const registerScene = new Scenes.BaseScene('register');
+const registerScene = new Scenes.BaseScene('register');
 
 registerScene.enter(async (ctx) => {
   try {
@@ -82,7 +82,7 @@ registerScene.action('keep_settings', (ctx) => {
   }
 });
 
-export const frequencyScene = new Scenes.BaseScene('frequency');
+const frequencyScene = new Scenes.BaseScene('frequency');
 
 frequencyScene.enter(async (ctx) => {
   try {
@@ -133,7 +133,7 @@ frequencyScene.on('text', (ctx) => {
   ctx.reply('Будь ласка, використовуйте кнопки для вибору частоти.');
 });
 
-export const timeScene = new Scenes.BaseScene('time');
+const timeScene = new Scenes.BaseScene('time');
 
 timeScene.enter(async (ctx) => {
   try {
@@ -175,3 +175,5 @@ timeScene.on('text', async (ctx) => {
     ctx.scene.leave();
   }
 });
+
+export { registerScene, frequencyScene, timeScene };
