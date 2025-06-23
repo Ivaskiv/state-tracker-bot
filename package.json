@@ -21,12 +21,13 @@
   },
   "homepage": "https://github.com/Ivaskiv/state-tracker-bot#readme",
   "dependencies": {
+    "airtable": "^0.12.2",
     "dotenv": "^16.4.7",
     "mongodb": "^6.15.0",
     "mongoose": "^8.13.2",
     "natural": "^8.0.1",
     "node-cron": "^3.0.3",
-    "node-nlp": "^5.0.0-alpha.5",
+    "node-nlp": "^3.10.2",
     "pdfkit": "^0.16.0",
     "telegraf": "^4.16.3"
   },
