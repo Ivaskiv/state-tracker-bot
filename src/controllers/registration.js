@@ -1,4 +1,3 @@
-//controllers/registration.js
 import { Scenes } from 'telegraf';
 import { configData } from '../config/configData.js'; 
 import User from '../models/user.js';
