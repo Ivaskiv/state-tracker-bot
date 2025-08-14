@@ -24,7 +24,7 @@ bot.start(async (ctx) => {
 
   if (!user) {
     user = await createUser({
-      tg_user_id: userId,
+      TG_id: userId,
       username: ctx.from.username || '',
       first_name: ctx.from.first_name || 'Unknown',
       subscription_plan: 'trial',

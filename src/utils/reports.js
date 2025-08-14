@@ -5,13 +5,13 @@ import { getUserResponses } from "./airtable.js";
 
 /**
  * Формує щотижневий звіт користувача
- * @param {string} tg_user_id - Telegram ID користувача
+ * @param {string} TG_id - Telegram ID користувача
  * @returns {string} - Текст звіту
  */
-export async function generateWeeklyReport(tg_user_id) {
+export async function generateWeeklyReport(TG_id) {
   try {
     // Отримуємо відповіді користувача за останній тиждень
-    const responses = await getUserResponses(tg_user_id, 'week');
+    const responses = await getUserResponses(TG_id, 'week');
 
     if (!responses || responses.length === 0) return 'Немає даних за тиждень.';
 
@@ -100,13 +100,13 @@ export async function generateWeeklyReport(tg_user_id) {
 
 /**
  * Формує щомісячний звіт користувача
- * @param {string} tg_user_id - Telegram ID користувача
+ * @param {string} TG_id - Telegram ID користувача
  * @returns {string} - Текст звіту
  */
-export async function generateMonthlyReport(tg_user_id) {
+export async function generateMonthlyReport(TG_id) {
   try {
     // Отримуємо відповіді користувача за останній місяць
-    const responses = await getUserResponses(tg_user_id, 'month');
+    const responses = await getUserResponses(TG_id, 'month');
 
     if (!responses || responses.length === 0) return 'Немає даних за місяць.';
 

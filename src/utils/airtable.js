@@ -7,7 +7,7 @@ const base = new Airtable({ apiKey: config.airtableApiKey }).base(config.airtabl
 // ===== USERS =====
 export const getUserByTgId = async (tgId) => {
   const records = await base('Users')
-    .select({ filterByFormula: `{tg_user_id}='${tgId}'`, maxRecords: 1 })
+    .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
     .firstPage();
   return records?.[0] || null;
 };
@@ -53,7 +53,7 @@ export const getTodayResponse = async (tgUserId, sessionType) => {
   const today = new Date().toISOString().split('T')[0];
   const records = await base('Responses')
     .select({
-      filterByFormula: `AND({tg_user_id}='${tgUserId}', {date}='${today}', {session_type}='${sessionType}')`,
+      filterByFormula: `AND({TG_id}='${tgUserId}', {date}='${today}', {session_type}='${sessionType}')`,
       maxRecords: 1
     })
     .firstPage();
@@ -71,7 +71,7 @@ export const incrementUserResponses = async (tgUserId) => {
 export const getUserResponses = async (tgUserId, startDate, endDate) => {
   return await base('Responses')
     .select({
-      filterByFormula: `AND({tg_user_id}='${tgUserId}', {date} >= '${startDate}', {date} <= '${endDate}')`
+      filterByFormula: `AND({TG_id}='${tgUserId}', {date} >= '${startDate}', {date} <= '${endDate}')`
     })
     .all();
 };

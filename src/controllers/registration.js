@@ -18,9 +18,9 @@ export async function initScheduler(bot) {
       for (const user of users) {
         if (!user.fields.Paid) continue;
         try {
-          await bot.telegram.sendMessage(user.fields.tg_user_id, config.morningMessage);
+          await bot.telegram.sendMessage(user.fields.TG_id, config.morningMessage);
         } catch (err) {
-          console.error('Error sending morning message:', err, user.fields.tg_user_id);
+          console.error('Error sending morning message:', err, user.fields.TG_id);
         }
       }
     })
@@ -33,9 +33,9 @@ export async function initScheduler(bot) {
       for (const user of users) {
         if (!user.fields.Paid) continue;
         try {
-          await bot.telegram.sendMessage(user.fields.tg_user_id, config.eveningMessage);
+          await bot.telegram.sendMessage(user.fields.TG_id, config.eveningMessage);
         } catch (err) {
-          console.error('Error sending evening message:', err, user.fields.tg_user_id);
+          console.error('Error sending evening message:', err, user.fields.TG_id);
         }
       }
     })
@@ -48,10 +48,10 @@ export async function initScheduler(bot) {
       for (const user of users) {
         if (!user.fields.Paid) continue;
         try {
-          const report = await generateWeeklyReport(user.fields.tg_user_id);
-          await bot.telegram.sendMessage(user.fields.tg_user_id, report);
+          const report = await generateWeeklyReport(user.fields.TG_id);
+          await bot.telegram.sendMessage(user.fields.TG_id, report);
         } catch (err) {
-          console.error('Error sending weekly report:', err, user.fields.tg_user_id);
+          console.error('Error sending weekly report:', err, user.fields.TG_id);
         }
       }
     })
@@ -64,10 +64,10 @@ export async function initScheduler(bot) {
       for (const user of users) {
         if (!user.fields.Paid) continue;
         try {
-          const report = await generateMonthlyReport(user.fields.tg_user_id);
-          await bot.telegram.sendMessage(user.fields.tg_user_id, report);
+          const report = await generateMonthlyReport(user.fields.TG_id);
+          await bot.telegram.sendMessage(user.fields.TG_id, report);
         } catch (err) {
-          console.error('Error sending monthly report:', err, user.fields.tg_user_id);
+          console.error('Error sending monthly report:', err, user.fields.TG_id);
         }
       }
     })
@@ -104,7 +104,7 @@ export async function setupUserSchedule(bot, { telegramId, schedule }) {
     try {
       // Перед відправкою перевіряємо, чи користувач активний і оплатив
       const users = await getActiveUsers();
-      const user = users.find(u => u.fields.tg_user_id === telegramId.toString());
+      const user = users.find(u => u.fields.TG_id === telegramId.toString());
       if (!user || !user.fields.Paid) return;
 
       await bot.telegram.sendMessage(telegramId, '🔔 Час на твою сесію фокусу!');

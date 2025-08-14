@@ -27,7 +27,7 @@ export async function initScheduler(bot) {
       const users = await getActiveUsers();
       for (const u of users) {
         if (!u.fields.Paid) continue;
-        await safeSend(bot, u.fields.tg_user_id, config.messages.morningIntro);
+        await safeSend(bot, u.fields.TG_id, config.messages.morningIntro);
       }
     })
   );
@@ -38,7 +38,7 @@ export async function initScheduler(bot) {
       const users = await getActiveUsers();
       for (const u of users) {
         if (!u.fields.Paid) continue;
-        await safeSend(bot, u.fields.tg_user_id, config.messages.eveningIntro);
+        await safeSend(bot, u.fields.TG_id, config.messages.eveningIntro);
       }
     })
   );
@@ -49,8 +49,8 @@ export async function initScheduler(bot) {
       const users = await getActiveUsers();
       for (const u of users) {
         if (!u.fields.Paid) continue;
-        const report = await generateWeeklyReport(u.fields.tg_user_id);
-        await safeSend(bot, u.fields.tg_user_id, `📊 Щотижневий звіт:\n${report}`);
+        const report = await generateWeeklyReport(u.fields.TG_id);
+        await safeSend(bot, u.fields.TG_id, `📊 Щотижневий звіт:\n${report}`);
       }
     })
   );
@@ -66,8 +66,8 @@ export async function initScheduler(bot) {
         const users = await getActiveUsers();
         for (const u of users) {
           if (!u.fields.Paid) continue;
-          const report = await generateMonthlyReport(u.fields.tg_user_id);
-          await safeSend(bot, u.fields.tg_user_id, `📅 Щомісячний звіт:\n${report}`);
+          const report = await generateMonthlyReport(u.fields.TG_id);
+          await safeSend(bot, u.fields.TG_id, `📅 Щомісячний звіт:\n${report}`);
         }
       }
     })
