@@ -7,7 +7,10 @@ const base = new Airtable({ apiKey: config.airtableApiKey }).base(config.airtabl
 // ===== USERS =====
 export const getUserByTgId = async (tgId) => {
   const records = await base('Users')
-    .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
+    .select({
+      filterByFormula: `{TG_id}='${tgId}'`,
+      maxRecords: 1
+    })
     .firstPage();
   return records?.[0] || null;
 };
@@ -27,7 +30,9 @@ export const updateUser = async (tgId, fields) => {
 export const getUsers = async () => await base('Users').select().all();
 
 export const getActiveUsers = async () =>
-  await base('Users').select({ filterByFormula: `{Status}='Active'` }).all();
+  await base('Users')
+    .select({ filterByFormula: `{Status}='Active'` })
+    .all();
 
 // ===== RECORDS =====
 export const createRecord = async (record) => {
@@ -35,10 +40,10 @@ export const createRecord = async (record) => {
   return records[0];
 };
 
-export const getRecordsByUserAndDate = async (userId, startDate, endDate) => {
+export const getRecordsByUserAndDate = async (tgId, startDate, endDate) => {
   return await base('Records')
     .select({
-      filterByFormula: `AND({userId}='${userId}', {timestamp} >= '${startDate}', {timestamp} < '${endDate}')`
+      filterByFormula: `AND({TG_id}='${tgId}', {timestamp} >= '${startDate}', {timestamp} < '${endDate}')`
     })
     .all();
 };
@@ -49,37 +54,38 @@ export const createDailyResponse = async (response) => {
   return records[0];
 };
 
-export const getTodayResponse = async (tgUserId, sessionType) => {
+export const getTodayResponse = async (tgId, sessionType) => {
   const today = new Date().toISOString().split('T')[0];
   const records = await base('Responses')
     .select({
-      filterByFormula: `AND({TG_id}='${tgUserId}', {date}='${today}', {session_type}='${sessionType}')`,
+      filterByFormula: `AND({TG_id}='${tgId}', {date}='${today}', {session_type}='${sessionType}')`,
       maxRecords: 1
     })
     .firstPage();
   return records?.[0] || null;
 };
 
-export const incrementUserResponses = async (tgUserId) => {
-  const user = await getUserByTgId(tgUserId);
+export const incrementUserResponses = async (tgId) => {
+  const user = await getUserByTgId(tgId);
   if (!user) throw new Error('User not found');
   const count = (user.fields.totalResponses || 0) + 1;
-  return await updateUser(tgUserId, { totalResponses: count });
+  return await updateUser(tgId, { totalResponses: count });
 };
 
-// Отримати відповіді користувача за період
-export const getUserResponses = async (tgUserId, startDate, endDate) => {
+export const getUserResponses = async (tgId, startDate, endDate) => {
   return await base('Responses')
     .select({
-      filterByFormula: `AND({TG_id}='${tgUserId}', {date} >= '${startDate}', {date} <= '${endDate}')`
+      filterByFormula: `AND({TG_id}='${tgId}', {date} >= '${startDate}', {date} <= '${endDate}')`
     })
     .all();
 };
 
-// Оновлює щоденну відповідь за userId та дату
-export const updateDailyResponse = async (userId, date, fields) => {
+export const updateDailyResponse = async (tgId, date, fields) => {
   const records = await base('Responses')
-    .select({ filterByFormula: `AND({userId}='${userId}', {date}='${date}')`, maxRecords: 1 })
+    .select({
+      filterByFormula: `AND({TG_id}='${tgId}', {date}='${date}')`,
+      maxRecords: 1
+    })
     .firstPage();
 
   if (!records[0]) throw new Error('Daily response not found');
