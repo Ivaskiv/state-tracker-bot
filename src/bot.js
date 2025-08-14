@@ -1,16 +1,15 @@
+// src/bot.js
 import { Telegraf, Scenes, session } from 'telegraf';
 import { config } from './config/config.js';
 import { initScheduler } from './utils/scheduler.js';
-import { getUserByTgId, createUser, checkSubscriptionStatus } from './utils/airtable.js';
-import { registrationScene } from './scenes/registration.js';
-import { morningScene, eveningScene } from './scenes/polling.js';
-import { paymentScene } from './scenes/payment.js';
+import { getUserByTgId, createUser, updateUser } from './utils/airtable.js';
+import { morningScene, eveningScene } from './controllers/polling.js';
+import { paymentScene } from './controllers/payment.js';
 import { createKeyboard } from './utils/helpers.js';
 import { getRandom } from './utils/quotes.js';
 
 const bot = new Telegraf(config.botToken);
 const stage = new Scenes.Stage([
-  registrationScene,
   morningScene, 
   eveningScene,
   paymentScene
@@ -19,79 +18,104 @@ const stage = new Scenes.Stage([
 bot.use(session());
 bot.use(stage.middleware());
 
+// ===== START COMMAND =====
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
-  const user = await getUserByTgId(userId);
-  
+  let user = await getUserByTgId(userId);
+
   if (!user) {
-    await createUser({
+    // Створюємо нового користувача
+    user = await createUser({
       tg_user_id: userId,
       username: ctx.from.username || '',
       first_name: ctx.from.first_name || 'Unknown',
       subscription_plan: 'trial',
-      is_active: true
+      Status: 'Active',    // відразу активний
+      Paid: false,         // ще не оплачено
+      lastActive: new Date().toISOString()
     });
-    
+
     await ctx.reply(config.messages.welcome, {
       reply_markup: {
         inline_keyboard: createKeyboard(config.keyboard.subscription)
       }
     });
-  } else {
-    const subscription = await checkSubscriptionStatus(userId);
-    
-    if (subscription.active) {
-      await ctx.reply(`Вітаю, ${user.fields.first_name}! 👋\n\nТвоя підписка активна до ${new Date(subscription.endDate).toLocaleDateString('uk-UA')}\n\nВикористовуй /morning або /evening для сесій.`);
-    } else {
-      await ctx.reply(config.messages.subscriptionExpired, {
-        reply_markup: {
-          inline_keyboard: createKeyboard(config.keyboard.subscription)
-        }
-      });
-    }
+    return;
   }
-});
 
-bot.command('morning', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  const subscription = await checkSubscriptionStatus(userId);
-  
-  if (!subscription.active) {
-    return ctx.reply(config.messages.subscriptionExpired, {
+  // Оновлюємо lastActive для існуючого користувача
+  await updateUser(userId, { lastActive: new Date().toISOString() });
+
+  const isActive = user.fields.Status === 'Active';
+  const isPaid = user.fields.Paid === true;
+
+  if (isActive && isPaid) {
+    await ctx.reply(
+      `Вітаю, ${user.fields.first_name}! 👋\n\nТвоя підписка активна.\nВикористовуй /morning або /evening для сесій.`
+    );
+  } else {
+    await ctx.reply(config.messages.subscriptionExpired, {
       reply_markup: {
         inline_keyboard: createKeyboard(config.keyboard.subscription)
       }
     });
   }
-  
+});
+
+// ===== MORNING COMMAND =====
+bot.command('morning', async (ctx) => {
+  const userId = ctx.from.id.toString();
+  const user = await getUserByTgId(userId);
+
+  if (!user) return ctx.reply('Користувач не знайдений.');
+
+  await updateUser(userId, { lastActive: new Date().toISOString() });
+
+  const isActive = user.fields.Status === 'Active';
+  const isPaid = user.fields.Paid === true;
+
+  if (!isActive || !isPaid) {
+    return ctx.reply(config.messages.subscriptionExpired, {
+      reply_markup: { inline_keyboard: createKeyboard(config.keyboard.subscription) }
+    });
+  }
+
   ctx.scene.enter('morning');
 });
 
+// ===== EVENING COMMAND =====
 bot.command('evening', async (ctx) => {
   const userId = ctx.from.id.toString();
-  const subscription = await checkSubscriptionStatus(userId);
-  
-  if (!subscription.active) {
+  const user = await getUserByTgId(userId);
+
+  if (!user) return ctx.reply('Користувач не знайдений.');
+
+  await updateUser(userId, { lastActive: new Date().toISOString() });
+
+  const isActive = user.fields.Status === 'Active';
+  const isPaid = user.fields.Paid === true;
+
+  if (!isActive || !isPaid) {
     return ctx.reply(config.messages.subscriptionExpired, {
-      reply_markup: {
-        inline_keyboard: createKeyboard(config.keyboard.subscription)
-      }
+      reply_markup: { inline_keyboard: createKeyboard(config.keyboard.subscription) }
     });
   }
-  
+
   ctx.scene.enter('evening');
 });
 
+// ===== SUBSCRIPTION ACTION =====
 bot.action(/^sub_(.+)/, async (ctx) => {
-  const plan = ctx.match[1];
-  ctx.session.selectedPlan = plan;
-  ctx.scene.enter('payment');
+  const plan = ctx.match[1];          // weekly / monthly / yearly
+  ctx.session.selectedPlan = plan;    // зберігаємо в сесії
+  ctx.scene.enter('payment');         // переходимо до сцени оплати
 });
 
+// ===== SUPPORT ACTION =====
 bot.action(/^support_(.+)/, async (ctx) => {
   const type = ctx.match[1];
   let message;
-  
+
   switch(type) {
     case 'motivation':
       message = config.messages.motivationMorning;
@@ -103,11 +127,12 @@ bot.action(/^support_(.+)/, async (ctx) => {
       message = "🎯 Одна ціль. Один крок. Зараз. Ти можеш це.";
       break;
   }
-  
+
   await ctx.answerCbQuery();
   await ctx.reply(message);
 });
 
+// ===== TEXT MESSAGES =====
 bot.on('text', async (ctx) => {
   if (ctx.message.text === '+' || ctx.message.text.toLowerCase() === 'ок') {
     const motivation = getRandom([
@@ -117,15 +142,17 @@ bot.on('text', async (ctx) => {
       "🌟 Кожен крок веде до мети!",
       "✨ Ти вже на правильному шляху!"
     ]);
-    
+
     await ctx.reply(motivation);
   }
 });
 
+// ===== ERROR HANDLER =====
 bot.catch((err) => {
   console.error('Bot error:', err);
 });
 
+// ===== LAUNCH BOT =====
 bot.launch()
   .then(() => {
     console.log('🚀 Коучинг бот запущено!');

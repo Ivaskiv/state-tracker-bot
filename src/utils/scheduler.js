@@ -1,120 +1,77 @@
+// src/utils/scheduler.js
 import cron from 'node-cron';
-import { getActiveUsers } from '../utils/airtable.js';
+import { getActiveUsers } from './airtable.js';
 import { config } from '../config/config.js';
-import { createKeyboard } from './helpers.js';
+import { generateWeeklyReport, generateMonthlyReport } from './reports.js';
 
-const scheduledTasks = [];
+// Зберігаємо всі заплановані завдання
+export const scheduledTasks = [];
 
+// Допоміжна функція для безпечної відправки повідомлень
+async function safeSend(bot, tgId, message) {
+  if (!tgId || !message) return;
+  try {
+    await bot.telegram.sendMessage(tgId, message);
+  } catch (err) {
+    console.error(`Message error for ${tgId}:`, err);
+  }
+}
+
+// Ініціалізація планувальника
 export async function initScheduler(bot) {
-  try {
-    cron.schedule(config.schedules.morning, async () => {
-      await sendMorningReminders(bot);
-    });
+  console.log('🗓️ Scheduler initializing...');
 
-    cron.schedule(config.schedules.evening, async () => {
-      await sendEveningReminders(bot);
-    });
-
-    cron.schedule('0 19 * * 0', async () => {
-      await generateWeeklyReports(bot);
-    });
-
-    cron.schedule('0 12 1 * *', async () => {
-      await generateMonthlyReports(bot);
-    });
-
-    console.log('🗓️ Scheduler initialized');
-  } catch (error) {
-    console.error('❌ Scheduler error:', error);
-  }
-}
-
-async function sendMorningReminders(bot) {
-  try {
-    const users = await getActiveUsers();
-    
-    for (const user of users) {
-      try {
-        await bot.telegram.sendMessage(
-          user.fields.tg_user_id,
-          `${config.messages.morningIntro}\n\n🌱 Готова почати день з фокусу?`,
-          {
-            reply_markup: {
-              inline_keyboard: [[
-                { text: '🌞 Почати ранкову сесію', callback_data: 'start_morning' }
-              ]]
-            }
-          }
-        );
-      } catch (error) {
-        console.error(`Error sending morning reminder to ${user.fields.tg_user_id}:`, error);
+  // ===== Ранкові повідомлення о 08:00 =====
+  scheduledTasks.push(
+    cron.schedule('0 8 * * *', async () => {
+      const users = await getActiveUsers();
+      for (const u of users) {
+        if (!u.fields.Paid) continue;
+        await safeSend(bot, u.fields.tg_user_id, config.messages.morningIntro);
       }
-    }
-  } catch (error) {
-    console.error('Error in sendMorningReminders:', error);
-  }
-}
+    })
+  );
 
-async function sendEveningReminders(bot) {
-  try {
-    const users = await getActiveUsers();
-    
-    for (const user of users) {
-      try {
-        await bot.telegram.sendMessage(
-          user.fields.tg_user_id,
-          `${config.messages.eveningIntro}\n\n🌙 Час підсумувати день!`,
-          {
-            reply_markup: {
-              inline_keyboard: [[
-                { text: '🌙 Почати вечірню сесію', callback_data: 'start_evening' }
-              ]]
-            }
-          }
-        );
-      } catch (error) {
-        console.error(`Error sending evening reminder to ${user.fields.tg_user_id}:`, error);
+  // ===== Вечірні повідомлення о 20:30 =====
+  scheduledTasks.push(
+    cron.schedule('30 20 * * *', async () => {
+      const users = await getActiveUsers();
+      for (const u of users) {
+        if (!u.fields.Paid) continue;
+        await safeSend(bot, u.fields.tg_user_id, config.messages.eveningIntro);
       }
-    }
-  } catch (error) {
-    console.error('Error in sendEveningReminders:', error);
-  }
-}
+    })
+  );
 
-async function generateWeeklyReports(bot) {
-  try {
-    const users = await getActiveUsers();
-    
-    for (const user of users) {
-      try {
-        await bot.telegram.sendMessage(
-          user.fields.tg_user_id,
-          `${config.messages.weeklyReportIntro}\n\n📈 Твій звіт формується... Невдовзі отримаєш детальний аналіз!`
-        );
-      } catch (error) {
-        console.error(`Error sending weekly report to ${user.fields.tg_user_id}:`, error);
+  // ===== Щотижневий звіт: щонеділі о 21:00 =====
+  scheduledTasks.push(
+    cron.schedule('0 21 * * 0', async () => {
+      const users = await getActiveUsers();
+      for (const u of users) {
+        if (!u.fields.Paid) continue;
+        const report = await generateWeeklyReport(u.fields.tg_user_id);
+        await safeSend(bot, u.fields.tg_user_id, `📊 Щотижневий звіт:\n${report}`);
       }
-    }
-  } catch (error) {
-    console.error('Error in generateWeeklyReports:', error);
-  }
-}
+    })
+  );
 
-async function generateMonthlyReports(bot) {
-  try {
-    const users = await getActiveUsers();
-    
-    for (const user of users) {
-      try {
-        await bot.telegram.sendMessage(
-          user.fields.tg_user_id,
-          `${config.messages.monthlyReportIntro}\n\n📊 Формую глибокий аналіз твоїх змін за місяць...`
-        );
-      } catch (error) {
-        console.error(`Error sending monthly report to ${user.fields.tg_user_id}:`, error);
+  // ===== Щомісячний звіт: останній день місяця о 21:00 =====
+  scheduledTasks.push(
+    cron.schedule('0 21 28-31 * *', async () => {
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+
+      if (tomorrow.getMonth() !== today.getMonth()) {
+        const users = await getActiveUsers();
+        for (const u of users) {
+          if (!u.fields.Paid) continue;
+          const report = await generateMonthlyReport(u.fields.tg_user_id);
+          await safeSend(bot, u.fields.tg_user_id, `📅 Щомісячний звіт:\n${report}`);
+        }
       }
-    }
-  } catch (error) {
-    console.error('Error in generateMonthlyReports:', error);
-  }
+    })
+  );
+
+  console.log('🗓️ Scheduler initialized');
 }

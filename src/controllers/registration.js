@@ -1,107 +1,117 @@
-import { Scenes, Markup } from 'telegraf';
-import { updateUser } from '../utils/airtable.js';
-import { setupUserSchedule } from '../utils/scheduler.js';
-import config from '../config/config.js';
+// src/utils/scheduler.js
+import cron from 'node-cron';
+import { config } from '../config/config.js';
+import { getActiveUsers } from '../utils/airtable.js';
+import { generateWeeklyReport } from '../utils/reports.js';
 
-const registerScene = new Scenes.BaseScene('register');
+// Зберігаємо завдання для можливості скасування / оновлення
+const scheduledTasks = [];
 
-registerScene.enter(async (ctx) => {
-  await ctx.reply('Вітаємо! Введіть ваше ім’я:');
-  ctx.scene.state = {};
-});
+// Ініціалізація планувальника
+export async function initScheduler(bot) {
+  console.log('🗓️ Scheduler initializing...');
 
-registerScene.on('text', async (ctx) => {
-  if (!ctx.scene.state.name) {
-    ctx.scene.state.name = ctx.message.text;
-    await ctx.reply('Тепер введіть ваш email:');
-  } else if (!ctx.scene.state.email) {
-    const email = ctx.message.text;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return ctx.reply('Невірний формат email. Спробуйте ще раз.');
-    }
-    ctx.scene.state.email = email;
-
-    const userId = ctx.from.id.toString();
-    try {
-      await updateUser(userId, {
-        name: ctx.scene.state.name,
-        email: ctx.scene.state.email,
-        Status: 'Registered',
-      });
-      console.log(`Користувач оновлено в Airtable: ${userId}, name: ${ctx.scene.state.name}, email: ${ctx.scene.state.email}`);
-    } catch (error) {
-      console.error('Помилка оновлення користувача в Airtable:', error);
-      await ctx.reply(config.errorMessage);
-      return;
-    }
-
-    await ctx.reply('Обери розклад:', {
-      reply_markup: {
-        inline_keyboard: config.keyboard.frequencyButtons.map(button => [
-          Markup.button.callback(button.text, button.callback_data),
-        ]),
-      },
-    });
-    ctx.scene.enter('frequency');
-  }
-});
-
-const frequencyScene = new Scenes.BaseScene('frequency');
-
-frequencyScene.enter(async (ctx) => {
-  await ctx.reply('Обери розклад:', {
-    reply_markup: {
-      inline_keyboard: config.keyboard.frequencyButtons.map(button => [
-        Markup.button.callback(button.text, button.callback_data),
-      ]),
-    },
-  });
-});
-
-frequencyScene.action(/^freq_(.+)$/, async (ctx) => {
-  await ctx.answerCbQuery();
-  const userId = ctx.from.id;
-  const schedule = ctx.match[1];
-
-  const now = new Date();
-  let nextTime = new Date(now);
-  if (schedule === 'Once') {
-    nextTime.setHours(9, 0, 0, 0);
-  } else if (schedule === 'Twice') {
-    nextTime.setHours(now.getHours() < 9 ? 9 : 18, 0, 0, 0);
-  } else if (schedule === 'ThreeTimes') {
-    nextTime.setHours(now.getHours() < 9 ? 9 : now.getHours() < 15 ? 15 : 18, 0, 0, 0);
-  } else if (schedule === 'FourTimes') {
-    nextTime.setHours(now.getHours() < 9 ? 9 : now.getHours() < 12 ? 12 : now.getHours() < 15 ? 15 : 18, 0, 0, 0);
-  } else if (schedule === 'Hourly') {
-    nextTime.setHours(now.getHours() + 1, 0, 0, 0);
-  }
-  if (nextTime <= now) {
-    nextTime.setDate(nextTime.getDate() + 1);
-  }
-
-  try {
-    await updateUser(userId.toString(), {
-      Schedule: schedule,
-      NextReminder: nextTime.toISOString(),
-    });
-  } catch (error) {
-    console.error('Помилка збереження розкладу в Airtable:', error);
-    await ctx.reply(config.errorMessage);
-    return;
-  }
-
-  const reminderText = config.frequencyOptions[schedule];
-  const firstReminder = nextTime.toDateString() === now.toDateString()
-    ? `сьогодні о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-    : `вже завтра о ${nextTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-
-  await ctx.reply(
-    `Ти обрав ${reminderText}. Перше нагадування буде ${firstReminder}.`
+  // Ранкові повідомлення (08:00)
+  scheduledTasks.push(
+    cron.schedule('0 8 * * *', async () => {
+      const users = await getActiveUsers();
+      for (const user of users) {
+        if (!user.fields.Paid) continue;
+        try {
+          await bot.telegram.sendMessage(user.fields.tg_user_id, config.morningMessage);
+        } catch (err) {
+          console.error('Error sending morning message:', err, user.fields.tg_user_id);
+        }
+      }
+    })
   );
 
-  await setupUserSchedule(ctx.bot, { telegramId: userId, schedule });
-  ctx.scene.leave();
-});
+  // Вечірні повідомлення (20:30)
+  scheduledTasks.push(
+    cron.schedule('30 20 * * *', async () => {
+      const users = await getActiveUsers();
+      for (const user of users) {
+        if (!user.fields.Paid) continue;
+        try {
+          await bot.telegram.sendMessage(user.fields.tg_user_id, config.eveningMessage);
+        } catch (err) {
+          console.error('Error sending evening message:', err, user.fields.tg_user_id);
+        }
+      }
+    })
+  );
 
-export { registerScene, frequencyScene };
+  // Щотижневий звіт (неділя, 19:00)
+  scheduledTasks.push(
+    cron.schedule('0 19 * * 0', async () => {
+      const users = await getActiveUsers();
+      for (const user of users) {
+        if (!user.fields.Paid) continue;
+        try {
+          const report = await generateWeeklyReport(user.fields.tg_user_id);
+          await bot.telegram.sendMessage(user.fields.tg_user_id, report);
+        } catch (err) {
+          console.error('Error sending weekly report:', err, user.fields.tg_user_id);
+        }
+      }
+    })
+  );
+
+  // Щомісячний звіт (1-го числа, 12:00)
+  scheduledTasks.push(
+    cron.schedule('0 12 1 * *', async () => {
+      const users = await getActiveUsers();
+      for (const user of users) {
+        if (!user.fields.Paid) continue;
+        try {
+          const report = await generateMonthlyReport(user.fields.tg_user_id);
+          await bot.telegram.sendMessage(user.fields.tg_user_id, report);
+        } catch (err) {
+          console.error('Error sending monthly report:', err, user.fields.tg_user_id);
+        }
+      }
+    })
+  );
+
+  console.log('🗓️ Scheduler initialized');
+}
+
+// Налаштування індивідуального розкладу користувача (наприклад, додаткові нагадування)
+export async function setupUserSchedule(bot, { telegramId, schedule }) {
+  let cronTime;
+
+  switch(schedule) {
+    case 'Once':
+      cronTime = '0 9 * * *';
+      break;
+    case 'Twice':
+      cronTime = '0 9,18 * * *';
+      break;
+    case 'ThreeTimes':
+      cronTime = '0 9,15,18 * * *';
+      break;
+    case 'FourTimes':
+      cronTime = '0 9,12,15,18 * * *';
+      break;
+    case 'Hourly':
+      cronTime = '0 * * * *';
+      break;
+    default:
+      return;
+  }
+
+  const task = cron.schedule(cronTime, async () => {
+    try {
+      // Перед відправкою перевіряємо, чи користувач активний і оплатив
+      const users = await getActiveUsers();
+      const user = users.find(u => u.fields.tg_user_id === telegramId.toString());
+      if (!user || !user.fields.Paid) return;
+
+      await bot.telegram.sendMessage(telegramId, '🔔 Час на твою сесію фокусу!');
+    } catch (error) {
+      console.error(`Error sending scheduled message to ${telegramId}:`, error);
+    }
+  });
+
+  scheduledTasks.push(task);
+}
