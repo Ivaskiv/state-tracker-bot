@@ -1,19 +1,19 @@
-import { configData } from "../config/configData.js";
+import { config } from "../config/config.js";
 import fs from 'fs';
 import { Markup, Scenes } from 'telegraf';
 
 /**
  * За замовчуванням повертає текст запитання для конкретного кроку опитування за темою.
  * Якщо для даної теми є запитання (наприклад, completion, emotion тощо) воно використовується,
- * інакше повертається загальний текст із configData.messages.
+ * інакше повертається загальний текст із config.messages.
  */
 export const getThemeText = (themeKey, step) => {
   // Перевіряємо, чи задана тема в конфігурації themes
-  if (configData.themes && configData.themes[themeKey] && configData.themes[themeKey][step]) {
-    return configData.themes[themeKey][step];
+  if (config.themes && config.themes[themeKey] && config.themes[themeKey][step]) {
+    return config.themes[themeKey][step];
   }
   // Фолбек: шукаємо відповідне повідомлення в messages із ключем step + "Step"
-  return configData.messages?.[`${step}Step`] || `Оберіть ${step}:`;
+  return config.messages?.[`${step}Step`] || `Оберіть ${step}:`;
 };
 
 /**
@@ -34,8 +34,8 @@ export const createKeyboard = (buttons) => {
  */
 export const generateMessage = (step, key) => {
   // Шукаємо у полі pollSettings, якщо воно існує
-  const setting = configData.pollSettings && configData.pollSettings[step]
-    ? configData.pollSettings[step].find(item => item.key === key)
+  const setting = config.pollSettings && config.pollSettings[step]
+    ? config.pollSettings[step].find(item => item.key === key)
     : null;
   if (setting) {
     return `${step.charAt(0).toUpperCase() + step.slice(1)}: ${setting.text}`;
@@ -51,9 +51,9 @@ export const generateMessage = (step, key) => {
 export const startPoll = async (ctx) => {
   const themeKey = process.env.BOT_THEME || 'emotionTracking';
   // Якщо в темі є особливе стартове повідомлення, використовуйте його, інакше дефолтно:
-  const startMessage = configData.themes?.[themeKey]?.startMessage || 'Привіт! Починаємо опитування...';
+  const startMessage = config.themes?.[themeKey]?.startMessage || 'Привіт! Починаємо опитування...';
   // Отримуємо кнопки для state (за замовчуванням — з ключем stateButtons)
-  const stateButtons = configData.keyboard?.stateButtons || [];
+  const stateButtons = config.keyboard?.stateButtons || [];
   await ctx.reply(startMessage, { 
     reply_markup: { inline_keyboard: createKeyboard(stateButtons) }
   });
@@ -89,7 +89,7 @@ export const handleStepResponse = async (ctx, currentStep) => {
     const nextQuestion = getThemeText(themeKey, nextStep);
     // Отримуємо кнопки для наступного кроку, наприклад: emotionButtons, feelingButtons, actionButtons
     const nextKeyboardKey = `${nextStep}Buttons`;
-    const nextButtons = configData.keyboard?.[nextKeyboardKey] || [];
+    const nextButtons = config.keyboard?.[nextKeyboardKey] || [];
     await ctx.reply(`${currentMessage}\n\n${nextQuestion}`, {
       reply_markup: {
         inline_keyboard: createKeyboard(nextButtons)
@@ -98,7 +98,7 @@ export const handleStepResponse = async (ctx, currentStep) => {
   } else {
     // Фінальний крок: завершення опитування
     const themeKey = process.env.BOT_THEME || 'emotionTracking';
-    const finalMessage = configData.themes?.[themeKey]?.completion || 'Дякую! Ваші відповіді збережено. Опитування завершено.';
+    const finalMessage = config.themes?.[themeKey]?.completion || 'Дякую! Ваші відповіді збережено. Опитування завершено.';
     await ctx.reply(`${currentMessage}\n\n${finalMessage}`);
     // Зберігаємо результати опитування (приклад: у файл)
     fs.writeFileSync(`./data/${ctx.from.id}_pollResults.json`,
@@ -130,5 +130,5 @@ export const handleActionResponse = async (ctx) => {
 // Обробка текстових повідомлень як фолбек для опитування
 // (якщо користувач напише щось, що не відповідає очікуваним варіантам)
 export const handleTextFallback = (ctx) => {
-  ctx.reply(configData.messages.errorMessage || 'Вибач, я не зрозумів повідомлення.');
+  ctx.reply(config.messages.errorMessage || 'Вибач, я не зрозумів повідомлення.');
 };

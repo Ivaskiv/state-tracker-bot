@@ -1,4 +1,5 @@
-import { configData } from "../config/configData.js";
+//templates.js
+import { config } from "../config/config.js";
 import { Markup } from "telegraf";
 import fs from "fs";
 import path from "path";
@@ -14,14 +15,14 @@ const userResponses = new Map();
  * @returns {string}
  */
 export const getThemeText = (themeKey, step) => {
-  if (configData.themes && configData.themes[themeKey] && configData.themes[themeKey][step]) {
-    return configData.themes[themeKey][step];
+  if (config.themes && config.themes[themeKey] && config.themes[themeKey][step]) {
+    return config.themes[themeKey][step];
   }
   // Фолбек: шукаємо загальне повідомлення за ключем step+ "Step", або повертаємо стандартний текст
-  return configData.messages?.[`${step}Step`] || `Оберіть ${step}:`;
+  return config.messages?.[`${step}Step`] || `Оберіть ${step}:`;
 };
 export const getFrequencyText = (frequency) => {
-  return configData.frequencyOptions[frequency] || "Невідомо";
+  return config.frequencyOptions[frequency] || "Невідомо";
 };
 /**
  * Універсальна функція для створення інлайн-клавіатури.
@@ -45,7 +46,7 @@ export const createKeyboard = (buttons) => {
  * @returns {string}
  */
 export const generateMessage = (step, key) => {
-  const category = configData.pollSettings[step];
+  const category = config.pollSettings[step];
   if (!category) return `Невідомий крок: ${step}`;
   const item = category.find(item => item.key === key);
   return item ? `${step.charAt(0).toUpperCase() + step.slice(1)}: ${item.text}` : `Невідоме ${step}`;
@@ -60,9 +61,9 @@ export const startPoll = async (ctx) => {
   const themeKey = process.env.BOT_THEME || "emotionTracking";
   // В pollSettings для конкретної теми може бути окреме стартове повідомлення,
   // якщо воно не задано – використовується загальний текст.
-  const pollSettings = configData.pollSettings[themeKey] || {};
+  const pollSettings = config.pollSettings[themeKey] || {};
   const startMessage = pollSettings.startMessage || "Привіт! Починаємо опитування...";
-  const initialButtons = configData.keyboard?.stateButtons || [];
+  const initialButtons = config.keyboard?.stateButtons || [];
 
   userResponses.set(ctx.from.id, {}); // Ініціалізація відповідей
 
@@ -91,13 +92,13 @@ export const handleStepResponse = async (ctx, currentStep) => {
   userResponses.set(userId, responses);
 
   const currentMessage = generateMessage(currentStep, value);
-  const steps = configData.pollSettings.steps || ['state', 'emotion', 'feeling', 'action'];
+  const steps = config.pollSettings.steps || ['state', 'emotion', 'feeling', 'action'];
   const currentIndex = steps.indexOf(currentStep);
   const nextStep = steps[currentIndex + 1];
 
   if (nextStep) {
     const nextMessage = getThemeText(process.env.BOT_THEME || "emotionTracking", nextStep);
-    const nextButtons = configData.keyboard?.[`${nextStep}Buttons`] || [];
+    const nextButtons = config.keyboard?.[`${nextStep}Buttons`] || [];
     await ctx.reply(
       `${currentMessage}\n\n${nextMessage}`,
       { reply_markup: { inline_keyboard: createKeyboard(nextButtons) } }
@@ -105,7 +106,7 @@ export const handleStepResponse = async (ctx, currentStep) => {
   } else {
     // Фінальний крок – завершення опитування
     const themeKey = process.env.BOT_THEME || "emotionTracking";
-    const finalMessage = configData.themes?.[themeKey]?.completion || "Дякую! Ваші відповіді збережено.";
+    const finalMessage = config.themes?.[themeKey]?.completion || "Дякую! Ваші відповіді збережено.";
     const filePath = path.resolve(`./data/${userId}_${Date.now()}.json`);
     fs.writeFileSync(filePath, JSON.stringify(responses, null, 2), "utf8");
     userResponses.delete(userId);
@@ -140,20 +141,20 @@ export const handleActionResponse = async (ctx) => {
  * Обробка текстових повідомлень як фолбек, якщо користувач вводить некоректний текст.
  */
 export const handleTextFallback = (ctx) => {
-  ctx.reply(configData.messages?.errorMessage || "Вибач, я не зрозумів повідомлення.");
+  ctx.reply(config.messages?.errorMessage || "Вибач, я не зрозумів повідомлення.");
 };
 
 /**
  * Функція для оновлення конфігурації.
- * Зберігає зміни у файлі configData.js.
+ * Зберігає зміни у файлі config.js.
  */
 export const updateConfig = (key, value) => {
   const [category, keyToChange] = key.split('.');
   try {
-    if (configData[category] && configData[category][keyToChange]) {
-      configData[category][keyToChange] = value;
-      const configString = `export const configData = ${JSON.stringify(configData, null, 2)};`;
-      fs.writeFileSync(path.resolve("./config/configData.js"), configString, "utf8");
+    if (config[category] && config[category][keyToChange]) {
+      config[category][keyToChange] = value;
+      const configString = `export const config = ${JSON.stringify(config, null, 2)};`;
+      fs.writeFileSync(path.resolve("./config/config.js"), configString, "utf8");
     } else {
       throw new Error(`Invalid key: ${key}`);
     }

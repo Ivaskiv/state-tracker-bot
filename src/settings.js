@@ -1,3 +1,4 @@
+//settings.js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -5,7 +6,7 @@ import { fileURLToPath } from 'url';
 // Отримати кореневу директорію
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const configPath = path.resolve(__dirname, '../config/defaultconfigData.json');
+const configPath = path.resolve(__dirname, '../config/defaultconfig.json');
 
 // Завантаження конфігурації
 export const loadConfig = () => {

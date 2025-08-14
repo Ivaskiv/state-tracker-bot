@@ -1,7 +1,7 @@
 //controllers/reporting.js
 import { Markup } from 'telegraf';
 import fs from 'fs';
-import { configData } from '../config/configData.js';
+import { config } from '../config/config.js';
 import User from '../models/user.js';
 
 // Функція для відправки щоденного звіту
@@ -9,7 +9,7 @@ export async function sendDailyReport(ctx) {
   const telegramId = ctx.from.id;
   try {
     const user = await User.findOne({ telegramId });
-    if (!user) return ctx.reply(configData.messages.welcomeMessage);
+    if (!user) return ctx.reply(config.messages.welcomeMessage);
     
     // Тут має бути логіка генерації щоденного звіту
     await ctx.reply('Ваш щоденний звіт: [дані звіту будуть тут]');
@@ -24,7 +24,7 @@ export async function sendWeeklyReport(ctx) {
   const telegramId = ctx.from.id;
   try {
     const user = await User.findOne({ telegramId });
-    if (!user) return ctx.reply(configData.messages.welcomeMessage);
+    if (!user) return ctx.reply(config.messages.welcomeMessage);
     
     // Тут має бути логіка генерації тижневого звіту
     await ctx.reply('Ваш тижневий звіт: [дані звіту будуть тут]');
@@ -39,7 +39,7 @@ export async function sendAllReport(ctx) {
   const telegramId = ctx.from.id;
   try {
     const user = await User.findOne({ telegramId });
-    if (!user) return ctx.reply(configData.messages.welcomeMessage);
+    if (!user) return ctx.reply(config.messages.welcomeMessage);
     
     // Тут має бути логіка генерації тижневого звіту
     await ctx.reply('Ваш загальний звіт: [дані звіту будуть тут]');
@@ -54,14 +54,14 @@ export async function setupReportSettings(ctx) {
   const telegramId = ctx.from.id;
   try {
     const user = await User.findOne({ telegramId });
-    if (!user) return ctx.reply(configData.messages.welcomeMessage);
+    if (!user) return ctx.reply(config.messages.welcomeMessage);
 
     // Створюємо клавіатуру з кнопок із конфігураційного файлу
-    const keyboard = Markup.inlineKeyboard(configData.keyboard.reportSettings.map(button => 
+    const keyboard = Markup.inlineKeyboard(config.keyboard.reportSettings.map(button => 
       [Markup.button.callback(button.label, button.action)]
     ));
 
-    await ctx.reply(configData.messages.reportSettingsMessage, keyboard);
+    await ctx.reply(config.messages.reportSettingsMessage, keyboard);
   } catch (err) {
     console.error('Setup error:', err);
     await ctx.reply('Сталася помилка при взаємодії з базою даних. Спробуйте пізніше.');
@@ -75,7 +75,7 @@ export async function handleReportSettings(ctx) {
 
   try {
     const user = await User.findOne({ telegramId });
-    if (!user) return ctx.reply(configData.messages.welcomeMessage);
+    if (!user) return ctx.reply(config.messages.welcomeMessage);
 
     if (['daily', 'weekly', 'monthly'].includes(data)) {
       user.reportPeriod = data;
@@ -89,7 +89,7 @@ export async function handleReportSettings(ctx) {
     await user.save();
   } catch (err) {
     console.error('Handle settings error:', err);
-    await ctx.reply(configData.messages.setupError || 'Сталася помилка. Спробуйте пізніше.');
+    await ctx.reply(config.messages.setupError || 'Сталася помилка. Спробуйте пізніше.');
   }
 }
 
@@ -97,11 +97,11 @@ export async function handleReportSettings(ctx) {
 export async function changeMessage(ctx, messageKey) {
   const telegramId = ctx.from.id;
   
-  if (!configData.admins.includes(telegramId)) {
+  if (!config.admins.includes(telegramId)) {
     return ctx.reply("Ви не маєте прав на зміну повідомлень.");
   }
 
-  const currentMessage = configData.messages[messageKey];
+  const currentMessage = config.messages[messageKey];
   await ctx.reply(`Поточне повідомлення: ${currentMessage}. Введіть новий текст:`);
 
   // Очікуємо на новий текст від адміністратора
@@ -112,16 +112,16 @@ export async function changeMessage(ctx, messageKey) {
 export async function saveNewMessage(ctx, newMessage, messageKey) {
   const telegramId = ctx.from.id;
 
-  if (!configData.admins.includes(telegramId)) {
+  if (!config.admins.includes(telegramId)) {
     return ctx.reply("Ви не маєте прав на зміну повідомлень.");
   }
 
   // Оновлюємо повідомлення в конфігурації
-  configData.messages[messageKey] = newMessage;
+  config.messages[messageKey] = newMessage;
 
   // Зберігаємо зміни в файл конфігурації
-  const configString = `export const configData = ${JSON.stringify(configData, null, 2)};`;
-  await fs.promises.writeFile('./config/configData.js', configString, 'utf8');
+  const configString = `export const config = ${JSON.stringify(config, null, 2)};`;
+  await fs.promises.writeFile('./config/config.js', configString, 'utf8');
 
   await ctx.reply(`Повідомлення успішно змінено на: "${newMessage}"`);
 }
@@ -201,7 +201,7 @@ export async function saveNewMessage(ctx, newMessage, messageKey) {
 //   config.messages[messageKey] = newMessage;
 
 //   // Зберігаємо зміни в файл конфігурації
-//   await fs.promises.writeFile('./config/defaultconfigData.json', JSON.stringify(config, null, 2));
+//   await fs.promises.writeFile('./config/defaultconfig.json', JSON.stringify(config, null, 2));
 
 //   await ctx.reply(`${config.messages.changeMessageSuccess} "${newMessage}"`);
 // }

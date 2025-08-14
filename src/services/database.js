@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import User from '../models/User.js';
 import Record from '../models/record.js';
+import User from '../models/user.js';
 
 // Підключення до бази даних
 async function connectDatabase() {

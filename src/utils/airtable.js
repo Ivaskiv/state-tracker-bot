@@ -1,4 +1,5 @@
 import Airtable from 'airtable';
+console.log('🔐 AIRTABLE_API_KEY:', process.env.AIRTABLE_API_KEY);
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
 
@@ -47,35 +48,6 @@ export const getUsers = async () => {
 export const createRecord = async (record) => {
   return new Promise((resolve, reject) => {
     base('Records').create([{ fields: record }], (err, records) => {
-      if (err) return reject(err);
-      resolve(records[0]);
-    });
-  });
-};
-
-export const getPhrases = async (type) => {
-  return new Promise((resolve, reject) => {
-    base('Phrases').select({
-      filterByFormula: `{Type} = '${type}' AND {Used} = FALSE`,
-    }).firstPage((err, records) => {
-      if (err) return reject(err);
-      resolve(records);
-    });
-  });
-};
-
-export const markPhraseUsed = async (id) => {
-  return new Promise((resolve, reject) => {
-    base('Phrases').update([{ id, fields: { Used: true } }], (err, records) => {
-      if (err) return reject(err);
-      resolve(records[0]);
-    });
-  });
-};
-
-export const createPhrase = async (fields) => {
-  return new Promise((resolve, reject) => {
-    base('Phrases').create([{ fields }], (err, records) => {
       if (err) return reject(err);
       resolve(records[0]);
     });

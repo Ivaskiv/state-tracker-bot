@@ -1,92 +1,120 @@
 import cron from 'node-cron';
-import User from '../models/user.js';
-import config from '../config/config.js';
+import { getActiveUsers } from '../utils/airtable.js';
+import { config } from '../config/config.js';
+import { createKeyboard } from './helpers.js';
 
-const scheduleTasks = {};
-
-const frequencies = {
-  hourly: () => ['0 * * * *'],
-  '2hours': () => Array.from({ length: 12 }, (_, i) => `0 ${i * 2} * * *`),
-  morning_evening: () => ['0 9 * * *', '0 19 * * *']
-};
+const scheduledTasks = [];
 
 export async function initScheduler(bot) {
   try {
-    const users = await User.find();
-    await Promise.all(users.map(user => setupUserSchedule(bot, user)));
-    console.log(`🗓️ Scheduled tasks for ${users.length} users`);
-  } catch (err) {
-    console.error('❌ Error initializing scheduler:', err);
-  }
-}
-
-export async function updateUserSchedule(bot, userId) {
-  try {
-    const user = await User.findOne({ telegramId: userId });
-    if (user) await setupUserSchedule(bot, user);
-  } catch (err) {
-    console.error(`❌ Error updating schedule for user ${userId}:`, err);
-  }
-}
-
-export async function setupUserSchedule(bot, user) {
-  const { telegramId, frequency, startTime, endTime } = user;
-
-  if (scheduleTasks[telegramId]) {
-    scheduleTasks[telegramId].forEach(task => task.stop());
-  }
-  scheduleTasks[telegramId] = [];
-
-  const cronExpressions = frequencies[frequency]?.();
-  if (!cronExpressions) {
-    console.warn(`⚠️ Unknown frequency: ${frequency}`);
-    return;
-  }
-
-  console.log(`🔁 Setting up schedule for ${telegramId} [${frequency}]`);
-
-  cronExpressions.forEach(expr => {
-    const task = cron.schedule(expr, async () => {
-      const nowHour = new Date().getHours();
-      if (nowHour >= startTime && nowHour <= endTime) {
-        await sendPollNotification(bot, user);
-      }
+    cron.schedule(config.schedules.morning, async () => {
+      await sendMorningReminders(bot);
     });
-    scheduleTasks[telegramId].push(task);
-  });
+
+    cron.schedule(config.schedules.evening, async () => {
+      await sendEveningReminders(bot);
+    });
+
+    cron.schedule('0 19 * * 0', async () => {
+      await generateWeeklyReports(bot);
+    });
+
+    cron.schedule('0 12 1 * *', async () => {
+      await generateMonthlyReports(bot);
+    });
+
+    console.log('🗓️ Scheduler initialized');
+  } catch (error) {
+    console.error('❌ Scheduler error:', error);
+  }
 }
 
-async function sendPollNotification(bot, user) {
+async function sendMorningReminders(bot) {
   try {
-    const { pollSettings } = config.themes[user.theme] || config.themes.emotionTracking;
-    const keyboard = ['states', 'emotions', 'feelings', 'actions']
-      .flatMap(key =>
-        pollSettings[key].map(item => ({
-          text: item.text,
-          callback_data: `${key.slice(0, -1)}_${item.key}`
-        }))
-      );
-
-    console.log(`[${new Date().toISOString()}] 📩 Sending poll to ${user.telegramId}`);
-    await bot.telegram.sendMessage(
-      user.telegramId,
-      `Привіт, ${user.name || 'користувачу'}! 🧘 Настав час перевірити твій емоційний стан.`,
-      {
-        reply_markup: {
-          inline_keyboard: chunkArray(keyboard, 2) // показуємо по 2 кнопки в ряд
-        }
+    const users = await getActiveUsers();
+    
+    for (const user of users) {
+      try {
+        await bot.telegram.sendMessage(
+          user.fields.tg_user_id,
+          `${config.messages.morningIntro}\n\n🌱 Готова почати день з фокусу?`,
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '🌞 Почати ранкову сесію', callback_data: 'start_morning' }
+              ]]
+            }
+          }
+        );
+      } catch (error) {
+        console.error(`Error sending morning reminder to ${user.fields.tg_user_id}:`, error);
       }
-    );
-  } catch (err) {
-    console.error(`❌ Error sending poll to ${user.telegramId}:`, err);
+    }
+  } catch (error) {
+    console.error('Error in sendMorningReminders:', error);
   }
 }
 
-// Допоміжна функція: розбиває масив на частини
-function chunkArray(arr, size) {
-  const res = [];
-  for (let i = 0; i < arr.length; i += size) {
-    res.push(arr.slice(i, i + size));
+async function sendEveningReminders(bot) {
+  try {
+    const users = await getActiveUsers();
+    
+    for (const user of users) {
+      try {
+        await bot.telegram.sendMessage(
+          user.fields.tg_user_id,
+          `${config.messages.eveningIntro}\n\n🌙 Час підсумувати день!`,
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '🌙 Почати вечірню сесію', callback_data: 'start_evening' }
+              ]]
+            }
+          }
+        );
+      } catch (error) {
+        console.error(`Error sending evening reminder to ${user.fields.tg_user_id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error in sendEveningReminders:', error);
   }
-  return res;
+}
+
+async function generateWeeklyReports(bot) {
+  try {
+    const users = await getActiveUsers();
+    
+    for (const user of users) {
+      try {
+        await bot.telegram.sendMessage(
+          user.fields.tg_user_id,
+          `${config.messages.weeklyReportIntro}\n\n📈 Твій звіт формується... Невдовзі отримаєш детальний аналіз!`
+        );
+      } catch (error) {
+        console.error(`Error sending weekly report to ${user.fields.tg_user_id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error in generateWeeklyReports:', error);
+  }
+}
+
+async function generateMonthlyReports(bot) {
+  try {
+    const users = await getActiveUsers();
+    
+    for (const user of users) {
+      try {
+        await bot.telegram.sendMessage(
+          user.fields.tg_user_id,
+          `${config.messages.monthlyReportIntro}\n\n📊 Формую глибокий аналіз твоїх змін за місяць...`
+        );
+      } catch (error) {
+        console.error(`Error sending monthly report to ${user.fields.tg_user_id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error in generateMonthlyReports:', error);
+  }
 }

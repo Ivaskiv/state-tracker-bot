@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node src/bot.js",
+    "dev": "nodemon src/bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -21,7 +21,9 @@
   },
   "homepage": "https://github.com/Ivaskiv/state-tracker-bot#readme",
   "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.34",
     "airtable": "^0.12.2",
+    "claude-code": "^0.0.2",
     "dotenv": "^16.4.7",
     "mongodb": "^6.15.0",
     "mongoose": "^8.13.2",
