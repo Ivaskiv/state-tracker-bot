@@ -1,7 +1,6 @@
 // src/bot.js
 import { Telegraf, Scenes, session } from 'telegraf';
 import { config } from './config/config.js';
-import { initScheduler } from './utils/scheduler.js';
 import { getUserByTgId, createUser, updateUser } from './utils/airtable.js';
 import { morningScene, eveningScene } from './controllers/polling.js';
 import { paymentScene } from './controllers/payment.js';
@@ -10,7 +9,7 @@ import { getRandom } from './utils/quotes.js';
 
 const bot = new Telegraf(config.botToken);
 const stage = new Scenes.Stage([
-  morningScene, 
+  morningScene,
   eveningScene,
   paymentScene
 ]);
@@ -24,14 +23,13 @@ bot.start(async (ctx) => {
   let user = await getUserByTgId(userId);
 
   if (!user) {
-    // Створюємо нового користувача
     user = await createUser({
       tg_user_id: userId,
       username: ctx.from.username || '',
       first_name: ctx.from.first_name || 'Unknown',
       subscription_plan: 'trial',
-      Status: 'Active',    // відразу активний
-      Paid: false,         // ще не оплачено
+      Status: 'Active',
+      Paid: false,
       lastActive: new Date().toISOString()
     });
 
@@ -43,7 +41,6 @@ bot.start(async (ctx) => {
     return;
   }
 
-  // Оновлюємо lastActive для існуючого користувача
   await updateUser(userId, { lastActive: new Date().toISOString() });
 
   const isActive = user.fields.Status === 'Active';
@@ -68,13 +65,9 @@ bot.command('morning', async (ctx) => {
   const user = await getUserByTgId(userId);
 
   if (!user) return ctx.reply('Користувач не знайдений.');
-
   await updateUser(userId, { lastActive: new Date().toISOString() });
 
-  const isActive = user.fields.Status === 'Active';
-  const isPaid = user.fields.Paid === true;
-
-  if (!isActive || !isPaid) {
+  if (user.fields.Status !== 'Active' || user.fields.Paid !== true) {
     return ctx.reply(config.messages.subscriptionExpired, {
       reply_markup: { inline_keyboard: createKeyboard(config.keyboard.subscription) }
     });
@@ -89,13 +82,9 @@ bot.command('evening', async (ctx) => {
   const user = await getUserByTgId(userId);
 
   if (!user) return ctx.reply('Користувач не знайдений.');
-
   await updateUser(userId, { lastActive: new Date().toISOString() });
 
-  const isActive = user.fields.Status === 'Active';
-  const isPaid = user.fields.Paid === true;
-
-  if (!isActive || !isPaid) {
+  if (user.fields.Status !== 'Active' || user.fields.Paid !== true) {
     return ctx.reply(config.messages.subscriptionExpired, {
       reply_markup: { inline_keyboard: createKeyboard(config.keyboard.subscription) }
     });
@@ -106,9 +95,9 @@ bot.command('evening', async (ctx) => {
 
 // ===== SUBSCRIPTION ACTION =====
 bot.action(/^sub_(.+)/, async (ctx) => {
-  const plan = ctx.match[1];          // weekly / monthly / yearly
-  ctx.session.selectedPlan = plan;    // зберігаємо в сесії
-  ctx.scene.enter('payment');         // переходимо до сцени оплати
+  const plan = ctx.match[1];
+  ctx.session.selectedPlan = plan;
+  ctx.scene.enter('payment');
 });
 
 // ===== SUPPORT ACTION =====
@@ -152,13 +141,4 @@ bot.catch((err) => {
   console.error('Bot error:', err);
 });
 
-// ===== LAUNCH BOT =====
-bot.launch()
-  .then(() => {
-    console.log('🚀 Коучинг бот запущено!');
-    initScheduler(bot);
-  })
-  .catch(err => console.error('❌ Помилка запуску:', err));
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+export { bot };
