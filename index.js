@@ -1,25 +1,14 @@
-// index.js
-import { bot } from './src/bot.js';
-import dotenv from 'dotenv';
-import { initScheduler } from './src/utils/scheduler.js';
+const express = require('express');
+const { bot } = require('./src/bot.js');
 
-dotenv.config();
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Перевірка наявності ключів API
-if (!process.env.TELEGRAM_TOKEN || !process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-  console.error('❌ Відсутні або неправильні змінні середовища:');
-  if (!process.env.TELEGRAM_TOKEN) console.error('TELEGRAM_TOKEN не визначено.');
-  if (!process.env.AIRTABLE_API_KEY) console.error('AIRTABLE_API_KEY не визначено.');
-  if (!process.env.AIRTABLE_BASE_ID) console.error('AIRTABLE_BASE_ID не визначено.');
-  process.exit(1);
-}
+app.use(bot.webhookCallback(`/bot${process.env.TELEGRAM_TOKEN}`));
 
-bot.launch()
-  .then(() => {
-    console.log('🚀 Бот запущено через index.js!');
-    initScheduler(bot);
-  })
-  .catch(err => console.error('❌ Помилка запуску бота:', err));
+app.listen(PORT, () => {
+  console.log(`🚀 Сервер запущено на порті ${PORT}`);
+});
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// Встановлення Webhook
+bot.telegram.setWebhook(`https://your-app-name.onrender.com/bot${process.env.TELEGRAM_TOKEN}`);
