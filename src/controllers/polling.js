@@ -1,109 +1,98 @@
-import { Scenes } from 'telegraf';
-import { config } from '../config/config.js';
-import { createDailyResponse, getTodayResponse, updateDailyResponse, incrementUserResponses } from '../utils/airtable.js';
+import { Scenes, Markup } from 'telegraf';
+import { 
+  createMorningResponse, getTodayMorningResponse, 
+  createEveningResponse, getTodayEveningResponse, 
+  getRandomAffirmation 
+} from '../utils/airtable.js';
 
-const morningScene = new Scenes.WizardScene(
-  'morning',
-  async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const existing = await getTodayResponse(userId, 'morning');
-    
-    if (existing) {
-      await ctx.reply('Ти вже проходила ранкову сесію сьогодні! ✅\n\nВикористай /evening для вечірньої сесії.');
-      return ctx.scene.leave();
-    }
-    
-    ctx.session.responses = {};
-    ctx.session.currentQuestion = 0;
-    
-    await ctx.reply(config.messages.morningIntro);
-    await ctx.reply(`✳️ ${config.morningQuestions[0].question}`);
-    
-    return ctx.wizard.next();
-  },
-  
-  async (ctx) => {
-    if (!ctx.message?.text) {
-      return ctx.reply('Будь ласка, надішли текстову відповідь.');
-    }
-    
-    const currentQ = ctx.session.currentQuestion;
-    const question = config.morningQuestions[currentQ];
-    
-    ctx.session.responses[question.key] = ctx.message.text;
-    ctx.session.currentQuestion++;
-    
-    if (ctx.session.currentQuestion < config.morningQuestions.length) {
-      const nextQuestion = config.morningQuestions[ctx.session.currentQuestion];
-      await ctx.reply(`✳️ ${nextQuestion.question}`);
-    } else {
-      await saveResponse(ctx, 'morning');
-      await ctx.reply(`${config.messages.motivationMorning}\n\n🌱 Ранкову сесію завершено! Гарного дня! ☀️`);
-      return ctx.scene.leave();
-    }
+const confirmKeyboard = Markup.inlineKeyboard([
+  Markup.button.callback('✅ Підтвердити', 'confirm'),
+  Markup.button.callback('❌ Скасувати', 'cancel')
+]);
+
+// ===== MORNING SCENE =====
+export const morningScene = new Scenes.BaseScene('morning');
+
+morningScene.enter(async (ctx) => {
+  const todayResponse = await getTodayMorningResponse(ctx.from.id.toString());
+  if (todayResponse && todayResponse.fields.completed) {
+    await ctx.reply('Ви вже пройшли ранкову сесію сьогодні.');
+    return ctx.scene.leave();
   }
-);
 
-const eveningScene = new Scenes.WizardScene(
-  'evening',
-  async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const existing = await getTodayResponse(userId, 'evening');
-    
-    if (existing) {
-      await ctx.reply('Ти вже проходила вечірню сесію сьогодні! ✅');
-      return ctx.scene.leave();
-    }
-    
-    ctx.session.responses = {};
-    ctx.session.currentQuestion = 0;
-    
-    await ctx.reply(config.messages.eveningIntro);
-    await ctx.reply(`✳️ ${config.eveningQuestions[0].question}`);
-    
-    return ctx.wizard.next();
-  },
-  
-  async (ctx) => {
-    if (!ctx.message?.text) {
-      return ctx.reply('Будь ласка, надішли текстову відповідь.');
-    }
-    
-    const currentQ = ctx.session.currentQuestion;
-    const question = config.eveningQuestions[currentQ];
-    
-    ctx.session.responses[question.key] = ctx.message.text;
-    ctx.session.currentQuestion++;
-    
-    if (ctx.session.currentQuestion < config.eveningQuestions.length) {
-      const nextQuestion = config.eveningQuestions[ctx.session.currentQuestion];
-      await ctx.reply(`✳️ ${nextQuestion.question}`);
-    } else {
-      await saveResponse(ctx, 'evening');
-      await ctx.reply(`🌟 Підсумкова фраза:\n"${config.messages.motivationEvening}"\n\n🌙 Вечірню сесію завершено! Солодких снів!`);
-      return ctx.scene.leave();
-    }
+  await ctx.reply('Доброго ранку! 🌅\nЯк ти почуваєшся сьогодні? Вибери свій стан або напиши свій варіант.');
+  ctx.scene.state.answers = {};
+});
+
+morningScene.on('text', async (ctx) => {
+  ctx.scene.state.answers.mood = ctx.message.text;
+  await ctx.reply('Що б ти хотів/ла зробити сьогодні для себе?', confirmKeyboard);
+});
+
+morningScene.action('confirm', async (ctx) => {
+  const answers = ctx.scene.state.answers;
+  if (!answers.mood) return ctx.reply('Будь ласка, спочатку введіть відповідь.');
+
+  await createMorningResponse({
+    user_id: ctx.from.id.toString(),
+    user_name: ctx.from.first_name,
+    date: new Date().toISOString().split('T')[0],
+    mood: answers.mood,
+    goal: answers.goal || '',
+    completed: true
+  });
+
+  const affirm = await getRandomAffirmation();
+  await ctx.reply(`Дякую! Твоя ранкова афірмація на сьогодні:\n"${affirm}"`);
+  await ctx.answerCbQuery();
+  ctx.scene.leave();
+});
+
+morningScene.action('cancel', async (ctx) => {
+  await ctx.reply('Ранкова сесія скасована. Можеш почати її знову командою /morning.');
+  await ctx.answerCbQuery();
+  ctx.scene.leave();
+});
+
+// ===== EVENING SCENE =====
+export const eveningScene = new Scenes.BaseScene('evening');
+
+eveningScene.enter(async (ctx) => {
+  const todayResponse = await getTodayEveningResponse(ctx.from.id.toString());
+  if (todayResponse && todayResponse.fields.completed) {
+    await ctx.reply('Ви вже пройшли вечірню сесію сьогодні.');
+    return ctx.scene.leave();
   }
-);
 
-async function saveResponse(ctx, sessionType) {
-  try {
-    const userId = ctx.from.id.toString();
-    const responses = ctx.session.responses;
-    
-    await createDailyResponse({
-      userId,
-      session_type: sessionType,
-      date: new Date().toISOString().split('T')[0],
-      ...responses,
-      is_complete: true
-    });
-    
-    await incrementUserResponses(userId);
-  } catch (error) {
-    console.error('Error saving response:', error);
-    await ctx.reply('Помилка збереження відповіді. Спробуйте пізніше.');
-  }
-}
+  await ctx.reply('Добрий вечір! 🌙\nЯк пройшов твій день? Поділись своїми думками.');
+  ctx.scene.state.answers = {};
+});
 
-export { morningScene, eveningScene };
+eveningScene.on('text', async (ctx) => {
+  ctx.scene.state.answers.reflection = ctx.message.text;
+  await ctx.reply('Що ти зробив/ла для себе сьогодні?', confirmKeyboard);
+});
+
+eveningScene.action('confirm', async (ctx) => {
+  const answers = ctx.scene.state.answers;
+  if (!answers.reflection) return ctx.reply('Будь ласка, спочатку введіть відповідь.');
+
+  await createEveningResponse({
+    user_id: ctx.from.id.toString(),
+    user_name: ctx.from.first_name,
+    date: new Date().toISOString().split('T')[0],
+    reflection: answers.reflection,
+    action: answers.action || '',
+    completed: true
+  });
+
+  const affirm = await getRandomAffirmation();
+  await ctx.reply(`Дякую! Твоя вечірня афірмація на сьогодні:\n"${affirm}"`);
+  await ctx.answerCbQuery();
+  ctx.scene.leave();
+});
+
+eveningScene.action('cancel', async (ctx) => {
+  await ctx.reply('Вечірня сесія скасована. Можеш почати її знову командою /evening.');
+  await ctx.answerCbQuery();
+});

@@ -1,204 +1,205 @@
-// src/utils/reports.js
-
-import { getUserResponses } from "./airtable.js";
-
+import { getUserReflections } from '../utils/airtable.js';
 
 /**
- * Формує щотижневий звіт користувача
- * @param {string} TG_id - Telegram ID користувача
- * @returns {string} - Текст звіту
+ * Generates a weekly report for a user based on their reflections.
+ * @param {string} tgId - Telegram ID of the user
+ * @returns {Promise<string>} - The generated report text
  */
-export async function generateWeeklyReport(TG_id) {
+export async function generateWeeklyReport(tgId) {
   try {
-    // Отримуємо відповіді користувача за останній тиждень
-    const responses = await getUserResponses(TG_id, 'week');
+    // Fetch user reflections for the last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const reflections = await getUserReflections(tgId, null, 100);
+    const responses = reflections
+      .filter(r => new Date(r.fields['Record DateTime']) >= sevenDaysAgo)
+      .map(r => ({
+        question: r.fields['Question Type'],
+        answer: r.fields['User Response'] || 'немає відповіді',
+      }));
 
-    if (!responses || responses.length === 0) return 'Немає даних за тиждень.';
+    if (!responses.length) return 'Немає даних за тиждень.';
 
-    // Збираємо дані за категоріями
+    // Aggregate data by question type
     const energyLeak = responses
-      .filter(r => r.question.includes('Де я сьогодні злила енергію?'))
+      .filter(r => r.question.includes('Де я сьогодні злила енергію'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
     const programs = responses
-      .filter(r => r.question.includes('Яка програма або переконання активувалась сьогодні?'))
+      .filter(r => r.question.includes('Яка програма або переконання активувалась сьогодні'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
     const dailyState = responses
-      .filter(r => r.question.includes('Який мій стан сьогодні?'))
+      .filter(r => r.question.includes('Який мій стан сьогодні'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
     const energySources = responses
-      .filter(r => r.question.includes('Що мене сьогодні наповнило енергією?'))
+      .filter(r => r.question.includes('Що мене сьогодні наповнило енергією'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
     const focusGoal = responses
-      .filter(r => r.question.includes('На яку одну ціль я фокусуюсь сьогодні?'))
+      .filter(r => r.question.includes('На яку одну ціль я фокусуюсь сьогодні'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
     const wins = responses
-      .filter(r => r.question.includes('Сьогодні я'))
+      .filter(r => r.question.includes('Яка моя головна перемога сьогодні'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
     const release = responses
       .filter(r => r.question.includes('Що варто відпустити'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
     const strengthen = responses
       .filter(r => r.question.includes('Що посилити'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
-    // Формуємо текст звіту
-    const report = `
+    // Generate report text
+    return `
 Привіт! 🌱
 Ось твій AI-звіт за останній тиждень:
 
 🔻 Витоки енергії:
-— ${energyLeak || 'немає даних'}
+— ${energyLeak}
 
 🚧 Блокуючі програми:
-— ${programs || 'немає даних'}
+— ${programs}
 
 🧭 Стан тижня:
-— ${dailyState || 'немає даних'}
+— ${dailyState}
 
 🌊 Наповнення:
-— ${energySources || 'немає даних'}
+— ${energySources}
 
 🎯 Ціль у фокусі:
-— ${focusGoal || 'немає даних'}
+— ${focusGoal}
 
 🏆 Внутрішні перемоги:
-— ${wins || 'немає даних'}
+— ${wins}
 
 🕳 Що варто відпустити:
-— ${release || 'немає даних'}
+— ${release}
 
 💡 Що посилити:
-— ${strengthen || 'немає даних'}
+— ${strengthen}
 
 ☀️ Наступний крок:
 — Обери: [___]  
 — Дій із: [стану ___]
 `;
-
-    return report;
-
   } catch (err) {
-    console.error('Error generating weekly report:', err);
+    console.error('Error generating weekly report:', err.message);
     return 'Помилка при формуванні тижневого звіту.';
   }
 }
 
 /**
- * Формує щомісячний звіт користувача
- * @param {string} TG_id - Telegram ID користувача
- * @returns {string} - Текст звіту
+ * Generates a monthly report for a user based on their reflections.
+ * @param {string} tgId - Telegram ID of the user
+ * @returns {Promise<string>} - The generated report text
  */
-export async function generateMonthlyReport(TG_id) {
+export async function generateMonthlyReport(tgId) {
   try {
-    // Отримуємо відповіді користувача за останній місяць
-    const responses = await getUserResponses(TG_id, 'month');
+    // Fetch user reflections for the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const reflections = await getUserReflections(tgId, null, 100);
+    const responses = reflections
+      .filter(r => new Date(r.fields['Record DateTime']) >= thirtyDaysAgo)
+      .map(r => ({
+        question: r.fields['Question Type'],
+        answer: r.fields['User Response'] || 'немає відповіді',
+      }));
 
-    if (!responses || responses.length === 0) return 'Немає даних за місяць.';
+    if (!responses.length) return 'Немає даних за місяць.';
 
-    // Аналіз стану місяця
+    // Analyze dominant state
     const states = responses
-      .filter(r => r.question.includes('Який мій стан сьогодні?'))
+      .filter(r => r.question.includes('Який мій стан сьогодні'))
       .map(r => r.answer);
+    const dominantState = states.length
+      ? states.sort((a, b) => states.filter(v => v === b).length - states.filter(v => v === a).length)[0]
+      : 'немає даних';
 
-    const dominantState = states.length ? states.sort((a,b) =>
-      states.filter(v => v===b).length - states.filter(v => v===a).length
-    )[0] : 'немає даних';
-
-    // Переконання
+    // Aggregate data by question type
     const programs = responses
-      .filter(r => r.question.includes('Яка програма або переконання активувалась сьогодні?'))
+      .filter(r => r.question.includes('Яка програма або переконання активувалась сьогодні'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
-    // Роль
     const roles = responses
-      .filter(r => r.question.includes('Хто я сьогодні?'))
+      .filter(r => r.question.includes('Хто я сьогодні'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
-    // Цілі
     const goals = responses
       .filter(r => r.question.includes('Мої 10 цілей'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
-    // Джерела енергії
     const energySources = responses
-      .filter(r => r.question.includes('Що мене сьогодні наповнило енергією?'))
+      .filter(r => r.question.includes('Що мене сьогодні наповнило енергією'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
-    // Прориви
     const wins = responses
-      .filter(r => r.question.includes('Сьогодні я'))
+      .filter(r => r.question.includes('Яка моя головна перемога сьогодні'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
-    // Блоки
     const release = responses
       .filter(r => r.question.includes('Що стримувало'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
-    // Нова точка сили
     const newPower = responses
       .filter(r => r.question.includes('Твоя нова точка сили'))
       .map(r => r.answer)
-      .join('\n— ');
+      .join('\n— ') || 'немає даних';
 
-    const report = `
-Привіт! 🌟  
+    // Generate report text
+    return `
+Привіт! 🌟
 Ось твій AI-звіт за місяць:
 
-🧠 Стан місяця:  
-— Найчастіше ти була в стані: ${dominantState || 'немає даних'}
+🧠 Стан місяця:
+— Найчастіше ти була в стані: ${dominantState}
 
-🚧 Програми місяця:  
-— ${programs || 'немає даних'}
+🚧 Програми місяця:
+— ${programs}
 
-🎭 Твоя роль у реальності:  
-— ${roles || 'немає даних'}
+🎭 Твоя роль у реальності:
+— ${roles}
 
-🎯 Цілі:  
-— Топ повторювані цілі: ${goals || 'немає даних'}
+🎯 Цілі:
+— Топ повторювані цілі: ${goals}
 
-🌈 Джерело енергії:  
-— ${energySources || 'немає даних'}
+🌈 Джерело енергії:
+— ${energySources}
 
-🔥 Прориви:  
-— ${wins || 'немає даних'}
+🔥 Прориви:
+— ${wins}
 
-🕳 Що стримувало:  
-— ${release || 'немає даних'}
+🕳 Що стримувало:
+— ${release}
 
-⚡️ Нова точка сили:  
-— ${newPower || 'немає даних'}
+⚡️ Нова точка сили:
+— ${newPower}
 
-📌 Рекомендація на місяць:  
-— Дій із стану: [...]  
-— Обирай: [...]  
+📌 Рекомендація на місяць:
+— Дій із стану: [...]
+— Обирай: [...]
 — Фокус: [...]
 `;
-
-    return report;
-
   } catch (err) {
-    console.error('Error generating monthly report:', err);
+    console.error('Error generating monthly report:', err.message);
     return 'Помилка при формуванні місячного звіту.';
   }
 }
