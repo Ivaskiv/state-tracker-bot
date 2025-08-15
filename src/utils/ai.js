@@ -1,6 +1,9 @@
 // src/utils/ai.js
+// src/utils/ai.js
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import { getRandomAffirmation } from './airtable.js'; // функція для вибору випадкової афірмації з таблиці
+
 dotenv.config();
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -10,6 +13,12 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
  * type — 'Morning' | 'Evening'
  */
 export async function generateAIAnalytics(reflections, type) {
+  // Якщо немає даних — одразу беремо випадкову афірмацію
+  if (!reflections || reflections.length === 0) {
+    const fallback = await getRandomAffirmation();
+    return { affirmation: fallback, analyticsMessage: '' };
+  }
+
   // збираємо текст для AI
   const userData = reflections.map(r => `
 User Response: ${r.fields['User Response'] || ''}
@@ -30,18 +39,24 @@ Affirmation: ${r.fields['Affirmation'] || ''}
 ${userData}
 `;
 
-  const completion = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7,
-  });
+  try {
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+    });
 
-  const text = completion.choices[0].message.content.trim();
+    const text = completion.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error('Empty response from OpenAI');
 
-  // тут можна розбити текст на афірмацію та аналітику, якщо бажаєш
-  const [affirmation, ...analytics] = text.split('\n');
-  return {
-    affirmation: affirmation || 'Не вдалося згенерувати афірмацію.',
-    analyticsMessage: analytics.join('\n') || ''
-  };
+    const [affirmation, ...analytics] = text.split('\n');
+    return {
+      affirmation: affirmation || (await getRandomAffirmation()),
+      analyticsMessage: analytics.join('\n') || ''
+    };
+  } catch (err) {
+    console.error('AI analytics error:', err);
+    const fallback = await getRandomAffirmation();
+    return { affirmation: fallback, analyticsMessage: '' };
+  }
 }
