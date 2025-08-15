@@ -1,3 +1,4 @@
+//bot.js
 import { Telegraf, Scenes, session } from 'telegraf';
 import { config } from './config/config.js';
 import { getUserByTgId, createUser, updateUser } from './utils/airtable.js';
@@ -25,7 +26,6 @@ bot.start(async (ctx) => {
       Status: 'New User',
       'Active_Subscription_Status': '❌ Немає активної підписки',
       'Active Subscription Plan': '',
-      'Last Modified Time': new Date().toISOString()
     });
 
     await ctx.reply(config.messages.welcome, {
@@ -34,7 +34,7 @@ bot.start(async (ctx) => {
     return;
   }
 
-  await updateUser(userId, { 'Last Modified Time': new Date().toISOString() });
+  await updateUser(userId);
 
   const isActive = user.fields.Status === 'Active User';
   const isPaid = user.fields['Active_Subscription_Status']?.includes('✅ Активна');
