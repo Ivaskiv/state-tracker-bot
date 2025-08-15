@@ -73,8 +73,7 @@ paymentScene.enter(async (ctx) => {
 
     // Update user with order reference
     await updateUser(tgId, {
-      lastOrderReference: orderReference,
-      'Last Modified Time': formatDateTime(),
+      lastOrderReference: orderReference
     });
   } catch (error) {
     console.error('Error in payment scene enter:', error.message);
@@ -166,7 +165,7 @@ paymentScene.action('payment_cancel', async (ctx) => {
 // Helper function to generate payment link
 function generatePaymentLink({ tgId, orderReference, productName, amount, plan }) {
   // Placeholder for WayforPay integration
-  const baseUrl = process.env.PAYMENT_WEBHOOK_URL || 'https://your-domain.com';
+  const baseUrl = process.env.PAYMENT_WEBHOOK_URL;
   return `${baseUrl}/payment?order=${orderReference}&amount=${amount}&user=${tgId}&plan=${plan}`;
 }
 
@@ -185,7 +184,6 @@ async function handlePaymentConfirmation(tgId, orderReference, planInfo) {
       'Start_Date': formatDate(),
       'End_Date': formatDate(endDate),
       'Subscription Status': 'Paid',
-      'Last Modified Time': formatDateTime(),
     });
 
     console.log(`✅ Payment confirmed for user ${tgId}, order ${orderReference}`);

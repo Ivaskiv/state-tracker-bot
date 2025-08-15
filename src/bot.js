@@ -53,7 +53,7 @@ bot.command('morning', async (ctx) => {
   const userId = ctx.from.id.toString();
   const user = await getUserByTgId(userId);
   if (!user) return ctx.reply('Користувач не знайдений.');
-  await updateUser(userId, { 'Last Modified Time': new Date().toISOString() });
+  await updateUser(userId);
 
   if (user.fields.Status !== 'Active User' || !user.fields['Active_Subscription_Status']?.includes('✅ Активна')) {
     return ctx.reply(config.messages.subscriptionExpired, { reply_markup: { inline_keyboard: createKeyboard(config.keyboard.subscription) } });
@@ -66,7 +66,7 @@ bot.command('evening', async (ctx) => {
   const userId = ctx.from.id.toString();
   const user = await getUserByTgId(userId);
   if (!user) return ctx.reply('Користувач не знайдений.');
-  await updateUser(userId, { 'Last Modified Time': new Date().toISOString() });
+  await updateUser(userId);
 
   if (user.fields.Status !== 'Active User' || !user.fields['Active_Subscription_Status']?.includes('✅ Активна')) {
     return ctx.reply(config.messages.subscriptionExpired, { reply_markup: { inline_keyboard: createKeyboard(config.keyboard.subscription) } });
