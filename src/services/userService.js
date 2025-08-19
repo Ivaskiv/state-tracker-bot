@@ -1,81 +1,50 @@
-import { tables } from '../config/database.js';
+import { getBase, tables } from '../config/database.js';
 
-export const userService = {
-  // === User CRUD ===
-  async createUser(userData) {
-    try {
-      const record = await tables.users.create([
-        {
-          fields: {
-            telegram_id: userData.telegramId.toString(),
-            name: userData.name,
-            username: userData.username || '',
-            phone: userData.phone || '',
-            email: userData.email || '',
-            created_at: new Date().toISOString(),
-            is_active: true,
-            timezone: 'Europe/Kiev'
-          }
-        }
-      ]);
-      console.log('User created:', record[0].id);
-      return record[0];
-    } catch (error) {
-      console.error('Create user error:', error);
-      throw error;
-    }
-  },
-
-  async findUser(telegramId) {
-    try {
-      const records = await tables.users
-        .select({ filterByFormula: `{telegram_id} = "${telegramId}"` })
-        .firstPage();
-
-      return records.length > 0
-        ? { id: records[0].id, ...records[0].fields }
-        : null;
-    } catch (error) {
-      console.error('Find user error:', error);
-      throw error;
-    }
-  },
-
+const userService = {
+  // Отримати користувача по Telegram ID
   async getUserByTelegramId(telegramId) {
-    return this.findUser(telegramId);
+    const base = getBase();
+    const records = await base(tables.USERS)
+      .select({ filterByFormula: `{telegram_id} = "${telegramId}"` })
+      .firstPage();
+    return records.length ? { id: records[0].id, ...records[0].fields } : null;
   },
 
-  async updateUser(telegramId, updateData) {
-    try {
-      const user = await this.findUser(telegramId);
-      if (!user) throw new Error('User not found');
+  // Перевірити, чи користувач має активну підписку
+  async hasActiveSubscription(telegramId) {
+    const base = getBase();
+    const user = await this.getUserByTelegramId(telegramId);
+    if (!user) return false;
 
-      const record = await tables.users.update([
-        {
-          id: user.id,
-          fields: { ...updateData, updated_at: new Date().toISOString() }
-        }
-      ]);
-      return record[0];
-    } catch (error) {
-      console.error('Update user error:', error);
-      throw error;
-    }
+    const subscriptions = await base(tables.SUBSCRIPTIONS)
+      .select({ filterByFormula: `{user_id} = "${user.id}"` })
+      .firstPage();
+
+    return subscriptions.some(sub => sub.fields.status?.toLowerCase() === 'active');
   },
 
-  // === Validation / Formatting ===
+  // Валідація email
   validateEmail(email) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
   },
 
+  // Валідація телефону
   validatePhone(phone) {
     const re = /^\+380\d{9}$/;
     return re.test(phone);
   },
 
+  // Форматування телефону
   formatPhone(phone) {
     return phone.replace(/\s+/g, '');
+  },
+
+  // Створення нового користувача
+  async createUser(userData) {
+    const base = getBase();
+    return base(tables.USERS).create([{ fields: userData }]);
   }
 };
+
 export default userService;
