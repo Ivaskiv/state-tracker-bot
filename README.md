@@ -19,7 +19,7 @@ npm install
 Створіть файл `.env` з наступним вмістом:
 
 ```env
-TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
+TELEGRAM_TELEGRAM_BOT_TOKEN=your_TELEGRAM_BOT_TOKEN_from_botfather
 AIRTABLE_API_KEY=your_airtable_api_key
 AIRTABLE_BASE_ID=your_airtable_base_id
 PORT=3000
@@ -52,22 +52,44 @@ npm start
 ## 📋 Структура проекту
 
 ```
-state-tracker-bot/
+src/
 ├── config/
-│   └── airtable.js          # Конфігурація Airtable
+│   ├── database.js
+│   └── constants.js
+├── middleware/
+│   ├── auth.js
+│   └── errorHandler.js
 ├── services/
-│   ├── telegramBot.js       # Основний сервіс бота
-│   ├── airtableService.js   # Робота з базою даних
-│   ├── schedulerService.js  # Планувальник нагадувань
-│   └── aiAnalytics.js       # AI аналітика
-├── handlers/
-│   ├── registrationHandler.js # Реєстрація користувачів
-│   ├── questionHandler.js     # Обробка питань
-│   └── menuHandler.js         # Меню та звіти
+│   ├── airtableService.js
+│   ├── userService.js
+│   ├── subscriptionService.js
+│   ├── reflectionService.js
+│   ├── aiAnalyticsService.js
+│   ├── affirmationService.js
+│   └── schedulerService.js
+├── controllers/
+│   ├── botController.js
+│   ├── userController.js
+│   ├── reflectionController.js
+│   └── analyticsController.js
 ├── utils/
-│   ├── helpers.js           # Допоміжні функції
-│   └── constants.js         # Константи
-└── server.js                # Головний файл
+│   ├── keyboards.js
+│   ├── messages.js
+│   ├── dateHelpers.js
+│   └── validators.js
+├── handlers/
+│   ├── registrationHandler.js
+│   ├── subscriptionHandler.js
+│   ├── reflectionHandler.js
+│   └── commandHandler.js
+└── cron/
+    ├── morningReminders.js
+    ├── eveningReminders.js
+    ├── weeklyReports.js
+    └── monthlyReports.js
+├── package.json
+├── .env
+├── server.js
 ```
 
 ## 🎯 Функціональність

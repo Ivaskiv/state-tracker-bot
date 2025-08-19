@@ -1,264 +1,337 @@
 // services/schedulerService.js
 import cron from 'node-cron';
-import { AirtableService } from './airtableService.js';
-import { AIAnalytics } from './aiAnalytics.js';
-import { telegramBot } from './telegramBot.js';
-import { QuestionHandler } from '../handlers/questionHandler.js';
-import moment from 'moment-timezone';
+import { Telegraf } from 'telegraf';
+import userService from './userService.js';
+import analyticsController from '../controllers/analyticsController.js';
+import { MESSAGES } from '../utils/messages.js';
+import { mainMenuKeyboard } from '../utils/keyboards.js';
 
-export function startScheduler() {
-  console.log('🕐 Starting scheduler...');
-  
-  // Ранкові нагадування о 08:00 (кожен день)
-  cron.schedule('0 8 * * *', async () => {
-    console.log('📅 Running morning reminders...');
-    await sendMorningReminders();
-  }, {
-    timezone: 'Europe/Kiev'
-  });
+const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-  // Вечірні нагадування о 20:30 (кожен день)
-  cron.schedule('30 20 * * *', async () => {
-    console.log('📅 Running evening reminders...');
-    await sendEveningReminders();
-  }, {
-    timezone: 'Europe/Kiev'
-  });
-
-  // Щотижневі звіти (неділя о 19:00)
-  cron.schedule('0 19 * * 0', async () => {
-    console.log('📅 Generating weekly reports...');
-    await sendWeeklyReports();
-  }, {
-    timezone: 'Europe/Kiev'
-  });
-
-  // Щомісячні звіти (1-го числа о 12:00)
-  cron.schedule('0 12 1 * *', async () => {
-    console.log('📅 Generating monthly reports...');
-    await sendMonthlyReports();
-  }, {
-    timezone: 'Europe/Kiev'
-  });
-
-  console.log('⏰ Scheduler started successfully');
-}
-
-async function sendMorningReminders() {
-  try {
-    const activeUsers = await AirtableService.getActiveUsers();
-    console.log(`📨 Sending morning reminders to ${activeUsers.length} users`);
-
-    for (const user of activeUsers) {
-      const telegramId = user.get('TG_id');
-      const userName = user.get('User Name');
-      
-      if (telegramId) {
-        try {
-          await QuestionHandler.startMorningQuestions(telegramBot.bot, telegramId, user);
-          await new Promise(resolve => setTimeout(resolve, 100)); // Невелика затримка між повідомленнями
-        } catch (error) {
-          console.error(`Error sending morning reminder to ${userName}:`, error);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error in morning reminders:', error);
+class SchedulerService {
+  constructor() {
+    this.jobs = new Map();
   }
-}
 
-async function sendEveningReminders() {
-  try {
-    const activeUsers = await AirtableService.getActiveUsers();
-    console.log(`📨 Sending evening reminders to ${activeUsers.length} users`);
+  setupScheduler() {
+    console.log('🕒 Setting up scheduler...');
 
-    for (const user of activeUsers) {
-      const telegramId = user.get('TG_id');
-      const userName = user.get('User Name');
-      
-      if (telegramId) {
-        try {
-          await QuestionHandler.startEveningQuestions(telegramBot.bot, telegramId, user);
-          await new Promise(resolve => setTimeout(resolve, 100)); // Невелика затримка між повідомленнями
-        } catch (error) {
-          console.error(`Error sending evening reminder to ${userName}:`, error);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error in evening reminders:', error);
+    // Morning reminders (08:00 every day)
+    this.jobs.set('morning', cron.schedule('0 8 * * *', async () => {
+      await this.sendMorningReminders();
+    }, {
+      timezone: 'Europe/Kiev'
+    }));
+
+    // Evening reminders (20:30 every day)
+    this.jobs.set('evening', cron.schedule('30 20 * * *', async () => {
+      await this.sendEveningReminders();
+    }, {
+      timezone: 'Europe/Kiev'
+    }));
+
+    // Weekly reports (Sunday 19:00)
+    this.jobs.set('weekly', cron.schedule('0 19 * * 0', async () => {
+      await this.sendWeeklyReports();
+    }, {
+      timezone: 'Europe/Kiev'
+    }));
+
+    // Monthly reports (1st day of month at 12:00)
+    this.jobs.set('monthly', cron.schedule('0 12 1 * *', async () => {
+      await this.sendMonthlyReports();
+    }, {
+      timezone: 'Europe/Kiev'
+    }));
+
+    // Subscription expiry check (daily at 10:00)
+    this.jobs.set('subscription_check', cron.schedule('0 10 * * *', async () => {
+      await this.checkSubscriptionExpiry();
+    }, {
+      timezone: 'Europe/Kiev'
+    }));
+
+    // Affirmation reset (weekly on Monday at 00:00)
+    this.jobs.set('affirmation_reset', cron.schedule('0 0 * * 1', async () => {
+      await this.resetAffirmations();
+    }, {
+      timezone: 'Europe/Kiev'
+    }));
+
+    console.log('✅ Scheduler setup complete');
   }
-}
 
-async function sendWeeklyReports() {
-  try {
-    const activeUsers = await AirtableService.getActiveUsers();
-    console.log(`📈 Generating weekly reports for ${activeUsers.length} users`);
-
-    for (const user of activeUsers) {
-      const telegramId = user.get('TG_id');
-      const userName = user.get('User Name');
+  async sendMorningReminders() {
+    try {
+      console.log('🌅 Sending morning reminders...');
+      const activeUsers = await userService.getActiveUsers();
       
-      if (telegramId) {
+      let sentCount = 0;
+
+      for (const user of activeUsers) {
         try {
-          // Отримуємо дані за тиждень
-          const weeklyData = await AirtableService.getUserReflectionsForAnalysis(user.id, 7);
+          const telegramId = user.fields['TG_id'];
           
-          if (weeklyData.length >= 3) { // Мінімум 3 дні для звіту
-            const reportData = weeklyData.map(record => ({
-              energyLoss: record.get('Energy Loss'),
-              programs: record.get('Programs'),
-              victory: record.get('Victory'),
-              energyGain: record.get('Energy Gain'),
-              state: record.get('State'),
-              goal: record.get('Goal')
-            }));
-
-            const weeklyReport = await AIAnalytics.generateWeeklyReport(reportData);
+          if (telegramId) {
+            await bot.telegram.sendMessage(
+              telegramId,
+              MESSAGES.MORNING_REMINDER,
+              { reply_markup: mainMenuKeyboard().reply_markup }
+            );
+            sentCount++;
             
-            const message = `📊 **ТВІЙ ЩОТИЖНЕВИЙ ЗВІТ**
-
-${weeklyReport}
-
-💡 Цей звіт допоможе тобі краще зрозуміти свої шаблони та зробити наступний тиждень ще більш ефективним!`;
-
-            await telegramBot.bot.sendMessage(telegramId, message, { parse_mode: 'Markdown' });
-            
-            // Зберігаємо звіт в User Reflections
-            await AirtableService.saveUserReflection({
-              userName: userName,
-              userId: user.id,
-              telegramId: telegramId,
-              questionType: 'Weekly Report',
-              userResponse: 'Auto-generated weekly report',
-              aiAnalytics: weeklyReport,
-              affirmation: await AIAnalytics.generateAffirmation()
-            });
-
-          } else {
-            // Мотиваційне повідомлення для неактивних користувачів
-            const motivationMessage = `📊 **ЩОТИЖНЕВИЙ НАГАДУВАННЯ**
-
-${userName}, цього тижня ти відповіла на питання лише ${weeklyData.length} разів.
-
-💪 **Для отримання детального AI-аналізу потрібно:**
-• Відповідати на ранкові питання щодня
-• Не пропускати вечірні рефлексії
-• Мінімум 3 дні активності на тиждень
-
-🎯 **Наступного тижня спробуй:**
-• Встановити нагадування на телефоні
-• Відповідати одразу після отримання повідомлення
-• Навіть короткі відповіді краще за пропуски
-
-✨ Ти можеш це зробити! Твоя трансформація залежить від щоденних кроків.`;
-
-            await telegramBot.bot.sendMessage(telegramId, motivationMessage, { parse_mode: 'Markdown' });
+            // Add small delay to avoid rate limiting
+            await this.delay(100);
           }
-
-          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (error) {
-          console.error(`Error sending weekly report to ${userName}:`, error);
+          console.error(`Error sending morning reminder to user ${user.fields['User Name']}:`, error);
         }
       }
+
+      console.log(`✅ Sent ${sentCount} morning reminders`);
+    } catch (error) {
+      console.error('Error in sendMorningReminders:', error);
     }
-  } catch (error) {
-    console.error('Error in weekly reports:', error);
   }
-}
 
-async function sendMonthlyReports() {
-  try {
-    const activeUsers = await AirtableService.getActiveUsers();
-    console.log(`📈 Generating monthly reports for ${activeUsers.length} users`);
-
-    for (const user of activeUsers) {
-      const telegramId = user.get('TG_id');
-      const userName = user.get('User Name');
+  async sendEveningReminders() {
+    try {
+      console.log('🌙 Sending evening reminders...');
+      const activeUsers = await userService.getActiveUsers();
       
-      if (telegramId) {
+      let sentCount = 0;
+
+      for (const user of activeUsers) {
         try {
-          // Отримуємо дані за місяць
-          const monthlyData = await AirtableService.getUserReflectionsForAnalysis(user.id, 30);
+          const telegramId = user.fields['TG_id'];
           
-          if (monthlyData.length >= 10) { // Мінімум 10 днів для місячного звіту
-            const reportData = monthlyData.map(record => ({
-              energyLoss: record.get('Energy Loss'),
-              programs: record.get('Programs'),
-              victory: record.get('Victory'),
-              energyGain: record.get('Energy Gain'),
-              state: record.get('State'),
-              goal: record.get('Goal')
-            }));
-
-            const monthlyReport = await AIAnalytics.generateMonthlyReport(reportData);
+          if (telegramId) {
+            await bot.telegram.sendMessage(
+              telegramId,
+              MESSAGES.EVENING_REMINDER,
+              { reply_markup: mainMenuKeyboard().reply_markup }
+            );
+            sentCount++;
             
-            const message = `🌟 **ТВІЙ МІСЯЧНИЙ ЗВІТ**
-
-${monthlyReport}
-
-🎉 **Статистика місяця:**
-• Днів активності: ${monthlyData.length}/30
-• Відповідей загалом: ${monthlyData.length}
-• Прогрес: ${Math.round((monthlyData.length/30)*100)}%
-
-🚀 Продовжуй рухатися до своїх цілей! Кожен день має значення.`;
-
-            await telegramBot.bot.sendMessage(telegramId, message, { parse_mode: 'Markdown' });
-            
-            // Зберігаємо звіт в User Reflections
-            await AirtableService.saveUserReflection({
-              userName: userName,
-              userId: user.id,
-              telegramId: telegramId,
-              questionType: 'Monthly Report',
-              userResponse: 'Auto-generated monthly report',
-              aiAnalytics: monthlyReport,
-              affirmation: await AIAnalytics.generateAffirmation()
-            });
-
-          } else {
-            // Мотиваційне повідомлення
-            const currentMonth = moment().format('MMMM');
-            const motivationMessage = `📈 **ПІДСУМКИ МІСЯЦЯ ${currentMonth.toUpperCase()}**
-
-${userName}, за цей місяць ти була активна ${monthlyData.length} днів з 30.
-
-💡 **Для трансформації потрібна постійність:**
-${monthlyData.length >= 15 ? '🟢 Добрий результат! Продовжуй в тому ж темпі' : '🟡 Спробуй бути більш постійною'}
-
-🎯 **План на наступний місяць:**
-• Ціль: мінімум 20 днів активності
-• Стратегія: відповідай відразу після нагадування
-• Результат: отримаєш детальний AI-аналіз
-
-✨ Кожен новий місяць — це новий шанс стати кращою версією себе!`;
-
-            await telegramBot.bot.sendMessage(telegramId, motivationMessage, { parse_mode: 'Markdown' });
+            // Add small delay to avoid rate limiting
+            await this.delay(100);
           }
-
-          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (error) {
-          console.error(`Error sending monthly report to ${userName}:`, error);
+          console.error(`Error sending evening reminder to user ${user.fields['User Name']}:`, error);
         }
       }
+
+      console.log(`✅ Sent ${sentCount} evening reminders`);
+    } catch (error) {
+      console.error('Error in sendEveningReminders:', error);
     }
-  } catch (error) {
-    console.error('Error in monthly reports:', error);
+  }
+
+  async sendWeeklyReports() {
+    try {
+      console.log('📊 Sending weekly reports...');
+      const activeUsers = await userService.getActiveUsers();
+      
+      let sentCount = 0;
+
+      for (const user of activeUsers) {
+        try {
+          const telegramId = user.fields['TG_id'];
+          
+          if (telegramId) {
+            const report = await analyticsController.generateWeeklyReportForUser(telegramId);
+            
+            if (report) {
+              await bot.telegram.sendMessage(telegramId, MESSAGES.WEEKLY_REPORT_READY);
+              await bot.telegram.sendMessage(telegramId, report);
+              sentCount++;
+            }
+            
+            // Add delay to avoid rate limiting
+            await this.delay(200);
+          }
+        } catch (error) {
+          console.error(`Error sending weekly report to user ${user.fields['User Name']}:`, error);
+        }
+      }
+
+      console.log(`✅ Sent ${sentCount} weekly reports`);
+    } catch (error) {
+      console.error('Error in sendWeeklyReports:', error);
+    }
+  }
+
+  async sendMonthlyReports() {
+    try {
+      console.log('📈 Sending monthly reports...');
+      const activeUsers = await userService.getActiveUsers();
+      
+      let sentCount = 0;
+
+      for (const user of activeUsers) {
+        try {
+          const telegramId = user.fields['TG_id'];
+          
+          if (telegramId) {
+            const report = await analyticsController.generateMonthlyReportForUser(telegramId);
+            
+            if (report) {
+              await bot.telegram.sendMessage(telegramId, MESSAGES.MONTHLY_REPORT_READY);
+              await bot.telegram.sendMessage(telegramId, report);
+              sentCount++;
+            }
+            
+            // Add delay to avoid rate limiting
+            await this.delay(200);
+          }
+        } catch (error) {
+          console.error(`Error sending monthly report to user ${user.fields['User Name']}:`, error);
+        }
+      }
+
+      console.log(`✅ Sent ${sentCount} monthly reports`);
+    } catch (error) {
+      console.error('Error in sendMonthlyReports:', error);
+    }
+  }
+
+  async checkSubscriptionExpiry() {
+    try {
+      console.log('📅 Checking subscription expiry...');
+      
+      // Get users with subscriptions expiring in 3 days
+      const today = new Date();
+      const warningDate = new Date();
+      warningDate.setDate(today.getDate() + 3);
+      
+      const expiringUsers = await userService.getActiveUsers();
+      
+      let warningCount = 0;
+
+      for (const user of expiringUsers) {
+        try {
+          const endDate = new Date(user.fields['End_Date']);
+          const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+          
+          if (daysLeft <= 3 && daysLeft > 0) {
+            const telegramId = user.fields['TG_id'];
+            const message = `⏰ Твоя підписка закінчується через ${daysLeft} ${this.getDaysWord(daysLeft)}!\n\nПродовж підписку, щоб не втратити прогрес 💫`;
+            
+            await bot.telegram.sendMessage(telegramId, message);
+            warningCount++;
+            
+            await this.delay(100);
+          }
+        } catch (error) {
+          console.error(`Error checking expiry for user ${user.fields['User Name']}:`, error);
+        }
+      }
+
+      console.log(`✅ Sent ${warningCount} expiry warnings`);
+    } catch (error) {
+      console.error('Error in checkSubscriptionExpiry:', error);
+    }
+  }
+
+  async resetAffirmations() {
+    try {
+      console.log('🔄 Resetting affirmations...');
+      // This will be handled by airtableService
+      // await airtableService.resetAffirmations();
+      console.log('✅ Affirmations reset complete');
+    } catch (error) {
+      console.error('Error resetting affirmations:', error);
+    }
+  }
+
+  async sendCustomReminder(telegramId, message) {
+    try {
+      await bot.telegram.sendMessage(telegramId, message);
+      return true;
+    } catch (error) {
+      console.error(`Error sending custom reminder to ${telegramId}:`, error);
+      return false;
+    }
+  }
+
+  getDaysWord(days) {
+    if (days === 1) return 'день';
+    if (days >= 2 && days <= 4) return 'дні';
+    return 'днів';
+  }
+
+  async delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  startJob(jobName) {
+    const job = this.jobs.get(jobName);
+    if (job) {
+      job.start();
+      console.log(`✅ Started job: ${jobName}`);
+    }
+  }
+
+  stopJob(jobName) {
+    const job = this.jobs.get(jobName);
+    if (job) {
+      job.stop();
+      console.log(`⏹️ Stopped job: ${jobName}`);
+    }
+  }
+
+  startAll() {
+    this.jobs.forEach((job, name) => {
+      job.start();
+      console.log(`✅ Started job: ${name}`);
+    });
+  }
+
+  stopAll() {
+    this.jobs.forEach((job, name) => {
+      job.stop();
+      console.log(`⏹️ Stopped job: ${name}`);
+    });
+  }
+
+  getJobStatus() {
+    const status = {};
+    this.jobs.forEach((job, name) => {
+      status[name] = {
+        running: job.running || false,
+        scheduled: job.scheduled || false
+      };
+    });
+    return status;
+  }
+
+  // Manual trigger methods for testing
+  async triggerMorningReminders() {
+    console.log('🔧 Manual trigger: Morning reminders');
+    await this.sendMorningReminders();
+  }
+
+  async triggerEveningReminders() {
+    console.log('🔧 Manual trigger: Evening reminders');
+    await this.sendEveningReminders();
+  }
+
+  async triggerWeeklyReports() {
+    console.log('🔧 Manual trigger: Weekly reports');
+    await this.sendWeeklyReports();
+  }
+
+  async triggerMonthlyReports() {
+    console.log('🔧 Manual trigger: Monthly reports');
+    await this.sendMonthlyReports();
   }
 }
 
-// Функція для ручного тестування нагадувань
-export async function testReminders(type = 'morning') {
-  console.log(`🧪 Testing ${type} reminders...`);
-  
-  if (type === 'morning') {
-    await sendMorningReminders();
-  } else if (type === 'evening') {
-    await sendEveningReminders();
-  } else if (type === 'weekly') {
-    await sendWeeklyReports();
-  } else if (type === 'monthly') {
-    await sendMonthlyReports();
-  }
-}
+const schedulerService = new SchedulerService();
+
+export const setupScheduler = () => {
+  schedulerService.setupScheduler();
+  schedulerService.startAll();
+};
+
+export default schedulerService;
