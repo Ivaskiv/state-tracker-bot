@@ -1,89 +1,37 @@
-// utils/keyboards.js
-import { Markup } from 'telegraf';
-import { SUBSCRIPTION_PLANS } from '../config/constants.js';
+// src/utils/affirmations.js
+import { openai } from '../services/openaiClient.js';
+import { selectFromTable } from '../services/airtableClient.js';
 
-/** ================== Основне меню ================== */
-const mainMenuKeyboard = () =>
-  Markup.keyboard([
-    ['📝 Ранкові питання', '🌙 Вечірні питання'],
-    ['💰 Підписка', '📊 Мій прогрес'],
-    ['💎 Афірмація', '❓ Допомога']
-  ]).resize();
+export const AFFIRMATIONS = {
+  async getRandom() {
+    try {
+      // 1. Генеруємо афірмацію через OpenAI
+      const prompt = `Створи унікальну мотиваційну афірмацію українською, 8–20 слів, підтримуючу, теплу, для особистого розвитку та впевненості.`;
+      const response = await openai.createChatCompletion({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 60
+      });
 
-/** ================== Клавіатура підписок ================== */
-const subscriptionKeyboard = () =>
-  Markup.inlineKeyboard([
-    [Markup.button.callback('🔹 Тиждень фокусу — 7€', 'subscribe_week')],
-    [Markup.button.callback('🔹 Місяць дії — 30€', 'subscribe_month')],
-    [Markup.button.callback('🔹 Рік трансформації — 300€', 'subscribe_year')],
-    [Markup.button.callback('« Назад', 'back_to_main')]
-  ]);
+      const generated = response?.data?.choices?.[0]?.message?.content?.trim();
+      if (generated) return generated;
 
-/** ================== Підтвердження підписки ================== */
-const confirmSubscriptionKeyboard = (plan) =>
-  Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Підтвердити оплату', `confirm_${plan}`)],
-    [Markup.button.callback('« Назад до планів', 'back_to_subscription')]
-  ]);
+      // 2. Якщо AI не дав результат, беремо з Airtable
+      const records = await selectFromTable('Affirmations', {
+        maxRecords: 50,
+        filterByFormula: "NOT({Used})"
+      }).firstPage();
 
-/** ================== Реєстрація ================== */
-const registrationKeyboard = () =>
-  Markup.keyboard([
-    ['📝 Продовжити реєстрацію'],
-    ['❓ Допомога']
-  ]).resize();
+      if (!records.length) return 'Не вдалося згенерувати унікальну афірмацію.';
 
-/** ================== Пропуск питання ================== */
-const skipKeyboard = () =>
-  Markup.keyboard([
-    ['⏭️ Пропустити'],
-    ['❓ Допомога']
-  ]).resize();
+      const record = records[0];
+      await record.patchUpdate({ Used: true });
 
-/** ================== Прогрес користувача ================== */
-const progressKeyboard = () =>
-  Markup.inlineKeyboard([
-    [Markup.button.callback('📊 Щотижневий звіт', 'weekly_report')],
-    [Markup.button.callback('📈 Щомісячний звіт', 'monthly_report')],
-    [Markup.button.callback('« Назад', 'back_to_main')]
-  ]);
+      return record.fields.Affirmation || 'Не вдалося згенерувати унікальну афірмацію.';
 
-/** ================== Допомога ================== */
-const helpKeyboard = () =>
-  Markup.inlineKeyboard([
-    [Markup.button.callback('🔄 Скинути прогрес', 'reset_progress')],
-    [Markup.button.callback('💌 Зв\'язатися з підтримкою', 'contact_support')],
-    [Markup.button.callback('« Назад', 'back_to_main')]
-  ]);
-
-/** ================== Продовження ================== */
-const continueKeyboard = () =>
-  Markup.keyboard([
-    ['▶️ Продовжити'],
-    ['🏠 Головне меню']
-  ]).resize();
-
-/** ================== Так/Ні ================== */
-const yesNoKeyboard = () =>
-  Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Так', 'yes')],
-    [Markup.button.callback('❌ Ні', 'no')]
-  ]);
-
-/** ================== Видалити клавіатуру ================== */
-const removeKeyboard = () => Markup.removeKeyboard();
-
-/** ================== Експорт об’єкта KEYBOARDS ================== */
-export const KEYBOARDS = {
-  MAIN_MENU: mainMenuKeyboard(),
-  BACK_TO_MENU: mainMenuKeyboard(),
-  SUPPORT_MENU: subscriptionKeyboard(),
-  CONFIRM_SUBSCRIPTION: confirmSubscriptionKeyboard,
-  REGISTRATION: registrationKeyboard(),
-  SKIP: skipKeyboard(),
-  PROGRESS: progressKeyboard(),
-  HELP: helpKeyboard(),
-  CONTINUE: continueKeyboard(),
-  YES_NO: yesNoKeyboard(),
-  REMOVE: removeKeyboard()
+    } catch (error) {
+      console.error('Error fetching affirmation:', error);
+      return 'Не вдалося згенерувати унікальну афірмацію.';
+    }
+  }
 };

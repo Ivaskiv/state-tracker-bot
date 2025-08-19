@@ -3,7 +3,7 @@ import { Markup } from 'telegraf';
 import { SUBSCRIPTION_PLANS } from '../config/constants.js';
 
 /** ================== Основне меню ================== */
-export const mainMenuKeyboard = () => 
+export const mainMenuKeyboard = () =>
   Markup.keyboard([
     ['📝 Ранкові питання', '🌙 Вечірні питання'],
     ['💰 Підписка', '📊 Мій прогрес'],
@@ -11,7 +11,7 @@ export const mainMenuKeyboard = () =>
   ]).resize();
 
 /** ================== Клавіатура підписок ================== */
-export const subscriptionKeyboard = () => 
+export const subscriptionKeyboard = () =>
   Markup.inlineKeyboard([
     [Markup.button.callback('🔹 Тиждень фокусу — 7€', 'subscribe_week')],
     [Markup.button.callback('🔹 Місяць дії — 30€', 'subscribe_month')],
@@ -20,28 +20,28 @@ export const subscriptionKeyboard = () =>
   ]);
 
 /** ================== Підтвердження підписки ================== */
-export const confirmSubscriptionKeyboard = (plan) => 
+export const confirmSubscriptionKeyboard = (plan) =>
   Markup.inlineKeyboard([
     [Markup.button.callback('✅ Підтвердити оплату', `confirm_${plan}`)],
     [Markup.button.callback('« Назад до планів', 'back_to_subscription')]
   ]);
 
 /** ================== Реєстрація ================== */
-export const registrationKeyboard = () => 
+export const registrationKeyboard = () =>
   Markup.keyboard([
     ['📝 Продовжити реєстрацію'],
     ['❓ Допомога']
   ]).resize();
 
 /** ================== Пропуск питання ================== */
-export const skipKeyboard = () => 
+export const skipKeyboard = () =>
   Markup.keyboard([
     ['⏭️ Пропустити'],
     ['❓ Допомога']
   ]).resize();
 
 /** ================== Прогрес користувача ================== */
-export const progressKeyboard = () => 
+export const progressKeyboard = () =>
   Markup.inlineKeyboard([
     [Markup.button.callback('📊 Щотижневий звіт', 'weekly_report')],
     [Markup.button.callback('📈 Щомісячний звіт', 'monthly_report')],
@@ -49,7 +49,7 @@ export const progressKeyboard = () =>
   ]);
 
 /** ================== Допомога ================== */
-export const helpKeyboard = () => 
+export const helpKeyboard = () =>
   Markup.inlineKeyboard([
     [Markup.button.callback('🔄 Скинути прогрес', 'reset_progress')],
     [Markup.button.callback('💌 Зв\'язатися з підтримкою', 'contact_support')],
@@ -57,14 +57,14 @@ export const helpKeyboard = () =>
   ]);
 
 /** ================== Продовження ================== */
-export const continueKeyboard = () => 
+export const continueKeyboard = () =>
   Markup.keyboard([
     ['▶️ Продовжити'],
     ['🏠 Головне меню']
   ]).resize();
 
 /** ================== Так/Ні ================== */
-export const yesNoKeyboard = () => 
+export const yesNoKeyboard = () =>
   Markup.inlineKeyboard([
     [Markup.button.callback('✅ Так', 'yes')],
     [Markup.button.callback('❌ Ні', 'no')]

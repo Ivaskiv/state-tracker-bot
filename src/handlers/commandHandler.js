@@ -1,6 +1,6 @@
 // handlers/commandHandler.js
+import reflectionService from '../services/reflectionService.js';
 import { userService } from '../services/userService.js';
-import { reflectionService } from '../services/reflectionService.js';
 import * as KEYBOARDS from '../utils/keyboards.js';
 
 export const commandHandler = {

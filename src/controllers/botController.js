@@ -8,12 +8,14 @@ import {
   helpKeyboard,
   removeKeyboard
 } from '../utils/keyboards.js';
+
 import registrationHandler from '../handlers/registrationHandler.js';
 import subscriptionHandler from '../handlers/subscriptionHandler.js';
 import reflectionHandler from '../handlers/reflectionHandler.js';
 import commandHandler from '../handlers/commandHandler.js';
 import userService from '../services/userService.js';
 import affirmationService from '../services/affirmationService.js';
+
 
 export default function setupBot(bot) {
   
@@ -24,9 +26,7 @@ export default function setupBot(bot) {
       const user = await userService.getUserByTelegramId(telegramId);
       
       if (user) {
-        // User exists
         const hasActiveSubscription = await userService.hasActiveSubscription(telegramId);
-        
         if (hasActiveSubscription) {
           await ctx.reply(MESSAGES.ALREADY_REGISTERED, mainMenuKeyboard());
         } else {
@@ -34,7 +34,6 @@ export default function setupBot(bot) {
           await ctx.reply(MESSAGES.SUBSCRIPTION_INFO, subscriptionKeyboard());
         }
       } else {
-        // New user
         await ctx.reply(MESSAGES.WELCOME);
         await ctx.reply(MESSAGES.REGISTRATION_START, registrationKeyboard());
         ctx.session.step = 'registration_name';
@@ -82,7 +81,7 @@ export default function setupBot(bot) {
 
   bot.hears('💎 Афірмація', async (ctx) => {
     const affirmation = await affirmationService.getRandomAffirmation();
-    await ctx.reply(`${MESSAGES.AFFIRMATION_REQUEST}\n\n✨ ${affirmation}`);
+    await ctx.reply(`${MESSAGES.AFFIRMATION_REQUEST}\n\n✨ ${affirmation}`, mainMenuKeyboard());
   });
 
   bot.hears('❓ Допомога', async (ctx) => {
@@ -100,7 +99,7 @@ export default function setupBot(bot) {
     await ctx.reply(MESSAGES.REGISTRATION_START, removeKeyboard());
   });
 
-  // Subscription action handlers
+  // Subscription actions
   bot.action('subscribe_week', (ctx) => subscriptionHandler.selectPlan(ctx, 'week'));
   bot.action('subscribe_month', (ctx) => subscriptionHandler.selectPlan(ctx, 'month'));
   bot.action('subscribe_year', (ctx) => subscriptionHandler.selectPlan(ctx, 'year'));
@@ -109,23 +108,23 @@ export default function setupBot(bot) {
     ctx.editMessageText(MESSAGES.SUBSCRIPTION_INFO, subscriptionKeyboard());
   });
 
-  // Progress action handlers
+  // Progress actions
   bot.action('weekly_report', (ctx) => commandHandler.generateWeeklyReport(ctx));
   bot.action('monthly_report', (ctx) => commandHandler.generateMonthlyReport(ctx));
 
-  // Help action handlers
+  // Help actions
   bot.action('reset_progress', (ctx) => commandHandler.resetProgress(ctx));
   bot.action('contact_support', (ctx) => {
     ctx.editMessageText(MESSAGES.CONTACT_SUPPORT);
   });
 
-  // Back to main menu handlers
+  // Back to main menu
   bot.action('back_to_main', async (ctx) => {
     await ctx.editMessageText(MESSAGES.MAIN_MENU);
     await ctx.reply(MESSAGES.MAIN_MENU, mainMenuKeyboard());
   });
 
-  // Continue handlers for questions
+  // Continue handlers
   bot.hears('▶️ Продовжити', async (ctx) => {
     if (ctx.session.questionType === 'morning') {
       await reflectionHandler.handleMorningQuestion(ctx);
@@ -142,12 +141,11 @@ export default function setupBot(bot) {
     }
   });
 
-  // Text message handler
+  // Text messages
   bot.on('text', async (ctx) => {
     const text = ctx.message.text;
-    
     try {
-      // Registration flow
+      // Registration
       if (ctx.session.step) {
         switch (ctx.session.step) {
           case 'registration_name':
@@ -159,12 +157,9 @@ export default function setupBot(bot) {
           case 'registration_phone':
             await registrationHandler.handlePhone(ctx, text);
             break;
-          default:
-            break;
         }
       }
-      
-      // Question answering flow
+      // Questions
       else if (ctx.session.questionType) {
         if (ctx.session.questionType === 'morning') {
           await reflectionHandler.handleMorningAnswer(ctx, text);
@@ -172,12 +167,10 @@ export default function setupBot(bot) {
           await reflectionHandler.handleEveningAnswer(ctx, text);
         }
       }
-      
-      // Default response for unrecognized text
+      // Default fallback
       else {
         const telegramId = ctx.from.id;
         const user = await userService.getUserByTelegramId(telegramId);
-        
         if (!user) {
           await ctx.reply(MESSAGES.REGISTRATION_START, registrationKeyboard());
           ctx.session.step = 'registration_name';

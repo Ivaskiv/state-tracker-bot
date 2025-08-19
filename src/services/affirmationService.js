@@ -1,17 +1,23 @@
-import { AFFIRMATIONS, KEYBOARDS } from "../utils/affirmations.js";
+// services/affirmationService.js
+import { AFFIRMATIONS } from "../utils/affirmations.js";
+import {
+  mainMenuKeyboard,
+  subscriptionKeyboard,
+  confirmSubscriptionKeyboard,
+  removeKeyboard
+} from "../utils/keyboards.js";
 
-export const affirmationService = {
+const affirmationService = {
   async sendRandomAffirmation(ctx) {
     try {
       const affirmation = await AFFIRMATIONS.getRandom();
       const message = `✨ Твоя афірмація:\n\n${affirmation}\n\nПовтори її кілька разів і відчуй силу цих слів. 💫`;
 
       if (ctx.callbackQuery) {
-        await ctx.editMessageText(message, KEYBOARDS.BACK_TO_MENU);
+        await ctx.editMessageText(message, subscriptionKeyboard());
       } else {
-        await ctx.reply(message, KEYBOARDS.MAIN_MENU);
+        await ctx.reply(message, mainMenuKeyboard());
       }
-
     } catch (error) {
       console.error('Send affirmation error:', error);
       await ctx.reply('Виникла помилка при відправці афірмації. Спробуйте ще раз.');
@@ -57,13 +63,12 @@ export const affirmationService = {
 
 Ти можеш більше, ніж думаєш. Йди вперед! 🚀`;
       }
-      
+
       if (ctx.callbackQuery) {
-        await ctx.editMessageText(message, KEYBOARDS.SUPPORT_MENU);
+        await ctx.editMessageText(message, subscriptionKeyboard());
       } else {
-        await ctx.reply(message, KEYBOARDS.SUPPORT_MENU);
+        await ctx.reply(message, subscriptionKeyboard());
       }
-      
     } catch (error) {
       console.error('Send motivational message error:', error);
       await ctx.reply('Виникла помилка. Спробуйте ще раз.');
@@ -80,10 +85,12 @@ export const affirmationService = {
       const affirmation = this.getRandomAffirmation();
       const message = `🌅 Доброго ранку! Ось твоя афірмація на день:\n\n${affirmation}\n\nХай цей день принесе тобі силу та натхнення! ✨`;
       
-      await bot.telegram.sendMessage(telegramId, message);
+      await bot.telegram.sendMessage(telegramId, message, { reply_markup: mainMenuKeyboard().reply_markup });
       console.log(`Daily affirmation sent to user ${telegramId}`);
     } catch (error) {
       console.error(`Failed to send daily affirmation to ${telegramId}:`, error);
     }
   }
 };
+
+export default affirmationService;

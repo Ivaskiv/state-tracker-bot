@@ -1,6 +1,7 @@
+// services/reflectionService.js
 import { getBase, tables } from '../config/database.js';
 
-export const reflectionService = {
+const reflectionService = {
   async saveReflection(reflectionData) {
     const base = getBase();
     try {
@@ -47,3 +48,5 @@ export const reflectionService = {
     }
   }
 };
+
+export default reflectionService;
