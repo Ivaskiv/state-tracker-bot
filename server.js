@@ -231,7 +231,7 @@ case "📞 Зв'язок з нами":
     `Хочеш особисту роботу з ментором?\n` +
     `Напиши на Email з темою "Персональна консультація" — обговоримо можливості.`;
 
-      await ctx.reply(contactMsg, { reply_markup: keyboards.supportKeyboard() });
+      await ctx.reply(contactMsg, keyboards.supportKeyboard() );
   break;
 
     default:
