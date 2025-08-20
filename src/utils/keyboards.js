@@ -1,13 +1,14 @@
 // src/utils/keyboards.js
 import { Markup } from 'telegraf';
 
-const mainMenuKeyboard = () =>
-  Markup.keyboard([
-    ['🌞 Ранкові питання', '🌙 Вечірні питання'],
-    ['💰 Підписка', '📊 Мій прогрес'],
-    ['💎 Афірмація', '❓ Допомога'],
+const mainMenuKeyboard = () => {
+  return Markup.keyboard([
+  //  ["🌞 Ранкові питання", "🌙 Вечірні питання"],
+    ["💎 Афірмація", "📊 Мій прогрес"],
+    ["💰 Підписка", "❓ Допомога"],
     ["📋 Інструкції", "📞 Зв'язок з нами"]
-  ]).resize();
+  ]).resize().persistent();
+};
 
 const skipKeyboard = () =>
   Markup.keyboard([

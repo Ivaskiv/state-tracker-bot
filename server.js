@@ -214,13 +214,15 @@ case "📞 Зв'язок з нами":
     `📞 ЗВ'ЯЗОК З НАМИ\n\n` +
     `💬 **ТЕХНІЧНА ПІДТРИМКА:**\n` +
     `Email: nadyastarway@gmail.com\n` +
+    `Telegram: @Nadya2316 (ментор)\n` +
+    `Telegram: @vira_333 (техпідтримка)\n\n` +
     `Напиши нам, якщо:\n` +
     `• Виникли проблеми з ботом\n` +
     `• Не працює підписка\n` +
     `• Потрібна допомога з налаштуванням\n\n` +
     
     `📋 **ПИТАННЯ ПРО МАРАФОН:**\n` +
-    `Якщо у тебе є питання про програму або методику — також пиши на Email вище.\n\n` +
+    `Якщо у тебе є питання про програму або методику — пиши ментору.\n\n` +
     
     `⏰ **ЧАС ВІДПОВІДІ:**\n` +
     `Зазвичай відповідаємо протягом 24 годин.\n\n` +
@@ -230,13 +232,13 @@ case "📞 Зв'язок з нами":
     `Напиши на Email з темою "Персональна консультація" — обговоримо можливості.`;
 
   const contactButtons = [
-    [Markup.button.url("✉️ Написати Email", "mailto:nadyastarway@gmail.com")],
-    [Markup.button.url("📱 Telegram підтримка ментора", "https://t.me/@Nadya2316")] 
+    [Markup.button.url("📱 Telegram підтримка ментора", "https://t.me/Nadya2316")],
+    [Markup.button.url("🔧 Техпідтримка бота", "https://t.me/vira_333")]
   ];
 
   await ctx.reply(contactMsg, Markup.inlineKeyboard(contactButtons));
   break;
-      
+
     default:
       await ctx.reply("📝 Для перегляду профілю введіть /profile або /start для реєстрації.");
       break;
