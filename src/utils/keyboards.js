@@ -10,11 +10,13 @@ const mainMenuKeyboard = () => {
   ]).resize();
 };
 
-const supportKeyboard = () =>
-  Markup.keyboard([
-    ['📱 Telegram підтримка ментора'],
-    ['🔧 Техпідтримка бота']
-  ]).resize();
+const supportKeyboard = () => {
+  console.log('supportKeyboard викликано');
+  return Markup.inlineKeyboard([
+    [Markup.button.url('📱 Telegram підтримка ментора', 'https://t.me/Nadya2316')],
+    [Markup.button.url('🔧 Техпідтримка бота', 'https://t.me/vira_333')]
+  ]);
+};
 
 const skipKeyboard = () =>
   Markup.keyboard([
