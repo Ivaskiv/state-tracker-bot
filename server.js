@@ -55,13 +55,13 @@ bot.on("text", async (ctx) => {
   }
 
   switch (text) {
-    case "📝 Ранкові питання":
-      await startQuestions(ctx, "morning");
-      break;
+    // case "📝 Ранкові питання":
+    //   await startQuestions(ctx, "morning");
+    //   break;
 
-    case "🌙 Вечірні питання":
-      await startQuestions(ctx, "evening");
-      break;
+    // case "🌙 Вечірні питання":
+    //   await startQuestions(ctx, "evening");
+    //   break;
 
       
 
