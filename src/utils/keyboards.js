@@ -10,6 +10,12 @@ const mainMenuKeyboard = () => {
   ]).resize();
 };
 
+const supportKeyboard = () =>
+  Markup.keyboard([
+    ['📱 Telegram підтримка ментора'],
+    ['🔧 Техпідтримка бота']
+  ]).resize();
+
 const skipKeyboard = () =>
   Markup.keyboard([
     ['⏭️ Пропустити'],
@@ -26,6 +32,7 @@ const subscriptionKeyboard = () =>
 
 export default {
   mainMenuKeyboard,
+  supportKeyboard,
   skipKeyboard,
   subscriptionKeyboard
 };

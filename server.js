@@ -231,12 +231,7 @@ case "📞 Зв'язок з нами":
     `Хочеш особисту роботу з ментором?\n` +
     `Напиши на Email з темою "Персональна консультація" — обговоримо можливості.`;
 
-  const contactButtons = [
-    [Markup.button.url("📱 Telegram підтримка ментора", "https://t.me/Nadya2316")],
-    [Markup.button.url("🔧 Техпідтримка бота", "https://t.me/vira_333")]
-  ];
-
-  await ctx.reply(contactMsg, Markup.inlineKeyboard(contactButtons));
+      await ctx.reply(contactMsg, { reply_markup: keyboards.supportKeyboard() });
   break;
 
     default:
