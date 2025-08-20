@@ -1,82 +1,76 @@
+// src/services/schedulerService.js
 import cron from 'node-cron';
-import dotenv from 'dotenv';
-import Airtable from 'airtable';
-import { startQuestions } from '../handlers/questionHandler.js';
-import reportService from './reportService.js'; 
+import userService from './userService.js';
+import reflectionService from './reflectionService.js';
+import reportService from './reportService.js';
 
-dotenv.config();
+function isLastDayOfMonth(d = new Date()) {
+  const test = new Date(d.getFullYear(), d.getMonth() + 1, 0); // останній день
+  return d.getDate() === test.getDate();
+}
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
-let bot;
+export default async function schedulerService(bot) {
+  console.log('🕒 Setting up scheduler...');
 
-export default {
-  initBot(b) {
-    bot = b;
-  },
-
-  async setupScheduler() {
-    async function getActiveUsers() {
-      const records = await base('Users')
-        .select({
-          filterByFormula: "AND({Active_Subscription_Status} != '', {Status}='Active User')"
-        })
-        .all();
-      return records.map(r => ({
-        id: r.fields.TG_id,
-        name: r.fields['User Name']
-      }));
-    }
-
-    async function sendQuestionsToUser(user, type) {
+  // Morning questions at 08:00 Europe/Kyiv
+  cron.schedule('0 8 * * *', async () => {
+    const users = await userService.getActiveUsers();
+    for (const u of users) {
       try {
-        const ctx = {
-          from: { id: user.id },
-          session: {}
-        };
-        await startQuestions(ctx, type);
-        console.log(`✅ Надіслано ${type} питання користувачу ${user.name}`);
-      } catch (err) {
-        console.error(`❌ Помилка при надсиланні ${type} питань ${user.name}:`, err);
+        const already = await reflectionService.alreadyAnsweredToday(u.tgId, 'morning');
+        if (!already) {
+          await reflectionService.startDailyQuestions(bot, u.tgId, 'morning');
+        }
+      } catch (e) {
+        console.error('Morning send error:', u.tgId, e?.message);
       }
     }
+  }, { timezone: 'Europe/Kyiv' });
 
-    // Ранкові питання о 08:00
-    cron.schedule('0 8 * * *', async () => {
-      const users = await getActiveUsers();
-      for (const user of users) await sendQuestionsToUser(user, 'morning');
-    });
-
-    // Вечірні питання о 20:30
-    cron.schedule('30 20 * * *', async () => {
-      const users = await getActiveUsers();
-      for (const user of users) await sendQuestionsToUser(user, 'evening');
-    });
-
-    // Тижневий звіт о 21:00 щонеділі
-    cron.schedule('0 21 * * 0', async () => {
-      const users = await getActiveUsers();
-      for (const user of users) {
-        const report = await reportService.generateWeeklyReport(user.id);
-        await bot.telegram.sendMessage(user.id, report);
-        console.log(`📊 Надіслано тижневий звіт користувачу ${user.name}`);
+  // Evening questions at 20:30 Europe/Kyiv
+  cron.schedule('30 20 * * *', async () => {
+    const users = await userService.getActiveUsers();
+    for (const u of users) {
+      try {
+        const already = await reflectionService.alreadyAnsweredToday(u.tgId, 'evening');
+        if (!already) {
+          await reflectionService.startDailyQuestions(bot, u.tgId, 'evening');
+        }
+      } catch (e) {
+        console.error('Evening send error:', u.tgId, e?.message);
       }
-    });
+    }
+  }, { timezone: 'Europe/Kyiv' });
 
-// Місячний звіт о 22:00 останнього дня місяця
-cron.schedule('0 22 * * *', async () => {
-  const today = new Date();
-  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(); 
+  // Weekly report Sunday 21:00 Europe/Kyiv
+  cron.schedule('0 21 * * 0', async () => {
+    const users = await userService.getActiveUsers();
+    for (const u of users) {
+      try {
+        const report = await reportService.generateWeeklyReport(u.tgId);
+        await bot.telegram.sendMessage(u.tgId, report);
+      } catch (e) {
+        console.error('Weekly report error:', u.tgId, e?.message);
+      }
+    }
+  }, { timezone: 'Europe/Kyiv' });
 
-  if (today.getDate() !== lastDay) return; 
+  // Monthly report: every day 22:00, send only if last day of month
+  cron.schedule('0 22 * * *', async () => {
+    if (!isLastDayOfMonth()) return;
+    const users = await userService.getActiveUsers();
+    for (const u of users) {
+      try {
+        const report = await reportService.generateMonthlyReport(u.tgId);
+        await bot.telegram.sendMessage(u.tgId, report);
+      } catch (e) {
+        console.error('Monthly report error:', u.tgId, e?.message);
+      }
+    }
+  }, { timezone: 'Europe/Kyiv' });
 
-  const users = await getActiveUsers();
-  for (const user of users) {
-    const report = await reportService.generateMonthlyReport(user.id);
-    await bot.telegram.sendMessage(user.id, report);
-    console.log(`📈 Надіслано місячний звіт користувачу ${user.name}`);
-  }
-});
-
-    console.log('✅ Scheduler initialized');
-  }
-};
+  console.log('✅ Started job: morning');
+  console.log('✅ Started job: evening');
+  console.log('✅ Started job: weekly');
+  console.log('✅ Started job: monthly');
+}

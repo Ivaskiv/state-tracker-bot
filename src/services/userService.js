@@ -1,50 +1,62 @@
-import { getBase, tables } from '../config/database.js';
+// src/services/userService.js
+import base from '../config/airtable.js';
 
-const userService = {
-  // Отримати користувача по Telegram ID
-  async getUserByTelegramId(telegramId) {
-    const base = getBase();
-    const records = await base(tables.USERS)
-      .select({ filterByFormula: `{telegram_id} = "${telegramId}"` })
-      .firstPage();
-    return records.length ? { id: records[0].id, ...records[0].fields } : null;
-  },
+const USERS = 'Users';
 
-  // Перевірити, чи користувач має активну підписку
-  async hasActiveSubscription(telegramId) {
-    const base = getBase();
-    const user = await this.getUserByTelegramId(telegramId);
-    if (!user) return false;
+async function getUserByTelegramId(tgId) {
+  const records = await base(USERS).select({
+    filterByFormula: `{TG_id} = "${String(tgId)}"`,
+    maxRecords: 1
+  }).firstPage();
+  return records[0] || null;
+}
 
-    const subscriptions = await base(tables.SUBSCRIPTIONS)
-      .select({ filterByFormula: `{user_id} = "${user.id}"` })
-      .firstPage();
+async function createUser({ tgId, name, email = '', phone = '' }) {
+  const created = await base(USERS).create([{
+    fields: {
+      'User Name': name,
+      'TG_id': String(tgId),
+      'Email': email,
+      'Phone': phone,
+      'UserRegistered': true,
+      'DateUserRegistered': new Date().toISOString(),
+      'Status': 'Registered User',
+      'Subscription Status': 'Empty',
+      'Time Zone': 'Europe/Kyiv'
+    }
+  }], { typecast: true });
+  return created[0];
+}
 
-    return subscriptions.some(sub => sub.fields.status?.toLowerCase() === 'active');
-  },
+async function updateUser(recordId, fields) {
+  const updated = await base(USERS).update([{ id: recordId, fields }], { typecast: true });
+  return updated[0];
+}
 
-  // Валідація email
-  validateEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  },
+async function hasActiveSubscription(tgId) {
+  const user = await getUserByTelegramId(tgId);
+  if (!user) return false;
+  const v = user.fields['Active_Subscription_Status'];
+  // Поле в твоїй базі формульне та містить "✅ Активна до DD.MM.YYYY"
+  return typeof v === 'string' && v.includes('✅ Активна');
+}
 
-  // Валідація телефону
-  validatePhone(phone) {
-    const re = /^\+380\d{9}$/;
-    return re.test(phone);
-  },
+async function getActiveUsers() {
+  const records = await base(USERS).select({
+    filterByFormula: `AND({Active_Subscription_Status} != '', FIND("✅ Активна", {Active_Subscription_Status}) > 0, {Status} = 'Active User')`
+  }).all();
 
-  // Форматування телефону
-  formatPhone(phone) {
-    return phone.replace(/\s+/g, '');
-  },
+  return records.map(r => ({
+    airtableId: r.id,
+    tgId: r.fields.TG_id,
+    name: r.fields['User Name'] || 'Користувач'
+  }));
+}
 
-  // Створення нового користувача
-  async createUser(userData) {
-    const base = getBase();
-    return base(tables.USERS).create([{ fields: userData }]);
-  }
+export default {
+  getUserByTelegramId,
+  createUser,
+  updateUser,
+  hasActiveSubscription,
+  getActiveUsers
 };
-
-export default userService;
