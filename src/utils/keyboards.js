@@ -7,7 +7,7 @@ const mainMenuKeyboard = () => {
     ["💎 Афірмація", "📊 Мій прогрес"],
     ["💰 Підписка", "❓ Допомога"],
     ["📋 Інструкції", "📞 Зв'язок з нами"]
-  ]).resize().persistent();
+  ]).resize();
 };
 
 const skipKeyboard = () =>
