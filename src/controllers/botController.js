@@ -1,32 +1,20 @@
-import reflectionHandler from '../handlers/reflectionHandler.js';
-import userService from '../services/userService.js';
-import { MESSAGES } from '../utils/messages.js';
-import { mainMenuKeyboard, subscriptionKeyboard } from '../utils/keyboards.js';
+// src/controllers/botController.js
+import { startQuestions, handleAnswer, skipQuestion } from '../handlers/questionHandler.js';
 
-// Приклад хендлера старту
-export default function setupBot(bot) {
+export default function botController(bot) {
   bot.start(async (ctx) => {
-    const telegramId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(telegramId);
-
-    if (user) {
-      const hasActiveSubscription = await userService.hasActiveSubscription(telegramId);
-      if (hasActiveSubscription) {
-        await ctx.reply(MESSAGES.ALREADY_REGISTERED, mainMenuKeyboard());
-      } else {
-        await ctx.reply(MESSAGES.SUBSCRIPTION_INFO, subscriptionKeyboard());
-      }
-    } else {
-      await ctx.reply(MESSAGES.WELCOME);
-      ctx.session.step = 'registration_name';
-    }
+    ctx.session.userName = ctx.from.first_name;
+    await ctx.reply(`Привіт, ${ctx.session.userName}! 🌱`);
+    await ctx.reply('Вибери: /morning або /evening для щоденника');
   });
 
-  bot.hears('📝 Ранкові питання', async (ctx) => {
-    await reflectionHandler.startMorningQuestions(ctx);
-  });
+  bot.command('morning', async (ctx) => startQuestions(ctx, 'morning'));
+  bot.command('evening', async (ctx) => startQuestions(ctx, 'evening'));
+  bot.command('skip', async (ctx) => skipQuestion(ctx));
 
-  bot.hears('🌙 Вечірні питання', async (ctx) => {
-    await reflectionHandler.startEveningQuestions(ctx);
+  bot.on('text', async (ctx) => {
+    const text = ctx.message.text;
+    if (text.startsWith('/')) return; // пропускаємо команди
+    await handleAnswer(ctx, text);
   });
 }

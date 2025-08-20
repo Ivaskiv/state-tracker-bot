@@ -1,50 +1,36 @@
-// services/reflectionService.js
-import { getBase, tables } from '../config/database.js';
+// src/services/reflectionService.js
+import Airtable from 'airtable';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
 
 const reflectionService = {
-  async saveReflection(reflectionData) {
-    const base = getBase();
+  async saveMorningAnswer(ctx, text, qNum) {
     try {
-      const userRecords = await base(tables.USERS)
-        .select({ filterByFormula: `{telegram_id} = "${reflectionData.user_id}"` })
-        .firstPage();
-      if (!userRecords.length) throw new Error('User not found');
-
-      const userRecordId = userRecords[0].id;
-
-      const record = await base(tables.USER_REFLECTIONS).create([{
+      await base('Morning_Responses').create([{
         fields: {
-          user_id: [userRecordId],
-          type: reflectionData.type,
-          date: reflectionData.date,
-          completed_at: reflectionData.completed_at.toISOString(),
-          ...reflectionData.answers
+          user_id: ctx.from.id,
+          [`question_${qNum}`]: text
         }
       }]);
-      return record[0];
-    } catch (error) {
-      console.error('Save reflection error:', error);
-      throw error;
+      console.log(`✅ Збережено ранкову відповідь Q${qNum} для користувача ${ctx.from.id}`);
+    } catch (err) {
+      console.error('❌ Error saving morning answer:', err);
     }
   },
 
-  async findTodayReflection(telegramId, type) {
-    const base = getBase();
-    const today = new Date().toISOString().split('T')[0];
+  async saveEveningAnswer(ctx, text, qNum) {
     try {
-      const userRecords = await base(tables.USERS)
-        .select({ filterByFormula: `{telegram_id} = "${telegramId}"` })
-        .firstPage();
-      if (!userRecords.length) return null;
-
-      const userRecordId = userRecords[0].id;
-      const records = await base(tables.USER_REFLECTIONS)
-        .select({ filterByFormula: `AND({user_id} = "${userRecordId}", {type} = "${type}", {date} = "${today}")`, maxRecords: 1 })
-        .firstPage();
-      return records.length ? { id: records[0].id, ...records[0].fields } : null;
-    } catch (error) {
-      console.error('Find today reflection error:', error);
-      return null;
+      await base('Evening_Responses').create([{
+        fields: {
+          user_id: ctx.from.id,
+          [`question_${qNum}`]: text
+        }
+      }]);
+      console.log(`✅ Збережено вечірню відповідь Q${qNum} для користувача ${ctx.from.id}`);
+    } catch (err) {
+      console.error('❌ Error saving evening answer:', err);
     }
   }
 };

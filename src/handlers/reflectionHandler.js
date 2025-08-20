@@ -1,23 +1,16 @@
+// src/handlers/reflectionHandler.js
 import reflectionService from '../services/reflectionService.js';
-import { skipKeyboard, mainMenuKeyboard } from '../utils/keyboards.js';
 
 const reflectionHandler = {
   async startMorningQuestions(ctx) {
     ctx.session.questionType = 'morning';
-    // приклад: починаємо перше питання
+    ctx.session.currentIndex = 0;
     await reflectionService.sendNextMorningQuestion(ctx);
   },
 
   async startEveningQuestions(ctx) {
     ctx.session.questionType = 'evening';
-    await reflectionService.sendNextEveningQuestion(ctx);
-  },
-
-  async handleMorningQuestion(ctx) {
-    await reflectionService.sendNextMorningQuestion(ctx);
-  },
-
-  async handleEveningQuestion(ctx) {
+    ctx.session.currentIndex = 0;
     await reflectionService.sendNextEveningQuestion(ctx);
   },
 
@@ -36,6 +29,8 @@ const reflectionHandler = {
       await reflectionService.skipMorningQuestion(ctx);
     } else if (ctx.session.questionType === 'evening') {
       await reflectionService.skipEveningQuestion(ctx);
+    } else {
+      await ctx.reply("Немає активного питання для пропуску.");
     }
   }
 };
