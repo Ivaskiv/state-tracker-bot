@@ -1,60 +1,36 @@
-//src/handlers/questionHandler.js
-import reflectionService from '../services/reflectionService.js';
-
-const morningQuestions = [
-  "1️⃣ Хто я сьогодні?",
-  "2️⃣ Яка я?",
-  "3️⃣ Мої 10 цілей на рік",
-  "4️⃣ На яку одну ціль я фокусуюсь сьогодні?",
-  "5️⃣ Який мій стан сьогодні?",
-  "6️⃣ Чому я гідна мати все це прямо зараз?"
-];
-
-const eveningQuestions = [
-  "1️⃣ Що мене сьогодні наповнило енергією?",
-  "2️⃣ Де я сьогодні злила енергію чи втратила стан?",
-  "3️⃣ Яка програма або переконання активувалась сьогодні?",
-  "4️⃣ З якої точки я діяла сьогодні: сили чи страху?",
-  "5️⃣ Яка моя головна перемога сьогодні?"
-];
-
-export async function startQuestions(ctx, type) {
-  ctx.session.questionType = type;
-  ctx.session.currentQuestion = 0;
-  await sendNextQuestion(ctx);
-}
+// src/handlers/questionHandler.js
+import { getBase, tables } from "../config/database.js";
+const base = getBase();
 
 export async function handleAnswer(ctx, text) {
-  const type = ctx.session.questionType;
-  const current = ctx.session.currentQuestion;
+  const { questionType, questions, currentQuestion } = ctx.session;
+  const tgId = ctx.from.id;
+  const todayStr = new Date().toISOString().slice(0,10);
 
-  if (!type) return;
-
-  if (type === 'morning') {
-    await reflectionService.saveMorningAnswer(ctx, text, current + 1);
-  } else {
-    await reflectionService.saveEveningAnswer(ctx, text, current + 1);
-  }
-
-  ctx.session.currentQuestion += 1;
-  await sendNextQuestion(ctx);
-}
-
-export async function sendNextQuestion(ctx) {
-  const type = ctx.session.questionType;
-  const current = ctx.session.currentQuestion;
-  const questions = type === 'morning' ? morningQuestions : eveningQuestions;
-
-  if (current < questions.length) {
-    await ctx.reply(questions[current]);
-  } else {
-    await ctx.reply('✅ Всі питання пройдено!');
-    ctx.session.currentQuestion = 0;
+  if (!questionType || currentQuestion >= questions.length) {
     ctx.session.questionType = null;
+    ctx.session.currentQuestion = 0;
+    return;
   }
-}
 
-export async function skipQuestion(ctx) {
+  // Зберігаємо відповідь в Airtable
+  await base(tables.USER_REFLECTIONS).create([{
+    fields: {
+      "User ID": tgId,
+      "Date": todayStr,
+      "Question Type": questionType,
+      "Question": questions[currentQuestion],
+      "Answer": text
+    }
+  }]);
+
   ctx.session.currentQuestion += 1;
-  await sendNextQuestion(ctx);
+
+  if (ctx.session.currentQuestion < questions.length) {
+    await ctx.reply(questions[ctx.session.currentQuestion]);
+  } else {
+    ctx.session.questionType = null;
+    ctx.session.currentQuestion = 0;
+    await ctx.reply("✅ Всі питання пройдено!");
+  }
 }

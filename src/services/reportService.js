@@ -1,91 +1,75 @@
-// src/services/reportService.js
-import base from '../config/airtable.js';
+import Airtable from "airtable";
+import dotenv from "dotenv";
 
-const USER_REFLECTIONS = 'User Reflections'; // якщо в тебе інша логіка — можна агрегацію з Morning_Responses/Evening_Responses
+dotenv.config();
 
-async function generateWeeklyReport(tgId) {
-  try {
-    const since = new Date();
-    since.setDate(since.getDate() - 7);
-    const sinceISO = since.toISOString();
+const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY })
+  .base(process.env.AIRTABLE_BASE_ID);
 
-    const recs = await base(USER_REFLECTIONS).select({
-      filterByFormula: `AND({User ID} = "${String(tgId)}", {Record DateTime} >= "${sinceISO}")`,
-      sort: [{ field: 'Record DateTime', direction: 'asc' }],
-      maxRecords: 200
-    }).all();
+const reportService = {
+  // Тижневий звіт
+  async generateWeeklyReport(userTGId) {
+    try {
+      const records = await base("User Reflections")
+        .select({
+          filterByFormula: `{User ID}='${userTGId}'`,
+          sort: [{ field: "Record DateTime", direction: "desc" }],
+          maxRecords: 7,
+        })
+        .all();
 
-    if (!recs.length) {
-      return '❗ У тебе поки немає рефлексій за тиждень.';
+      if (!records.length)
+        return "❗ У тебе ще немає щоденних рефлексій за тиждень.";
+
+      let report = "📊 Тижневий звіт твоїх рефлексій:\n\n";
+      records.reverse().forEach((r, idx) => {
+        report += `День ${idx + 1}:\n`;
+        report += `🌟 Стан: ${r.fields.State || "-"}\n`;
+        report += `⚡️ Енергія: +${r.fields["Energy Gain"] || "-"} / -${
+          r.fields["Energy Loss"] || "-"
+        }\n`;
+        report += `🏆 Перемога: ${r.fields.Victory || "-"}\n`;
+        report += `📝 Програми/Уроки: ${r.fields.Programs || "-"}\n\n`;
+      });
+
+      return report;
+    } catch (err) {
+      console.error("❌ Помилка при формуванні тижневого звіту:", err);
+      return "❌ Не вдалося сформувати тижневий звіт.";
     }
+  },
 
-    // Дуже стисло і стабільно
-    const stats = {
-      energyG: 0,
-      energyL: 0,
-      victories: 0
-    };
+  // Місячний звіт
+  async generateMonthlyReport(userTGId) {
+    try {
+      const records = await base("User Reflections")
+        .select({
+          filterByFormula: `{User ID}='${userTGId}'`,
+          sort: [{ field: "Record DateTime", direction: "desc" }],
+          maxRecords: 30,
+        })
+        .all();
 
-    recs.forEach(r => {
-      if (r.fields['Energy Gain']) stats.energyG += 1;
-      if (r.fields['Energy Loss']) stats.energyL += 1;
-      if (r.fields['Victory']) stats.victories += 1;
-    });
+      if (!records.length)
+        return "❗ У тебе ще немає щоденних рефлексій за місяць.";
 
-    const total = recs.length;
-    const report =
-`📊 ЩОТИЖНЕВИЙ ЗВІТ
+      let report = "📈 Місячний звіт твоїх рефлексій:\n\n";
+      records.reverse().forEach((r, idx) => {
+        report += `День ${idx + 1}:\n`;
+        report += `🌟 Стан: ${r.fields.State || "-"}\n`;
+        report += `⚡️ Енергія: +${r.fields["Energy Gain"] || "-"} / -${
+          r.fields["Energy Loss"] || "-"
+        }\n`;
+        report += `🏆 Перемога: ${r.fields.Victory || "-"}\n`;
+        report += `📝 Програми/Уроки: ${r.fields.Programs || "-"}\n\n`;
+      });
 
-📈 Записів: ${total}
-⚡️ Енергія (+): ${stats.energyG}
-⚡️ Енергія (–): ${stats.energyL}
-🏆 Перемоги: ${stats.victories}
-
-💡 Рекомендація:
-• Продовжуй відповідати щодня
-• Підсилюй те, що додає енергії
-• Мінімізуй повторювані зливи енергії`;
-
-    return report;
-  } catch (e) {
-    console.error('Weekly report error:', e);
-    return '❌ Не вдалося сформувати тижневий звіт.';
-  }
-}
-
-async function generateMonthlyReport(tgId) {
-  try {
-    const since = new Date();
-    since.setMonth(since.getMonth() - 1);
-    const sinceISO = since.toISOString();
-
-    const recs = await base(USER_REFLECTIONS).select({
-      filterByFormula: `AND({User ID} = "${String(tgId)}", {Record DateTime} >= "${sinceISO}")`,
-      sort: [{ field: 'Record DateTime', direction: 'asc' }],
-      maxRecords: 500
-    }).all();
-
-    if (!recs.length) {
-      return '❗ У тебе поки немає рефлексій за місяць.';
+      return report;
+    } catch (err) {
+      console.error("❌ Помилка при формуванні місячного звіту:", err);
+      return "❌ Не вдалося сформувати місячний звіт.";
     }
-
-    const report =
-`📈 МІСЯЧНИЙ ЗВІТ
-
-Ти стабільно ведеш рефлексії. Продовжуй у тому ж дусі.
-Фокус наступного місяця:
-• 1 дія щодня до головної цілі
-• 1 вибір стану (впевненість / легкість)
-• 1 мікрокрок для прогресу`;
-
-    return report;
-  } catch (e) {
-    console.error('Monthly report error:', e);
-    return '❌ Не вдалося сформувати місячний звіт.';
-  }
-}
-
-export default {
-  generateWeeklyReport,
-  generateMonthlyReport
+  },
 };
+
+export default reportService;

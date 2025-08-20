@@ -1,62 +1,105 @@
-// src/services/userService.js
-import base from '../config/airtable.js';
+import { getBase, tables } from "../config/database.js";
 
-const USERS = 'Users';
+const base = getBase();
 
-async function getUserByTelegramId(tgId) {
-  const records = await base(USERS).select({
-    filterByFormula: `{TG_id} = "${String(tgId)}"`,
-    maxRecords: 1
-  }).firstPage();
-  return records[0] || null;
-}
+export const checkActiveSubscription = (userRecord) => {
+  const activeStatus = userRecord.fields["Active_Subscription_Status"];
+  return activeStatus && activeStatus.startsWith("✅");
+};
 
-async function createUser({ tgId, name, email = '', phone = '' }) {
-  const created = await base(USERS).create([{
-    fields: {
-      'User Name': name,
-      'TG_id': String(tgId),
-      'Email': email,
-      'Phone': phone,
-      'UserRegistered': true,
-      'DateUserRegistered': new Date().toISOString(),
-      'Status': 'Registered User',
-      'Subscription Status': 'Empty',
-      'Time Zone': 'Europe/Kyiv'
-    }
-  }], { typecast: true });
-  return created[0];
-}
+export const moveActiveSubscriptionToUser = async (userRecord) => {
+  const subs = await base(tables.SUBSCRIPTIONS)
+    .select({
+      filterByFormula: `{TG_id}='${userRecord.fields.TG_id}'`,
+      sort: [{ field: "End_Date", direction: "desc" }],
+      maxRecords: 1,
+    })
+    .firstPage();
 
-async function updateUser(recordId, fields) {
-  const updated = await base(USERS).update([{ id: recordId, fields }], { typecast: true });
-  return updated[0];
-}
+  if (!subs.length) return false;
 
-async function hasActiveSubscription(tgId) {
-  const user = await getUserByTelegramId(tgId);
-  if (!user) return false;
-  const v = user.fields['Active_Subscription_Status'];
-  // Поле в твоїй базі формульне та містить "✅ Активна до DD.MM.YYYY"
-  return typeof v === 'string' && v.includes('✅ Активна');
-}
+  const activeSub = subs.find((s) => s.fields.Is_Active === "✅ Активна");
+  if (!activeSub) return false;
 
-async function getActiveUsers() {
-  const records = await base(USERS).select({
-    filterByFormula: `AND({Active_Subscription_Status} != '', FIND("✅ Активна", {Active_Subscription_Status}) > 0, {Status} = 'Active User')`
-  }).all();
+  await base(tables.USERS).update([
+    {
+      id: userRecord.id,
+      fields: {
+        "Subscription Status": "Active",
+        "Active Subscription Plan": activeSub.fields.Plan_Name,
+        Start_Date: activeSub.fields.Start_Date,
+        End_Date: activeSub.fields.End_Date,
+        Active_Subscription_Status:
+          "✅ Активна до " +
+          new Date(activeSub.fields.End_Date).toLocaleDateString("uk-UA"),
+      },
+    },
+  ]);
 
-  return records.map(r => ({
-    airtableId: r.id,
-    tgId: r.fields.TG_id,
-    name: r.fields['User Name'] || 'Користувач'
-  }));
-}
+  return true;
+};
 
-export default {
-  getUserByTelegramId,
-  createUser,
-  updateUser,
-  hasActiveSubscription,
-  getActiveUsers
+export const moveFutureSubscriptionToUser = async (userRecord) => {
+  const subs = await base(tables.SUBSCRIPTIONS)
+    .select({
+      filterByFormula: `AND({TG_id}='${userRecord.fields.TG_id}', {Is_Future_Plan}="✅ Є наступний план")`,
+      sort: [{ field: "Start_Date", direction: "asc" }],
+      maxRecords: 1,
+    })
+    .firstPage();
+
+  if (!subs.length) return false;
+
+  const futureSub = subs[0];
+  await base(tables.USERS).update([
+    {
+      id: userRecord.id,
+      fields: {
+        "Subscription Status": "Active",
+        "Active Subscription Plan": futureSub.fields.Plan_Name,
+        Start_Date: futureSub.fields.Start_Date,
+        End_Date: futureSub.fields.End_Date,
+        Active_Subscription_Status:
+          "✅ Активна до " +
+          new Date(futureSub.fields.End_Date).toLocaleDateString("uk-UA"),
+      },
+    },
+  ]);
+
+  return true;
+};
+
+export const handleStart = async ({ tgId, name }) => {
+  let users = await base(tables.USERS)
+    .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
+    .firstPage();
+
+  let user;
+  if (!users.length) {
+    const newUser = await base(tables.USERS).create([
+      {
+        fields: {
+          "User Name": name,
+          TG_id: tgId,
+          UserRegistered: true,
+          DateUserRegistered: new Date().toISOString(),
+          Status: "New User",
+        },
+      },
+    ]);
+    user = newUser[0];
+  } else {
+    user = users[0];
+  }
+
+  let subscriptionActive = checkActiveSubscription(user);
+  if (!subscriptionActive) subscriptionActive = await moveActiveSubscriptionToUser(user);
+  if (!subscriptionActive) subscriptionActive = await moveFutureSubscriptionToUser(user);
+
+  const subscriptionLink = `https://wayforpay.com/pay?plan=${user.fields["Active Subscription Plan"] || "default"}`;
+  const otherPlansLink = `https://wayforpay.com/plans`;
+  user.fields.subscriptionLink = subscriptionLink;
+  user.fields.otherPlansLink = otherPlansLink;
+
+  return { user: user.fields, subscriptionActive };
 };
