@@ -41,7 +41,9 @@ export const initScheduler = () => {
   });
 
   // 20:30 вечірні
-  cron.schedule("30 20 * * *", async () => {
+  // cron.schedule("30 20 * * *", async () => {
+      cron.schedule("22 * * *", async () => {
+
     console.log("🕣 Надсилання вечірніх питань (усім користувачам)");
     // тут можна додати логіку для всіх активних користувачів
   });
