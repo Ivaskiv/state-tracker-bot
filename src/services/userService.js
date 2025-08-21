@@ -1,4 +1,4 @@
-//userService.js
+// src/services/userService.js
 import { getBase, tables } from "../config/database.js";
 const base = getBase();
 
@@ -80,7 +80,7 @@ export const handleStart = async ({ tgId, name }) => {
       {
         fields: {
           "User Name": name,
-          TG_id: tgId,
+          TG_id: tgId.toString(),
           UserRegistered: true,
           DateUserRegistered: new Date().toISOString(),
           Status: "New User",
@@ -102,4 +102,29 @@ export const handleStart = async ({ tgId, name }) => {
   user.fields.otherPlansLink = otherPlansLink;
 
   return { user: user.fields, subscriptionActive };
+};
+
+export const getActiveUsers = async () => {
+  try {
+    const records = await base(tables.USERS)
+      .select({ filterByFormula: `{Subscription Status}="Active"` })
+      .all();
+
+    return records.map(record => ({
+      recordId: record.id,
+      TG_id: record.fields.TG_id,
+      "User Name": record.fields["User Name"]
+    }));
+  } catch (error) {
+    console.error("Error getting active users:", error);
+    return [];
+  }
+};
+
+export default {
+  handleStart,
+  getActiveUsers,
+  checkActiveSubscription,
+  moveActiveSubscriptionToUser,
+  moveFutureSubscriptionToUser
 };
