@@ -1,3 +1,4 @@
+//src/services/airtableService.js
 import { tables } from '../config/database.js';
 
 // Generic methods
@@ -211,7 +212,11 @@ const getActiveUsers = async () => {
     const records = await tables.users.select({
       filterByFormula: 'AND({Status} = "Active User", FIND("✅ Активна", {Subscription Status}))'
     }).all();
-    return records.map(record => record.fields);
+
+    return records.map(record => ({
+      recordId: record.id,
+      ...record.fields
+    }));
   } catch (error) {
     console.error('Error getting active users:', error);
     return [];
