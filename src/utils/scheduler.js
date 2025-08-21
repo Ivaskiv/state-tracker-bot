@@ -1,55 +1,34 @@
 // src/utils/scheduler.js
-import cron from "node-cron";
-import userService from "../services/userService.js";
-import reflectionService from "../services/reflectionService.js";
+import cron from 'node-cron';
+import userService from '../services/userService.js';
+import reflectionService from '../services/reflectionService.js';
 
-const TIMEZONE = "Europe/Kiev";
+export function initScheduler(bot) {
+  console.log('⏰ Scheduler initialized');
 
-const sendQuestionToUsers = async (bot, type) => {
+  // Тестовий cron кожні 2 хвилини
+  cron.schedule('*/2 * * * *', async () => {
+    const now = new Date();
+    console.log(`[CRON TEST] Тригер (кожні 2 хв) о ${now.toLocaleString('uk-UA')}`);
+    await sendDailyQuestions(bot, 'morning');
+    await sendDailyQuestions(bot, 'evening');
+  });
+}
+
+async function sendDailyQuestions(bot, type) {
+  console.log(`[CRON] Старт обробки ${type} питань о ${new Date().toLocaleString('uk-UA')}`);
   try {
-    console.log(`[CRON] Старт обробки ${type} питань о ${new Date().toLocaleString("uk-UA")}`);
-
-    const activeUsers = await userService.getActiveUsers();
-    console.log(`[CRON] Активних користувачів знайдено: ${activeUsers.length}`);
-
-    for (const user of activeUsers) {
-      console.log(`[CRON] Перевіряю користувача TG_id=${user.TG_id}`);
-
-      const alreadyAnswered = await reflectionService.alreadyAnsweredToday(user.TG_id, type);
-      console.log(`[CRON] Користувач ${user.TG_id} вже відповів (${type}) сьогодні? → ${alreadyAnswered}`);
-
-      if (!alreadyAnswered) {
-        console.log(`[CRON] Надсилаю ${type} питання користувачу ${user.TG_id}`);
-        await reflectionService.startDailyQuestions(bot, user.TG_id, type);
+    const users = await userService.getAllActiveUsers();
+    console.log(`[CRON] Активних користувачів знайдено: ${users.length}`);
+    for (const user of users) {
+      const tgId = user.fields['TG_id'];
+      try {
+        await reflectionService.startDailyQuestions(bot, tgId, type);
+      } catch (err) {
+        console.error(`❌ Помилка в ${type} питаннях для ${tgId}:`, err);
       }
     }
-
-    console.log(`✅ ${type} питання надіслано всім активним користувачам`);
-  } catch (error) {
-    console.error(`❌ Помилка в ${type} питаннях:`, error);
+  } catch (err) {
+    console.error('❌ Помилка при отриманні користувачів для scheduler:', err);
   }
-};
-
-export const initScheduler = (bot) => {
-  console.log("⏰ Scheduler initialized");
-
-  // Тест кожні 2 хв
-  cron.schedule("*/2 * * * *", async () => {
-    console.log(`[CRON TEST] Тригер (кожні 2 хв) о ${new Date().toLocaleString("uk-UA")}`);
-    await sendQuestionToUsers(bot, "morning");
-  }, { timezone: TIMEZONE });
-
-  // Ранкове питання 12:30
-  cron.schedule("30 12 * * *", async () => {
-    console.log(`[CRON] Тригер ранкових питань (12:30)`);
-    await sendQuestionToUsers(bot, "morning");
-  }, { timezone: TIMEZONE });
-
-  // Вечірнє питання 20:30
-  cron.schedule("30 20 * * *", async () => {
-    console.log(`[CRON] Тригер вечірніх питань (20:30)`);
-    await sendQuestionToUsers(bot, "evening");
-  }, { timezone: TIMEZONE });
-
-  console.log("🕐 Cron jobs scheduled: morning 12:30, evening 20:30, + тест кожні 2 хв");
-};
+}

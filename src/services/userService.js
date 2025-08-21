@@ -1,130 +1,43 @@
 // src/services/userService.js
-import { getBase, tables } from "../config/database.js";
+import { getBase } from '../config/database.js';
 const base = getBase();
+const USERS_TABLE = 'Users';
 
-export const checkActiveSubscription = (userRecord) => {
-  const activeStatus = userRecord.fields["Active_Subscription_Status"];
-  return activeStatus && activeStatus.startsWith("✅");
-};
+async function getUserByTelegramId(tgId) {
+  const records = await base(USERS_TABLE).select({
+    filterByFormula: `{TG_id} = "${tgId}"`,
+    maxRecords: 1
+  }).firstPage();
+  return records[0] || null;
+}
 
-export const moveActiveSubscriptionToUser = async (userRecord) => {
-  const subs = await base(tables.SUBSCRIPTIONS)
-    .select({
-      filterByFormula: `{TG_id}='${userRecord.fields.TG_id}'`,
-      sort: [{ field: "End_Date", direction: "desc" }],
-      maxRecords: 1,
-    })
-    .firstPage();
+async function updateUser(recordId, fields) {
+  await base(USERS_TABLE).update([{ id: recordId, fields }]);
+}
 
-  if (!subs.length) return false;
+async function getAllActiveUsers() {
+  const records = await base(USERS_TABLE).select({
+    filterByFormula: "AND({Status} = 'Registered User', {Active_Subscription_Status} = '✅ Активна')"
+  }).firstPage();
+  return records;
+}
 
-  const activeSub = subs.find((s) => s.fields.Is_Active === "✅ Активна");
-  if (!activeSub) return false;
-
-  await base(tables.USERS).update([
-    {
-      id: userRecord.id,
-      fields: {
-        "Subscription Status": "Active",
-        "Active Subscription Plan": activeSub.fields.Plan_Name,
-        Start_Date: activeSub.fields.Start_Date,
-        End_Date: activeSub.fields.End_Date,
-        Active_Subscription_Status:
-          "✅ Активна до " +
-          new Date(activeSub.fields.End_Date).toLocaleDateString("uk-UA"),
-      },
-    },
-  ]);
-
-  return true;
-};
-
-export const moveFutureSubscriptionToUser = async (userRecord) => {
-  const subs = await base(tables.SUBSCRIPTIONS)
-    .select({
-      filterByFormula: `AND({TG_id}='${userRecord.fields.TG_id}', {Is_Future_Plan}="✅ Є наступний план")`,
-      sort: [{ field: "Start_Date", direction: "asc" }],
-      maxRecords: 1,
-    })
-    .firstPage();
-
-  if (!subs.length) return false;
-
-  const futureSub = subs[0];
-  await base(tables.USERS).update([
-    {
-      id: userRecord.id,
-      fields: {
-        "Subscription Status": "Active",
-        "Active Subscription Plan": futureSub.fields.Plan_Name,
-        Start_Date: futureSub.fields.Start_Date,
-        End_Date: futureSub.fields.End_Date,
-        Active_Subscription_Status:
-          "✅ Активна до " +
-          new Date(futureSub.fields.End_Date).toLocaleDateString("uk-UA"),
-      },
-    },
-  ]);
-
-  return true;
-};
-
-export const handleStart = async ({ tgId, name }) => {
-  let users = await base(tables.USERS)
-    .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
-    .firstPage();
-
-  let user;
-  if (!users.length) {
-    const newUser = await base(tables.USERS).create([
-      {
-        fields: {
-          "User Name": name,
-          TG_id: tgId.toString(),
-          UserRegistered: true,
-          DateUserRegistered: new Date().toISOString(),
-          Status: "New User",
-        },
-      },
+// При старті /start
+async function handleStart({ tgId, name }) {
+  let user = await getUserByTelegramId(tgId);
+  if (!user) {
+    user = await base(USERS_TABLE).create([
+      { fields: { TG_id: tgId, 'User Name': name, Status: 'Registered User', 'Active_Subscription_Status': '❌ Неактивна' } }
     ]);
-    user = newUser[0];
-  } else {
-    user = users[0];
+    user = user[0];
   }
-
-  let subscriptionActive = checkActiveSubscription(user);
-  if (!subscriptionActive) subscriptionActive = await moveActiveSubscriptionToUser(user);
-  if (!subscriptionActive) subscriptionActive = await moveFutureSubscriptionToUser(user);
-
-  const subscriptionLink = `https://wayforpay.com/pay?plan=${user.fields["Active Subscription Plan"] || "default"}`;
-  const otherPlansLink = `https://wayforpay.com/plans`;
-  user.fields.subscriptionLink = subscriptionLink;
-  user.fields.otherPlansLink = otherPlansLink;
-
-  return { user: user.fields, subscriptionActive };
-};
-
-export const getActiveUsers = async () => {
-  try {
-    const records = await base(tables.USERS)
-      .select({ filterByFormula: `{Subscription Status}="Active"` })
-      .all();
-
-    return records.map(record => ({
-      recordId: record.id,
-      TG_id: record.fields.TG_id,
-      "User Name": record.fields["User Name"]
-    }));
-  } catch (error) {
-    console.error("Error getting active users:", error);
-    return [];
-  }
-};
+  const subscriptionActive = user.fields['Active_Subscription_Status']?.startsWith('✅');
+  return { user, subscriptionActive };
+}
 
 export default {
-  handleStart,
-  getActiveUsers,
-  checkActiveSubscription,
-  moveActiveSubscriptionToUser,
-  moveFutureSubscriptionToUser
+  getUserByTelegramId,
+  updateUser,
+  getAllActiveUsers,
+  handleStart
 };
