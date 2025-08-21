@@ -6,7 +6,7 @@ import reflectionService from "../services/reflectionService.js";
 
 export const initScheduler = () => {
   // 08:00 ранкові
-  cron.schedule("20 10 * * *", async () => {
+  cron.schedule("30 10 * * *", async () => {
     console.log("🕗 Надсилання ранкових питань (усім активним користувачам)");
     try {
       const activeUsers = await airtableService.getActiveUsers();
