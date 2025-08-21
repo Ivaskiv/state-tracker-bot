@@ -1,12 +1,13 @@
-// src/services/subscriptionReminderService.js
-import db from "../config/database.js";
+import { getBase, tables } from "../config/database.js";
 import { bot } from "../../server.js";
 
-const base = db.getBase();
-const tables = db.tables;
+const base = getBase();
 
-const formatDateUA = (dateStr) => new Date(dateStr).toLocaleDateString("uk-UA");
-const daysUntilEnd = (endDate) => Math.ceil((new Date(endDate) - new Date()) / (1000*60*60*24));
+const formatDateUA = (dateStr) =>
+  new Date(dateStr).toLocaleDateString("uk-UA");
+
+const daysUntilEnd = (endDate) =>
+  Math.ceil((new Date(endDate) - new Date()) / (1000 * 60 * 60 * 24));
 
 const sendReminder = async (user, daysLeft) => {
   if (!user.TG_id) return;
@@ -23,7 +24,9 @@ const sendReminder = async (user, daysLeft) => {
 
   await bot.telegram.sendChatAction(user.TG_id, "typing");
   await new Promise((r) => setTimeout(r, 1000));
-  await bot.telegram.sendMessage(user.TG_id, message, { reply_markup: { inline_keyboard: buttons } });
+  await bot.telegram.sendMessage(user.TG_id, message, {
+    reply_markup: { inline_keyboard: buttons },
+  });
 };
 
 export const sendSubscriptionReminders = async () => {
@@ -35,7 +38,9 @@ export const sendSubscriptionReminders = async () => {
     for (const u of users) {
       const fields = u.fields;
       const daysLeft = daysUntilEnd(fields.End_Date);
-      if ([3,2,1,0].includes(daysLeft)) await sendReminder(fields, daysLeft);
+      if ([3, 2, 1, 0].includes(daysLeft)) {
+        await sendReminder(fields, daysLeft);
+      }
     }
   } catch (err) {
     console.error("❌ Error sending subscription reminders:", err);

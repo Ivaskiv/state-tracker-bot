@@ -1,5 +1,5 @@
 import { getBase, tables } from "../config/database.js";
-import { bot } from "../../server.js"; // імпортуємо екземпляр бота
+import { bot } from "../../server.js"; 
 
 const base = getBase();
 

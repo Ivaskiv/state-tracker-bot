@@ -1,5 +1,6 @@
 // src/services/affirmationService.js
-import base from '../config/airtable.js';
+import { getBase, tables } from "../config/database.js";
+const base = getBase();
 
 const AFFIRMATIONS = 'Affirmations';
 

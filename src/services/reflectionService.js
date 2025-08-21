@@ -1,7 +1,7 @@
 // src/services/reflectionService.js
-import base from '../config/airtable.js';
-import userService from './userService.js';
 import affirmationService from './affirmationService.js';
+import { getBase, tables } from "../config/database.js";
+const base = getBase();
 
 const MORNING_TABLE = 'Morning_Responses';
 const EVENING_TABLE = 'Evening_Responses';

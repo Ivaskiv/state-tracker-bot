@@ -1,5 +1,5 @@
+//userService.js
 import { getBase, tables } from "../config/database.js";
-
 const base = getBase();
 
 export const checkActiveSubscription = (userRecord) => {

@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import express from "express";
 import bodyParser from "body-parser";
 
-import { initScheduler, startQuestions } from "./src/utils/scheduler.js";
+import { initScheduler } from "./src/utils/scheduler.js";
 import { handleStart } from "./src/services/userService.js";
 import { getBase, tables } from "./src/config/database.js";
 import keyboards from "./src/utils/keyboards.js";
