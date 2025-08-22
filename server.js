@@ -22,7 +22,7 @@ app.listen(port, async () => {
   console.log('🤖 Telegram bot launched');
 });
 
-/* Webhook поки закоментовано
+// Webhook поки закоментовано
 const useWebhook = process.env.USE_WEBHOOK === 'true';
 if (useWebhook) {
   const express = require('express');
@@ -37,4 +37,4 @@ if (useWebhook) {
   const port = process.env.PORT || 3000;
   app.listen(port, () => console.log(`🌐 Server running with webhook on port ${port}`));
 }
-*/
+
