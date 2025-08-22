@@ -1,79 +1,41 @@
 // src/utils/scheduler.js
 import cron from 'node-cron';
-import userService from '../services/userService.js';
-import reflectionService from '../services/reflectionService.js';
+import { getBase, tables } from '../config/database.js';
+import { MORNING_QUESTIONS, EVENING_QUESTIONS, QUESTION_TYPES, SCHEDULE } from '../config/constants.js';
+import { sendReminder } from '../services/reminderService.js';
 
-export function initScheduler(bot) {
+const base = getBase();
+
+export const initScheduler = bot => {
   console.log('⏰ Scheduler initialized');
 
-  // Cron тригер кожні 2 хвилини (для тесту)
-  cron.schedule('*/2 * * * *', async () => {
-    const now = new Date();
-    console.log(`\n[CRON TEST] Тригер (кожні 2 хв) о ${now.toLocaleString('uk-UA')}`);
+cron.schedule('* * * * *', async () => {
+  console.log('[CRON] TEST');
+}, { timezone: SCHEDULE.TIMEZONE });
 
-    try {
-      await sendDailyQuestions(bot, 'morning');
-    } catch (err) {
-      console.error('❌ Помилка при запуску ранкових питань:', err);
-    }
-
-    try {
-      await sendDailyQuestions(bot, 'evening');
-    } catch (err) {
-      console.error('❌ Помилка при запуску вечірніх питань:', err);
-    }
-  });
-}
-
-async function sendDailyQuestions(bot, type) {
-  const now = new Date();
-  console.log(`\n[CRON] Запуск ${type} питань о ${now.toLocaleString('uk-UA')}`);
-
-  let users = [];
-  try {
-    users = await userService.getAllActiveUsers();
-    console.log(`🔹 getAllActiveUsers() повернув ${users.length} записів`);
-  } catch (err) {
-    console.error('❌ Помилка при отриманні користувачів:', err);
-    return;
-  }
-
-  for (const user of users) {
-    try {
-      const tgId = user.fields['TG_id'];
-      const name = user.fields['User Name'] || 'Невідомий';
-      const subStatus = user.fields['Active_Subscription_Status'] || '';
-      const lastAnswerDate = user.fields['Last_Answer_Date'] || null;
-      let answerStep = user.fields['Answer_Step'] || 'Begin_answer';
-
-      console.log(`\n - Користувач: ${name} | TG_id: ${tgId} | Sub: ${subStatus} | Step: ${answerStep} | LastAnswer: ${lastAnswerDate}`);
-
-      if (!tgId) {
-        console.log(`⚠️ Пропускаємо користувача ${name} – відсутній TG_id`);
-        continue;
+  // Ранкові
+  cron.schedule(
+    '35 20 * * *',
+    async () => {
+      console.log('[CRON] Запуск ранкових питань');
+      const users = await base(tables.USERS).select().all();
+      for (let u of users) {
+        await sendReminder(bot, u.fields.TG_id, MORNING_QUESTIONS, QUESTION_TYPES.MORNING);
       }
+    },
+    { timezone: SCHEDULE.TIMEZONE }
+  );
 
-      if (!subStatus.includes('✅ Активна')) {
-        console.log(`⚠️ Пропускаємо ${name} – підписка не активна`);
-        continue;
+  // Вечірні
+  cron.schedule(
+    '30 21 * * *',
+    async () => {
+      console.log('[CRON] Запуск вечірніх питань');
+      const users = await base(tables.USERS).select().all();
+      for (let u of users) {
+        await sendReminder(bot, u.fields.TG_id, EVENING_QUESTIONS, QUESTION_TYPES.EVENING);
       }
-
-      // Якщо користувач ще не почав сьогодні або новий день – скидаємо Step
-      const todayStr = new Date().toISOString().split('T')[0];
-      if (lastAnswerDate !== todayStr) {
-        answerStep = 'Begin_answer';
-        console.log(`🔄 Новий день для ${name} – скидаємо Answer_Step на Begin_answer`);
-      }
-
-      // Надсилаємо одне питання і чекаємо відповіді
-      await reflectionService.startDailyQuestions(bot, tgId, type, answerStep);
-
-      console.log(`✅ Надіслано ${type} питання користувачу: ${name} | TG_id: ${tgId}`);
-
-    } catch (err) {
-      console.error('❌ Помилка при обробці користувача:', err);
-    }
-  }
-
-  console.log(`[CRON] Завершено обробку ${type} питань`);
-}
+    },
+    { timezone: SCHEDULE.TIMEZONE }
+  );
+};

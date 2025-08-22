@@ -1,37 +1,20 @@
 // src/utils/affirmations.js
-import { openai } from '../services/openaiClient.js';
-import { selectFromTable } from '../services/airtableClient.js';
+import { chat } from '../services/openaiClient.js';
+import { selectFromTable, updateRows } from '../config/database.js';
 
-export const AFFIRMATIONS = {
-  async getRandom() {
-    try {
-      // 1. Генеруємо афірмацію через OpenAI
-      const prompt = `Створи унікальну мотиваційну афірмацію українською, 8–20 слів, підтримуючу, теплу, для особистого розвитку та впевненості.`;
-      const response = await openai.createChatCompletion({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 60
-      });
+export const getAffirmation = async () => {
+  try {
+    const txt = await chat([
+      { role: 'system', content: 'Ти створюєш унікальні короткі афірмації українською (8–20 слів), теплі, підтримуючі, без кліше.' },
+      { role: 'user', content: 'Згенеруй одну афірмацію українською для впевненості/цілей/зростання.' },
+    ], 'gpt-4o-mini', 60);
+    if (txt) return txt;
+  } catch {}
 
-      const generated = response?.data?.choices?.[0]?.message?.content?.trim();
-      if (generated) return generated;
-
-      // 2. Якщо AI не дав результат, беремо з Airtable
-      const records = await selectFromTable('Affirmations', {
-        maxRecords: 50,
-        filterByFormula: "NOT({Used})"
-      }).firstPage();
-
-      if (!records.length) return 'Не вдалося згенерувати унікальну афірмацію.';
-
-      const record = records[0];
-      await record.patchUpdate({ Used: true });
-
-      return record.fields.Affirmation || 'Не вдалося згенерувати унікальну афірмацію.';
-
-    } catch (error) {
-      console.error('Error fetching affirmation:', error);
-      return 'Не вдалося згенерувати унікальну афірмацію.';
-    }
-  }
+  // fallback з Airtable
+  const recs = await selectFromTable('Affirmations', { filterByFormula: '{Used} = FALSE()', maxRecords: 50 }).firstPage();
+  if (!recs.length) return 'Завдяки щоденній праці я впевнено просуваюся до своїх цілей.';
+  const pick = recs[Math.floor(Math.random() * recs.length)];
+  await updateRows('Affirmations', [{ id: pick.id, fields: { Used: true } }]);
+  return pick.fields['Affirmation'] || 'Я обираю силу, ясність і дію сьогодні.';
 };

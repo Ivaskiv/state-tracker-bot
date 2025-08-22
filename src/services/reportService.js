@@ -1,75 +1,51 @@
-import Airtable from "airtable";
-import dotenv from "dotenv";
+// src/services/reportService.js
+import { findAll } from './airtableService.js';
+import { tables } from '../config/database.js';
+import { chat } from './openaiClient.js';
 
-dotenv.config();
+const WEEK_DAYS = 7;
+const MONTH_DAYS = 30;
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY })
-  .base(process.env.AIRTABLE_BASE_ID);
+const buildDataset = (records) => records.map(r => ({
+  State: r.fields['State'] || '',
+  Goal: r.fields['Goal'] || '',
+  EnergyGain: r.fields['Energy Gain'] || '',
+  EnergyLoss: r.fields['Energy Loss'] || '',
+  Programs: r.fields['Programs'] || '',
+  Victory: r.fields['Victory'] || '',
+  Summary: r.fields['Summary'] || '',
+  Affirmation: r.fields['Affirmation'] || '',
+}));
 
-const reportService = {
-  // Тижневий звіт
-  async generateWeeklyReport(userTGId) {
-    try {
-      const records = await base("User Reflections")
-        .select({
-          filterByFormula: `{User ID}='${userTGId}'`,
-          sort: [{ field: "Record DateTime", direction: "desc" }],
-          maxRecords: 7,
-        })
-        .all();
+const analysisPrompt = (dataset, period) => `
+Ти — експертний коуч трансформації рівня Tony Robbins + Simon Sinek + Tim Ferriss...
+(див. інструкцію з "AI Analytics" із вимогами та форматом відповіді).
+Проаналізуй ${period} дані:
 
-      if (!records.length)
-        return "❗ У тебе ще немає щоденних рефлексій за тиждень.";
+${dataset.map((d, i) => `День ${i+1}: State=${d.State}; Goal=${d.Goal}; +${d.EnergyGain}; -${d.EnergyLoss}; Programs=${d.Programs}; Victory=${d.Victory}`).join('\n')}
+`;
 
-      let report = "📊 Тижневий звіт твоїх рефлексій:\n\n";
-      records.reverse().forEach((r, idx) => {
-        report += `День ${idx + 1}:\n`;
-        report += `🌟 Стан: ${r.fields.State || "-"}\n`;
-        report += `⚡️ Енергія: +${r.fields["Energy Gain"] || "-"} / -${
-          r.fields["Energy Loss"] || "-"
-        }\n`;
-        report += `🏆 Перемога: ${r.fields.Victory || "-"}\n`;
-        report += `📝 Програми/Уроки: ${r.fields.Programs || "-"}\n\n`;
-      });
+export const generateReport = async (tgId, days) => {
+  const sinceISO = new Date(Date.now() - days * 86400000).toISOString();
+  const recs = await findAll('USER_REFLECTIONS', {
+    filterByFormula: `AND({User ID} = "${tgId}", IS_AFTER({Record DateTime}, "${sinceISO}"))`,
+    sort: [{ field: 'Record DateTime', direction: 'asc' }],
+  });
 
-      return report;
-    } catch (err) {
-      console.error("❌ Помилка при формуванні тижневого звіту:", err);
-      return "❌ Не вдалося сформувати тижневий звіт.";
-    }
-  },
+  if (!recs.length) return '📭 Недостатньо даних для звіту. Продовжуй щоденні відповіді.';
 
-  // Місячний звіт
-  async generateMonthlyReport(userTGId) {
-    try {
-      const records = await base("User Reflections")
-        .select({
-          filterByFormula: `{User ID}='${userTGId}'`,
-          sort: [{ field: "Record DateTime", direction: "desc" }],
-          maxRecords: 30,
-        })
-        .all();
+  const ds = buildDataset(recs);
+  const text = await chat([
+    { role: 'system', content: 'Ти коуч-аналітик. Дотримуйся суворого формату з інструкції AI Analytics. Українською. До 150 слів.' },
+    { role: 'user', content: analysisPrompt(ds, `${days}-денні`) },
+  ], 'gpt-4o-mini', 300);
 
-      if (!records.length)
-        return "❗ У тебе ще немає щоденних рефлексій за місяць.";
-
-      let report = "📈 Місячний звіт твоїх рефлексій:\n\n";
-      records.reverse().forEach((r, idx) => {
-        report += `День ${idx + 1}:\n`;
-        report += `🌟 Стан: ${r.fields.State || "-"}\n`;
-        report += `⚡️ Енергія: +${r.fields["Energy Gain"] || "-"} / -${
-          r.fields["Energy Loss"] || "-"
-        }\n`;
-        report += `🏆 Перемога: ${r.fields.Victory || "-"}\n`;
-        report += `📝 Програми/Уроки: ${r.fields.Programs || "-"}\n\n`;
-      });
-
-      return report;
-    } catch (err) {
-      console.error("❌ Помилка при формуванні місячного звіту:", err);
-      return "❌ Не вдалося сформувати місячний звіт.";
-    }
-  },
+  return text || '📭 Недостатньо даних для звіту.';
 };
 
-export default reportService;
+export const sendReport = async (bot, tgId, type) => {
+  const days = type === 'weekly' ? WEEK_DAYS : MONTH_DAYS;
+  const report = await generateReport(tgId, days);
+  await bot.telegram.sendMessage(tgId, type === 'weekly' ? '📊 Твій щотижневий AI-звіт:' : '📈 Твій щомісячний AI-звіт:');
+  await bot.telegram.sendMessage(tgId, report);
+};

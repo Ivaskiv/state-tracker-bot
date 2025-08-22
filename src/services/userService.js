@@ -1,36 +1,29 @@
-import { getBase } from '../config/database.js';
+// src/services/userService.js
+import { getBase, tables } from '../config/database.js';
 
 const base = getBase();
-const USERS_TABLE = 'Users';
 
-export async function getAllActiveUsers() {
-  const records = await base('Users').select({
-    filterByFormula: `AND(
-      {Status} = 'Registered User',
-      FIND('✅ Активна', {Active_Subscription_Status}),
-      {TG_id} != ''
-    )`
-  }).firstPage();
+export const findUserByTGId = async tgId => {
+  const records = await base(tables.USERS)
+    .select({ filterByFormula: `{TG_id} = '${tgId}'` })
+    .firstPage();
+  return records[0] ? records[0].fields : null;
+};
 
-  console.log(`🔹 getAllActiveUsers() повернув ${records.length} записів`);
-  return records;
-}
-
-export async function getUserByTelegramId(tgId) {
-  const records = await base(USERS_TABLE).select({
-    filterByFormula: `{TG_id} = "${tgId}"`
-  }).firstPage();
-  return records[0] || null;
-}
-
-export async function updateUser(userId, fields) {
-  return await base(USERS_TABLE).update([
-    { id: userId, fields }
+export const createUser = async ({ tgId, name }) => {
+  const created = await base(tables.USERS).create([
+    { fields: { TG_id: tgId, 'User Name': name, Answer_Step: 'Begin_answer' } },
   ]);
-}
+  return created[0].fields;
+};
 
-export default {
-  getAllActiveUsers,
-  getUserByTelegramId,
-  updateUser
+export const updateUserStep = async (tgId, step) => {
+  const records = await base(tables.USERS)
+    .select({ filterByFormula: `{TG_id} = '${tgId}'` })
+    .firstPage();
+  if (records[0]) {
+    await base(tables.USERS).update(records[0].id, {
+      Answer_Step: step,
+    });
+  }
 };
