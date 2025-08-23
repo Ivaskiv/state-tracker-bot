@@ -25,18 +25,18 @@ app.listen(port, async () => {
 
 
 // Webhook поки закоментовано
-// const useWebhook = process.env.USE_WEBHOOK === 'true';
-// if (useWebhook) {
-//   const express = require('express');
-//   const bodyParser = require('body-parser');
-//   const app = express();
-//   app.use(bodyParser.json());
+const useWebhook = process.env.USE_WEBHOOK === 'true';
+if (useWebhook) {
+  const express = require('express');
+  const bodyParser = require('body-parser');
+  const app = express();
+  app.use(bodyParser.json());
 
-//   const webhookPath = `/webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
-//   bot.telegram.setWebhook(`${process.env.APP_URL}${webhookPath}`);
-//   app.post(webhookPath, (req, res) => bot.handleUpdate(req.body, res));
+  const webhookPath = `/webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
+  bot.telegram.setWebhook(`${process.env.APP_URL}${webhookPath}`);
+  app.post(webhookPath, (req, res) => bot.handleUpdate(req.body, res));
 
-//   const port = process.env.PORT || 3000;
-//   app.listen(port, () => console.log(`🌐 Server running with webhook on port ${port}`));
-// }
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => console.log(`🌐 Server running with webhook on port ${port}`));
+}
 
