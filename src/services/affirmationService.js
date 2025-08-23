@@ -1,7 +1,5 @@
-// src/services/affirmationService.js
-import { getBase, tables } from "../config/database.js";
+import { getBase } from '../config/database.js';
 const base = getBase();
-
 const AFFIRMATIONS = 'Affirmations';
 
 const FALLBACK = [
@@ -12,9 +10,8 @@ const FALLBACK = [
   'Мій фокус приносить відчутні результати.'
 ];
 
-async function getAffirmationAndMarkUsed() {
+const getAffirmationAndMarkUsed = async () => {
   try {
-    // беремо першу не використану
     const records = await base(AFFIRMATIONS).select({
       filterByFormula: `OR({Used} = 0, {Used} = "", NOT({Used}))`,
       maxRecords: 1
@@ -23,10 +20,7 @@ async function getAffirmationAndMarkUsed() {
     if (records.length) {
       const rec = records[0];
       const text = rec.fields['Affirmation'] || FALLBACK[Math.floor(Math.random()*FALLBACK.length)];
-      await base(AFFIRMATIONS).update([{
-        id: rec.id,
-        fields: { 'Used': true }
-      }]);
+      await base(AFFIRMATIONS).update([{ id: rec.id, fields: { Used: true } }]);
       return text;
     }
 
@@ -34,8 +28,6 @@ async function getAffirmationAndMarkUsed() {
   } catch {
     return FALLBACK[Math.floor(Math.random()*FALLBACK.length)];
   }
-}
-
-export default {
-  getAffirmationAndMarkUsed
 };
+
+export default { getAffirmationAndMarkUsed };

@@ -1,42 +1,45 @@
-// server.js
+import express from 'express';
 import dotenv from 'dotenv';
 dotenv.config();
-import express from 'express';
-import { bot } from './src/controllers/botController.js';
+
+import { Telegraf } from 'telegraf';
+import botController from './src/controllers/botController.js';
 import { initScheduler } from './src/utils/scheduler.js';
 
 const app = express();
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
-console.log('💻 Express app created');
+const bot = new Telegraf(process.env.BOT_TOKEN);
 
-app.get('/', (_, res) => {
-  console.log('[HTTP] GET /');
-  res.send('OK ✅');
+// Підключаємо контролер
+botController(bot);
+
+// Ініціалізуємо CRON
+initScheduler(bot);
+
+app.get('/', (req, res) => res.send('Bot is running!'));
+
+app.listen(PORT, async () => {
+  console.log(`💻 Express app listening on port ${PORT}`);
+
+  const mode = process.env.MODE || 'local';
+  if (mode === 'local') {
+    console.log('⚙️ Running in MODE: local');
+    await bot.launch({ polling: true });
+  } else {
+    console.log('⚙️ Running in MODE: production');
+    await bot.launch({
+      webhook: {
+        domain: process.env.WEBHOOK_URL,
+        port: PORT,
+        hookPath: `/webhook/${process.env.BOT_TOKEN}`,
+      },
+    });
+  }
+
+  console.log('🌐 Bot launched');
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, async () => {
-  console.log(`🌐 Server listening on :${port}`);
-  await bot.launch();
-  console.log('🤖 Telegram bot launched');
-  initScheduler(bot);
-});
-
-
-// Webhook поки закоментовано
-const useWebhook = process.env.USE_WEBHOOK === 'true';
-if (useWebhook) {
-  const express = require('express');
-  const bodyParser = require('body-parser');
-  const app = express();
-  app.use(bodyParser.json());
-
-  const webhookPath = `/webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
-  bot.telegram.setWebhook(`${process.env.APP_URL}${webhookPath}`);
-  app.post(webhookPath, (req, res) => bot.handleUpdate(req.body, res));
-
-  const port = process.env.PORT || 3000;
-  app.listen(port, () => console.log(`🌐 Server running with webhook on port ${port}`));
-}
-
+// Graceful shutdown
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));

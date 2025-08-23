@@ -1,19 +1,82 @@
-import { Telegraf } from 'telegraf';
-import { createUser, findUserByTGId } from '../services/userService.js';
-import { sendNextQuestion, handleAnswer } from '../services/reminderService.js';
+import userService from '../services/userService.js';
+import keyboards from '../utils/keyboards.js';
+import affirmationService from '../services/affirmationService.js';
 
-export const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+export default function botController(bot) {
+  bot.start(async (ctx) => {
+    const tgId = ctx.from.id;
+    let user = await userService.getUserByTelegramId(tgId);
 
-bot.start(async (ctx) => {
-  const tgId = ctx.from.id.toString();
-  let user = await findUserByTGId(tgId);
-  if (!user) {
-    user = await createUser({ tgId, name: ctx.from.first_name });
-  }
-  await ctx.reply(`Привіт, ${user['User Name']}! Готові до сьогоднішньої сесії? 🌱`);
-});
+    if (!user) {
+      ctx.session.step = 'reg_name';
+      ctx.session.temp = {};
+      return ctx.reply(`🌟 Вітаю в AI-Coach! Як тебе звати?`, keyboards.skipKeyboard());
+    }
 
-// будь-яке текстове повідомлення = відповідь
-bot.on('text', async (ctx) => {
-  await handleAnswer(ctx);
-});
+    return ctx.reply(profileMessage(user), keyboards.mainMenuKeyboard());
+  });
+
+  bot.on('text', async (ctx) => {
+    const text = ctx.message.text;
+    const tgId = ctx.from.id;
+
+    // --- Registration ---
+    if (ctx.session.step === 'reg_name') {
+      ctx.session.temp.name = text.trim();
+      ctx.session.step = 'reg_email';
+      return ctx.reply('Вкажи свій email або натисни «Пропустити»:', keyboards.skipKeyboard());
+    }
+
+    if (ctx.session.step === 'reg_email') {
+      ctx.session.temp.email = text.trim();
+      ctx.session.step = 'reg_phone';
+      return ctx.reply('Вкажи номер у форматі +380XXXXXXXXX або натисни «Пропустити»:', keyboards.skipKeyboard());
+    }
+
+    if (ctx.session.step === 'reg_phone') {
+      const newUser = await userService.createUser({
+        tgId,
+        name: ctx.session.temp.name
+      });
+      ctx.session.step = null;
+      ctx.session.temp = {};
+      return ctx.reply(profileMessage(newUser), keyboards.mainMenuKeyboard());
+    }
+
+    // --- Menu ---
+    if (text === '📝 Ранкові питання') {
+      await startDailyQuestions(bot, tgId, 'morning');
+      return;
+    }
+
+    if (text === '🌙 Вечірні питання') {
+      await startDailyQuestions(bot, tgId, 'evening');
+      return;
+    }
+
+    if (text === '💎 Афірмація') {
+      const aff = await affirmationService.getAffirmationAndMarkUsed();
+      return ctx.reply(`🌀 Афірмація:\n${aff}`);
+    }
+  });
+}
+
+function profileMessage(user) {
+  const name = user.fields?.['User Name'] || 'Користувач';
+  const tg = user.fields?.['TG_id'] || '—';
+  const active = user.fields?.['Active_Subscription_Status'] || '❌ Немає активної підписки';
+  const plan = user.fields?.['Active Subscription Plan'] || '—';
+  const start = user.fields?.['Start_Date'] ? new Date(user.fields['Start_Date']).toLocaleDateString('uk-UA') : '—';
+  const end = user.fields?.['End_Date'] ? new Date(user.fields['End_Date']).toLocaleDateString('uk-UA') : '—';
+
+  return `📊 ПРОФІЛЬ
+
+👤 Ім'я: ${name}
+🆔 ID: ${tg}
+
+📦 ПІДПИСКА:
+${active.includes('✅') ? `${active}
+📋 План: ${plan}
+🚀 Початок: ${start}
+📅 Діє до: ${end}` : '❌ Неактивна'}`;
+}
