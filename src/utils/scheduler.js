@@ -1,41 +1,32 @@
-// src/utils/scheduler.js
 import cron from 'node-cron';
 import { getBase, tables } from '../config/database.js';
-import { MORNING_QUESTIONS, EVENING_QUESTIONS, QUESTION_TYPES, SCHEDULE } from '../config/constants.js';
-import { sendReminder } from '../services/reminderService.js';
+import { QUESTION_TYPES, SCHEDULE } from '../config/constants.js';
+import { sendNextQuestion } from '../services/reminderService.js';
 
-const base = getBase();
-
-export const initScheduler = bot => {
+export const initScheduler = (bot) => {
   console.log('⏰ Scheduler initialized');
 
-cron.schedule('* * * * *', async () => {
-  console.log('[CRON] TEST');
-}, { timezone: SCHEDULE.TIMEZONE });
+  // Ранкові о 21:00
+  cron.schedule(`15 21 * * *`, async () => {
+    console.log('[CRON] Ранкові питання', new Date().toISOString());
+    const base = getBase();
+    const users = await base(tables.USERS).select().all();
+    console.log('[CRON] Користувачів знайдено:', users.length);
+    for (const u of users) {
+      console.log('[CRON] Надсилаємо ранкове питання користувачу:', u.fields.TG_id);
+      await sendNextQuestion(bot, u.fields.TG_id);
+    }
+  }, { timezone: SCHEDULE.TIMEZONE });
 
-  // Ранкові
-  cron.schedule(
-    '35 20 * * *',
-    async () => {
-      console.log('[CRON] Запуск ранкових питань');
-      const users = await base(tables.USERS).select().all();
-      for (let u of users) {
-        await sendReminder(bot, u.fields.TG_id, MORNING_QUESTIONS, QUESTION_TYPES.MORNING);
-      }
-    },
-    { timezone: SCHEDULE.TIMEZONE }
-  );
-
-  // Вечірні
-  cron.schedule(
-    '30 21 * * *',
-    async () => {
-      console.log('[CRON] Запуск вечірніх питань');
-      const users = await base(tables.USERS).select().all();
-      for (let u of users) {
-        await sendReminder(bot, u.fields.TG_id, EVENING_QUESTIONS, QUESTION_TYPES.EVENING);
-      }
-    },
-    { timezone: SCHEDULE.TIMEZONE }
-  );
+  // Вечірні о 20:30
+  cron.schedule(`0 23 * * *`, async () => {
+    console.log('[CRON] Вечірні питання', new Date().toISOString());
+    const base = getBase();
+    const users = await base(tables.USERS).select().all();
+    console.log('[CRON] Користувачів знайдено:', users.length);
+    for (const u of users) {
+      console.log('[CRON] Надсилаємо вечірнє питання користувачу:', u.fields.TG_id);
+      await sendNextQuestion(bot, u.fields.TG_id);
+    }
+  }, { timezone: SCHEDULE.TIMEZONE });
 };
