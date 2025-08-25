@@ -40,6 +40,9 @@ export const ANSWER_STEPS = Object.freeze({
   EVENING_4: 'Q_e_4',
   EVENING_5: 'Q_e_5',
   END_EVENING: 'End_e',
+  MORNING_PENDING: 'morning_pending',
+  EVENING_PENDING: 'evening_pending',
+  COMPLETED: 'completed',
 });
 
 export const STEP_ORDER = [
@@ -76,12 +79,12 @@ export const EVENING_QUESTIONS = [
 ];
 
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '12:14',
+  MORNING_TIME: '12:29',
   EVENING_TIME: '23:30',
   MORNING_HOUR: 13,
   EVENING_HOUR: 20,
   MORNING_START: 7,
-  MORNING_END: 12,
+  MORNING_END: 20,
   EVENING_START: 20,
   EVENING_END: 23,
   TIMEZONE: 'Europe/Prague',

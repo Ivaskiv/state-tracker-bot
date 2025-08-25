@@ -1,7 +1,12 @@
 // src/services/reflectionService.js
 import { getBase, tables } from '../config/database.js';
+import { QUESTION_TYPES } from '../config/constants.js';
 
 const base = getBase();
+
+const todayStr = () => {
+  return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+};
 
 export const createOrUpdateResponse = async (
   tgId,
@@ -9,19 +14,50 @@ export const createOrUpdateResponse = async (
   questionType,
   answerStep,
   questionNumber,
-  answer
+  answer,
+  fieldName,
+  isCompleted = false
 ) => {
-  return base(tables.RESPONSES).create([
-    {
-      fields: {
-        TG_id: tgId,
-        'User Name': userName,
-        'Question Type': questionType,
-        Answer_Step: answerStep,
-        Question_Number: questionNumber,
-        Answer: answer,
-        Date: new Date().toISOString().split('T')[0],
-      },
-    },
-  ], { typecast: true });
+  try {
+    const existingRecords = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${todayStr()}")`
+      })
+      .firstPage();
+    const responseData = {
+      'TG_id': String(tgId),
+      'User Name': userName,
+      'Date Response': new Date().toISOString(),
+      [fieldName]: answer,
+      ...(isCompleted && { [`${questionType.toLowerCase()}_completed`]: true })
+    };
+    if (existingRecords.length > 0) {
+      const recordId = existingRecords[0].id;
+      return await base(tables.RESPONSES).update([{ id: recordId, fields: responseData }]);
+    } else {
+      return await base(tables.RESPONSES).create([{ fields: responseData }]);
+    }
+  } catch (error) {
+    console.error('[reflectionService] Помилка в createOrUpdateResponse:', error);
+    throw error;
+  }
 };
+
+export const isSessionCompleted = async (tgId, questionType) => {
+  try {
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${todayStr()}")`
+      })
+      .firstPage();
+    if (records.length > 0) {
+      return records[0].fields[`${questionType.toLowerCase()}_completed`] || false;
+    }
+    return false;
+  } catch (error) {
+    console.error('[reflectionService] Помилка в isSessionCompleted:', error);
+    return false;
+  }
+};
+
+export default { createOrUpdateResponse, isSessionCompleted };
