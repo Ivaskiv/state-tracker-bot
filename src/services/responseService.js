@@ -1,41 +1,69 @@
-// src/services/responseServices.js
-import { findOneByField, createOne, updateOne } from './airtableService.js';
-import { tables } from '../config/database.js';
+// src/services/responseService.js
+import { getBase, tables } from '../config/database.js';
+const base = getBase();
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
-
-const qField = (questionType, n) => {
-  const suffix = questionType === 'Morning' ? 'Morning' : 'Evening';
-  return `Q${n}_${suffix}`;
+const todayStr = () => {
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, '0');
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const yyyy = today.getFullYear();
+  return `${dd}${mm}${yyyy}`;
 };
 
-export const createOrUpdateResponse = async (tgId, userName, questionType, answerStep, questionNumber, answer) => {
-  const rec = await findOneByField('RESPONSES',
-    'Reminder Key',
-    `${userName}_${tgId}_${todayStr().replaceAll('-','')}_${questionType}`
-  );
+/**
+ * Створює або оновлює рядок у Responses для сьогоднішнього дня
+ * В одному рядку зберігаються і ранкові, і вечірні відповіді
+ */
+export const createOrUpdateResponse = async (
+  tgId,
+  userName,
+  questionType,   // "Morning" або "Evening"
+  answerStep,
+  answer,
+  fieldName
+) => {
+  try {
+    const existingRecords = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND(
+          {TG_id}="${tgId}",
+          {User Name}="${userName}",
+          DATETIME_FORMAT({Date Response}, 'DDMMYYYY')="${todayStr()}"
+        )`
+      })
+      .firstPage();
 
-  const fieldsPatch = {
-    'User Name': userName,
-    'TG_id': String(tgId),
-    'Question Type': questionType,
-    'Reminder Key': `${userName}_${tgId}_${todayStr().replaceAll('-','')}_${questionType}`,
-    'Answer_Step': answerStep,
-    [qField(questionType, questionNumber)]: answer,
-  };
+    const responseData = {
+      'TG_id': String(tgId),
+      'User Name': userName,
+      'Date Response': new Date().toISOString(),
+      'Answer_Step': answerStep,
+      [fieldName]: answer,
+    };
 
-  if (rec) {
-    return updateOne('RESPONSES', rec.id, fieldsPatch);
-  } else {
-    return createOne('RESPONSES', fieldsPatch);
+    if (existingRecords.length > 0) {
+      const record = existingRecords[0];
+      const prevType = record.fields['Question Type'] || '';
+
+      let newType = questionType;
+      if (prevType && prevType !== questionType) {
+        newType = `${prevType} + ${questionType}`;
+      }
+
+      responseData['Question Type'] = newType;
+
+      return await base(tables.RESPONSES).update([
+        { id: record.id, fields: responseData }
+      ]);
+    } else {
+      responseData['Question Type'] = questionType;
+
+      return await base(tables.RESPONSES).create([{ fields: responseData }]);
+    }
+  } catch (error) {
+    console.error('[responseService] ❌ Error in createOrUpdateResponse:', error);
+    throw error;
   }
 };
 
-export const findTodayResponse = async (tgId, questionType) => {
-  const keyPrefix = `_${tgId}_${todayStr().replaceAll('-','')}_${questionType}`;
-  // підбираємо по частині Reminder Key (User Name змінна)
-  const records = await (await import('./airtableService.js')).then(m =>
-    m.findAll('RESPONSES', { filterByFormula: `FIND("${keyPrefix}", {Reminder Key})` })
-  );
-  return records.find(r => r.fields['Question Type'] === questionType && String(r.fields['TG_id']) === String(tgId)) || null;
-};
+export default { createOrUpdateResponse };

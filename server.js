@@ -9,7 +9,7 @@ import { initScheduler } from './src/utils/scheduler.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
+const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
 // Підключаємо контролер
 botController(bot);

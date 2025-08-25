@@ -1,52 +1,41 @@
+// src/services/userService.js
+// src/services/userService.js
 import { getBase, tables } from '../config/database.js';
 const base = getBase();
 
-const createUser = async ({ tgId, name }) => {
-  try {
-    const created = await base(tables.USERS).create([
-      {
-        fields: {
-          TG_id: tgId,
-          'User Name': name,
-          Answer_Step: 'Begin_answer',
-        },
-      },
-    ]);
-    return created[0].fields;
-  } catch (err) {
-    console.error('[userService] Error creating user:', err);
-    throw err;
-  }
+export const getUserByTelegramId = async (tgId) => {
+  const records = await base(tables.USERS)
+    .select({ filterByFormula: `{TG_id}="${tgId}"` })
+    .firstPage();
+
+  return records.length ? records[0].fields : null;
 };
 
-const getUserByTelegramId = async (tgId) => {
+export const updateUserStep = async (tgId, step) => {
   try {
     const records = await base(tables.USERS)
-      .select({ filterByFormula: `{TG_id} = '${tgId}'` })
-      .all();
-    return records.length ? records[0].fields : null;
-  } catch (err) {
-    console.error('[userService] Error finding user:', err);
-    throw err;
-  }
-};
+      .select({ filterByFormula: `{TG_id}="${tgId}"` })
+      .firstPage();
 
-const updateUserStep = async (tgId, step) => {
-  try {
-    const records = await base(tables.USERS)
-      .select({ filterByFormula: `{TG_id} = '${tgId}'` })
-      .all();
     if (!records.length) return null;
-    const updated = await base(tables.USERS).update(records[0].id, { Answer_Step: step });
-    return updated.fields;
-  } catch (err) {
-    console.error('[userService] Error updating step:', err);
-    throw err;
+
+    const recordId = records[0].id;
+
+    const updatedRecord = await base(tables.USERS).update([
+      { id: recordId, fields: { Answer_Step: step } }
+    ]);
+
+    console.log(`[userService] Updated Answer_Step for ${tgId} -> ${step}`);
+    return updatedRecord[0].fields;
+  } catch (error) {
+    console.error('[userService] Error updating step:', error);
+    throw error;
   }
 };
 
-export default {
-  createUser,
-  getUserByTelegramId,
-  updateUserStep
+export const getAllUsers = async () => {
+  const records = await base(tables.USERS).select().all();
+  return records.map(r => r.fields);
 };
+
+export default { getUserByTelegramId, updateUserStep, getAllUsers };

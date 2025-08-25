@@ -1,36 +1,53 @@
 // src/services/schedulerService.js
-import cron from "node-cron";
+import cron from 'node-cron';
+import userService from './userService.js';
+import reminderService from './reminderService.js';
+import { SCHEDULE } from '../config/constants.js';
 
 const setupScheduler = (bot) => {
-  console.log("⏰ Scheduler initialized");
+  console.log("[scheduler] ⏰ Scheduler initialized");
 
-  // Ранкові питання
-  cron.schedule("0 8 * * *", () => {
-    bot.sendMessage(process.env.ADMIN_ID, "📝 Ранкові питання");
-  });
-
-  // Вечірні питання
-  cron.schedule("30 20 * * *", () => {
-    bot.sendMessage(process.env.ADMIN_ID, "🌙 Вечірні питання");
-  });
-
-  // Щотижневий звіт (неділя 21:00)
-  cron.schedule("0 21 * * 0", () => {
-    bot.sendMessage(process.env.ADMIN_ID, "📊 Щотижневий звіт");
-  });
-
-  // Щомісячний звіт (останній день місяця 22:00)
-  cron.schedule("0 22 28-31 * *", () => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    if (tomorrow.getDate() === 1) {
-      bot.sendMessage(process.env.ADMIN_ID, "📊 Місячний звіт");
+  const sendToActiveUsers = async (callback) => {
+    try {
+      const users = await userService.getAllUsers();
+      const activeUsers = users.filter(u => u['Active_Subscription_Status']?.includes('✅ Активна'));
+      
+      console.log(`[scheduler] Found ${activeUsers.length} active users`);
+      
+      for (const user of activeUsers) {
+        try {
+          await callback(user);
+        } catch (err) {
+          console.error(`[scheduler] Error processing user ${user.TG_id}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error('[scheduler] Error getting active users:', err);
     }
+  };
+
+  // Ранковий планувальник
+  const [morningHour, morningMinute] = SCHEDULE.MORNING_TIME.split(':').map(Number);
+  cron.schedule(`${morningMinute} ${morningHour} * * *`, () => {
+    console.log(`[scheduler] 🚀 Sending morning questions at ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    sendToActiveUsers(user => reminderService.startMorningSession(bot, user));
+  }, { 
+    timezone: SCHEDULE.TIMEZONE,
+    scheduled: true 
   });
+
+  // Вечірній планувальник
+  const [eveningHour, eveningMinute] = SCHEDULE.EVENING_TIME.split(':').map(Number);
+  cron.schedule(`${eveningMinute} ${eveningHour} * * *`, () => {
+    console.log(`[scheduler] 🌙 Sending evening questions at ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    sendToActiveUsers(user => reminderService.startEveningSession(bot, user));
+  }, { 
+    timezone: SCHEDULE.TIMEZONE,
+    scheduled: true 
+  });
+
+  console.log(`[scheduler] Morning questions scheduled for ${SCHEDULE.MORNING_TIME} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] Evening questions scheduled for ${SCHEDULE.EVENING_TIME} (${SCHEDULE.TIMEZONE})`);
 };
 
-export default {
-  setupScheduler,
-};
+export default { setupScheduler };
