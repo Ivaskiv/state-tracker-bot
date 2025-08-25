@@ -2,68 +2,54 @@
 import { getBase, tables } from '../config/database.js';
 const base = getBase();
 
+// Формат дати для Date Response (ISO)
 const todayStr = () => {
-  const today = new Date();
-  const dd = String(today.getDate()).padStart(2, '0');
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const yyyy = today.getFullYear();
-  return `${dd}${mm}${yyyy}`;
+  return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 };
 
-/**
- * Створює або оновлює рядок у Responses для сьогоднішнього дня
- * В одному рядку зберігаються і ранкові, і вечірні відповіді
- */
-export const createOrUpdateResponse = async (
-  tgId,
-  userName,
-  questionType,   // "Morning" або "Evening"
-  answerStep,
-  answer,
-  fieldName
-) => {
+// Створення або оновлення відповіді
+export const createOrUpdateResponse = async (tgId, userName, questionType, answerStep, questionNumber, answer, fieldName, isCompleted = false) => {
   try {
     const existingRecords = await base(tables.RESPONSES)
       .select({
-        filterByFormula: `AND(
-          {TG_id}="${tgId}",
-          {User Name}="${userName}",
-          DATETIME_FORMAT({Date Response}, 'DDMMYYYY')="${todayStr()}"
-        )`
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${todayStr()}")`
       })
       .firstPage();
-
     const responseData = {
       'TG_id': String(tgId),
       'User Name': userName,
       'Date Response': new Date().toISOString(),
-      'Answer_Step': answerStep,
       [fieldName]: answer,
+      ...(isCompleted && { [`${questionType.toLowerCase()}_completed`]: true })
     };
-
     if (existingRecords.length > 0) {
-      const record = existingRecords[0];
-      const prevType = record.fields['Question Type'] || '';
-
-      let newType = questionType;
-      if (prevType && prevType !== questionType) {
-        newType = `${prevType} + ${questionType}`;
-      }
-
-      responseData['Question Type'] = newType;
-
-      return await base(tables.RESPONSES).update([
-        { id: record.id, fields: responseData }
-      ]);
+      const recordId = existingRecords[0].id;
+      return await base(tables.RESPONSES).update([{ id: recordId, fields: responseData }]);
     } else {
-      responseData['Question Type'] = questionType;
-
       return await base(tables.RESPONSES).create([{ fields: responseData }]);
     }
   } catch (error) {
-    console.error('[responseService] ❌ Error in createOrUpdateResponse:', error);
+    console.error('[responseService] Помилка в createOrUpdateResponse:', error);
     throw error;
   }
 };
 
-export default { createOrUpdateResponse };
+// Перевірка завершення сесії
+export const isSessionCompleted = async (tgId, questionType) => {
+  try {
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${todayStr()}")`
+      })
+      .firstPage();
+    if (records.length > 0) {
+      return records[0].fields[`${questionType.toLowerCase()}_completed`] || false;
+    }
+    return false;
+  } catch (error) {
+    console.error('[responseService] Помилка в isSessionCompleted:', error);
+    return false;
+  }
+};
+
+export default { createOrUpdateResponse, isSessionCompleted };
