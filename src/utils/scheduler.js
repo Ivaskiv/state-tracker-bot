@@ -14,9 +14,12 @@ export const initScheduler = (bot) => {
       const users = await userService.getAllUsers();
       const activeUsers = users.filter(u => u['Active_Subscription_Status']?.includes('✅ Активна'));
       console.log(`[scheduler] ${logPrefix} - Знайдено ${activeUsers.length} активних користувачів`);
+      
       for (const user of activeUsers) {
         try {
           await callback(user);
+          // Додаємо невелику затримку між користувачами
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (err) {
           console.error(`[scheduler] ${logPrefix} - Помилка для користувача ${user.TG_id}:`, err);
         }
@@ -26,57 +29,108 @@ export const initScheduler = (bot) => {
     }
   };
 
-  // Ранкові питання (08:00)
+  // ✅ Ранкові питання (08:00)
   const [morningHour, morningMinute] = SCHEDULE.MORNING_TIME.split(':').map(Number);
   cron.schedule(`${morningMinute} ${morningHour} * * *`, () => {
-    const logPrefix = '🚀 Надсилання ранкових питань';
+    const logPrefix = '🌞 Надсилання ранкових питань';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    
     sendToActiveUsers(async (user) => {
-      await userService.updateUserStep(user.TG_id, ANSWER_STEPS.MORNING_1);
-      await reminderService.sendNextQuestion(bot, { ...user, Answer_Step: ANSWER_STEPS.MORNING_1 });
+      // Скидаємо статус користувача для нового дня
+      await userService.updateUserStep(user.TG_id, ANSWER_STEPS.COMPLETED);
+      // Запускаємо ранкову сесію
+      await reminderService.startMorningSession(bot, user);
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
 
-  // Вечірні питання (20:30)
+  // ✅ Вечірні питання (20:30)
   const [eveningHour, eveningMinute] = SCHEDULE.EVENING_TIME.split(':').map(Number);
   cron.schedule(`${eveningMinute} ${eveningHour} * * *`, () => {
     const logPrefix = '🌙 Надсилання вечірніх питань';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    
     sendToActiveUsers(async (user) => {
-      await userService.updateUserStep(user.TG_id, ANSWER_STEPS.EVENING_1);
-      await reminderService.sendNextQuestion(bot, { ...user, Answer_Step: ANSWER_STEPS.EVENING_1 });
+      await reminderService.startEveningSession(bot, user);
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
 
-  // Щотижневий звіт (неділя, 19:00)
-  const { dayOfWeek, hour: weeklyHour, minute: weeklyMinute, message: weeklyMessage } = REPORT_SCHEDULE.WEEKLY;
+  // ✅ Щотижневий звіт (неділя, 19:00)
+  const { dayOfWeek, hour: weeklyHour, minute: weeklyMinute } = REPORT_SCHEDULE.WEEKLY;
   cron.schedule(`${weeklyMinute} ${weeklyHour} * * ${dayOfWeek}`, () => {
     const logPrefix = '📊 Надсилання щотижневих звітів';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    
     sendToActiveUsers(async (user) => {
-      await bot.telegram.sendChatAction(user.TG_id, 'typing');
-      await new Promise(res => setTimeout(res, 1500));
-      await bot.telegram.sendMessage(user.TG_id, weeklyMessage);
-      console.log(`[scheduler] Надіслано щотижневий звіт користувачу ${user.TG_id}`);
+      try {
+        const report = await analyticsController.generateWeeklyReportForUser(user.TG_id);
+        if (report) {
+          await bot.telegram.sendMessage(user.TG_id, report);
+          console.log(`[scheduler] ✅ Надіслано щотижневий звіт користувачу ${user.TG_id}`);
+        }
+      } catch (error) {
+        console.error(`[scheduler] ❌ Помилка генерації щотижневого звіту для ${user.TG_id}:`, error);
+      }
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
 
-  // Місячний звіт (1-е, 12:00)
-  const { dayRange, hour: monthlyHour, minute: monthlyMinute, message: monthlyMessage } = REPORT_SCHEDULE.MONTHLY;
+  // ✅ Місячний звіт (останній день місяця, 22:00)
+  const { dayRange, hour: monthlyHour, minute: monthlyMinute } = REPORT_SCHEDULE.MONTHLY;
   cron.schedule(`${monthlyMinute} ${monthlyHour} ${dayRange.join(',')} * *`, () => {
-    const logPrefix = '📊 Надсилання місячних звітів';
+    const logPrefix = '📈 Надсилання місячних звітів';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    
     sendToActiveUsers(async (user) => {
-      await bot.telegram.sendChatAction(user.TG_id, 'typing');
-      await new Promise(res => setTimeout(res, 1500));
-      await bot.telegram.sendMessage(user.TG_id, monthlyMessage);
-      console.log(`[scheduler] Надіслано місячний звіт користувачу ${user.TG_id}`);
+      try {
+        const report = await analyticsController.generateMonthlyReportForUser(user.TG_id);
+        if (report) {
+          await bot.telegram.sendMessage(user.TG_id, report);
+          console.log(`[scheduler] ✅ Надіслано місячний звіт користувачу ${user.TG_id}`);
+        }
+      } catch (error) {
+        console.error(`[scheduler] ❌ Помилка генерації місячного звіту для ${user.TG_id}:`, error);
+      }
+    }, logPrefix);
+  }, { timezone: SCHEDULE.TIMEZONE });
+
+  // ✅ Нагадування о 12:00 для тих, хто не відповів на ранкові питання
+  cron.schedule('0 12 * * *', () => {
+    const logPrefix = '🔔 Нагадування ранкових питань';
+    console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    
+    sendToActiveUsers(async (user) => {
+      try {
+        const isCompleted = await responseService.isSessionCompleted(user.TG_id, 'Morning');
+        if (!isCompleted && user.Answer_Step !== ANSWER_STEPS.COMPLETED) {
+          await reminderService.sendReminder(bot, user.TG_id, 'Morning');
+        }
+      } catch (error) {
+        console.error(`[scheduler] ❌ Помилка нагадування для ${user.TG_id}:`, error);
+      }
+    }, logPrefix);
+  }, { timezone: SCHEDULE.TIMEZONE });
+
+  // ✅ Нагадування о 21:00 для тих, хто не відповів на вечірні питання
+  cron.schedule('0 21 * * *', () => {
+    const logPrefix = '🔔 Нагадування вечірніх питань';
+    console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    
+    sendToActiveUsers(async (user) => {
+      try {
+        const isCompleted = await responseService.isSessionCompleted(user.TG_id, 'Evening');
+        if (!isCompleted) {
+          await reminderService.sendReminder(bot, user.TG_id, 'Evening');
+        }
+      } catch (error) {
+        console.error(`[scheduler] ❌ Помилка нагадування для ${user.TG_id}:`, error);
+      }
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
 
   // Логи ініціалізації
-  console.log(`[scheduler] Ранкові питання заплановано на ${SCHEDULE.MORNING_TIME} (${SCHEDULE.TIMEZONE})`);
-  console.log(`[scheduler] Вечірні питання заплановано на ${SCHEDULE.EVENING_TIME} (${SCHEDULE.TIMEZONE})`);
-  console.log(`[scheduler] Щотижневі звіти заплановано на неділю ${REPORT_SCHEDULE.WEEKLY.hour}:${REPORT_SCHEDULE.WEEKLY.minute} (${SCHEDULE.TIMEZONE})`);
-  console.log(`[scheduler] Місячні звіти заплановано на 1-е ${REPORT_SCHEDULE.MONTHLY.hour}:${REPORT_SCHEDULE.MONTHLY.minute} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Ранкові питання заплановано на ${SCHEDULE.MORNING_TIME} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Вечірні питання заплановано на ${SCHEDULE.EVENING_TIME} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Щотижневі звіти заплановано на неділю ${REPORT_SCHEDULE.WEEKLY.hour}:${REPORT_SCHEDULE.WEEKLY.minute} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Місячні звіти заплановано на кінець місяця ${REPORT_SCHEDULE.MONTHLY.hour}:${REPORT_SCHEDULE.MONTHLY.minute} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Нагадування ранкових питань: 12:00`);
+  console.log(`[scheduler] ✅ Нагадування вечірніх питань: 21:00`);
 };

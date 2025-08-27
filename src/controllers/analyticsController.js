@@ -1,5 +1,5 @@
 // controllers/analyticsController.js
-import reflectionService from '../services/reflectionService.js';
+import responseService from '../services/responseService.js';
 import aiAnalyticsService from '../services/aiAnalyticsService.js';
 import userService from '../services/userService.js';
 import { MESSAGES } from '../utils/messages.js';
@@ -42,26 +42,37 @@ class AnalyticsController {
       const user = await userService.getUserByTelegramId(telegramId);
       if (!user) return null;
 
-      const weeklyData = await reflectionService.getWeeklyReflectionData(telegramId);
+      // ✅ Отримуємо записи за тиждень з нової структури
+      const weeklyRecords = await responseService.getUserRecords(telegramId, 7);
       
-      if (weeklyData.reflections.length === 0) {
+      if (weeklyRecords.length === 0) {
         return null;
       }
 
-      // Analyze patterns
-      const patterns = await reflectionService.analyzePatterns(weeklyData.reflections);
+      // ✅ Аналізуємо шаблоні з нової структури
+      const patterns = this.analyzePatterns(weeklyRecords);
       
-      // Generate AI analysis if available
+      // Генеруємо AI аналіз якщо доступний
       let aiAnalysis = '';
       try {
+        const weeklyData = this.prepareWeeklyData(weeklyRecords);
         aiAnalysis = await aiAnalyticsService.generateWeeklyAnalysis(weeklyData);
       } catch (error) {
         console.error('AI analysis failed, using fallback');
-        aiAnalysis = this.generateFallbackWeeklyAnalysis(patterns, weeklyData);
+        aiAnalysis = this.generateFallbackWeeklyAnalysis(patterns, weeklyRecords);
       }
 
-      const userName = user.fields['User Name'];
-      const completionRate = Math.round((weeklyData.completedDays / 7) * 100);
+      const userName = user['User Name'];
+      const completedDays = weeklyRecords.length;
+      const completionRate = Math.round((completedDays / 7) * 100);
+
+      // Підраховуємо завершені сесії
+      let morningCompleted = 0;
+      let eveningCompleted = 0;
+      weeklyRecords.forEach(record => {
+        if (record.fields.morning_completed) morningCompleted++;
+        if (record.fields.evening_completed) eveningCompleted++;
+      });
 
       const report = `📊 ЩОТИЖНЕВИЙ ЗВІТ
 
@@ -69,9 +80,10 @@ class AnalyticsController {
 Ось твій AI-звіт за останній тиждень:
 
 📈 СТАТИСТИКА:
-• Днів з рефлексіями: ${weeklyData.completedDays}/7
+• Днів з рефлексіями: ${completedDays}/7
+• Ранкових сесій: ${morningCompleted}
+• Вечірніх сесій: ${eveningCompleted}
 • Відсоток виконання: ${completionRate}%
-• Всього відповідей: ${weeklyData.reflections.length}
 
 ${aiAnalysis}
 
@@ -94,27 +106,37 @@ ${aiAnalysis}
       const user = await userService.getUserByTelegramId(telegramId);
       if (!user) return null;
 
-      const monthlyData = await reflectionService.getMonthlyReflectionData(telegramId);
+      // ✅ Отримуємо записи за місяць
+      const monthlyRecords = await responseService.getUserRecords(telegramId, 30);
       
-      if (monthlyData.reflections.length === 0) {
+      if (monthlyRecords.length === 0) {
         return null;
       }
 
-      // Analyze patterns
-      const patterns = await reflectionService.analyzePatterns(monthlyData.reflections);
+      // ✅ Аналізуємо шаблони
+      const patterns = this.analyzePatterns(monthlyRecords);
       
-      // Generate AI analysis if available
+      // Генеруємо AI аналіз
       let aiAnalysis = '';
       try {
+        const monthlyData = this.prepareMonthlyData(monthlyRecords);
         aiAnalysis = await aiAnalyticsService.generateMonthlyAnalysis(monthlyData);
       } catch (error) {
         console.error('AI analysis failed, using fallback');
-        aiAnalysis = this.generateFallbackMonthlyAnalysis(patterns, monthlyData);
+        aiAnalysis = this.generateFallbackMonthlyAnalysis(patterns, monthlyRecords);
       }
 
-      const userName = user.fields['User Name'];
-      const completionRate = Math.round((monthlyData.completedDays / 30) * 100);
-      const stats = await reflectionService.getReflectionStats(telegramId);
+      const userName = user['User Name'];
+      const completedDays = monthlyRecords.length;
+      const completionRate = Math.round((completedDays / 30) * 100);
+
+      // Підраховуємо завершені сесії
+      let morningCompleted = 0;
+      let eveningCompleted = 0;
+      monthlyRecords.forEach(record => {
+        if (record.fields.morning_completed) morningCompleted++;
+        if (record.fields.evening_completed) eveningCompleted++;
+      });
 
       const report = `📈 ЩОМІСЯЧНИЙ ЗВІТ
 
@@ -122,10 +144,10 @@ ${aiAnalysis}
 Ось твій AI-звіт за місяць:
 
 📊 СТАТИСТИКА МІСЯЦЯ:
-• Днів з рефлексіями: ${monthlyData.completedDays}/30
+• Днів з рефлексіями: ${completedDays}/30
+• Ранкових сесій: ${morningCompleted}
+• Вечірніх сесій: ${eveningCompleted}
 • Відсоток виконання: ${completionRate}%
-• Всього відповідей: ${monthlyData.reflections.length}
-• Поточна серія днів: ${stats.streak}
 
 ${aiAnalysis}
 
@@ -143,153 +165,85 @@ ${aiAnalysis}
     }
   }
 
-  generateFallbackWeeklyAnalysis(patterns, data) {
-    let analysis = '🔍 АНАЛІЗ ТИЖНЯ:\n';
-
-    // Energy gains analysis
-    if (patterns.energyGains.length > 0) {
-      analysis += `\n🌊 Найбільше наповнювало:\n`;
-      patterns.energyGains.slice(0, 3).forEach(item => {
-        analysis += `• ${item.pattern} (${item.count} разів)\n`;
-      });
-    }
-
-    // Energy losses analysis
-    if (patterns.energyLosses.length > 0) {
-      analysis += `\n🕳 Витоки енергії:\n`;
-      patterns.energyLosses.slice(0, 3).forEach(item => {
-        analysis += `• ${item.pattern} (${item.count} разів)\n`;
-      });
-    }
-
-    // Programs analysis
-    if (patterns.programs.length > 0) {
-      analysis += `\n🚧 Блокуючі програми:\n`;
-      patterns.programs.slice(0, 3).forEach(item => {
-        analysis += `• "${item.pattern}" зʼявлялась ${item.count} разів\n`;
-      });
-    }
-
-    // Victories analysis
-    if (patterns.victories.length > 0) {
-      analysis += `\n🏆 Головні перемоги:\n`;
-      patterns.victories.slice(0, 3).forEach(item => {
-        analysis += `• ${item.pattern}\n`;
-      });
-    }
-
-    return analysis;
+  // ✅ Оновлена функція підготовки даних для аналізу
+  prepareWeeklyData(records) {
+    const data = {
+      completedDays: records.length,
+      totalRecords: records.length,
+      patterns: this.analyzePatterns(records)
+    };
+    
+    return data;
   }
 
-  generateFallbackMonthlyAnalysis(patterns, data) {
-    let analysis = '🧠 ГЛИБОКИЙ АНАЛІЗ МІСЯЦЯ:\n';
-
-    // Overall trends
-    const completionRate = Math.round((data.completedDays / 30) * 100);
-    if (completionRate >= 80) {
-      analysis += '\n✨ Ти показала високу регулярність - це основа трансформації!\n';
-    } else if (completionRate >= 60) {
-      analysis += '\n💪 Добра регулярність, є простір для покращення.\n';
-    } else {
-      analysis += '\n🎯 Фокус на регулярність допоможе поглибити результати.\n';
-    }
-
-    // Dominant patterns
-    if (patterns.states.length > 0) {
-      analysis += `\n🧭 Домінуючі стани:\n`;
-      patterns.states.slice(0, 3).forEach(item => {
-        analysis += `• ${item.pattern} (${item.count} разів)\n`;
-      });
-    }
-
-    if (patterns.energyGains.length > 0) {
-      analysis += `\n⚡️ Головні джерела енергії:\n`;
-      patterns.energyGains.slice(0, 3).forEach(item => {
-        analysis += `• ${item.pattern}\n`;
-      });
-    }
-
-    if (patterns.programs.length > 0) {
-      analysis += `\n🔄 Програми для трансформації:\n`;
-      patterns.programs.slice(0, 2).forEach(item => {
-        analysis += `• "${item.pattern}" - потребує уваги\n`;
-      });
-    }
-
-    return analysis;
+  prepareMonthlyData(records) {
+    const data = {
+      completedDays: records.length,
+      totalRecords: records.length,
+      patterns: this.analyzePatterns(records)
+    };
+    
+    return data;
   }
 
-  async getUserProgress(ctx) {
-    try {
-      const telegramId = ctx.from.id;
-      const stats = await reflectionService.getReflectionStats(telegramId);
-      const userStats = await userService.getUserStats(telegramId);
+  // ✅ Оновлена функція аналізу шаблонів для нової структури
+  analyzePatterns(records) {
+    const patterns = {
+      energyGains: [],
+      energyLosses: [],
+      programs: [],
+      states: [],
+      victories: []
+    };
 
-      if (!userStats) {
-        await ctx.reply('Дані не знайдено');
-        return;
-      }
+    // Збираємо всі відповіді по категоріях
+    const energyGains = [];
+    const energyLosses = [];
+    const programs = [];
+    const states = [];
+    const victories = [];
 
-      const progress = `📊 ТВІЙ ПРОГРЕС
-
-👤 Профіль:
-• Реєстрація: ${new Date(userStats.registrationDate).toLocaleDateString('uk-UA')}
-• Статус: ${userStats.subscriptionStatus}
-
-📈 Статистика рефлексій:
-• Всього: ${stats.total}
-• Ранкових: ${stats.morning}
-• Вечірніх: ${stats.evening}
-• Цього тижня: ${stats.thisWeek}
-• Поточна серія: ${stats.streak} днів
-
-🔥 Продовжуй в тому ж дусі!`;
-
-      await ctx.reply(progress);
-    } catch (error) {
-      console.error('Error getting user progress:', error);
-      await ctx.reply(MESSAGES.ERROR_GENERIC);
-    }
-  }
-
-  async exportUserData(telegramId) {
-    try {
-      const user = await userService.getUserByTelegramId(telegramId);
-      const reflections = await reflectionService.getUserReflections(telegramId, 365);
-      const morningResponses = await reflectionService.getMorningResponses(telegramId, 365);
-      const eveningResponses = await reflectionService.getEveningResponses(telegramId, 365);
-
-      const exportData = {
-        user: user?.fields || {},
-        stats: await reflectionService.getReflectionStats(telegramId),
-        reflections: reflections.map(r => r.fields),
-        morningResponses: morningResponses.map(r => r.fields),
-        eveningResponses: eveningResponses.map(r => r.fields),
-        exportDate: new Date().toISOString()
-      };
-
-      return exportData;
-    } catch (error) {
-      console.error('Error exporting user data:', error);
-      return null;
-    }
-  }
-
-  async getSystemStats() {
-    try {
-      // This would return overall system statistics
-      // Could be used for admin purposes
-      const totalUsers = await userService.getActiveUsers();
+    records.forEach(record => {
+      const fields = record.fields;
       
-      return {
-        totalActiveUsers: totalUsers.length,
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      console.error('Error getting system stats:', error);
-      return null;
-    }
+      // Енергія (вечірнє питання 1)
+      if (fields.Q_e_1) energyGains.push(fields.Q_e_1);
+      
+      // Втрата енергії (вечірнє питання 2)
+      if (fields.Q_e_2) energyLosses.push(fields.Q_e_2);
+      
+      // Програми (вечірнє питання 3)
+      if (fields.Q_e_3) programs.push(fields.Q_e_3);
+      
+      // Стани (ранкове питання 5)
+      if (fields.Q_m_5) states.push(fields.Q_m_5);
+      
+      // Перемоги (вечірнє питання 5)
+      if (fields.Q_e_5) victories.push(fields.Q_e_5);
+    });
+
+    // Аналізуємо частоту згадувань
+    patterns.energyGains = this.getTopPatterns(energyGains);
+    patterns.energyLosses = this.getTopPatterns(energyLosses);
+    patterns.programs = this.getTopPatterns(programs);
+    patterns.states = this.getTopPatterns(states);
+    patterns.victories = this.getTopPatterns(victories);
+
+    return patterns;
+  }
+
+  // Функція для виділення найчастіших шаблонів
+  getTopPatterns(data) {
+    const frequencyMap = {};
+
+    data.forEach(item => {
+      if (frequencyMap[item]) {
+        frequencyMap[item]++;
+      } else {
+        frequencyMap[item] = 1;
+      }
+    });
+
+    const sortedPatterns = Object.entries(frequencyMap).sort((a, b) => b[1] - a[1]);
   }
 }
-
-export default new AnalyticsController();

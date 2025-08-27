@@ -3,7 +3,7 @@ import { getBase } from '../config/database.js';
 import { QUESTION_TYPES } from '../config/constants.js';
 
 /**
- * Створення або оновлення відповіді в Airtable
+ * Створення або оновлення відповіді в Airtable - ОДИН ЗАПИС НА ДЕНЬ
  */
 export const createOrUpdateResponse = async (
   tgId,
@@ -20,44 +20,56 @@ export const createOrUpdateResponse = async (
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const tgIdString = String(tgId);
 
-    // Пошук існуючого запису
+    // ✅ Шукаємо ОДИН запис на день БЕЗ розділення по типу питань
     const records = await base('Responses').select({
-      filterByFormula: `AND({TG_id}="${tgIdString}", {Date Response}="${today}", {Question Type}="${questionType}")`,
+      filterByFormula: `AND({TG_id}="${tgIdString}", {Date Response}="${today}")`,
       maxRecords: 1
     }).firstPage();
 
-    // Дані для збереження
-    const fields = {
+    // Базові дані
+    const baseFields = {
       'TG_id': tgIdString,
       'User Name': userName,
       'Date Response': today,
-      'Question Type': questionType,
+    };
+
+    // Додаємо конкретну відповідь
+    const updateFields = {
+      ...baseFields,
       [fieldName]: answer
     };
 
-    // Додаємо прапорець завершення
+    // Додаємо прапорець завершення відповідного типу питань
     if (isCompleted) {
-      const completedField = questionType === QUESTION_TYPES.MORNING
-        ? 'morning_completed'
-        : 'evening_completed';
-      fields[completedField] = true;
+      if (questionType === QUESTION_TYPES.MORNING) {
+        updateFields['morning_completed'] = true;
+      } else if (questionType === QUESTION_TYPES.EVENING) {
+        updateFields['evening_completed'] = true;
+      }
     }
 
     if (records.length > 0) {
-      await base('Responses').update([{ id: records[0].id, fields }]);
-      console.log(`[responseService] Оновлено запис для ${tgIdString}, ${today}, ${fieldName}`);
+      // ✅ Оновлюємо існуючий запис
+      await base('Responses').update([{ 
+        id: records[0].id, 
+        fields: updateFields 
+      }]);
+      console.log(`[responseService] ✅ Оновлено запис для ${tgIdString}, ${today}, поле: ${fieldName}`);
     } else {
-      await base('Responses').create([{ fields }]);
-      console.log(`[responseService] Створено запис для ${tgIdString}, ${today}, ${fieldName}`);
+      // ✅ Створюємо новий запис
+      await base('Responses').create([{ 
+        fields: updateFields 
+      }]);
+      console.log(`[responseService] ✅ Створено новий запис для ${tgIdString}, ${today}, поле: ${fieldName}`);
     }
   } catch (error) {
-    console.error('[responseService] Помилка createOrUpdateResponse:', error);
+    console.error('[responseService] ❌ Помилка createOrUpdateResponse:', error);
     throw error;
   }
 };
 
 /**
- * Перевірка завершення сесії
+ * Перевірка завершення сесії - перевіряємо в одному записі
  */
 export const isSessionCompleted = async (tgId, questionType) => {
   try {
@@ -65,23 +77,73 @@ export const isSessionCompleted = async (tgId, questionType) => {
     const today = new Date().toISOString().split('T')[0];
     const tgIdString = String(tgId);
 
-    // 🔑 Виправлено: було {Type}, стало {Question Type}
+    // ✅ Шукаємо ОДИН запис на день
     const records = await base('Responses').select({
-      filterByFormula: `AND({TG_id}="${tgIdString}", {Date Response}="${today}", {Question Type}="${questionType}")`,
+      filterByFormula: `AND({TG_id}="${tgIdString}", {Date Response}="${today}")`,
       maxRecords: 1
     }).firstPage();
 
     if (!records.length) return false;
 
+    // Перевіряємо відповідне поле завершення
     const completedField = questionType === QUESTION_TYPES.MORNING
       ? 'morning_completed'
       : 'evening_completed';
 
     return !!records[0].fields[completedField];
   } catch (error) {
-    console.error('[responseService] Помилка isSessionCompleted:', error);
+    console.error('[responseService] ❌ Помилка isSessionCompleted:', error);
     return false;
   }
 };
 
-export default { createOrUpdateResponse, isSessionCompleted };
+/**
+ * Отримання запису за день для користувача
+ */
+export const getDayRecord = async (tgId, date = null) => {
+  try {
+    const base = getBase();
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const tgIdString = String(tgId);
+
+    const records = await base('Responses').select({
+      filterByFormula: `AND({TG_id}="${tgIdString}", {Date Response}="${targetDate}")`,
+      maxRecords: 1
+    }).firstPage();
+
+    return records.length > 0 ? records[0] : null;
+  } catch (error) {
+    console.error('[responseService] ❌ Помилка getDayRecord:', error);
+    return null;
+  }
+};
+
+/**
+ * Отримання записів користувача за період
+ */
+export const getUserRecords = async (tgId, days = 7) => {
+  try {
+    const base = getBase();
+    const tgIdString = String(tgId);
+    const sinceDate = new Date();
+    sinceDate.setDate(sinceDate.getDate() - days);
+    const sinceDateStr = sinceDate.toISOString().split('T')[0];
+
+    const records = await base('Responses').select({
+      filterByFormula: `AND({TG_id}="${tgIdString}", IS_AFTER({Date Response}, "${sinceDateStr}"))`,
+      sort: [{ field: 'Date Response', direction: 'desc' }]
+    }).all();
+
+    return records;
+  } catch (error) {
+    console.error('[responseService] ❌ Помилка getUserRecords:', error);
+    return [];
+  }
+};
+
+export default { 
+  createOrUpdateResponse, 
+  isSessionCompleted, 
+  getDayRecord,
+  getUserRecords 
+};

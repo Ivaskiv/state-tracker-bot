@@ -167,7 +167,7 @@ async function startMorningQuestions(ctx, user) {
   }
 
   const tgId = ctx.from.id;
-  await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_PENDING);
+  await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1); // ✅ Відразу встановлюємо перше питання
   await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
   await new Promise((res) => setTimeout(res, 1500));
   await ctx.reply(`🌞 Ранкові питання для фокусу та активації!\nВідповідай щиро ✨\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
@@ -192,7 +192,7 @@ async function startEveningQuestions(ctx, user) {
   }
 
   const tgId = ctx.from.id;
-  await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
+  await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1); // ✅ Відразу встановлюємо перше питання
   await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
   await new Promise((res) => setTimeout(res, 1500));
   await ctx.reply(`🌙 Вечірні питання для аналізу дня!\nЧас підсумувати та зафіксувати перемоги 🏆\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
@@ -224,13 +224,21 @@ async function showUserProgress(ctx, user) {
     return ctx.reply('Спочатку зареєструйтесь /start');
   }
   try {
-    const base = getBase();
     const tgId = ctx.from.id;
-    const responses = await base('Responses').select({ filterByFormula: `{TG_id} = "${tgId}"` }).all();
-    let totalResponses = responses.length;
-    let morningResponses = responses.filter((r) => r.fields['morning_completed']).length;
-    let eveningResponses = responses.filter((r) => r.fields['evening_completed']).length;
-    const progressText = `📊 ВАШ ПРОГРЕС:\n\n📝 Всього днів: ${totalResponses}\n🌅 Ранкові: ${morningResponses}\n🌙 Вечірні: ${eveningResponses}\n\n💡 Пропозиція: відповідай щодня для розвитку!`;
+    
+    // ✅ Використовуємо нову функцію для отримання записів
+    const records = await responseService.getUserRecords(tgId, 30); // за останні 30 днів
+    
+    let totalDays = records.length;
+    let morningCompleted = 0;
+    let eveningCompleted = 0;
+    
+    records.forEach(record => {
+      if (record.fields.morning_completed) morningCompleted++;
+      if (record.fields.evening_completed) eveningCompleted++;
+    });
+    
+    const progressText = `📊 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Пропозиція: відповідай щодня для розвитку!`;
     await ctx.telegram.sendChatAction(ctx.from.id, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
     await new Promise((res) => setTimeout(res, 1500));
     return ctx.reply(progressText, keyboards.mainMenuKeyboard());
@@ -242,26 +250,28 @@ async function showUserProgress(ctx, user) {
   }
 }
 
-// Обробка відповідей
+// ✅ ГОЛОВНА ФУНКЦІЯ - Обробка відповідей на питання
 async function handleQuestionAnswer(ctx, user, answer) {
   const tgId = ctx.from.id;
   const currentStep = user.Answer_Step;
   const userName = user['User Name'] || 'Користувач';
   console.log(`[handleQuestionAnswer] Користувач ${tgId}, Крок: ${currentStep}`);
+
   let questionType, questions, questionNumber, nextStep, fieldName;
 
-  if (currentStep === ANSWER_STEPS.MORNING_PENDING || currentStep.startsWith('Q_m_')) {
+  // Визначаємо тип питань і наступний крок
+  if (currentStep.startsWith('Q_m_')) {
     questionType = QUESTION_TYPES.MORNING;
     questions = MORNING_QUESTIONS;
-    questionNumber = currentStep === ANSWER_STEPS.MORNING_PENDING ? 1 : parseInt(currentStep.split('_')[2]);
+    questionNumber = parseInt(currentStep.split('_')[2]);
     fieldName = `Q_m_${questionNumber}`;
-    nextStep = questionNumber < MORNING_QUESTIONS.length ? `Q_m_${questionNumber + 1}` : ANSWER_STEPS.END_MORNING;
-  } else if (currentStep === ANSWER_STEPS.EVENING_PENDING || currentStep.startsWith('Q_e_')) {
+    nextStep = questionNumber < 6 ? `Q_m_${questionNumber + 1}` : ANSWER_STEPS.END_MORNING;
+  } else if (currentStep.startsWith('Q_e_')) {
     questionType = QUESTION_TYPES.EVENING;
     questions = EVENING_QUESTIONS;
-    questionNumber = currentStep === ANSWER_STEPS.EVENING_PENDING ? 1 : parseInt(currentStep.split('_')[2]);
+    questionNumber = parseInt(currentStep.split('_')[2]);
     fieldName = `Q_e_${questionNumber}`;
-    nextStep = questionNumber < EVENING_QUESTIONS.length ? `Q_e_${questionNumber + 1}` : ANSWER_STEPS.END_EVENING;
+    nextStep = questionNumber < 5 ? `Q_e_${questionNumber + 1}` : ANSWER_STEPS.END_EVENING;
   } else {
     console.log('[handleQuestionAnswer] Невідомий крок:', currentStep);
     await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
@@ -270,33 +280,44 @@ async function handleQuestionAnswer(ctx, user, answer) {
   }
 
   try {
-    // Зберігаємо відповідь
+    // ✅ Зберігаємо відповідь В ОДИН ЗАПИС
     await responseService.createOrUpdateResponse(tgId, userName, questionType, currentStep, questionNumber, answer, fieldName);
-    console.log(`[handleQuestionAnswer] Збережено відповідь для ${questionType} Q${questionNumber}`);
+    console.log(`[handleQuestionAnswer] ✅ Збережено відповідь для ${questionType} Q${questionNumber}`);
 
+    // Перевіряємо, чи це останнє питання
     if (nextStep === ANSWER_STEPS.END_MORNING || nextStep === ANSWER_STEPS.END_EVENING) {
-      const affirmation = await affirmationService.getAffirmationAndMarkUsed();
+      // Отримуємо афірмацію
+      const affirmation = await affirmationService.getAffirmationAndMarkUsed(questionType.toLowerCase());
+      
+      // ✅ Зберігаємо афірмацію В ТОЙ ЖЕ ЗАПИС
       const affirmationField = questionType === QUESTION_TYPES.MORNING ? 'affirmation_m' : 'affirmation_e';
       await responseService.createOrUpdateResponse(tgId, userName, questionType, nextStep, 0, affirmation, affirmationField, true);
-      console.log(`[handleQuestionAnswer] Збережено афірмацію для ${questionType}`);
+      
+      console.log(`[handleQuestionAnswer] ✅ Збережено афірмацію для ${questionType}`);
+      
+      // Встановлюємо статус завершено
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
 
       const endMessage = questionType === QUESTION_TYPES.MORNING
         ? `✅ Ранкові питання завершено!\n\n💎 Афірмація для тебе:\n${affirmation}`
         : `✅ Вечірні питання завершено!\n\n💎 Афірмація для тебе:\n${affirmation}`;
+      
       await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
       await new Promise((res) => setTimeout(res, 1500));
       return ctx.reply(endMessage, keyboards.mainMenuKeyboard());
     }
 
+    // Переходимо до наступного питання
     await userService.updateUserStep(tgId, nextStep);
-    const nextQuestionIndex = parseInt(nextStep.split('_')[2]) - 1;
+    const nextQuestionIndex = questionNumber; // індекс для масиву (починається з 0)
     const nextQuestion = questions[nextQuestionIndex];
+    
     await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
     await new Promise((res) => setTimeout(res, 1500));
-    return ctx.reply(`${nextQuestionIndex + 1}️⃣/${questions.length} ${nextQuestion}`);
+    return ctx.reply(`${questionNumber + 1}️⃣/${questions.length} ${nextQuestion}`);
+    
   } catch (error) {
-    console.error('[handleQuestionAnswer] Помилка:', error);
+    console.error('[handleQuestionAnswer] ❌ Помилка:', error);
     await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
     await new Promise((res) => setTimeout(res, 1500));
     return ctx.reply('Помилка при збереженні відповіді. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
