@@ -35,7 +35,7 @@ export const initScheduler = (bot) => {
       const isMorningCompleted = await reminderService.isSessionCompleted(user.TG_id, QUESTION_TYPES.MORNING);
       if (!isMorningCompleted) {
         await userService.updateUserStep(user.TG_id, ANSWER_STEPS.MORNING_PENDING);
-        await reminderService.sendNextQuestion(bot, { ...user, Answer_Step: ANSWER_STEPS.MORNING_1 });
+        await reminderService.sendNextQuestion(bot, { ...user, Answer_Step: ANSWER_STEPS.MORNING_PENDING });
       }
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
@@ -61,7 +61,7 @@ export const initScheduler = (bot) => {
       const isEveningCompleted = await reminderService.isSessionCompleted(user.TG_id, QUESTION_TYPES.EVENING);
       if (!isEveningCompleted) {
         await userService.updateUserStep(user.TG_id, ANSWER_STEPS.EVENING_PENDING);
-        await reminderService.sendNextQuestion(bot, { ...user, Answer_Step: ANSWER_STEPS.EVENING_1 });
+        await reminderService.sendNextQuestion(bot, { ...user, Answer_Step: ANSWER_STEPS.EVENING_PENDING });
       }
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });

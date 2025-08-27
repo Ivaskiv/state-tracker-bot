@@ -1,10 +1,9 @@
 // src/controllers/botController.js
-// src/controllers/botController.js
 import userService from '../services/userService.js';
 import keyboards from '../utils/keyboards.js';
 import affirmationService from '../services/affirmationService.js';
 import responseService from '../services/responseService.js';
-import { MORNING_QUESTIONS, EVENING_QUESTIONS, ANSWER_STEPS, SCHEDULE, QUESTION_TYPES } from '../config/constants.js';
+import { MORNING_QUESTIONS, EVENING_QUESTIONS, ANSWER_STEPS, SCHEDULE, QUESTION_TYPES, LATE_TEXT } from '../config/constants.js';
 import { getBase } from '../config/database.js';
 
 // Ініціалізація бота
@@ -130,13 +129,22 @@ function isValidResponseTime(answerStep) {
   const morningEnd = SCHEDULE.MORNING_END * 60; // 20:00
   const eveningStart = SCHEDULE.EVENING_START * 60; // 20:30
   const eveningEnd = SCHEDULE.EVENING_END * 60; // 8:00 наступного дня
-  const isNextDay = timeInMinutes < eveningEnd; // Після півночі
+  const isMorningTime = timeInMinutes >= morningStart && timeInMinutes <= morningEnd;
+  const isEveningTime = timeInMinutes >= eveningStart || timeInMinutes <= eveningEnd;
+
+  console.log(`[isValidResponseTime] Час: ${hours}:${minutes}, Answer_Step: ${answerStep}, isMorningTime: ${isMorningTime}, isEveningTime: ${isEveningTime}`);
+
   if (answerStep.startsWith('Q_m_') || answerStep === ANSWER_STEPS.MORNING_PENDING) {
-    return timeInMinutes >= morningStart && timeInMinutes <= morningEnd && !isNextDay;
+    const isValid = isMorningTime;
+    console.log(`[isValidResponseTime] Morning check: ${isValid}`);
+    return isValid;
   }
   if (answerStep.startsWith('Q_e_') || answerStep === ANSWER_STEPS.EVENING_PENDING) {
-    return (timeInMinutes >= eveningStart || isNextDay) && (timeInMinutes <= eveningEnd || !isNextDay);
+    const isValid = isEveningTime;
+    console.log(`[isValidResponseTime] Evening check: ${isValid}`);
+    return isValid;
   }
+  console.log(`[isValidResponseTime] Невідомий Answer_Step: ${answerStep}`);
   return false;
 }
 
@@ -147,14 +155,17 @@ async function startMorningQuestions(ctx, user) {
     await new Promise((res) => setTimeout(res, 1500));
     return ctx.reply('Спочатку зареєструйтесь /start');
   }
+
   const isMorningCompleted = await responseService.isSessionCompleted(user.TG_id, QUESTION_TYPES.MORNING);
   if (isMorningCompleted) {
     return ctx.reply('🌞 Ви вже відповіли на ранкові питання сьогодні.', keyboards.mainMenuKeyboard());
   }
+
   const isValidTime = isValidResponseTime(ANSWER_STEPS.MORNING_PENDING);
   if (!isValidTime) {
     return ctx.reply('⏰ Ранкові питання доступні з 8:00 до 20:00.', keyboards.mainMenuKeyboard());
   }
+
   const tgId = ctx.from.id;
   await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_PENDING);
   await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
@@ -169,14 +180,17 @@ async function startEveningQuestions(ctx, user) {
     await new Promise((res) => setTimeout(res, 1500));
     return ctx.reply('Спочатку зареєструйтесь /start');
   }
+
   const isEveningCompleted = await responseService.isSessionCompleted(user.TG_id, QUESTION_TYPES.EVENING);
   if (isEveningCompleted) {
     return ctx.reply('🌙 Ви вже відповіли на вечірні питання сьогодні.', keyboards.mainMenuKeyboard());
   }
+
   const isValidTime = isValidResponseTime(ANSWER_STEPS.EVENING_PENDING);
   if (!isValidTime) {
     return ctx.reply('⏰ Вечірні питання доступні з 20:30 до 8:00.', keyboards.mainMenuKeyboard());
   }
+
   const tgId = ctx.from.id;
   await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
   await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
@@ -235,33 +249,38 @@ async function handleQuestionAnswer(ctx, user, answer) {
   const userName = user['User Name'] || 'Користувач';
   console.log(`[handleQuestionAnswer] Користувач ${tgId}, Крок: ${currentStep}`);
   let questionType, questions, questionNumber, nextStep, fieldName;
-  if (currentStep.startsWith('Q_m_') || currentStep === ANSWER_STEPS.MORNING_PENDING) {
+
+  if (currentStep === ANSWER_STEPS.MORNING_PENDING || currentStep.startsWith('Q_m_')) {
     questionType = QUESTION_TYPES.MORNING;
     questions = MORNING_QUESTIONS;
     questionNumber = currentStep === ANSWER_STEPS.MORNING_PENDING ? 1 : parseInt(currentStep.split('_')[2]);
     fieldName = `Q_m_${questionNumber}`;
-    nextStep = questionNumber < MORNING_QUESTIONS.length ? `Q_m_${questionNumber + 1}` : ANSWER_STEPS.COMPLETED;
-  } else if (currentStep.startsWith('Q_e_') || currentStep === ANSWER_STEPS.EVENING_PENDING) {
+    nextStep = questionNumber < MORNING_QUESTIONS.length ? `Q_m_${questionNumber + 1}` : ANSWER_STEPS.END_MORNING;
+  } else if (currentStep === ANSWER_STEPS.EVENING_PENDING || currentStep.startsWith('Q_e_')) {
     questionType = QUESTION_TYPES.EVENING;
     questions = EVENING_QUESTIONS;
     questionNumber = currentStep === ANSWER_STEPS.EVENING_PENDING ? 1 : parseInt(currentStep.split('_')[2]);
     fieldName = `Q_e_${questionNumber}`;
-    nextStep = questionNumber < EVENING_QUESTIONS.length ? `Q_e_${questionNumber + 1}` : ANSWER_STEPS.COMPLETED;
+    nextStep = questionNumber < EVENING_QUESTIONS.length ? `Q_e_${questionNumber + 1}` : ANSWER_STEPS.END_EVENING;
   } else {
     console.log('[handleQuestionAnswer] Невідомий крок:', currentStep);
     await ctx.telegram.sendChatAction(tgId, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
     await new Promise((res) => setTimeout(res, 1500));
     return ctx.reply('Щось пішло не так. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
   }
+
   try {
+    // Зберігаємо відповідь
     await responseService.createOrUpdateResponse(tgId, userName, questionType, currentStep, questionNumber, answer, fieldName);
     console.log(`[handleQuestionAnswer] Збережено відповідь для ${questionType} Q${questionNumber}`);
-    if (nextStep === ANSWER_STEPS.COMPLETED) {
+
+    if (nextStep === ANSWER_STEPS.END_MORNING || nextStep === ANSWER_STEPS.END_EVENING) {
       const affirmation = await affirmationService.getAffirmationAndMarkUsed();
       const affirmationField = questionType === QUESTION_TYPES.MORNING ? 'affirmation_m' : 'affirmation_e';
       await responseService.createOrUpdateResponse(tgId, userName, questionType, nextStep, 0, affirmation, affirmationField, true);
       console.log(`[handleQuestionAnswer] Збережено афірмацію для ${questionType}`);
-      await userService.updateUserStep(tgId, nextStep);
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+
       const endMessage = questionType === QUESTION_TYPES.MORNING
         ? `✅ Ранкові питання завершено!\n\n💎 Афірмація для тебе:\n${affirmation}`
         : `✅ Вечірні питання завершено!\n\n💎 Афірмація для тебе:\n${affirmation}`;
@@ -269,6 +288,7 @@ async function handleQuestionAnswer(ctx, user, answer) {
       await new Promise((res) => setTimeout(res, 1500));
       return ctx.reply(endMessage, keyboards.mainMenuKeyboard());
     }
+
     await userService.updateUserStep(tgId, nextStep);
     const nextQuestionIndex = parseInt(nextStep.split('_')[2]) - 1;
     const nextQuestion = questions[nextQuestionIndex];

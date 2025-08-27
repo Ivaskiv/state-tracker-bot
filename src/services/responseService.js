@@ -1,41 +1,36 @@
 // src/services/responseService.js
-import { getBase, tables } from '../config/database.js';
+// src/services/responseService.js
+import { getBase } from '../config/database.js';
 import { QUESTION_TYPES } from '../config/constants.js';
 
-const base = getBase();
-
-const todayStr = () => {
-  return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-};
-
-export const createOrUpdateResponse = async (
-  tgId,
-  userName,
-  questionType,
-  answerStep,
-  questionNumber,
-  answer,
-  fieldName,
-  isCompleted = false
-) => {
+// Створення або оновлення відповіді в Airtable
+export const createOrUpdateResponse = async (tgId, userName, questionType, currentStep, questionNumber, answer, fieldName, isComplete = false) => {
   try {
-    const existingRecords = await base(tables.RESPONSES)
-      .select({
-        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${todayStr()}")`
-      })
-      .firstPage();
-    const responseData = {
-      'TG_id': String(tgId),
-      'User Name': userName,
-      'Date Response': new Date().toISOString(),
-      [fieldName]: answer,
-      ...(isCompleted && { [`${questionType.toLowerCase()}_completed`]: true })
-    };
-    if (existingRecords.length > 0) {
-      const recordId = existingRecords[0].id;
-      return await base(tables.RESPONSES).update([{ id: recordId, fields: responseData }]);
+    const base = getBase();
+    const today = new Date().toISOString().split('T')[0]; // Формат: YYYY-MM-DD (наприклад, 2025-08-25)
+    const tgIdString = String(tgId); // Приведення tgId до рядка
+
+    // Пошук існуючого запису за TG_id і Date Response
+    const records = await base('Responses').select({
+      filterByFormula: `AND({TG_id} = "${tgIdString}", {Date Response} = "${today}")`,
+    }).firstPage();
+
+    let fields = { TG_id: tgIdString, 'User Name': userName, 'Date Response': today };
+    if (isComplete) {
+      fields[questionType === QUESTION_TYPES.MORNING ? 'morning_completed' : 'evening_completed'] = true;
+      fields[questionType === QUESTION_TYPES.MORNING ? 'affirmation_m' : 'affirmation_e'] = answer;
     } else {
-      return await base(tables.RESPONSES).create([{ fields: responseData }]);
+      fields[fieldName] = answer;
+    }
+
+    if (records.length > 0) {
+      // Оновлення існуючого запису
+      await base('Responses').update(records[0].id, fields);
+      console.log(`[responseService] Оновлено запис для ${tgIdString}, ${today}, ${fieldName}`);
+    } else {
+      // Створення нового запису
+      await base('Responses').create(fields);
+      console.log(`[responseService] Створено запис для ${tgIdString}, ${today}, ${fieldName}`);
     }
   } catch (error) {
     console.error('[responseService] Помилка в createOrUpdateResponse:', error);
@@ -43,17 +38,19 @@ export const createOrUpdateResponse = async (
   }
 };
 
+// Перевірка завершення сесії
 export const isSessionCompleted = async (tgId, questionType) => {
   try {
-    const records = await base(tables.RESPONSES)
-      .select({
-        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${todayStr()}")`
-      })
-      .firstPage();
-    if (records.length > 0) {
-      return records[0].fields[`${questionType.toLowerCase()}_completed`] || false;
-    }
-    return false;
+    const base = getBase();
+    const today = new Date().toISOString().split('T')[0]; // Формат: YYYY-MM-DD
+    const tgIdString = String(tgId); // Приведення tgId до рядка
+    const records = await base('Responses').select({
+      filterByFormula: `AND({TG_id} = "${tgIdString}", {Date Response} = "${today}")`,
+    }).firstPage();
+
+    if (records.length === 0) return false;
+    const field = questionType === QUESTION_TYPES.MORNING ? 'morning_completed' : 'evening_completed';
+    return !!records[0].fields[field];
   } catch (error) {
     console.error('[responseService] Помилка в isSessionCompleted:', error);
     return false;
