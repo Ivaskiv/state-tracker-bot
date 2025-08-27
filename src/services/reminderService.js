@@ -1,8 +1,7 @@
 // src/services/reminderService.js
-// src/services/reminderService.js
 import userService from './userService.js';
 import affirmationService from './affirmationService.js';
-import { createOrUpdateResponse } from './responseService.js';
+import responseService from './responseService.js'; // ДОДАНО: імпорт responseService
 import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS, STEP_ORDER, ANSWER_STEPS } from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 
@@ -44,9 +43,23 @@ const sendNextQuestion = async (bot, user) => {
 
     await bot.telegram.sendMessage(tgId, `${questionIndex + 1}️⃣ ${questions[questionIndex]}`);
 
-    console.log(`[sendNextQuestion] Sent question ${questionIndex + 1}, type: ${type} to user ${tgId}`);
+    console.log(`[sendNextQuestion] Надіслано питання ${questionIndex + 1}, тип: ${type} для ${tgId}`);
   } catch (err) {
     console.error(`[sendNextQuestion] Error for user ${tgId}:`, err);
+  }
+};
+
+// ДОДАНО: функція для надсилання нагадувань
+const sendReminder = async (bot, tgId, questionType) => {
+  try {
+    const reminderText = questionType === QUESTION_TYPES.MORNING 
+      ? '🔔 Не забудь відповісти на ранкові питання!'
+      : '🔔 Час для вечірньої рефлексії!';
+    
+    await bot.telegram.sendMessage(tgId, reminderText);
+    console.log(`[sendReminder] Надіслано нагадування для ${questionType} користувачу ${tgId}`);
+  } catch (err) {
+    console.error(`[sendReminder] Error for user ${tgId}:`, err);
   }
 };
 
@@ -74,7 +87,7 @@ const handleAnswer = async (ctx) => {
     console.log(`[handleAnswer] User ${tgId}, Step: ${step}, Answer: ${answer}`);
 
     // Save the answer
-    await createOrUpdateResponse(tgId, user['User Name'], type, step, questionIndex + 1, answer, step);
+    await responseService.createOrUpdateResponse(tgId, user['User Name'], type, step, questionIndex + 1, answer, step);
     console.log(`[handleAnswer] ✅ Saved answer for ${tgId}, field: ${step}`);
 
     // Determine the next step
@@ -92,7 +105,7 @@ const handleAnswer = async (ctx) => {
       
       // Save the affirmation as part of the response
       const affirmationType = type === QUESTION_TYPES.MORNING ? 'morning_affirmation' : 'evening_affirmation';
-      await createOrUpdateResponse(tgId, user['User Name'], type, affirmationType, 0, affirmation, endStep);
+      await responseService.createOrUpdateResponse(tgId, user['User Name'], type, affirmationType, 0, affirmation, endStep);
       console.log(`[handleAnswer] ✅ Saved ${affirmationType} for ${tgId}: ${affirmation}`);
 
       const endMessage =
@@ -112,4 +125,4 @@ const handleAnswer = async (ctx) => {
   }
 };
 
-export default { sendNextQuestion, handleAnswer };
+export default { sendNextQuestion, sendReminder, handleAnswer };
