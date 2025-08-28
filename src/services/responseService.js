@@ -8,11 +8,11 @@ import { QUESTION_TYPES } from '../config/constants.js';
 export const createOrUpdateResponse = async (
   tgId,
   userName,
-  questionType, // "Morning" або "Evening"
-  answerStep,
-  questionNumber,
-  answer,
-  fieldName,
+  questionType,   // QUESTION_TYPES.MORNING | QUESTION_TYPES.EVENING
+  answerStep,     // поточний крок (наприклад: 'Q_m_1', 'Q_m_6', 'Q_m_7' тощо)
+  questionNumber, // номер питання (1..n)
+  answer,         // текст відповіді
+  fieldName,      // колонка для збереження (напр. 'Q_m_1', 'Q_m_6')
   isCompleted = false
 ) => {
   try {
@@ -20,47 +20,75 @@ export const createOrUpdateResponse = async (
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const tgIdString = String(tgId);
 
-    // ✅ Шукаємо ОДИН запис на день БЕЗ розділення по типу питань
-    const records = await base('Responses').select({
-      filterByFormula: `AND({TG_id}="${tgIdString}", {Date Response}="${today}")`,
+    // ✅ Шукаємо існуючий запис на цей день
+    const existingRecords = await base('Responses').select({
+      filterByFormula: `AND({TG_id}="${tgIdString}", DATESTR({Date Response})="${today}")`,
       maxRecords: 1
     }).firstPage();
 
-    // Базові дані
-    const baseFields = {
-      'TG_id': tgIdString,
-      'User Name': userName,
-      'Date Response': today,
-    };
+    // Готуємо поля до оновлення
+    const fieldsToUpdate = {};
+    let effectiveAnswerStep = answerStep;
 
-    // Додаємо конкретну відповідь
-    const updateFields = {
-      ...baseFields,
-      [fieldName]: answer
-    };
+// ---- РАНОК: спеціальні правила для Q6 і Q7 ----
+if (questionType === QUESTION_TYPES.MORNING) {
+  if (questionNumber === 6) {
+    fieldsToUpdate[fieldName] = answer;       // Q6
+    fieldsToUpdate['Answer_Step'] = answerStep; 
+  } else if (questionNumber === 7) {
+    fieldsToUpdate['affirmation_m'] = answer; // афірмація ранкова
+    fieldsToUpdate['Answer_Step'] = 'End_m';
+    fieldsToUpdate['End_m'] = true;
+  } else {
+    fieldsToUpdate[fieldName] = answer;       // Q1–Q5
+    fieldsToUpdate['Answer_Step'] = answerStep;
+  }
+}
 
-    // Додаємо прапорець завершення відповідного типу питань
-    if (isCompleted) {
-      if (questionType === QUESTION_TYPES.MORNING) {
-        updateFields['morning_completed'] = true;
-      } else if (questionType === QUESTION_TYPES.EVENING) {
-        updateFields['evening_completed'] = true;
-      }
+// ---- ВЕЧІР: спеціальні правила для Q5 і Q6 ----
+if (questionType === QUESTION_TYPES.EVENING) {
+  if (questionNumber === 5) {
+    fieldsToUpdate[fieldName] = answer;       // Q5
+    fieldsToUpdate['Answer_Step'] = answerStep; 
+  } else if (questionNumber === 6) {
+    fieldsToUpdate['affirmation_e'] = answer; // афірмація вечірня
+    fieldsToUpdate['Answer_Step'] = 'End_e';
+    fieldsToUpdate['End_e'] = true;
+  } else {
+    fieldsToUpdate[fieldName] = answer;       // Q1–Q4
+    fieldsToUpdate['Answer_Step'] = answerStep;
+  }
+}
+  
+    
+    // Якщо isCompleted=true для вечора — закриваємо вечірній блок
+    if (isCompleted && questionType === QUESTION_TYPES.EVENING) {
+      fieldsToUpdate['End_e'] = true;
+      console.log('[responseService] Evening completed: set End_e=true');
     }
 
-    if (records.length > 0) {
-      // ✅ Оновлюємо існуючий запис
+    // Записуємо актуальний крок
+    fieldsToUpdate['Answer_Step'] = effectiveAnswerStep;
+
+    if (existingRecords.length > 0) {
+      // ✅ ОНОВЛЮЄМО
+      const recordId = existingRecords[0].id;
       await base('Responses').update([{ 
-        id: records[0].id, 
-        fields: updateFields 
+        id: recordId,
+        fields: fieldsToUpdate 
       }]);
-      console.log(`[responseService] ✅ Оновлено запис для ${tgIdString}, ${today}, поле: ${fieldName}`);
+      console.log(`[responseService] ✅ ОНОВЛЕНО запис ${recordId} для ${tgIdString}. Q#${questionNumber}, field="${fieldName}"`);
     } else {
-      // ✅ Створюємо новий запис
-      await base('Responses').create([{ 
-        fields: updateFields 
-      }]);
-      console.log(`[responseService] ✅ Створено новий запис для ${tgIdString}, ${today}, поле: ${fieldName}`);
+      // ✅ СТВОРЮЄМО
+      const newRecordFields = {
+        'TG_id': tgIdString,
+        'User Name': userName,
+        'Date Response': today,
+        ...fieldsToUpdate
+      };
+      
+      const [newRecord] = await base('Responses').create([{ fields: newRecordFields }]);
+      console.log(`[responseService] ✅ СТВОРЕНО запис ${newRecord.id} для ${tgIdString}. Q#${questionNumber}, field="${fieldName}"`);
     }
   } catch (error) {
     console.error('[responseService] ❌ Помилка createOrUpdateResponse:', error);
@@ -77,19 +105,14 @@ export const isSessionCompleted = async (tgId, questionType) => {
     const today = new Date().toISOString().split('T')[0];
     const tgIdString = String(tgId);
 
-    // ✅ Шукаємо ОДИН запис на день
     const records = await base('Responses').select({
-      filterByFormula: `AND({TG_id}="${tgIdString}", {Date Response}="${today}")`,
+      filterByFormula: `AND({TG_id}="${tgIdString}", DATESTR({Date Response})="${today}")`,
       maxRecords: 1
     }).firstPage();
 
     if (!records.length) return false;
 
-    // Перевіряємо відповідне поле завершення
-    const completedField = questionType === QUESTION_TYPES.MORNING
-      ? 'morning_completed'
-      : 'evening_completed';
-
+    const completedField = questionType === QUESTION_TYPES.MORNING ? 'End_m' : 'End_e';
     return !!records[0].fields[completedField];
   } catch (error) {
     console.error('[responseService] ❌ Помилка isSessionCompleted:', error);
@@ -107,7 +130,7 @@ export const getDayRecord = async (tgId, date = null) => {
     const tgIdString = String(tgId);
 
     const records = await base('Responses').select({
-      filterByFormula: `AND({TG_id}="${tgIdString}", {Date Response}="${targetDate}")`,
+      filterByFormula: `AND({TG_id}="${tgIdString}", DATESTR({Date Response})="${targetDate}")`,
       maxRecords: 1
     }).firstPage();
 
@@ -130,7 +153,7 @@ export const getUserRecords = async (tgId, days = 7) => {
     const sinceDateStr = sinceDate.toISOString().split('T')[0];
 
     const records = await base('Responses').select({
-      filterByFormula: `AND({TG_id}="${tgIdString}", IS_AFTER({Date Response}, "${sinceDateStr}"))`,
+      filterByFormula: `AND({TG_id}="${tgIdString}", IS_AFTER(DATESTR({Date Response}), "${sinceDateStr}"))`,
       sort: [{ field: 'Date Response', direction: 'desc' }]
     }).all();
 
