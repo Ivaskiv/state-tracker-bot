@@ -60,16 +60,6 @@ if (questionType === QUESTION_TYPES.EVENING) {
   }
 }
   
-    
-    // Якщо isCompleted=true для вечора — закриваємо вечірній блок
-    if (isCompleted && questionType === QUESTION_TYPES.EVENING) {
-      fieldsToUpdate['End_e'] = true;
-      console.log('[responseService] Evening completed: set End_e=true');
-    }
-
-    // Записуємо актуальний крок
-    fieldsToUpdate['Answer_Step'] = effectiveAnswerStep;
-
     if (existingRecords.length > 0) {
       // ✅ ОНОВЛЮЄМО
       const recordId = existingRecords[0].id;
