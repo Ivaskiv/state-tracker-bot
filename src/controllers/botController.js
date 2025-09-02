@@ -68,7 +68,7 @@ export default function botController(bot) {
     }
 
     // ✅ Нова логіка меню
-    if (text === '📊 Щотижневий звіт') {
+    if (text === '📈 Щотижневий звіт') {
       console.log(`[botController] Запит щотижневого звіту для ${tgId}`);
       return await analyticsController.generateWeeklyReport(ctx);
     }
@@ -98,7 +98,7 @@ export default function botController(bot) {
       return ctx.reply(contactText, keyboards.supportKeyboard());
     }
     if (text === '📝 Інструкції') {
-      const instructionsText = `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📊 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊  Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• 08:00 — ранкові питання (6 запитань)\n• 20:30 — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв\'язок з нами" при проблемах`;
+      const instructionsText = `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊  Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• 08:00 — ранкові питання (6 запитань)\n• 20:30 — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв\'язок з нами" при проблемах`;
       return ctx.reply(instructionsText, keyboards.mainMenuKeyboard());
     }
     if (['+', 'ок', 'ok', 'добре', 'так'].includes(text.toLowerCase())) {
@@ -191,7 +191,7 @@ async function showUserProgress(ctx, user) {
       if (record.fields.End_e) eveningCompleted++;
     });
     
-    const progressText = `📋 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📊 Щотижневий звіт" і "📈 Щомісячний звіт"`;
+    const progressText = `📋 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`;
     await ctx.telegram.sendChatAction(ctx.from.id, 'typing').catch(err => console.error('[botController] Помилка sendChatAction:', err));
     await new Promise((res) => setTimeout(res, 1500));
     return ctx.reply(progressText, keyboards.mainMenuKeyboard());
