@@ -10,7 +10,7 @@ export async function refreshMenuIfDev(ctx) {
     const now = Date.now();
     const COOLDOWN_MS = 60 * 1000;
     if (!ctx.session.__menuRefreshedAt || (now - ctx.session.__menuRefreshedAt) > COOLDOWN_MS) {
-      await ctx.reply('🔄 Меню оновлено (dev)', keyboards.mainMenuKeyboard());
+      await ctx.reply( keyboards.mainMenuKeyboard());
       ctx.session.__menuRefreshedAt = now;
     }
   } catch (e) {
