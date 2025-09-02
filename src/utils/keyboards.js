@@ -3,18 +3,20 @@ import { Markup } from 'telegraf';
 
 const mainMenuKeyboard = () => {
   return Markup.keyboard([
- ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
- ["💎 Афірмація", "📊 Мій прогрес"],
+    ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
+    ["💎 Афірмація", "📊 Мій прогрес"],
     ["💰 Підписка", "❓ Допомога"],
     ["📋 Інструкції", "📞 Зв'язок з нами"]
-  ]).resize();
+  ]).resize().reply_markup;
 };
 
 const supportKeyboard = () => {
-  console.log('supportKeyboard викликано');
-  return Markup.inlineKeyboard([
-    [Markup.button.url('📱 Telegram підтримка ментора', 'https://t.me/Nadya2316')],
-    [Markup.button.url('🔧 Техпідтримка бота', 'https://t.me/vira_333')]  ]);
+  return {
+    reply_markup: Markup.inlineKeyboard([
+      [Markup.button.url('📱 Telegram підтримка ментора', 'https://t.me/Nadya2316')],
+      [Markup.button.url('🔧 Техпідтримка бота', 'https://t.me/vira_333')]
+    ]).reply_markup
+  };
 };
 
 const skipKeyboard = () =>

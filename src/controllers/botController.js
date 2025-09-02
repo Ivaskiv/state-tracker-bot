@@ -2,16 +2,16 @@
 import userService from '../services/userService.js';
 import keyboards from '../utils/keyboards.js';
 import { handleStart, handleRegistrationStep } from '../modules/auth.js';
-import { handleMenuCommand, MENU_MATCHERS } from '../modules/menu.js';
+import { handleMenuCommand } from '../modules/menu.js';
 import { handleOngoingQuestions } from '../modules/answers.js';
 import { refreshMenuIfDev } from '../utils/refreshMenu.js';
 
 export default function botController(bot) {
-  bot.catch((err, ctx) => {
-    console.error('[botController] Помилка:', err);
-    bot.telegram.sendChatAction(ctx.from?.id, 'typing').catch(()=>{});
-    setTimeout(() => ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard()), 1000);
-  });
+bot.catch((err, ctx) => {
+  console.error('[botController] Помилка:', err);
+  bot.telegram.sendChatAction(ctx.from?.id, 'typing').catch(()=>{});
+  ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard()).catch(()=>{});
+});
 
   bot.start(async (ctx) => {
     await refreshMenuIfDev(ctx);

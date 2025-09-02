@@ -4,8 +4,8 @@ import analyticsController from '../controllers/analyticsController.js';
 import affirmationService from '../services/affirmationService.js';
 import responseService from '../services/responseService.js';
 import userService from '../services/userService.js';
+import { toPlainText, typing } from '../utils/helpers.js'; 
 
-// Matcher-и для команд меню (гнучко приймаємо старі назви)
 export const MENU_MATCHERS = {
   WEEKLY: (t) => t === '📈 Щотижневий звіт',
   MONTHLY: (t) => t === '📈 Щомісячний звіт',
@@ -14,7 +14,8 @@ export const MENU_MATCHERS = {
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
   CONTACT: (t) => t === '📞 Зв\'язок з нами',
-  INSTRUCTIONS: (t) => t === '📝 Інструкції',
+  // ✅ Приймаємо ОБИДВА варіанти кнопки інструкцій
+  INSTRUCTIONS: (t) => ['📝 Інструкції', '📋 Інструкції'].includes(t),
   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase())
 };
 
@@ -31,13 +32,20 @@ export async function handleMenuCommand(ctx) {
   }
   if (MENU_MATCHERS.AFFIRM(text)) {
     const aff = await affirmationService.getAffirmationAndMarkUsed();
-    return ctx.reply(`🌀 Афірмація:\n\n${aff}`, keyboards.mainMenuKeyboard());
+    return ctx.reply(`🌀 Афірмація:\n\n${toPlainText(aff)}`, keyboards.mainMenuKeyboard());
   }
   if (MENU_MATCHERS.PROGRESS(text)) {
     return showUserProgress(ctx, user);
   }
   if (MENU_MATCHERS.SUBSCRIPTION(text)) {
-    return showSubscriptionInfo(ctx, user);
+    // ✅ На випадок неочікуваних даних — локальний try/catch
+    try {
+      return await showSubscriptionInfo(ctx, user);
+    } catch (e) {
+      console.error('[menu.showSubscriptionInfo] Помилка:', e);
+      await typing(ctx);
+      return ctx.reply('Підписка тимчасово недоступна. Спробуй пізніше.', keyboards.mainMenuKeyboard());
+    }
   }
   if (MENU_MATCHERS.HELP(text)) {
     const helpText = `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`;
@@ -53,7 +61,7 @@ export async function handleMenuCommand(ctx) {
   }
   if (MENU_MATCHERS.QUICK_OK(text)) {
     const aff = await affirmationService.getAffirmationAndMarkUsed();
-    return ctx.reply(`💝 Швидка підтримка!\n\n${aff}`, keyboards.mainMenuKeyboard());
+    return ctx.reply(`💝 Швидка підтримка!\n\n${toPlainText(aff)}`, keyboards.mainMenuKeyboard());
   }
 
   return ctx.reply('Оберіть пункт з меню:', keyboards.mainMenuKeyboard());
@@ -66,9 +74,9 @@ async function showSubscriptionInfo(ctx, user) {
     return ctx.reply('Спочатку зареєструйтесь /start');
   }
 
-  // ✅ тут використовуємо toPlainText
+  // ✅ Нормалізація, щоб не було "[object Object]"
   const active = toPlainText(user['Active_Subscription_Status']);
-  const plan   = toPlainText(user['Active Subscription Plan']);   // ← ОЦЕ
+  const plan   = toPlainText(user['Active Subscription Plan']);
   const start  = user['Start_Date'] ? new Date(user['Start_Date']).toLocaleDateString('uk-UA') : '—';
   const end    = user['End_Date'] ? new Date(user['End_Date']).toLocaleDateString('uk-UA') : '—';
 
@@ -79,9 +87,8 @@ async function showSubscriptionInfo(ctx, user) {
       : '❌ Неактивна') +
     `\n\n📝 Реєстраційні дані: ✅ Заповнені`;
 
-  // ✅ перед відповіддю робимо "typing..."
-  await typing(ctx);  
-  return ctx.reply(subscriptionText, keyboards.mainMenuKeyboard());  // ← ОЦЕ
+  await typing(ctx);
+  return ctx.reply(subscriptionText, keyboards.mainMenuKeyboard());
 }
 
 async function showUserProgress(ctx, user) {
@@ -114,6 +121,7 @@ async function showUserProgress(ctx, user) {
       `🌅 Ранкові: ${morningCompleted}\n` +
       `🌙 Вечірні: ${eveningCompleted}\n\n` +
       `💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`;
+
     await typing(ctx);
     return ctx.reply(progressText, keyboards.mainMenuKeyboard());
   } catch (e) {
@@ -123,9 +131,22 @@ async function showUserProgress(ctx, user) {
   }
 }
 
-async function typing(ctx) {
+export function toPlainText(v) {
+  if (v == null) return '—';
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return v.map(toPlainText).join(', ');
+  if (typeof v === 'object') {
+    if (typeof v.name === 'string') return v.name;
+    if (typeof v.label === 'string') return v.label;
+    if (typeof v.title === 'string') return v.title;
+    try { return JSON.stringify(v); } catch { return String(v); }
+  }
+  return String(v);
+}
+
+export async function typing(ctx, delay = 800) {
   try {
     await ctx.telegram.sendChatAction(ctx.from.id, 'typing');
-    await new Promise(res => setTimeout(res, 800));
-  } catch (_) {}
+    await new Promise(res => setTimeout(res, delay));
+  } catch {}
 }

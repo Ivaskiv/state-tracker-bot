@@ -17,14 +17,17 @@ export const getUserByTelegramId = async (tgId) => {
 };
 
 // Створення користувача
-export const createUser = async ({ tgId, name }) => {
+export const createUser = async ({ tgId, name, email = null, phone = null }) => {
   try {
     const createdRecords = await base(tables.USERS).create([
       {
         fields: {
           TG_id: String(tgId),
           'User Name': name,
+          Email: email,
+          Phone: phone,
           Active_Subscription_Status: '❌ Неактивна',
+          Answer_Step: 'completed'
         },
       },
     ]);
