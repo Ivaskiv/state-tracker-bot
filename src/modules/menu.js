@@ -14,7 +14,7 @@ export const MENU_MATCHERS = {
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
   CONTACT: (t) => t === '📞 Зв\'язок з нами',
-  INSTRUCTIONS: (t) => t === '📝 Інструкції',
+  INSTRUCTIONS: (t) => ['📝 Інструкції', '📋 Інструкції'].includes(t),
   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase())
 };
 
@@ -40,15 +40,15 @@ export async function handleMenuCommand(ctx) {
     return showSubscriptionInfo(ctx, user);
   }
   if (MENU_MATCHERS.HELP(text)) {
-    const helpText = `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`;
+    const helpText = `Якщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`;
     return ctx.reply(helpText, keyboards.mainMenuKeyboard());
   }
   if (MENU_MATCHERS.CONTACT(text)) {
-    const contactText = `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`;
+    const contactText = `💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`;
     return ctx.reply(contactText, keyboards.supportKeyboard());
   }
   if (MENU_MATCHERS.INSTRUCTIONS(text)) {
-    const instructionsText = `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📋 Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• 08:00 — ранкові питання (6 запитань)\n• 20:30 — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`;
+    const instructionsText = `📝 ЯК КОРИСТУВАТИСЯ БОТОМ 🚀 \n**ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📋 Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• 08:00 — ранкові питання (6 запитань)\n• 20:30 — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`;
     return ctx.reply(instructionsText, keyboards.mainMenuKeyboard());
   }
   if (MENU_MATCHERS.QUICK_OK(text)) {
@@ -66,22 +66,17 @@ async function showSubscriptionInfo(ctx, user) {
     return ctx.reply('Спочатку зареєструйтесь /start');
   }
 
-  // ✅ тут використовуємо toPlainText
   const active = toPlainText(user['Active_Subscription_Status']);
-  const plan   = toPlainText(user['Active Subscription Plan']);   // ← ОЦЕ
-  const start  = user['Start_Date'] ? new Date(user['Start_Date']).toLocaleDateString('uk-UA') : '—';
-  const end    = user['End_Date'] ? new Date(user['End_Date']).toLocaleDateString('uk-UA') : '—';
+  const plan = toPlainText(user['Active Subscription Plan']);
+  const start = user['Start_Date'] ? new Date(user['Start_Date']).toLocaleDateString('uk-UA') : '—';
+  const end = user['End_Date'] ? new Date(user['End_Date']).toLocaleDateString('uk-UA') : '—';
 
-  const subscriptionText =
-    `📦 ПІДПИСКА:\n\n` +
-    (active.includes('✅')
-      ? `✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`
-      : '❌ Неактивна') +
-    `\n\n📝 Реєстраційні дані: ✅ Заповнені`;
+  const subscriptionText = active.includes('✅')
+    ? `✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`
+    : '❌ Неактивна';
 
-  // ✅ перед відповіддю робимо "typing..."
-  await typing(ctx);  
-  return ctx.reply(subscriptionText, keyboards.mainMenuKeyboard());  // ← ОЦЕ
+  await typing(ctx);
+  return ctx.reply(subscriptionText, keyboards.mainMenuKeyboard());
 }
 
 async function showUserProgress(ctx, user) {
@@ -123,9 +118,22 @@ async function showUserProgress(ctx, user) {
   }
 }
 
-async function typing(ctx) {
+function toPlainText(v) {
+  if (v == null) return '—';
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return v.map(toPlainText).join(', ');
+  if (typeof v === 'object') {
+    if (typeof v.name === 'string') return v.name;
+    if (typeof v.label === 'string') return v.label;
+    if (typeof v.title === 'string') return v.title;
+    try { return JSON.stringify(v); } catch { return String(v); }
+  }
+  return String(v);
+}
+
+async function typing(ctx, delay = 800) {
   try {
     await ctx.telegram.sendChatAction(ctx.from.id, 'typing');
-    await new Promise(res => setTimeout(res, 800));
-  } catch (_) {}
+    await new Promise(res => setTimeout(res, delay));
+  } catch {}
 }
