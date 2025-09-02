@@ -1,13 +1,16 @@
 // src/utils/keyboards.js
 import { Markup } from 'telegraf';
 
-const mainMenuKeyboard = () => {
+export const mainMenuKeyboard = () => {
   return Markup.keyboard([
     ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
     ["💎 Афірмація", "📊 Мій прогрес"],
     ["💰 Підписка", "❓ Допомога"],
     ["📋 Інструкції", "📞 Зв'язок з нами"]
-  ]).resize().reply_markup;
+  ])
+    .resize()                // підлаштовує розмір
+    .oneTime(false)          // не ховається після кліку
+    .selective(false);       // видно всім у чаті
 };
 
 const supportKeyboard = () => {
