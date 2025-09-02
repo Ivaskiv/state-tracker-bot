@@ -2,6 +2,8 @@
 import cron from 'node-cron';
 import userService from '../services/userService.js';
 import reminderService from '../services/reminderService.js';
+import responseService from '../services/responseService.js';
+import analyticsController from '../controllers/analyticsController.js';
 import { SCHEDULE, REPORT_SCHEDULE, ANSWER_STEPS } from '../config/constants.js';
 
 // Ініціалізація планувальника
@@ -64,6 +66,8 @@ export const initScheduler = (bot) => {
       try {
         const report = await analyticsController.generateWeeklyReportForUser(user.TG_id);
         if (report) {
+          await bot.telegram.sendMessage(user.TG_id, `📊 Щотижневий AI-звіт готовий!`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
           await bot.telegram.sendMessage(user.TG_id, report);
           console.log(`[scheduler] ✅ Надіслано щотижневий звіт користувачу ${user.TG_id}`);
         }
@@ -83,6 +87,8 @@ export const initScheduler = (bot) => {
       try {
         const report = await analyticsController.generateMonthlyReportForUser(user.TG_id);
         if (report) {
+          await bot.telegram.sendMessage(user.TG_id, `📈 Місячний AI-звіт готовий!`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
           await bot.telegram.sendMessage(user.TG_id, report);
           console.log(`[scheduler] ✅ Надіслано місячний звіт користувачу ${user.TG_id}`);
         }
@@ -126,11 +132,31 @@ export const initScheduler = (bot) => {
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
 
+  // ✅ Щоденне нагадування про можливість отримати звіти (18:00)
+  cron.schedule('0 18 * * *', () => {
+    const logPrefix = '💡 Нагадування про звіти';
+    console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+    
+    sendToActiveUsers(async (user) => {
+      try {
+        // Надсилаємо тільки якщо користувач активно відповідає на питання
+        const recentRecords = await responseService.getUserRecords(user.TG_id, 3);
+        if (recentRecords.length >= 2) {
+          const reminderText = `💡 Не забувай переглядати свої звіти!\n\n📊 "Щотижневий звіт" - аналіз шаблонів\n📈 "Щомісячний звіт" - глибокий інсайт\n\nЗвіти допомагають усвідомити прогрес та знайти точки росту! 🌱`;
+          await bot.telegram.sendMessage(user.TG_id, reminderText);
+        }
+      } catch (error) {
+        console.error(`[scheduler] ❌ Помилка нагадування про звіти для ${user.TG_id}:`, error);
+      }
+    }, logPrefix);
+  }, { timezone: SCHEDULE.TIMEZONE });
+
   // Логи ініціалізації
   console.log(`[scheduler] ✅ Ранкові питання заплановано на ${SCHEDULE.MORNING_TIME} (${SCHEDULE.TIMEZONE})`);
   console.log(`[scheduler] ✅ Вечірні питання заплановано на ${SCHEDULE.EVENING_TIME} (${SCHEDULE.TIMEZONE})`);
-  console.log(`[scheduler] ✅ Щотижневі звіти заплановано на неділю ${REPORT_SCHEDULE.WEEKLY.hour}:${REPORT_SCHEDULE.WEEKLY.minute} (${SCHEDULE.TIMEZONE})`);
-  console.log(`[scheduler] ✅ Місячні звіти заплановано на кінець місяця ${REPORT_SCHEDULE.MONTHLY.hour}:${REPORT_SCHEDULE.MONTHLY.minute} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Щотижневі звіти заплановано на неділю ${REPORT_SCHEDULE.WEEKLY.hour}:${REPORT_SCHEDULE.WEEKLY.minute.toString().padStart(2, '0')} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Місячні звіти заплановано на кінець місяця ${REPORT_SCHEDULE.MONTHLY.hour}:${REPORT_SCHEDULE.MONTHLY.minute.toString().padStart(2, '0')} (${SCHEDULE.TIMEZONE})`);
   console.log(`[scheduler] ✅ Нагадування ранкових питань: 12:00`);
   console.log(`[scheduler] ✅ Нагадування вечірніх питань: 21:00`);
+  console.log(`[scheduler] ✅ Нагадування про звіти: 18:00`);
 };

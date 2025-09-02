@@ -1,4 +1,4 @@
-// controllers/analyticsController.js
+// src/controllers/analyticsController.js
 import responseService from '../services/responseService.js';
 import aiAnalyticsService from '../services/aiAnalyticsService.js';
 import userService from '../services/userService.js';
@@ -8,6 +8,17 @@ class AnalyticsController {
   async generateWeeklyReport(ctx) {
     try {
       const telegramId = ctx.from.id;
+      const user = await userService.getUserByTelegramId(telegramId);
+      
+      if (!user) {
+        return ctx.reply('Спочатку зареєструйтесь /start');
+      }
+
+      // Перевіряємо активну підписку
+      if (!user['Active_Subscription_Status']?.includes('✅ Активна')) {
+        return ctx.reply('❌ Для отримання звітів потрібна активна підписка.\n\nОформи підписку в меню "💰 Підписка"');
+      }
+
       const report = await this.generateWeeklyReportForUser(telegramId);
       
       if (report) {
@@ -24,6 +35,17 @@ class AnalyticsController {
   async generateMonthlyReport(ctx) {
     try {
       const telegramId = ctx.from.id;
+      const user = await userService.getUserByTelegramId(telegramId);
+      
+      if (!user) {
+        return ctx.reply('Спочатку зареєструйтесь /start');
+      }
+
+      // Перевіряємо активну підписку
+      if (!user['Active_Subscription_Status']?.includes('✅ Активна')) {
+        return ctx.reply('❌ Для отримання звітів потрібна активна підписка.\n\nОформи підписку в меню "💰 Підписка"');
+      }
+
       const report = await this.generateMonthlyReportForUser(telegramId);
       
       if (report) {
@@ -42,20 +64,20 @@ class AnalyticsController {
       const user = await userService.getUserByTelegramId(telegramId);
       if (!user) return null;
 
-      // ✅ Отримуємо записи за тиждень з нової структури
+      // ✅ Отримуємо записи за тиждень
       const weeklyRecords = await responseService.getUserRecords(telegramId, 7);
       
       if (weeklyRecords.length === 0) {
         return null;
       }
 
-      // ✅ Аналізуємо шаблоні з нової структури
-      const patterns = this.analyzePatterns(weeklyRecords);
+      // ✅ Аналізуємо шаблони з оновленої структури
+      const patterns = this.analyzeNewPatterns(weeklyRecords);
       
       // Генеруємо AI аналіз якщо доступний
       let aiAnalysis = '';
       try {
-        const weeklyData = this.prepareWeeklyData(weeklyRecords);
+        const weeklyData = this.prepareWeeklyDataNew(weeklyRecords, patterns);
         aiAnalysis = await aiAnalyticsService.generateWeeklyAnalysis(weeklyData);
       } catch (error) {
         console.error('AI analysis failed, using fallback');
@@ -66,18 +88,18 @@ class AnalyticsController {
       const completedDays = weeklyRecords.length;
       const completionRate = Math.round((completedDays / 7) * 100);
 
-      // Підраховуємо завершені сесії
+      // Підраховуємо завершені сесії з нової структури
       let morningCompleted = 0;
       let eveningCompleted = 0;
       weeklyRecords.forEach(record => {
-        if (record.fields.morning_completed) morningCompleted++;
-        if (record.fields.evening_completed) eveningCompleted++;
+        if (record.fields.End_m) morningCompleted++;
+        if (record.fields.End_e) eveningCompleted++;
       });
 
-      const report = `📊 ЩОТИЖНЕВИЙ ЗВІТ
+      const report = `📊 ЩОТИЖНЕВИЙ AI-ЗВІТ
 
 Привіт, ${userName}! 🌱
-Ось твій AI-звіт за останній тиждень:
+Ось твій персональний аналіз за останній тиждень:
 
 📈 СТАТИСТИКА:
 • Днів з рефлексіями: ${completedDays}/7
@@ -91,8 +113,9 @@ ${aiAnalysis}
 • Продовжуй щоденну практику рефлексії
 • Звертай увагу на повторювані шаблони
 • Фокусуйся на своїх сильних сторонах
+• Використовуй виявлені джерела енергії
 
-✨ Пам'ятай: кожен день - це можливість стати кращою версією себе!`;
+✨ Кожен день - це можливість стати кращою версією себе!`;
 
       return report;
     } catch (error) {
@@ -114,12 +137,12 @@ ${aiAnalysis}
       }
 
       // ✅ Аналізуємо шаблони
-      const patterns = this.analyzePatterns(monthlyRecords);
+      const patterns = this.analyzeNewPatterns(monthlyRecords);
       
       // Генеруємо AI аналіз
       let aiAnalysis = '';
       try {
-        const monthlyData = this.prepareMonthlyData(monthlyRecords);
+        const monthlyData = this.prepareMonthlyDataNew(monthlyRecords, patterns);
         aiAnalysis = await aiAnalyticsService.generateMonthlyAnalysis(monthlyData);
       } catch (error) {
         console.error('AI analysis failed, using fallback');
@@ -134,14 +157,14 @@ ${aiAnalysis}
       let morningCompleted = 0;
       let eveningCompleted = 0;
       monthlyRecords.forEach(record => {
-        if (record.fields.morning_completed) morningCompleted++;
-        if (record.fields.evening_completed) eveningCompleted++;
+        if (record.fields.End_m) morningCompleted++;
+        if (record.fields.End_e) eveningCompleted++;
       });
 
-      const report = `📈 ЩОМІСЯЧНИЙ ЗВІТ
+      const report = `📈 ЩОМІСЯЧНИЙ AI-ЗВІТ
 
 Привіт, ${userName}! 🌟
-Ось твій AI-звіт за місяць:
+Ось твій глибокий аналіз за місяць:
 
 📊 СТАТИСТИКА МІСЯЦЯ:
 • Днів з рефлексіями: ${completedDays}/30
@@ -155,6 +178,7 @@ ${aiAnalysis}
 • Підвищ регулярність до ${Math.min(completionRate + 10, 100)}%
 • Поглибь самоаналіз у виявлених сферах
 • Використовуй свої сильні сторони
+• Трансформуй блокуючі переконання
 
 💎 Твоя трансформація - це процес. Продовжуй рухатися вперед!`;
 
@@ -165,43 +189,24 @@ ${aiAnalysis}
     }
   }
 
-  // ✅ Оновлена функція підготовки даних для аналізу
-  prepareWeeklyData(records) {
-    const data = {
-      completedDays: records.length,
-      totalRecords: records.length,
-      patterns: this.analyzePatterns(records)
-    };
-    
-    return data;
-  }
-
-  prepareMonthlyData(records) {
-    const data = {
-      completedDays: records.length,
-      totalRecords: records.length,
-      patterns: this.analyzePatterns(records)
-    };
-    
-    return data;
-  }
-
-  // ✅ Оновлена функція аналізу шаблонів для нової структури
-  analyzePatterns(records) {
+  // ✅ Нова функція аналізу шаблонів для оновленої структури
+  analyzeNewPatterns(records) {
     const patterns = {
       energyGains: [],
       energyLosses: [],
       programs: [],
       states: [],
-      victories: []
+      victories: [],
+      goals: []
     };
 
-    // Збираємо всі відповіді по категоріях
+    // Збираємо всі відповіді по категоріях з нової структури
     const energyGains = [];
     const energyLosses = [];
     const programs = [];
     const states = [];
     const victories = [];
+    const goals = [];
 
     records.forEach(record => {
       const fields = record.fields;
@@ -220,6 +225,9 @@ ${aiAnalysis}
       
       // Перемоги (вечірнє питання 5)
       if (fields.Q_e_5) victories.push(fields.Q_e_5);
+
+      // Цілі (ранкове питання 4)
+      if (fields.Q_m_4) goals.push(fields.Q_m_4);
     });
 
     // Аналізуємо частоту згадувань
@@ -228,22 +236,131 @@ ${aiAnalysis}
     patterns.programs = this.getTopPatterns(programs);
     patterns.states = this.getTopPatterns(states);
     patterns.victories = this.getTopPatterns(victories);
+    patterns.goals = this.getTopPatterns(goals);
 
     return patterns;
   }
 
+  // ✅ Оновлена функція підготовки даних для тижневого аналізу
+  prepareWeeklyDataNew(records, patterns) {
+    const data = {
+      completedDays: records.length,
+      totalRecords: records.length,
+      patterns: patterns,
+      energySources: patterns.energyGains.slice(0, 3),
+      energyDrains: patterns.energyLosses.slice(0, 3),
+      dominantPrograms: patterns.programs.slice(0, 2),
+      commonStates: patterns.states.slice(0, 3),
+      topVictories: patterns.victories.slice(0, 3)
+    };
+    
+    return data;
+  }
+
+  // ✅ Оновлена функція підготовки даних для місячного аналізу
+  prepareMonthlyDataNew(records, patterns) {
+    const data = {
+      completedDays: records.length,
+      totalRecords: records.length,
+      patterns: patterns,
+      energySources: patterns.energyGains.slice(0, 5),
+      energyDrains: patterns.energyLosses.slice(0, 5),
+      dominantPrograms: patterns.programs.slice(0, 3),
+      commonStates: patterns.states.slice(0, 5),
+      topVictories: patterns.victories.slice(0, 5),
+      focusedGoals: patterns.goals.slice(0, 3)
+    };
+    
+    return data;
+  }
+
   // Функція для виділення найчастіших шаблонів
   getTopPatterns(data) {
+    if (!data || data.length === 0) return [];
+
     const frequencyMap = {};
 
     data.forEach(item => {
-      if (frequencyMap[item]) {
-        frequencyMap[item]++;
+      const cleanItem = item.toLowerCase().trim();
+      if (frequencyMap[cleanItem]) {
+        frequencyMap[cleanItem]++;
       } else {
-        frequencyMap[item] = 1;
+        frequencyMap[cleanItem] = 1;
       }
     });
 
-    const sortedPatterns = Object.entries(frequencyMap).sort((a, b) => b[1] - a[1]);
+    const sortedPatterns = Object.entries(frequencyMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([pattern, count]) => ({ pattern, count }));
+
+    return sortedPatterns;
+  }
+
+  // ✅ Резервний аналіз для щотижневого звіту
+  generateFallbackWeeklyAnalysis(patterns, records) {
+    let analysis = `🔍 АНАЛІЗ ШАБЛОНІВ:\n\n`;
+
+    // Аналіз енергії
+    if (patterns.energyGains.length > 0) {
+      analysis += `🌊 Джерела енергії: ${patterns.energyGains[0].pattern}\n`;
+    }
+    if (patterns.energyLosses.length > 0) {
+      analysis += `🔻 Витоки енергії: ${patterns.energyLosses[0].pattern}\n`;
+    }
+
+    // Аналіз програм
+    if (patterns.programs.length > 0) {
+      analysis += `🚧 Активні програми: ${patterns.programs[0].pattern}\n`;
+    }
+
+    // Аналіз перемог
+    if (patterns.victories.length > 0) {
+      analysis += `🏆 Головні перемоги: ${patterns.victories[0].pattern}\n`;
+    }
+
+    analysis += `\n💡 ІНСАЙТИ:\n`;
+    analysis += `• Твоя сила проявляється через щоденну практику\n`;
+    analysis += `• Усвідомлення шаблонів - перший крок до трансформації\n`;
+    analysis += `• Кожна відповідь наближає тебе до мети`;
+
+    return analysis;
+  }
+
+  // ✅ Резервний аналіз для місячного звіту
+  generateFallbackMonthlyAnalysis(patterns, records) {
+    let analysis = `🧠 ГЛИБОКИЙ АНАЛІЗ:\n\n`;
+
+    // Домінуючі шаблони
+    if (patterns.states.length > 0) {
+      analysis += `🎭 Домінуючий стан: ${patterns.states[0].pattern} (${patterns.states[0].count} разів)\n`;
+    }
+
+    if (patterns.programs.length > 0) {
+      analysis += `🔄 Основна програма: ${patterns.programs[0].pattern}\n`;
+    }
+
+    if (patterns.energyGains.length > 0) {
+      analysis += `⚡ Головне джерело енергії: ${patterns.energyGains[0].pattern}\n`;
+    }
+
+    // Трансформація
+    analysis += `\n🔥 ТРАНСФОРМАЦІЯ:\n`;
+    const completionRate = Math.round((records.length / 30) * 100);
+    
+    if (completionRate >= 80) {
+      analysis += `• Ти показуєш високу дисципліну та відданість\n`;
+    } else if (completionRate >= 60) {
+      analysis += `• Твоя практика стабільна, є простір для росту\n`;
+    } else {
+      analysis += `• Фокус на регулярність принесе прорив\n`;
+    }
+
+    analysis += `• Твоя свідомість розширюється через рефлексію\n`;
+    analysis += `• Шаблони стають видимими - це сила для змін`;
+
+    return analysis;
   }
 }
+
+export default new AnalyticsController();
