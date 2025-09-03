@@ -71,9 +71,13 @@ async function showSubscriptionInfo(ctx, user) {
   const start = user['Start_Date'] ? new Date(user['Start_Date']).toLocaleDateString('uk-UA') : '—';
   const end = user['End_Date'] ? new Date(user['End_Date']).toLocaleDateString('uk-UA') : '—';
 
-  const subscriptionText = active.includes('✅')
-    ? `✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`
-    : '❌ Неактивна';
+  let subscriptionText = `📦 ПІДПИСКА:\n\n`;
+  
+  if (active.includes('✅')) {
+    subscriptionText += `✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`;
+  } else {
+    subscriptionText += `❌ Неактивна\n\n💰 ДОСТУПНІ ПЛАНИ:\n🔹 Тиждень фокусу — 7€\n🔹 Місяць дії — 30€\n🔹 Рік трансформації — 300€\n\n📧 Для оплати напиши: nadyastarway@gmail.com`;
+  }
 
   await typing(ctx);
   return ctx.reply(subscriptionText, keyboards.mainMenuKeyboard());

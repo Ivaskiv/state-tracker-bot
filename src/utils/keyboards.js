@@ -2,15 +2,18 @@
 import { Markup } from 'telegraf';
 
 export const mainMenuKeyboard = () => {
-  return Markup.keyboard([
-    ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
-    ["💎 Афірмація", "📊 Мій прогрес"],
-    ["💰 Підписка", "❓ Допомога"],
-    ["📋 Інструкції", "📞 Зв'язок з нами"]
-  ])
-    .resize()                // підлаштовує розмір
-    .oneTime(false)          // не ховається після кліку
-    .selective(false);       // видно всім у чаті
+  return {
+    reply_markup: {
+      keyboard: [
+        ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
+        ["💎 Афірмація", "📊 Мій прогрес"],
+        ["💰 Підписка", "❓ Допомога"],
+        ["📋 Інструкції", "📞 Зв'язок з нами"]
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false
+    }
+  };
 };
 
 const supportKeyboard = () => {

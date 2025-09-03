@@ -40,26 +40,42 @@ export const handleWayForPayWebhook = async (data) => {
     },
   ]);
 
-  if (transactionStatus === "Approved" && TG_id) {
-    const [users] = await base(tables.USERS)
-      .select({ filterByFormula: `{TG_id}='${TG_id}'` })
-      .firstPage();
+if (transactionStatus === "Approved" && TG_id) {
+  const records = await base(tables.USERS)
+    .select({ filterByFormula: `{TG_id}='${TG_id}'` })
+    .firstPage();
 
-    if (users) {
-      await base(tables.USERS).update([
-        {
-          id: users.id,
-          fields: {
-            Active_Subscription_Status: `✅ Активна до ${endDate ? new Date(endDate).toLocaleDateString("uk-UA") : "не відомо"}`,
-            Subscription_Status: "Active",
-            Active_Subscription_Plan: productName,
-            Start_Date: startDate,
-            End_Date: endDate,
-          },
+  if (records.length > 0) {
+    const endDateFormatted = endDate ? new Date(endDate).toLocaleDateString("uk-UA") : "не відомо";
+    await base(tables.USERS).update([
+      {
+        id: records[0].id,
+        fields: {
+          Active_Subscription_Status: `✅ Активна до ${endDateFormatted}`,
+          'Active Subscription Plan': productName,
+          'Subscription Status': "Active",
+          Start_Date: startDate,
+          End_Date: endDate,
+          Answer_Step: 'completed'
         },
-      ]);
-    }
+      },
+    ]);
+    
+    // Надсилаємо оновлене меню з клавіатурою
+    await bot.telegram.sendMessage(TG_id, "🎉 Підписка активована! Тепер доступні всі функції:", {
+      reply_markup: {
+        keyboard: [
+          ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
+          ["💎 Афірмація", "📊 Мій прогрес"],
+          ["💰 Підписка", "❓ Допомога"],
+          ["📋 Інструкції", "📞 Зв'язок з нами"]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+      }
+    });
   }
+}
 
   let statusText;
   switch (transactionStatus) {

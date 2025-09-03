@@ -53,6 +53,7 @@ export async function handleRegistrationStep(ctx) {
       await ctx.reply('Номер має бути у форматі +380XXXXXXXXX. Спробуй ще раз або натисни «Пропустити».', keyboards.skipKeyboard());
       return true;
     }
+
     const tgId = ctx.from.id;
     const user = await userService.createUser({
       tgId,
@@ -60,8 +61,19 @@ export async function handleRegistrationStep(ctx) {
       email: ctx.session?.temp?.email || null,
       phone: isSkip(text) ? null : text
     });
+
+    // очищаємо сесію реєстрації
     ctx.session.step = null;
     ctx.session.temp = {};
+
+    // Перевіряємо активну підписку
+    const hasActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');
+    if (!hasActiveSubscription) {
+      const welcomeMessage = `🎉 Реєстрація завершена!\n\n💰 Для початку роботи потрібна активна підписка.\nОбери план у меню "💰 Підписка"`;
+      await ctx.reply(welcomeMessage, keyboards.mainMenuKeyboard());
+      return true;
+    }
+
     await ctx.reply(profileMessage(user), keyboards.mainMenuKeyboard());
     return true;
   }
