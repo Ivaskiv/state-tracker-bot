@@ -6,9 +6,13 @@ dotenv.config();
 import { Telegraf } from 'telegraf';
 import botController from './src/controllers/botController.js';
 import { initScheduler } from './src/utils/scheduler.js';
+import { handleWayForPayWebhook } from './src/services/paymentService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
@@ -17,6 +21,17 @@ botController(bot);
 
 // Ініціалізуємо CRON
 initScheduler(bot);
+
+// WayForPay webhook
+app.post('/wayforpay-webhook', async (req, res) => {
+  try {
+    await handleWayForPayWebhook(req.body);
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('WayForPay webhook error:', error);
+    res.status(500).send('Error');
+  }
+});
 
 app.get('/', (req, res) => res.send('Bot is running!'));
 

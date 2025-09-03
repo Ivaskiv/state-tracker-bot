@@ -6,6 +6,10 @@ dotenv.config();
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY })
   .base(process.env.AIRTABLE_BASE_ID);
 
+export const getBase = () => new Airtable({ 
+  apiKey: process.env.AIRTABLE_API_KEY 
+}).base(process.env.AIRTABLE_BASE_ID);
+
 export const tables = Object.freeze({
   USERS: 'Users',
   SUBSCRIPTIONS: 'Subscriptions',
@@ -15,7 +19,7 @@ export const tables = Object.freeze({
   USER_AFFIRMATIONS: 'User Affirmations',
 });
 
-export const getBase = () => base;
+// export const getBase = () => base;
 
 export const selectFromTable = (tableName, opts = {}) => base(tables[tableName] || tableName).select(opts);
 export const createRows = (tableName, rows) => base(tables[tableName] || tableName).create(rows, { typecast: true });

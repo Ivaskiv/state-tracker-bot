@@ -30,36 +30,33 @@ export const createOrUpdateResponse = async (
     const fieldsToUpdate = {};
     let effectiveAnswerStep = answerStep;
 
-// ---- РАНОК: спеціальні правила для Q6 і Q7 ----
+// ---- РАНОК: спеціальні правила для Q6 і афірмації ----
 if (questionType === QUESTION_TYPES.MORNING) {
-  if (questionNumber === 6) {
-    fieldsToUpdate[fieldName] = answer;       // Q6
-    fieldsToUpdate['Answer_Step'] = answerStep; 
-  } else if (questionNumber === 7) {
-    fieldsToUpdate['affirmation_m'] = answer; // афірмація ранкова
+  if (answerStep === 'End_m' || questionNumber === 7) {
+    // Це афірмація - зберігаємо в affirmation_m
+    fieldsToUpdate['affirmation_m'] = answer;
     fieldsToUpdate['Answer_Step'] = 'End_m';
     fieldsToUpdate['End_m'] = true;
   } else {
-    fieldsToUpdate[fieldName] = answer;       // Q1–Q5
+    // Це звичайне питання Q1-Q6
+    fieldsToUpdate[fieldName] = answer;
     fieldsToUpdate['Answer_Step'] = answerStep;
   }
 }
 
-// ---- ВЕЧІР: спеціальні правила для Q5 і Q6 ----
+// ---- ВЕЧІР: спеціальні правила для Q5 і афірмації ----
 if (questionType === QUESTION_TYPES.EVENING) {
-  if (questionNumber === 5) {
-    fieldsToUpdate[fieldName] = answer;       // Q5
-    fieldsToUpdate['Answer_Step'] = answerStep; 
-  } else if (questionNumber === 6) {
-    fieldsToUpdate['affirmation_e'] = answer; // афірмація вечірня
+  if (answerStep === 'End_e' || questionNumber === 6) {
+    // Це афірмація - зберігаємо в affirmation_e
+    fieldsToUpdate['affirmation_e'] = answer;
     fieldsToUpdate['Answer_Step'] = 'End_e';
     fieldsToUpdate['End_e'] = true;
   } else {
-    fieldsToUpdate[fieldName] = answer;       // Q1–Q4
+    // Це звичайне питання Q1-Q5
+    fieldsToUpdate[fieldName] = answer;
     fieldsToUpdate['Answer_Step'] = answerStep;
   }
-}
-  
+}  
     if (existingRecords.length > 0) {
       // ✅ ОНОВЛЮЄМО
       const recordId = existingRecords[0].id;
