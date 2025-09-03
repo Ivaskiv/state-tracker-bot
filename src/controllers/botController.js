@@ -48,7 +48,7 @@ const botController = (bot) => {
 
 const handleQuestionAnswer = async (ctx, user, text) => {
   const step = user.Answer_Step;
-  if (!step || step === ANSWER_STEPS.COMPLETED) return false;
+  if (!step || step === 'completed') return false;
 
   const tgId = ctx.from.id;
   const userName = user['User Name'] || 'Користувач';
@@ -68,20 +68,20 @@ const handleQuestionAnswer = async (ctx, user, text) => {
         await userService.updateUserStep(tgId, nextStep);
         await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
       } else {
-        // Після 6-го питання переходимо на END_MORNING для афірмації
+        // Після 6 питання показуємо афірмацію і чекаємо на відповідь
         const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
         await ctx.reply(`✨ Ось твоя ранкова афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-        await userService.updateUserStep(tgId, ANSWER_STEPS.END_MORNING);
+        await userService.updateUserStep(tgId, 'affirmation_m');
       }
       return true;
     }
     
-    // Handle morning affirmation (END_MORNING = 'End_m')
-    if (step === ANSWER_STEPS.END_MORNING) {
+    // Handle morning affirmation - використовуємо валідний step
+    if (step === 'affirmation_m') {
       await responseService.createOrUpdateResponse(
-        tgId, userName, QUESTION_TYPES.MORNING, ANSWER_STEPS.END_MORNING, 7, text, 'affirmation_m'
+        tgId, userName, QUESTION_TYPES.MORNING, 'End_m', 7, text, 'affirmation_m'
       );
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await userService.updateUserStep(tgId, 'completed');
       await ctx.reply('🎉 Дякую! Ранкову сесію завершено!', keyboards.mainMenuKeyboard());
       return true;
     }
@@ -100,20 +100,20 @@ const handleQuestionAnswer = async (ctx, user, text) => {
         await userService.updateUserStep(tgId, nextStep);
         await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
       } else {
-        // Після 5-го питання переходимо на END_EVENING для афірмації
+        // Після 5 питання показуємо афірмацію і чекаємо на відповідь
         const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
         await ctx.reply(`✨ Ось твоя вечірня афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-        await userService.updateUserStep(tgId, ANSWER_STEPS.END_EVENING);
+        await userService.updateUserStep(tgId, 'affirmation_e');
       }
       return true;
     }
     
-    // Handle evening affirmation (END_EVENING = 'End_e')
-    if (step === ANSWER_STEPS.END_EVENING) {
+    // Handle evening affirmation
+    if (step === 'affirmation_e') {
       await responseService.createOrUpdateResponse(
-        tgId, userName, QUESTION_TYPES.EVENING, ANSWER_STEPS.END_EVENING, 6, text, 'affirmation_e'
+        tgId, userName, QUESTION_TYPES.EVENING, 'End_e', 6, text, 'affirmation_e'
       );
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await userService.updateUserStep(tgId, 'completed');
       await ctx.reply('🎉 Дякую! Вечірню сесію завершено!', keyboards.mainMenuKeyboard());
       return true;
     }
@@ -124,7 +124,8 @@ const handleQuestionAnswer = async (ctx, user, text) => {
     await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
     return true;
   }
-};  const handleMenuCommands = async (ctx, user, text) => {
+};
+  const handleMenuCommands = async (ctx, user, text) => {
     const isActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');
     
     switch (text) {
