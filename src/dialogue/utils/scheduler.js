@@ -1,10 +1,11 @@
 // src/utils/scheduler.js
+// src/utils/scheduler.js
 import cron from 'node-cron';
-import userService from '../services/userService.js';
+import userService from '../../auth/services/userService.js';
 import reminderService from '../services/reminderService.js';
 import responseService from '../services/responseService.js';
-import analyticsController from '../controllers/analyticsController.js';
-import { SCHEDULE, REPORT_SCHEDULE, ANSWER_STEPS } from '../config/constants.js';
+import analyticsController from '../../controllers/analyticsController.js';
+import { SCHEDULE, REPORT_SCHEDULE, ANSWER_STEPS } from '../../config/constants.js';
 
 // Ініціалізація планувальника
 export const initScheduler = (bot) => {
@@ -31,7 +32,7 @@ export const initScheduler = (bot) => {
     }
   };
 
-  // ✅ Ранкові питання (08:00)
+  // ✅ Ранкові питання (з MORNING_TIME)
   const [morningHour, morningMinute] = SCHEDULE.MORNING_TIME.split(':').map(Number);
   cron.schedule(`${morningMinute} ${morningHour} * * *`, () => {
     const logPrefix = '🌞 Надсилання ранкових питань';
@@ -45,7 +46,7 @@ export const initScheduler = (bot) => {
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
 
-  // ✅ Вечірні питання (20:30)
+  // ✅ Вечірні питання (з EVENING_TIME)
   const [eveningHour, eveningMinute] = SCHEDULE.EVENING_TIME.split(':').map(Number);
   cron.schedule(`${eveningMinute} ${eveningHour} * * *`, () => {
     const logPrefix = '🌙 Надсилання вечірніх питань';

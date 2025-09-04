@@ -1,7 +1,7 @@
 // handlers/registrationHandler.js
 import userService from '../services/userService.js';
-import { MESSAGES } from '../utils/messages.js';
-import { skipKeyboard, subscriptionKeyboard, removeKeyboard } from '../utils/keyboards.js';
+import { MESSAGES } from '../../utils/messages.js';
+import { skipKeyboard, subscriptionKeyboard, removeKeyboard } from '../../utils/keyboards.js';
 
 class RegistrationHandler {
   async handleName(ctx, name) {

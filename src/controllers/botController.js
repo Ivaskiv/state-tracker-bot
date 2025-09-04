@@ -1,8 +1,8 @@
-import userService from '../services/userService.js';
-import responseService from '../services/responseService.js';
-import affirmationService from '../services/affirmationService.js';
+import userService from '../auth/services/userService.js';
+import responseService from '../dialogue/services/responseService.js';
+import affirmationService from '../dialogue/services/affirmationService.js';
 import { ANSWER_STEPS, QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../config/constants.js';
-import keyboards from '../utils/keyboards.js';
+import keyboards from '../dialogue/utils/keyboards.js';
 import { sendReport } from '../services/reportService.js';
 
 const botController = (bot) => {

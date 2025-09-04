@@ -1,10 +1,10 @@
 // src/modules/answers.js
-import responseService from '../services/responseService.js';
-import affirmationService from '../services/affirmationService.js';
+import responseService from '../../services/responseService.js';
+import affirmationService from '../../services/affirmationService.js';
 import userService from '../services/userService.js';
-import keyboards from '../utils/keyboards.js';
-import { MORNING_QUESTIONS, EVENING_QUESTIONS, ANSWER_STEPS, SCHEDULE, QUESTION_TYPES, LATE_TEXT } from '../config/constants.js';
-import { isValidResponseTime } from '../utils/time.js';
+import keyboards from '../../utils/keyboards.js';
+import { MORNING_QUESTIONS, EVENING_QUESTIONS, ANSWER_STEPS, SCHEDULE, QUESTION_TYPES, LATE_TEXT } from '../../config/constants.js';
+import { isValidResponseTime } from '../../utils/time.js';
 
 export async function handleOngoingQuestions(ctx) {
   const tgId = ctx.from.id;

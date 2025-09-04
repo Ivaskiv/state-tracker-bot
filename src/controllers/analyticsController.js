@@ -1,8 +1,8 @@
 // src/controllers/analyticsController.js
-import responseService from '../services/responseService.js';
+import responseService from '../dialogue/services/responseService.js';
 import aiAnalyticsService from '../services/aiAnalyticsService.js';
-import userService from '../services/userService.js';
-import { MESSAGES } from '../utils/messages.js';
+import userService from '../auth/services/userService.js';
+import { MESSAGES } from '../dialogue/utils/messages.js';
 
 class AnalyticsController {
   async generateWeeklyReport(ctx) {

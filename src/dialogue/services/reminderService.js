@@ -1,14 +1,18 @@
 // src/services/reminderService.js
-import userService from './userService.js';
+import userService from '../../auth/services/userService.js';
 import affirmationService from './affirmationService.js';
 import responseService from './responseService.js';
-import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS, STEP_ORDER, ANSWER_STEPS } from '../config/constants.js';
+import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS, STEP_ORDER, ANSWER_STEPS } from '../../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 
 const sendNextQuestion = async (bot, user) => {
   const tgId = user.TG_id;
   let step = user.Answer_Step;
-
+  
+ if (user.Answer_Step?.startsWith('Q_m_')) {
+    await bot.telegram.sendMessage(tgId, 
+      '⚠️ Ви не завершили ранкові питання, але час вечірньої рефлексії! Переходимо до вечірніх питань.');
+  }
   // If step is empty or invalid, reset to initial morning question
   if (!step || typeof step !== 'string') {
     step = ANSWER_STEPS.MORNING_1;

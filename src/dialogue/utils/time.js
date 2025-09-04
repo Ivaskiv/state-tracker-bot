@@ -1,5 +1,5 @@
 // src/utils/time.js
-import { SCHEDULE, ANSWER_STEPS } from '../config/constants.js';
+import { SCHEDULE, ANSWER_STEPS } from '../../config/constants.js';
 
 export function isValidResponseTime(answerStep) {
   const now = new Date();

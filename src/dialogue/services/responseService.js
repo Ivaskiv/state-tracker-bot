@@ -1,6 +1,6 @@
 // src/services/responseService.js
-import { getBase } from '../config/database.js';
-import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../config/constants.js';
+import { getBase } from '../../config/database.js';
+import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../../config/constants.js';
 
 /**
  * Створення або оновлення відповіді в Airtable - ОДИН ЗАПИС НА ДЕНЬ

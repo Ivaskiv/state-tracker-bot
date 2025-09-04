@@ -5,8 +5,8 @@ dotenv.config();
 
 import { Telegraf } from 'telegraf';
 import botController from './src/controllers/botController.js';
-import { initScheduler } from './src/utils/scheduler.js';
-import { handleWayForPayWebhook } from './src/services/paymentService.js';
+import { initScheduler } from './src/dialogue/utils/scheduler.js';
+import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;

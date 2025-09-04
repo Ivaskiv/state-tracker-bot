@@ -1,4 +1,4 @@
-import { getBase, tables } from '../config/database.js';
+import { getBase, tables } from '../../config/database.js';
 const base = getBase();
 
 // Отримання користувача за TG_id

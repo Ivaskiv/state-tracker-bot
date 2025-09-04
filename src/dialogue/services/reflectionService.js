@@ -1,6 +1,6 @@
 // src/services/reflectionService.js
-import { tables, selectFromTable, createRows, updateRows } from '../config/database.js';
-import { QUESTION_TYPES, ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../config/constants.js';
+import { tables, selectFromTable, createRows, updateRows } from '../../config/database.js';
+import { QUESTION_TYPES, ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../../config/constants.js';
 
 const todayStr = () => new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 

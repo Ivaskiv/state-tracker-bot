@@ -1,5 +1,5 @@
 // src/services/affirmationService.js
-import { getBase } from '../config/database.js';
+import { getBase } from '../../config/database.js';
 const base = getBase();
 const AFFIRMATIONS = 'Affirmations';
 

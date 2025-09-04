@@ -1,4 +1,4 @@
-import { getBase, tables } from "../config/database.js";
+import { getBase, tables } from "../../config/database.js";
 import userService from "./userService.js";
 
 const base = getBase();
