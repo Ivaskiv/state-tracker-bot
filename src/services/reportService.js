@@ -1,6 +1,5 @@
 // src/services/reportService.js
 import { findAll } from './airtableService.js';
-import { tables } from '../config/database.js';
 import { chat } from './openaiClient.js';
 
 const WEEK_DAYS = 7;
