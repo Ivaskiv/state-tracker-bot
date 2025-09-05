@@ -2,8 +2,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { Telegraf } from 'telegraf';
 import botController from './src/controllers/botController.js';
-import { initScheduler } from './src/questions/utils/scheduler.js';
 import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
+import { initScheduler } from './src/dialogue/utils/scheduler.js';
 
 dotenv.config();
 
@@ -25,16 +25,10 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-// Singleton для бота
+// Створюємо нового бота (без синглтона)
 console.log('🤖 Initializing bot...');
-let bot = globalThis.__bot;
-if (!bot) {
-  bot = new Telegraf(TOKEN);
-  globalThis.__bot = bot;
-  console.log('✅ New bot instance created');
-} else {
-  console.log('♻️ Reusing existing bot instance');
-}
+const bot = new Telegraf(TOKEN);
+console.log('✅ New bot instance created');
 
 // Обробка помилок бота
 bot.catch((err, ctx) => {
@@ -101,7 +95,7 @@ try {
 } catch (error) {
   console.error('❌ Error initializing scheduler:', error);
   process.exit(1);
-});
+}
 
 // Запуск бота
 app.listen(PORT, async () => {
@@ -121,29 +115,15 @@ app.listen(PORT, async () => {
         console.error('❌ Failed to clear webhook:', error);
       }
 
-      // Зупинка попереднього polling
-      console.log('🛑 Stopping any existing polling...');
-      try {
-        await bot.stop();
-        console.log('✅ Previous polling stopped');
-      } catch (error) {
-        console.error('❌ Error stopping previous polling:', error);
-      }
-
-      // Перевірка наявних оновлень
-      console.log('🔍 Checking existing updates...');
-      try {
-        const updates = await bot.telegram.getUpdates();
-        console.log('Existing updates:', updates.length ? updates : 'None');
-      } catch (error) {
-        console.error('❌ Error checking updates:', error);
-      }
+      // Невеличка затримка
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Запуск polling
       console.log('🔄 Starting polling...');
       await bot.launch({
         polling: {
-          timeout: 50,
+          timeout: 30,
+          limit: 100,
           allowed_updates: ['message', 'callback_query'],
         },
       });
@@ -191,27 +171,29 @@ app.listen(PORT, async () => {
   }
 });
 
-// Грейсфул-стоп
-process.once('SIGINT', async () => {
-  console.log('🛑 Received SIGINT, stopping bot...');
+// Утиліта для typing анімації
+const sendTyping = async (ctx, delay = 800) => {
   try {
-    await bot.stop('SIGINT');
-    console.log('✅ Bot stopped successfully');
+    await ctx.telegram.sendChatAction(ctx.from.id, 'typing');
+    await new Promise(resolve => setTimeout(resolve, delay));
   } catch (error) {
-    console.error('❌ Error stopping bot:', error);
+    // Ігноруємо помилки typing
   }
-  process.exit(0);
-});
+};
 
-process.once('SIGTERM', async () => {
-  console.log('🛑 Received SIGTERM, stopping bot...');
+// Грейсфул-стоп
+const gracefulShutdown = async (signal) => {
+  console.log(`🛑 Received ${signal}, stopping bot...`);
   try {
-    await bot.stop('SIGTERM');
+    await bot.stop(signal);
     console.log('✅ Bot stopped successfully');
   } catch (error) {
     console.error('❌ Error stopping bot:', error);
   }
   process.exit(0);
-});
+};
+
+process.once('SIGINT', () => gracefulShutdown('SIGINT'));
+process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 export { bot };

@@ -1,5 +1,4 @@
 // src/dialogue/utils/scheduler.js
-// src/dialogue/utils/scheduler.js
 import cron from 'node-cron';
 import userService from '../../auth/services/userService.js';
 import reminderService from '../services/reminderService.js';
@@ -39,15 +38,11 @@ export const initScheduler = (bot) => {
     }
   };
 
-  // ⚠️ ВИПРАВЛЕНО: Ранкові питання - правильно парсимо MORNING_TIME
+  // ⚠️ Ранкові питання - використовуємо SCHEDULE.MORNING_TIME
   const [morningHour, morningMinute] = SCHEDULE.MORNING_TIME.split(':').map(Number);
-  const morningCron = `${morningMinute} ${morningHour} * * *`;
-  console.log(`[scheduler] 🌞 Ранковий cron створено: "${morningCron}" з MORNING_TIME: "${SCHEDULE.MORNING_TIME}"`);
-  
-  cron.schedule(morningCron, () => {
+  cron.schedule(`${morningMinute} ${morningHour} * * *`, () => {
     const logPrefix = '🌞 Надсилання ранкових питань';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
-    console.log(`[scheduler] Використовую константу MORNING_TIME: ${SCHEDULE.MORNING_TIME}`);
     
     sendToActiveUsers(async (user) => {
       await userService.updateUserStep(user.TG_id, ANSWER_STEPS.COMPLETED);
@@ -55,15 +50,11 @@ export const initScheduler = (bot) => {
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
 
-  // ⚠️ ВИПРАВЛЕНО: Вечірні питання - правильно парсимо EVENING_TIME
+  // ⚠️ Вечірні питання - використовуємо SCHEDULE.EVENING_TIME
   const [eveningHour, eveningMinute] = SCHEDULE.EVENING_TIME.split(':').map(Number);
-  const eveningCron = `${eveningMinute} ${eveningHour} * * *`;
-  console.log(`[scheduler] 🌙 Вечірній cron створено: "${eveningCron}" з EVENING_TIME: "${SCHEDULE.EVENING_TIME}"`);
-  
-  cron.schedule(eveningCron, () => {
+  cron.schedule(`${eveningMinute} ${eveningHour} * * *`, () => {
     const logPrefix = '🌙 Надсилання вечірніх питань';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
-    console.log(`[scheduler] Використовую константу EVENING_TIME: ${SCHEDULE.EVENING_TIME}`);
     
     sendToActiveUsers(async (user) => {
       await reminderService.startEveningSession(bot, user);
@@ -72,10 +63,7 @@ export const initScheduler = (bot) => {
 
   // ⚠️ Щотижневий звіт - використовуємо REPORT_SCHEDULE
   const { dayOfWeek, hour: weeklyHour, minute: weeklyMinute } = REPORT_SCHEDULE.WEEKLY;
-  const weeklyCron = `${weeklyMinute} ${weeklyHour} * * ${dayOfWeek}`;
-  console.log(`[scheduler] 📊 Щотижневий звіт cron: "${weeklyCron}"`);
-  
-  cron.schedule(weeklyCron, () => {
+  cron.schedule(`${weeklyMinute} ${weeklyHour} * * ${dayOfWeek}`, () => {
     const logPrefix = '📊 Надсилання щотижневих звітів';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
     
@@ -96,10 +84,7 @@ export const initScheduler = (bot) => {
 
   // ⚠️ Місячний звіт - використовуємо REPORT_SCHEDULE
   const { dayRange, hour: monthlyHour, minute: monthlyMinute } = REPORT_SCHEDULE.MONTHLY;
-  const monthlyCron = `${monthlyMinute} ${monthlyHour} ${dayRange.join(',')} * *`;
-  console.log(`[scheduler] 📈 Місячний звіт cron: "${monthlyCron}"`);
-  
-  cron.schedule(monthlyCron, () => {
+  cron.schedule(`${monthlyMinute} ${monthlyHour} ${dayRange.join(',')} * *`, () => {
     const logPrefix = '📈 Надсилання місячних звітів';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
     
@@ -119,7 +104,6 @@ export const initScheduler = (bot) => {
   }, { timezone: SCHEDULE.TIMEZONE });
 
   // ⚠️ Нагадування ранкових - використовуємо CRON_EXPRESSIONS
-  console.log(`[scheduler] 🔔 Нагадування ранкових cron: "${CRON_EXPRESSIONS.MORNING_REMINDER}"`);
   cron.schedule(CRON_EXPRESSIONS.MORNING_REMINDER, () => {
     const logPrefix = '🔔 Нагадування ранкових питань';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
@@ -139,7 +123,6 @@ export const initScheduler = (bot) => {
   }, { timezone: SCHEDULE.TIMEZONE });
 
   // ⚠️ Нагадування вечірніх - використовуємо CRON_EXPRESSIONS
-  console.log(`[scheduler] 🔔 Нагадування вечірніх cron: "${CRON_EXPRESSIONS.EVENING_REMINDER}"`);
   cron.schedule(CRON_EXPRESSIONS.EVENING_REMINDER, () => {
     const logPrefix = '🔔 Нагадування вечірніх питань';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
@@ -159,7 +142,6 @@ export const initScheduler = (bot) => {
   }, { timezone: SCHEDULE.TIMEZONE });
 
   // ⚠️ Нагадування про звіти - використовуємо CRON_EXPRESSIONS та константи
-  console.log(`[scheduler] 💡 Нагадування про звіти cron: "${CRON_EXPRESSIONS.REPORTS_REMINDER}"`);
   cron.schedule(CRON_EXPRESSIONS.REPORTS_REMINDER, () => {
     const logPrefix = '💡 Нагадування про звіти';
     console.log(`[scheduler] ${logPrefix} о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
@@ -176,12 +158,12 @@ export const initScheduler = (bot) => {
     }, logPrefix);
   }, { timezone: SCHEDULE.TIMEZONE });
 
-  // ⚠️ Детальні логи ініціалізації з реальними cron виразами
-  console.log(`[scheduler] ✅ Ранкові питання: "${morningCron}" (${SCHEDULE.MORNING_TIME}) ${SCHEDULE.TIMEZONE}`);
-  console.log(`[scheduler] ✅ Вечірні питання: "${eveningCron}" (${SCHEDULE.EVENING_TIME}) ${SCHEDULE.TIMEZONE}`);
-  console.log(`[scheduler] ✅ Щотижневі звіти: "${weeklyCron}" ${SCHEDULE.TIMEZONE}`);
-  console.log(`[scheduler] ✅ Місячні звіти: "${monthlyCron}" ${SCHEDULE.TIMEZONE}`);
-  console.log(`[scheduler] ✅ Нагадування ранкових: "${CRON_EXPRESSIONS.MORNING_REMINDER}"`);
-  console.log(`[scheduler] ✅ Нагадування вечірніх: "${CRON_EXPRESSIONS.EVENING_REMINDER}"`);
-  console.log(`[scheduler] ✅ Нагадування звітів: "${CRON_EXPRESSIONS.REPORTS_REMINDER}"`);
+  // ⚠️ Логи ініціалізації - використовуємо константи
+  console.log(`[scheduler] ✅ Ранкові питання заплановано на ${SCHEDULE.MORNING_TIME} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Вечірні питання заплановано на ${SCHEDULE.EVENING_TIME} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Щотижневі звіти заплановано на неділю ${REPORT_SCHEDULE.WEEKLY.hour}:${REPORT_SCHEDULE.WEEKLY.minute.toString().padStart(2, '0')} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Місячні звіти заплановано на кінець місяця ${REPORT_SCHEDULE.MONTHLY.hour}:${REPORT_SCHEDULE.MONTHLY.minute.toString().padStart(2, '0')} (${SCHEDULE.TIMEZONE})`);
+  console.log(`[scheduler] ✅ Нагадування ранкових питань: ${CRON_EXPRESSIONS.MORNING_REMINDER}`);
+  console.log(`[scheduler] ✅ Нагадування вечірніх питань: ${CRON_EXPRESSIONS.EVENING_REMINDER}`);
+  console.log(`[scheduler] ✅ Нагадування про звіти: ${CRON_EXPRESSIONS.REPORTS_REMINDER}`);
 };

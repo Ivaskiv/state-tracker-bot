@@ -1,3 +1,4 @@
+//botController.js
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import affirmationService from '../dialogue/services/affirmationService.js';
@@ -47,7 +48,7 @@ const botController = (bot) => {
 
   const handleQuestionAnswer = async (ctx, user, text) => {
     const step = user.Answer_Step;
-    if (!step || step === 'completed') return false;
+    if (!step || step === ANSWER_STEPS.COMPLETED) return false;
 
     const tgId = ctx.from.id;
     const userName = user['User Name'] || 'Користувач';
@@ -75,14 +76,15 @@ const botController = (bot) => {
         } else {
           const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
           await ctx.reply(`✨ Ось твоя ранкова афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-          // ⚠️ ВИПРАВЛЕНО: використовуємо існуючий крок End_m замість affirmation_m
-          await userService.updateUserStep(tgId, ANSWER_STEPS.END_MORNING);
+          // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
+          await userService.updateUserStep(tgId, ANSWER_STEPS.AFFIRMATION_MORNING);
         }
         return true;
       }
 
-      // ⚠️ Morning affirmation - використовуємо End_m крок
-      if (step === ANSWER_STEPS.END_MORNING) {
+      // Morning affirmation
+      // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
+      if (step === ANSWER_STEPS.AFFIRMATION_MORNING) {
         await responseService.createOrUpdateResponse(
           tgId,
           userName,
@@ -119,14 +121,15 @@ const botController = (bot) => {
         } else {
           const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
           await ctx.reply(`✨ Ось твоя вечірня афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-          // ⚠️ ВИПРАВЛЕНО: використовуємо існуючий крок End_e замість affirmation_e
-          await userService.updateUserStep(tgId, ANSWER_STEPS.END_EVENING);
+          // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
+          await userService.updateUserStep(tgId, ANSWER_STEPS.AFFIRMATION_EVENING);
         }
         return true;
       }
 
-      // ⚠️ Evening affirmation - використовуємо End_e крок
-      if (step === ANSWER_STEPS.END_EVENING) {
+      // Evening affirmation
+      // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
+      if (step === ANSWER_STEPS.AFFIRMATION_EVENING) {
         await responseService.createOrUpdateResponse(
           tgId,
           userName,
@@ -144,20 +147,6 @@ const botController = (bot) => {
       return false;
     } catch (error) {
       console.error('[handleQuestionAnswer] Error:', error);
-      console.error('[handleQuestionAnswer] Step:', step, 'Text:', text, 'User:', tgId);
-      
-      // ⚠️ Якщо помилка з Airtable select options - спробуємо завершити сесію
-      if (error.message?.includes('INVALID_MULTIPLE_CHOICE_OPTIONS')) {
-        console.log('[handleQuestionAnswer] Airtable select error - completing session manually');
-        try {
-          await userService.updateUserStep(tgId, 'morning_completed');
-          await ctx.reply('🎉 Дякую! Сесію завершено!', keyboards.mainMenuKeyboard());
-          return true;
-        } catch (fallbackError) {
-          console.error('[handleQuestionAnswer] Fallback error:', fallbackError);
-        }
-      }
-      
       await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
       return true;
     }
@@ -233,7 +222,8 @@ const botController = (bot) => {
       return;
     }
 
-    await userService.updateUserStep(ctx.from.id, 'Q_m_1');
+    // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
+    await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.MORNING_1);
     await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
   };
 
@@ -244,7 +234,7 @@ const botController = (bot) => {
       return;
     }
 
-    await userService.updateUserStep(ctx.from.id, 'Q_e_1');
+    await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.EVENING_1);
     await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
   };
 
