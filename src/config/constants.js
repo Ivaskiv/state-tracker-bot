@@ -83,7 +83,7 @@ export const EVENING_QUESTIONS = [
 ];
 
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '11:23',
+  MORNING_TIME: '14:30',
   EVENING_TIME: '14:18',
   MORNING_HOUR: 13,
   EVENING_HOUR: 20,
