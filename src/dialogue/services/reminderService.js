@@ -1,6 +1,5 @@
 // src/dialogue/services/reminderService.js
 import userService from '../../auth/services/userService.js';
-import affirmationService from './affirmationService.js';
 import responseService from './responseService.js';
 import keyboards from '../utils/keyboards.js';
 import { 
@@ -16,7 +15,7 @@ const sendNextQuestion = async (bot, user) => {
   const tgId = user.TG_id;
   let step = user.Answer_Step;
   
- if (user.Answer_Step?.startsWith('Q_m_')) {
+  if (user.Answer_Step?.startsWith('Q_m_')) {
     await bot.telegram.sendMessage(tgId, 
       '⚠️ Ви не завершили ранкові питання, але час вечірньої рефлексії! Переходимо до вечірніх питань.');
   }
@@ -26,11 +25,6 @@ const sendNextQuestion = async (bot, user) => {
     await userService.updateUserStep(tgId, step);
     user.Answer_Step = step;
     console.log(`[sendNextQuestion] Invalid or empty Answer_Step for user ${tgId}, reset to ${step}`);
-  }
-
-  if ([ANSWER_STEPS.END_MORNING, ANSWER_STEPS.END_EVENING, ANSWER_STEPS.COMPLETED].includes(step)) {
-    console.log(`[sendNextQuestion] Session ended for user ${tgId}, step: ${step}`);
-    return;
   }
 
   let questions, type, questionIndex;
@@ -79,12 +73,6 @@ const startMorningSession = async (bot, user) => {
   const tgId = user.TG_id;
   
   try {
-    const isCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.MORNING);
-    if (isCompleted) {
-      console.log(`[startMorningSession] User ${tgId} already completed morning session today`);
-      return;
-    }
-
     await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
     
     const userName = user['User Name'] || 'Користувач';
@@ -103,12 +91,6 @@ const startEveningSession = async (bot, user) => {
   const tgId = user.TG_id;
   
   try {
-    const isCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
-    if (isCompleted) {
-      console.log(`[startEveningSession] User ${tgId} already completed evening session today`);
-      return;
-    }
-
     await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
     
     const userName = user['User Name'] || 'Користувач';

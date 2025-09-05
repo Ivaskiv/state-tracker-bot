@@ -1,4 +1,4 @@
-//botController.js
+// src/controllers/botController.js
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import affirmationService from '../dialogue/services/affirmationService.js';
@@ -76,14 +76,12 @@ const botController = (bot) => {
         } else {
           const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
           await ctx.reply(`✨ Ось твоя ранкова афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-          // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
           await userService.updateUserStep(tgId, ANSWER_STEPS.AFFIRMATION_MORNING);
         }
         return true;
       }
 
       // Morning affirmation
-      // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
       if (step === ANSWER_STEPS.AFFIRMATION_MORNING) {
         await responseService.createOrUpdateResponse(
           tgId,
@@ -120,27 +118,28 @@ const botController = (bot) => {
           await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
         } else {
           const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
-          await ctx.reply(`✨ Ось твоя вечірня афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-          // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
           await userService.updateUserStep(tgId, ANSWER_STEPS.AFFIRMATION_EVENING);
+          await ctx.reply(`✨ Ось твоя вечірня афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
         }
         return true;
       }
 
       // Evening affirmation
-      // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
       if (step === ANSWER_STEPS.AFFIRMATION_EVENING) {
-        await responseService.createOrUpdateResponse(
-          tgId,
-          userName,
-          QUESTION_TYPES.EVENING,
-          ANSWER_STEPS.END_EVENING,
-          0,
-          text,
-          'affirmation_e'
-        );
-        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-        await ctx.reply('🎉 Дякую! Вечірню сесію завершено!', keyboards.mainMenuKeyboard());
+        const isCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
+        if (!isCompleted) {
+          await responseService.createOrUpdateResponse(
+            tgId,
+            userName,
+            QUESTION_TYPES.EVENING,
+            ANSWER_STEPS.END_EVENING,
+            0,
+            text,
+            'affirmation_e'
+          );
+          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+          await ctx.reply('🎉 Дякую! Вечірню сесію завершено!', keyboards.mainMenuKeyboard());
+        }
         return true;
       }
 
@@ -216,24 +215,11 @@ const botController = (bot) => {
   };
 
   const startMorningQuestions = async (ctx, user) => {
-    const isCompleted = await responseService.isSessionCompleted(ctx.from.id, QUESTION_TYPES.MORNING);
-    if (isCompleted) {
-      await ctx.reply('✅ Ти вже відповіла на ранкові питання сьогодні!');
-      return;
-    }
-
-    // ✅ Виправлено: використовуємо константу замість хардкодженого рядка
     await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.MORNING_1);
     await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
   };
 
   const startEveningQuestions = async (ctx, user) => {
-    const isCompleted = await responseService.isSessionCompleted(ctx.from.id, QUESTION_TYPES.EVENING);
-    if (isCompleted) {
-      await ctx.reply('✅ Ти вже відповіла на вечірні питання сьогодні!');
-      return;
-    }
-
     await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.EVENING_1);
     await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
   };

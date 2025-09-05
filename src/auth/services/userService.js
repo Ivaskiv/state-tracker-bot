@@ -1,75 +1,72 @@
+// src/auth/services/userService.js
 import { getBase, tables } from '../../config/database.js';
+
 const base = getBase();
 
-// Отримання користувача за TG_id
-export const getUserByTelegramId = async (tgId) => {
+const getUserByTelegramId = async (tgId) => {
   try {
-    const records = await base(tables.USERS)
-      .select({
-        filterByFormula: `{TG_id} = "${tgId}"`,
-      })
-      .firstPage();
+    const records = await base(tables.USERS).select({
+      filterByFormula: `{TG_id} = "${tgId}"`,
+      maxRecords: 1
+    }).firstPage();
+    
     return records.length > 0 ? records[0].fields : null;
   } catch (error) {
-    console.error('[userService] Помилка в getUserByTelegramId:', error);
+    console.error('[userService] Error getting user by TG ID:', error);
     return null;
   }
 };
 
-// Створення користувача
-export const createUser = async ({ tgId, name, email = null, phone = null }) => {
+const createUser = async (userData) => {
   try {
-    const createdRecords = await base(tables.USERS).create([
-      {
-        fields: {
-          TG_id: String(tgId),
-          'User Name': name,
-          Email: email,
-          Phone: phone,
-          Active_Subscription_Status: '❌ Неактивна',
-          Answer_Step: 'completed'
-        },
-      },
-    ]);
-    return createdRecords[0].fields;
+    const [record] = await base(tables.USERS).create([{
+      fields: {
+        TG_id: String(userData.tgId),
+        'User Name': userData.name,
+        Email: userData.email || null,
+        'Date Response': new Date().toISOString(),
+        Answer_Step: 'completed'
+      }
+    }]);
+    
+    return record.fields;
   } catch (error) {
-    console.error('[userService] Помилка в createUser:', error);
+    console.error('[userService] Error creating user:', error);
     throw error;
   }
 };
 
-// Отримання всіх користувачів
-export const getAllUsers = async () => {
+const updateUserStep = async (tgId, step) => {
+  try {
+    const records = await base(tables.USERS).select({
+      filterByFormula: `{TG_id} = "${tgId}"`,
+      maxRecords: 1
+    }).firstPage();
+    
+    if (records.length > 0) {
+      await base(tables.USERS).update([{
+        id: records[0].id,
+        fields: { Answer_Step: step }
+      }]);
+    }
+  } catch (error) {
+    console.error('[userService] Error updating user step:', error);
+  }
+};
+
+const getAllUsers = async () => {
   try {
     const records = await base(tables.USERS).select().all();
-    return records.map((record) => record.fields);
+    return records.map(record => record.fields);
   } catch (error) {
-    console.error('[userService] Помилка в getAllUsers:', error);
+    console.error('[userService] Error getting all users:', error);
     return [];
   }
 };
 
-// Оновлення Answer_Step
-export const updateUserStep = async (tgId, step) => {
-  try {
-    const records = await base(tables.USERS)
-      .select({
-        filterByFormula: `{TG_id} = "${tgId}"`,
-      })
-      .firstPage();
-    if (records.length > 0) {
-      await base(tables.USERS).update([
-        {
-          id: records[0].id,
-          fields: { Answer_Step: step },
-        },
-      ]);
-      console.log(`[userService] Оновлено Answer_Step для ${tgId} -> ${step}`);
-    }
-  } catch (error) {
-    console.error('[userService] Помилка в updateUserStep:', error);
-    throw error;
-  }
+export default {
+  getUserByTelegramId,
+  createUser,
+  updateUserStep,
+  getAllUsers
 };
-
-export default { getUserByTelegramId, createUser, getAllUsers, updateUserStep };
