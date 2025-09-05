@@ -33,12 +33,14 @@ export const ANSWER_STEPS = Object.freeze({
   MORNING_4: 'Q_m_4',
   MORNING_5: 'Q_m_5',
   MORNING_6: 'Q_m_6',
+  AFFIRMATION_MORNING: 'affirmation_m',  // ✅ Додано
   END_MORNING: 'End_m',
   EVENING_1: 'Q_e_1',
   EVENING_2: 'Q_e_2',
   EVENING_3: 'Q_e_3',
   EVENING_4: 'Q_e_4',
   EVENING_5: 'Q_e_5',
+  AFFIRMATION_EVENING: 'affirmation_e',  // ✅ Додано
   END_EVENING: 'End_e',
   MORNING_PENDING: 'morning_pending',
   EVENING_PENDING: 'evening_pending',
@@ -52,12 +54,14 @@ export const STEP_ORDER = [
   ANSWER_STEPS.MORNING_4,
   ANSWER_STEPS.MORNING_5,
   ANSWER_STEPS.MORNING_6,
+  ANSWER_STEPS.AFFIRMATION_MORNING,  // ✅ Додано в порядок
   ANSWER_STEPS.END_MORNING,
   ANSWER_STEPS.EVENING_1,
   ANSWER_STEPS.EVENING_2,
   ANSWER_STEPS.EVENING_3,
   ANSWER_STEPS.EVENING_4,
   ANSWER_STEPS.EVENING_5,
+  ANSWER_STEPS.AFFIRMATION_EVENING,  // ✅ Додано в порядок
   ANSWER_STEPS.END_EVENING,
 ];
 
@@ -73,14 +77,14 @@ export const MORNING_QUESTIONS = [
 export const EVENING_QUESTIONS = [
   'Що мене сьогодні наповнило енергією?\nЛюди, дії, ситуації, стани.\n_Мене сьогодні наповнило енергією: ___________',
   'Де я сьогодні злила енергію чи втратила стан?\nТригер, сумнів, ситуація, реакція.\n_Я сьогодні злила енергію в: ___________',
-  'Яка програма або переконання активувалась сьогодні?\n(Наприклад: страх, “мені не вийде”, “я не заслуговую”...)\n_У мене сьогодні активувалась програма: ___________',
+  'Яка програма або переконання активувалась сьогодні?\n(Наприклад: страх, "мені не вийде", "я не заслуговую"...)\n_У мене сьогодні активувалась програма: ___________',
   'З якої точки я діяла сьогодні: сили чи страху?\nЧесна відповідь. Що керувало тобою?\n_Мною сьогодні керувала/керував: ___________',
   'Яка моя головна перемога сьогодні?\nДія, стан, рішення — будь-який успіх.\n_Сьогодні я: ___________',
 ];
 
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '09:32',
-  EVENING_TIME: '20:00',
+  MORNING_TIME: '11:23',
+  EVENING_TIME: '14:18',
   MORNING_HOUR: 13,
   EVENING_HOUR: 20,
   MORNING_START: 7,
@@ -89,6 +93,7 @@ export const SCHEDULE = Object.freeze({
   EVENING_END: 23,
   TIMEZONE: 'Europe/Prague',
 });
+
 export const REPORT_SCHEDULE = Object.freeze({
   WEEKLY: {
     dayOfWeek: 0,        
@@ -104,6 +109,49 @@ export const REPORT_SCHEDULE = Object.freeze({
   },
 });
 
+// ⚠️ CRON EXPRESSIONS - централізовано для всіх планувальників
+export const CRON_EXPRESSIONS = Object.freeze({
+  MORNING_REMINDER: '0 12 * * *',      // нагадування ранкових о 12:00
+  EVENING_REMINDER: '0 21 * * *',      // нагадування вечірніх о 21:00
+  REPORTS_REMINDER: '0 18 * * *',      // нагадування про звіти о 18:00
+  SUBSCRIPTION_CHECK: '0 10 * * *',    // перевірка підписок о 10:00
+});
+
+// ⚠️ MESSAGES - всі тексти винесені в константи
+export const SCHEDULER_MESSAGES = Object.freeze({
+  MORNING_SESSION_START: (name) => `🌞 Доброго ранку, ${name}!
+
+Час для ранкової рефлексії та налаштування на день! ✨
+
+1️⃣/6 ${MORNING_QUESTIONS[0]}`,
+
+  EVENING_SESSION_START: (name) => `🌙 Добрий вечір, ${name}!
+
+Час підсумувати день і зафіксувати перемоги! 🏆
+
+1️⃣/5 ${EVENING_QUESTIONS[0]}`,
+
+  MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!',
+  EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!',
+  
+  REPORTS_REMINDER: `💡 Не забувай переглядати свої звіти!
+
+📊 "Щотижневий звіт" - аналіз шаблонів
+📈 "Щомісячний звіт" - глибокий інсайт
+
+Звіти допомагають усвідомити прогрес та знайти точки росту! 🌱`,
+
+  WEEKLY_REPORT_READY: '📊 Щотижневий AI-звіт готовий!',
+  MONTHLY_REPORT_READY: '📈 Місячний AI-звіт готовий!',
+});
+
+// ⚠️ THRESHOLDS - всі порогові значення
+export const ACTIVITY_THRESHOLDS = Object.freeze({
+  RECENT_ACTIVITY_DAYS: 3,           // для перевірки активності
+  MIN_RESPONSES_FOR_REMINDER: 2,    // мінімум відповідей для нагадувань
+  USER_DELAY_MS: 200,               // затримка між користувачами
+  TYPING_DELAY_MS: 1000,            // затримка перед повідомленням
+});
 
 export const AFFIRMATION_CATEGORIES = [
   'Особистий розвиток',

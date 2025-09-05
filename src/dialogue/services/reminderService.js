@@ -1,9 +1,16 @@
-// src/services/reminderService.js
+// src/dialogue/services/reminderService.js
 import userService from '../../auth/services/userService.js';
 import affirmationService from './affirmationService.js';
 import responseService from './responseService.js';
-import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS, STEP_ORDER, ANSWER_STEPS } from '../../config/constants.js';
 import keyboards from '../utils/keyboards.js';
+import { 
+  QUESTION_TYPES, 
+  MORNING_QUESTIONS, 
+  EVENING_QUESTIONS, 
+  STEP_ORDER, 
+  ANSWER_STEPS,
+  SCHEDULER_MESSAGES
+} from '../../config/constants.js';
 
 const sendNextQuestion = async (bot, user) => {
   const tgId = user.TG_id;
@@ -13,7 +20,7 @@ const sendNextQuestion = async (bot, user) => {
     await bot.telegram.sendMessage(tgId, 
       '⚠️ Ви не завершили ранкові питання, але час вечірньої рефлексії! Переходимо до вечірніх питань.');
   }
-  // If step is empty or invalid, reset to initial morning question
+  
   if (!step || typeof step !== 'string') {
     step = ANSWER_STEPS.MORNING_1;
     await userService.updateUserStep(tgId, step);
@@ -53,12 +60,12 @@ const sendNextQuestion = async (bot, user) => {
   }
 };
 
-// Функція для надсилання нагадувань
+// ⚠️ Функція для надсилання нагадувань - використовуємо константи
 const sendReminder = async (bot, tgId, questionType) => {
   try {
     const reminderText = questionType === QUESTION_TYPES.MORNING 
-      ? '🔔 Не забудь відповісти на ранкові питання!'
-      : '🔔 Час для вечірньої рефлексії!';
+      ? SCHEDULER_MESSAGES.MORNING_REMINDER
+      : SCHEDULER_MESSAGES.EVENING_REMINDER;
     
     await bot.telegram.sendMessage(tgId, reminderText, keyboards.mainMenuKeyboard());
     console.log(`[sendReminder] Надіслано нагадування для ${questionType} користувачу ${tgId}`);
@@ -67,26 +74,21 @@ const sendReminder = async (bot, tgId, questionType) => {
   }
 };
 
-// ✅ Початок ранкової сесії
+// ⚠️ Початок ранкової сесії - використовуємо SCHEDULER_MESSAGES
 const startMorningSession = async (bot, user) => {
   const tgId = user.TG_id;
   
   try {
-    // Перевіряємо, чи вже завершено ранкову сесію
     const isCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.MORNING);
     if (isCompleted) {
       console.log(`[startMorningSession] User ${tgId} already completed morning session today`);
       return;
     }
 
-    // Встановлюємо перше питання
     await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
     
-    const message = `🌞 Доброго ранку, ${user['User Name'] || 'Користувач'}!
-
-Час для ранкової рефлексії та налаштування на день! ✨
-
-1️⃣/6 ${MORNING_QUESTIONS[0]}`;
+    const userName = user['User Name'] || 'Користувач';
+    const message = SCHEDULER_MESSAGES.MORNING_SESSION_START(userName);
 
     await bot.telegram.sendMessage(tgId, message);
     console.log(`[startMorningSession] ✅ Started morning session for ${tgId}`);
@@ -96,26 +98,21 @@ const startMorningSession = async (bot, user) => {
   }
 };
 
-// ✅ Початок вечірньої сесії
+// ⚠️ Початок вечірньої сесії - використовуємо SCHEDULER_MESSAGES
 const startEveningSession = async (bot, user) => {
   const tgId = user.TG_id;
   
   try {
-    // Перевіряємо, чи вже завершено вечірню сесію
     const isCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
     if (isCompleted) {
       console.log(`[startEveningSession] User ${tgId} already completed evening session today`);
       return;
     }
 
-    // Встановлюємо перше питання
     await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
     
-    const message = `🌙 Добрий вечір, ${user['User Name'] || 'Користувач'}!
-
-Час підсумувати день і зафіксувати перемоги! 🏆
-
-1️⃣/5 ${EVENING_QUESTIONS[0]}`;
+    const userName = user['User Name'] || 'Користувач';
+    const message = SCHEDULER_MESSAGES.EVENING_SESSION_START(userName);
 
     await bot.telegram.sendMessage(tgId, message);
     console.log(`[startEveningSession] ✅ Started evening session for ${tgId}`);
@@ -125,14 +122,11 @@ const startEveningSession = async (bot, user) => {
   }
 };
 
-// ✅ ОНОВЛЕНА ФУНКЦІЯ - Обробка відповіді (вже не потрібна, бо логіка в botController)
 const handleAnswer = async (ctx) => {
-  // Ця функція більше не використовується, логіка перенесена в botController.handleQuestionAnswer
   console.log('[handleAnswer] This function is deprecated, logic moved to botController');
   return;
 };
 
-// ✅ Функція для отримання прогресу користувача
 const getUserProgress = async (tgId, days = 30) => {
   try {
     const records = await responseService.getUserRecords(tgId, days);

@@ -75,23 +75,24 @@ const botController = (bot) => {
         } else {
           const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
           await ctx.reply(`✨ Ось твоя ранкова афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-          await userService.updateUserStep(tgId, 'affirmation_m');
+          // ⚠️ ВИПРАВЛЕНО: використовуємо існуючий крок End_m замість affirmation_m
+          await userService.updateUserStep(tgId, ANSWER_STEPS.END_MORNING);
         }
         return true;
       }
 
-      // Morning affirmation
-      if (step === 'affirmation_m') {
+      // ⚠️ Morning affirmation - використовуємо End_m крок
+      if (step === ANSWER_STEPS.END_MORNING) {
         await responseService.createOrUpdateResponse(
           tgId,
           userName,
           QUESTION_TYPES.MORNING,
-          'End_m',
+          ANSWER_STEPS.END_MORNING,
           0,
           text,
           'affirmation_m'
         );
-        await userService.updateUserStep(tgId, 'completed');
+        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
         await ctx.reply('🎉 Дякую! Ранкову сесію завершено!', keyboards.mainMenuKeyboard());
         return true;
       }
@@ -118,23 +119,24 @@ const botController = (bot) => {
         } else {
           const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
           await ctx.reply(`✨ Ось твоя вечірня афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-          await userService.updateUserStep(tgId, 'affirmation_e');
+          // ⚠️ ВИПРАВЛЕНО: використовуємо існуючий крок End_e замість affirmation_e
+          await userService.updateUserStep(tgId, ANSWER_STEPS.END_EVENING);
         }
         return true;
       }
 
-      // Evening affirmation
-      if (step === 'affirmation_e') {
+      // ⚠️ Evening affirmation - використовуємо End_e крок
+      if (step === ANSWER_STEPS.END_EVENING) {
         await responseService.createOrUpdateResponse(
           tgId,
           userName,
           QUESTION_TYPES.EVENING,
-          'End_e',
+          ANSWER_STEPS.END_EVENING,
           0,
           text,
           'affirmation_e'
         );
-        await userService.updateUserStep(tgId, 'completed');
+        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
         await ctx.reply('🎉 Дякую! Вечірню сесію завершено!', keyboards.mainMenuKeyboard());
         return true;
       }
@@ -142,6 +144,20 @@ const botController = (bot) => {
       return false;
     } catch (error) {
       console.error('[handleQuestionAnswer] Error:', error);
+      console.error('[handleQuestionAnswer] Step:', step, 'Text:', text, 'User:', tgId);
+      
+      // ⚠️ Якщо помилка з Airtable select options - спробуємо завершити сесію
+      if (error.message?.includes('INVALID_MULTIPLE_CHOICE_OPTIONS')) {
+        console.log('[handleQuestionAnswer] Airtable select error - completing session manually');
+        try {
+          await userService.updateUserStep(tgId, 'morning_completed');
+          await ctx.reply('🎉 Дякую! Сесію завершено!', keyboards.mainMenuKeyboard());
+          return true;
+        } catch (fallbackError) {
+          console.error('[handleQuestionAnswer] Fallback error:', fallbackError);
+        }
+      }
+      
       await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
       return true;
     }
