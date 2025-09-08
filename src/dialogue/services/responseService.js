@@ -1,37 +1,33 @@
 // src/dialogue/services/responseService.js
 import { getBase } from '../../config/database.js';
 import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS, ANSWER_STEPS } from '../../config/constants.js';
+import { getUserDateString, getUserDateTime } from '../../utils/timezoneUtils.js';
 
-/**
- * Створення або оновлення відповіді в Airtable - ОДИН ЗАПИС НА ДЕНЬ
- */
 export const createOrUpdateResponse = async (
   tgId,
   userName,
-  questionType,   // QUESTION_TYPES.MORNING | QUESTION_TYPES.EVENING
-  answerStep,     // поточний крок (наприклад: 'Q_m_1', 'Q_m_6', 'End_m' тощо)
-  questionNumber, // номер питання (1..n)
-  answer,         // текст відповіді
-  fieldName,      // колонка для збереження (напр. 'Q_m_1', 'Q_m_6')
+  questionType,
+  answerStep,
+  questionNumber,
+  answer,
+  fieldName,
   isCompleted = false
 ) => {
   try {
     const base = getBase();
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = getUserDateString(tgId); // Використовуємо timezone користувача
     const tgIdString = String(tgId);
 
-    // ✅ Шукаємо існуючий запис на цей день
     const existingRecords = await base('Responses').select({
       filterByFormula: `AND({TG_id}="${tgIdString}", DATESTR({Date Response})="${today}")`,
       maxRecords: 1
     }).firstPage();
 
-    // Готуємо поля до оновлення
     const fieldsToUpdate = {
-      'Answer_Step': answerStep
+      'Answer_Step': answerStep,
+      'Date Response': getUserDateTime(tgId) // Зберігаємо з timezone користувача
     };
 
-    // Динамічна логіка на основі кількості питань
     const maxMorningQuestions = MORNING_QUESTIONS.length;
     const maxEveningQuestions = EVENING_QUESTIONS.length;
 
@@ -52,7 +48,6 @@ export const createOrUpdateResponse = async (
     }
 
     if (existingRecords.length > 0) {
-      // ✅ ОНОВЛЮЄМО
       const recordId = existingRecords[0].id;
       await base('Responses').update([{ 
         id: recordId,
@@ -60,11 +55,10 @@ export const createOrUpdateResponse = async (
       }]);
       console.log(`[responseService] ✅ ОНОВЛЕНО запис ${recordId} для ${tgIdString}. Q#${questionNumber}, field="${fieldName}"`);
     } else {
-      // ✅ СТВОРЮЄМО
       const newRecordFields = {
         'TG_id': tgIdString,
         'User Name': userName,
-        'Date Response': today,
+        'Date Response': getUserDateTime(tgId),
         ...fieldsToUpdate
       };
       
@@ -77,13 +71,10 @@ export const createOrUpdateResponse = async (
   }
 };
 
-/**
- * Перевірка завершення сесії - перевіряємо affirmation поля
- */
 export const isSessionCompleted = async (tgId, questionType) => {
   try {
     const base = getBase();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getUserDateString(tgId);
     const tgIdString = String(tgId);
 
     const records = await base('Responses').select({
@@ -101,13 +92,10 @@ export const isSessionCompleted = async (tgId, questionType) => {
   }
 };
 
-/**
- * Отримання запису за день для користувача
- */
 export const getDayRecord = async (tgId, date = null) => {
   try {
     const base = getBase();
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getUserDateString(tgId);
     const tgIdString = String(tgId);
 
     const records = await base('Responses').select({
@@ -122,9 +110,6 @@ export const getDayRecord = async (tgId, date = null) => {
   }
 };
 
-/**
- * Отримання записів користувача за період
- */
 export const getUserRecords = async (tgId, days = 7) => {
   try {
     const base = getBase();

@@ -218,9 +218,5 @@ if (questionNum < 5) {
     );
   };
 };
-const isEveningStarted = async (tgId) => {
-  const today = new Date().toISOString().split('T')[0];
-  const records = await responseService.getUserRecords(tgId, 1);
-  return records.some(r => r.fields.Q_e_1 && r.fields['Date Response'].includes(today));
-};
+
 export default botController;

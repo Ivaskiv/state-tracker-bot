@@ -17,9 +17,8 @@ export const tables = Object.freeze({
   USER_REFLECTIONS: 'User Reflections',
   AFFIRMATIONS: 'Affirmations',
   USER_AFFIRMATIONS: 'User Affirmations',
+  USER_REPORTS: 'User Reports', 
 });
-
-// export const getBase = () => base;
 
 export const selectFromTable = (tableName, opts = {}) => base(tables[tableName] || tableName).select(opts);
 export const createRows = (tableName, rows) => base(tables[tableName] || tableName).create(rows, { typecast: true });

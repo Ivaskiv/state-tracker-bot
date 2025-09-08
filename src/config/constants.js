@@ -76,29 +76,37 @@ export const MORNING_QUESTIONS = [
 
 export const EVENING_QUESTIONS = [
   'Що мене сьогодні наповнило енергією?\nЛюди, дії, ситуації, стани.\n_Мене сьогодні наповнило енергією: ___________',
-  'Де я сьогодні злила енергію чи втратила стан?\nТригер, сумнів, ситуація, реакція.\n_Я сьогодні злила енергію в: ___________',
+  'Де я сьогодні злила енергію чи втратила стан?\nТригер, сумнів, ситуація, реакція.\n_Я сьогодні злила енергією в: ___________',
   'Яка програма або переконання активувалась сьогодні?\n(Наприклад: страх, "мені не вийде", "я не заслуговую"...)\n_У мене сьогодні активувалась програма: ___________',
   'З якої точки я діяла сьогодні: сили чи страху?\nЧесна відповідь. Що керувало тобою?\n_Мною сьогодні керувала/керував: ___________',
   'Яка моя головна перемога сьогодні?\nДія, стан, рішення — будь-який успіх.\n_Сьогодні я: ___________',
 ];
 
+// Додано timezone константи
+export const TIMEZONE_CONFIG = Object.freeze({
+  DEFAULT: 'Europe/Kiev',
+  FALLBACK: 'Europe/Prague',
+  USER_TIMEZONES: {
+    // Можна додати mapping користувачів до timezone
+  }
+});
 
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '11:04',
-  EVENING_TIME: '11:10',
-  MORNING_HOUR: 12,  
+  MORNING_TIME: '08:00',
+  EVENING_TIME: '20:30',
+  MORNING_HOUR: 8,  
   EVENING_HOUR: 20,
   MORNING_START: 7,
   MORNING_END: 20,
   EVENING_START: 20,
   EVENING_END: 23,
-  TIMEZONE: 'Europe/Prague',
+  TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
 });
 
-// CRON розклади
+// CRON розклади з урахуванням timezone
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: '04 11 * * *',  // змінено з '32 9' на '24 12'
-  EVENING_QUESTIONS: '10 11 * * *',   // залишається як є
+  MORNING_QUESTIONS: '0 8 * * *',
+  EVENING_QUESTIONS: '30 20 * * *',
   MORNING_REMINDER: '0 12 * * *',   
   EVENING_REMINDER: '0 21 * * *',   
   REPORTS_REMINDER: '0 18 * * *',   
@@ -120,8 +128,6 @@ export const REPORT_SCHEDULE = Object.freeze({
   },
 });
 
-
-// Повідомлення планувальника
 export const SCHEDULER_MESSAGES = Object.freeze({
   MORNING_SESSION_START: (name) => `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`,
   EVENING_SESSION_START: (name) => `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`,
@@ -132,12 +138,11 @@ export const SCHEDULER_MESSAGES = Object.freeze({
   MONTHLY_REPORT_READY: '📈 Місячний AI-звіт готовий!',
 });
 
-// Налаштування планувальника
 export const SCHEDULER_CONFIG = Object.freeze({
-  USER_DELAY_MS: 200,           // затримка між користувачами
-  REPORT_DELAY_MS: 1000,        // затримка перед звітом
-  MIN_RECORDS_FOR_REMINDER: 2,  // мін. записів для нагадування про звіти
-  RECENT_RECORDS_DAYS: 3,       // кількість днів для перевірки активності
+  USER_DELAY_MS: 200,           
+  REPORT_DELAY_MS: 1000,        
+  MIN_RECORDS_FOR_REMINDER: 2,  
+  RECENT_RECORDS_DAYS: 3,       
 });
 
 export const AFFIRMATION_CATEGORIES = [
