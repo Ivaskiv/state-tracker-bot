@@ -49,8 +49,14 @@ const botController = (bot) => {
 // Замінити handleOngoingQuestions на:
 const handleQuestionAnswer = async (ctx, user, text) => {
   const step = user.Answer_Step;
-  if (!step || step === ANSWER_STEPS.COMPLETED) return false;
+if (!step || step === ANSWER_STEPS.COMPLETED) return false;
 
+  // Блокування ранкових якщо почалися вечірні
+  if (step.startsWith('Q_m_') && await isEveningStarted(user.TG_id)) {
+    await ctx.reply('Вечірні питання почалися. Ранкові вже недоступні.', keyboards.mainMenuKeyboard());
+    await userService.updateUserStep(ctx.from.id, 'evening_pending');
+    return true;
+  }
   const tgId = ctx.from.id;
   const userName = user['User Name'] || 'Користувач';
 
@@ -62,19 +68,18 @@ const handleQuestionAnswer = async (ctx, user, text) => {
       tgId, userName, QUESTION_TYPES.MORNING, step, questionNum, text, fieldName
     );
 
-    if (questionNum < 6) {
-      const nextStep = `Q_m_${questionNum + 1}`;
-      await userService.updateUserStep(tgId, nextStep);
-      await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
-    } else {
-      const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
-      await responseService.createOrUpdateResponse(
-        tgId, userName, QUESTION_TYPES.MORNING, ANSWER_STEPS.END_MORNING, 0, affirmation, 'affirmation_m', true
-      );
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-      await ctx.reply(`✅ Ранкові питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
-    }
-    return true;
+if (questionNum < 6) {
+  const nextStep = `Q_m_${questionNum + 1}`;
+  await userService.updateUserStep(tgId, nextStep);
+  await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
+} else {
+  const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
+  await responseService.createOrUpdateResponse(
+    tgId, userName, QUESTION_TYPES.MORNING, ANSWER_STEPS.AFFIRMATION_MORNING, 0, affirmation, 'affirmation_m', true
+  );
+  await userService.updateUserStep(tgId, ANSWER_STEPS.END_MORNING);
+  await ctx.reply(`✅ Ранкові питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
+}    return true;
   }
 
   if (step.startsWith('Q_e_')) {
@@ -85,19 +90,18 @@ const handleQuestionAnswer = async (ctx, user, text) => {
       tgId, userName, QUESTION_TYPES.EVENING, step, questionNum, text, fieldName
     );
 
-    if (questionNum < 5) {
-      const nextStep = `Q_e_${questionNum + 1}`;
-      await userService.updateUserStep(tgId, nextStep);
-      await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
-    } else {
-      const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
-      await responseService.createOrUpdateResponse(
-        tgId, userName, QUESTION_TYPES.EVENING, ANSWER_STEPS.END_EVENING, 0, affirmation, 'affirmation_e', true
-      );
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-      await ctx.reply(`✅ Вечірні питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
-    }
-    return true;
+if (questionNum < 5) {
+  const nextStep = `Q_e_${questionNum + 1}`;
+  await userService.updateUserStep(tgId, nextStep);
+  await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
+} else {
+  const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
+  await responseService.createOrUpdateResponse(
+    tgId, userName, QUESTION_TYPES.EVENING, ANSWER_STEPS.AFFIRMATION_EVENING, 0, affirmation, 'affirmation_e', true
+  );
+  await userService.updateUserStep(tgId, ANSWER_STEPS.END_EVENING);
+  await ctx.reply(`✅ Вечірні питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
+}    return true;
   }
 
   return false;
@@ -214,5 +218,9 @@ const handleQuestionAnswer = async (ctx, user, text) => {
     );
   };
 };
-
+const isEveningStarted = async (tgId) => {
+  const today = new Date().toISOString().split('T')[0];
+  const records = await responseService.getUserRecords(tgId, 1);
+  return records.some(r => r.fields.Q_e_1 && r.fields['Date Response'].includes(today));
+};
 export default botController;

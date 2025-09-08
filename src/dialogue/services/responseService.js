@@ -1,6 +1,6 @@
-// src/services/responseService.js
+// src/dialogue/services/responseService.js
 import { getBase } from '../../config/database.js';
-import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../../config/constants.js';
+import { QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS, ANSWER_STEPS } from '../../config/constants.js';
 
 /**
  * Створення або оновлення відповіді в Airtable - ОДИН ЗАПИС НА ДЕНЬ
@@ -36,21 +36,17 @@ export const createOrUpdateResponse = async (
     const maxEveningQuestions = EVENING_QUESTIONS.length;
 
     if (questionType === QUESTION_TYPES.MORNING) {
-      if (answerStep === 'End_m' || questionNumber > maxMorningQuestions) {
-        // Це афірмація - зберігаємо в affirmation_m
+      if (answerStep === ANSWER_STEPS.AFFIRMATION_MORNING || answerStep === 'affirmation_m') {
         fieldsToUpdate['affirmation_m'] = answer;
       } else {
-        // Це звичайне питання Q1-Q6+
         fieldsToUpdate[fieldName] = answer;
       }
     }
 
     if (questionType === QUESTION_TYPES.EVENING) {
-      if (answerStep === 'End_e' || questionNumber > maxEveningQuestions) {
-        // Це афірмація - зберігаємо в affirmation_e
+      if (answerStep === ANSWER_STEPS.AFFIRMATION_EVENING || answerStep === 'affirmation_e') {
         fieldsToUpdate['affirmation_e'] = answer;
       } else {
-        // Це звичайне питання Q1-Q5+
         fieldsToUpdate[fieldName] = answer;
       }
     }

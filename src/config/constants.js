@@ -84,9 +84,9 @@ export const EVENING_QUESTIONS = [
 
 
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '12:24',
-  EVENING_TIME: '20:00',
-  MORNING_HOUR: 12,  // змінено з 13 на 12
+  MORNING_TIME: '11:04',
+  EVENING_TIME: '11:10',
+  MORNING_HOUR: 12,  
   EVENING_HOUR: 20,
   MORNING_START: 7,
   MORNING_END: 20,
@@ -97,8 +97,8 @@ export const SCHEDULE = Object.freeze({
 
 // CRON розклади
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: '24 12 * * *',  // змінено з '32 9' на '24 12'
-  EVENING_QUESTIONS: '0 20 * * *',   // залишається як є
+  MORNING_QUESTIONS: '04 11 * * *',  // змінено з '32 9' на '24 12'
+  EVENING_QUESTIONS: '10 11 * * *',   // залишається як є
   MORNING_REMINDER: '0 12 * * *',   
   EVENING_REMINDER: '0 21 * * *',   
   REPORTS_REMINDER: '0 18 * * *',   
