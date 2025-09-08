@@ -46,110 +46,62 @@ const botController = (bot) => {
     await handleMenuCommands(ctx, user, text);
   });
 
-  const handleQuestionAnswer = async (ctx, user, text) => {
-    const step = user.Answer_Step;
-    if (!step || step === ANSWER_STEPS.COMPLETED) return false;
+// Замінити handleOngoingQuestions на:
+const handleQuestionAnswer = async (ctx, user, text) => {
+  const step = user.Answer_Step;
+  if (!step || step === ANSWER_STEPS.COMPLETED) return false;
 
-    const tgId = ctx.from.id;
-    const userName = user['User Name'] || 'Користувач';
+  const tgId = ctx.from.id;
+  const userName = user['User Name'] || 'Користувач';
 
-    try {
-      // Morning questions logic
-      if (step.startsWith('Q_m_')) {
-        const questionNum = parseInt(step.split('_')[2]);
-        const fieldName = `Q_m_${questionNum}`;
+  if (step.startsWith('Q_m_')) {
+    const questionNum = parseInt(step.split('_')[2]);
+    const fieldName = `Q_m_${questionNum}`;
 
-        await responseService.createOrUpdateResponse(
-          tgId,
-          userName,
-          QUESTION_TYPES.MORNING,
-          step,
-          questionNum,
-          text,
-          fieldName
-        );
+    await responseService.createOrUpdateResponse(
+      tgId, userName, QUESTION_TYPES.MORNING, step, questionNum, text, fieldName
+    );
 
-        if (questionNum < 6) {
-          const nextStep = `Q_m_${questionNum + 1}`;
-          await userService.updateUserStep(tgId, nextStep);
-          await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
-        } else {
-          const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
-          await ctx.reply(`✨ Ось твоя ранкова афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-          await userService.updateUserStep(tgId, ANSWER_STEPS.AFFIRMATION_MORNING);
-        }
-        return true;
-      }
-
-      // Morning affirmation
-      if (step === ANSWER_STEPS.AFFIRMATION_MORNING) {
-        await responseService.createOrUpdateResponse(
-          tgId,
-          userName,
-          QUESTION_TYPES.MORNING,
-          ANSWER_STEPS.END_MORNING,
-          0,
-          text,
-          'affirmation_m'
-        );
-        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-        await ctx.reply('🎉 Дякую! Ранкову сесію завершено!', keyboards.mainMenuKeyboard());
-        return true;
-      }
-
-      // Evening questions logic
-      if (step.startsWith('Q_e_')) {
-        const questionNum = parseInt(step.split('_')[2]);
-        const fieldName = `Q_e_${questionNum}`;
-
-        await responseService.createOrUpdateResponse(
-          tgId,
-          userName,
-          QUESTION_TYPES.EVENING,
-          step,
-          questionNum,
-          text,
-          fieldName
-        );
-
-        if (questionNum < 5) {
-          const nextStep = `Q_e_${questionNum + 1}`;
-          await userService.updateUserStep(tgId, nextStep);
-          await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
-        } else {
-          const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
-          await userService.updateUserStep(tgId, ANSWER_STEPS.AFFIRMATION_EVENING);
-          await ctx.reply(`✨ Ось твоя вечірня афірмація:\n\n${affirmation}\n\nНапиши цю афірмацію своїми словами:`);
-        }
-        return true;
-      }
-
-      // Evening affirmation
-      if (step === ANSWER_STEPS.AFFIRMATION_EVENING) {
-        const isCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
-        if (!isCompleted) {
-          await responseService.createOrUpdateResponse(
-            tgId,
-            userName,
-            QUESTION_TYPES.EVENING,
-            ANSWER_STEPS.END_EVENING,
-            0,
-            text,
-            'affirmation_e'
-          );
-          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          await ctx.reply('🎉 Дякую! Вечірню сесію завершено!', keyboards.mainMenuKeyboard());
-        }
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('[handleQuestionAnswer] Error:', error);
-      await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
-      return true;
+    if (questionNum < 6) {
+      const nextStep = `Q_m_${questionNum + 1}`;
+      await userService.updateUserStep(tgId, nextStep);
+      await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
+    } else {
+      const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
+      await responseService.createOrUpdateResponse(
+        tgId, userName, QUESTION_TYPES.MORNING, ANSWER_STEPS.END_MORNING, 0, affirmation, 'affirmation_m', true
+      );
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await ctx.reply(`✅ Ранкові питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
     }
-  };
+    return true;
+  }
+
+  if (step.startsWith('Q_e_')) {
+    const questionNum = parseInt(step.split('_')[2]);
+    const fieldName = `Q_e_${questionNum}`;
+
+    await responseService.createOrUpdateResponse(
+      tgId, userName, QUESTION_TYPES.EVENING, step, questionNum, text, fieldName
+    );
+
+    if (questionNum < 5) {
+      const nextStep = `Q_e_${questionNum + 1}`;
+      await userService.updateUserStep(tgId, nextStep);
+      await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
+    } else {
+      const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
+      await responseService.createOrUpdateResponse(
+        tgId, userName, QUESTION_TYPES.EVENING, ANSWER_STEPS.END_EVENING, 0, affirmation, 'affirmation_e', true
+      );
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await ctx.reply(`✅ Вечірні питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
+    }
+    return true;
+  }
+
+  return false;
+};
 
   const handleMenuCommands = async (ctx, user, text) => {
     const isActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');

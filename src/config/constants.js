@@ -82,16 +82,27 @@ export const EVENING_QUESTIONS = [
   'Яка моя головна перемога сьогодні?\nДія, стан, рішення — будь-який успіх.\n_Сьогодні я: ___________',
 ];
 
+
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '09:32',
+  MORNING_TIME: '12:24',
   EVENING_TIME: '20:00',
-  MORNING_HOUR: 13,
+  MORNING_HOUR: 12,  // змінено з 13 на 12
   EVENING_HOUR: 20,
   MORNING_START: 7,
   MORNING_END: 20,
   EVENING_START: 20,
   EVENING_END: 23,
   TIMEZONE: 'Europe/Prague',
+});
+
+// CRON розклади
+export const CRON_SCHEDULES = Object.freeze({
+  MORNING_QUESTIONS: '24 12 * * *',  // змінено з '32 9' на '24 12'
+  EVENING_QUESTIONS: '0 20 * * *',   // залишається як є
+  MORNING_REMINDER: '0 12 * * *',   
+  EVENING_REMINDER: '0 21 * * *',   
+  REPORTS_REMINDER: '0 18 * * *',   
+  SUBSCRIPTION_CHECK: '0 10 * * *', 
 });
 
 export const REPORT_SCHEDULE = Object.freeze({
@@ -109,15 +120,6 @@ export const REPORT_SCHEDULE = Object.freeze({
   },
 });
 
-// CRON розклади
-export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: '32 9 * * *',  // 09:32
-  EVENING_QUESTIONS: '0 20 * * *',  // 20:00
-  MORNING_REMINDER: '0 12 * * *',   // 12:00
-  EVENING_REMINDER: '0 21 * * *',   // 21:00
-  REPORTS_REMINDER: '0 18 * * *',   // 18:00
-  SUBSCRIPTION_CHECK: '0 10 * * *', // перевірка підписок о 10:00
-});
 
 // Повідомлення планувальника
 export const SCHEDULER_MESSAGES = Object.freeze({
