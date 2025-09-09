@@ -1,5 +1,5 @@
 // src/dialogue/modules/menu.js
-import keyboards from '../utils/keyboards.js';
+import keyboards from '../../utils/keyboards.js';
 import analyticsController from '../../controllers/analyticsController.js';
 import affirmationService from '../services/affirmationService.js';
 import responseService from '../services/responseService.js';

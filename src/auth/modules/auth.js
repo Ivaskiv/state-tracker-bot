@@ -1,6 +1,6 @@
 // src/modules/auth.js
 import userService from '../services/userService.js';
-import keyboards from '../../dialogue/utils/keyboards.js';
+import keyboards from '../../utils/keyboards.js';
 import { isSkip, isValidEmail, isValidUaPhone } from '../../utils/validators.js';
 
 export async function handleStart(ctx) {

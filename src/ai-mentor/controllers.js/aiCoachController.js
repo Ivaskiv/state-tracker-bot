@@ -2,7 +2,7 @@
 import aiMentorService from '../../ai-mentor/services/aiMentorService.js';
 import userService from '../../auth/services/userService.js';
 import responseService from '../../dialogue/services/responseService.js';
-import keyboards from '../../dialogue/utils/keyboards.js';
+import keyboards from '../../utils/keyboards.js';
 import { ANSWER_STEPS, QUESTION_TYPES } from '../../config/constants.js';
 
 const handleAICoachRequest = async (ctx) => {

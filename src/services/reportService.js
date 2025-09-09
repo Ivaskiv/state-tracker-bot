@@ -17,29 +17,51 @@ const buildDataset = (records) => records.map(r => ({
 }));
 
 const analysisPrompt = (dataset, period) => `
-Ти — експертний коуч трансформації рівня Tony Robbins + Simon Sinek + Tim Ferriss...
-(див. інструкцію з "AI Analytics" із вимогами та форматом відповіді).
-Проаналізуй ${period} дані:
+Ти — експертний коуч трансформації рівня Tony Robbins + Simon Sinek + Tim Ferriss, який аналізує щоденні рефлексії для виявлення внутрішньої сили, шаблонів поведінки та точок росту.
 
-${dataset.map((d, i) => `День ${i+1}: State=${d.State}; Goal=${d.Goal}; +${d.EnergyGain}; -${d.EnergyLoss}; Programs=${d.Programs}; Victory=${d.Victory}`).join('\n')}
+Принципи роботи:
+- Говори з позиції "ти вже маєш силу всередині"
+- Виділяй ресурси та можливості, а не проблеми
+- Блокуючі програми називай прямо, але з підтримкою
+- Пропонуй конкретні мікро-дії, не загальні поради
+
+Проаналізуй ${period} дані користувача:
+
+${dataset.map((d, i) => `День ${i+1}: Стан=${d.State}; Ціль=${d.Goal}; +Енергія=${d.EnergyGain}; -Енергія=${d.EnergyLoss}; Програми=${d.Programs}; Перемога=${d.Victory}`).join('\n')}
+
+Формат відповіді:
+🌟 Внутрішня сила: [2-3 речення про прояви самоцінності, рішучості]
+🔍 Важливі закономірності: [2-3 речення про шаблони]  
+💡 Точки росту: [1-2 речення про програми для трансформації]
+⚡️ Практичні кроки:
+• [Дія на завтра]
+• [Вправа для стану]
+• [Мікро-вибір для посилення]
+
+До 150 слів, українською мовою, підтримуючий тон.
 `;
 
 export const generateReport = async (tgId, days) => {
-  const sinceISO = new Date(Date.now() - days * 86400000).toISOString();
-  const recs = await findAll('USER_REFLECTIONS', {
-    filterByFormula: `AND({User ID} = "${tgId}", IS_AFTER({Record DateTime}, "${sinceISO}"))`,
-    sort: [{ field: 'Record DateTime', direction: 'asc' }],
-  });
+  try {
+    const records = await responseService.getUserRecords(tgId, days);
+    
+    if (!records.length) {
+      return '📭 Недостатньо даних для звіту. Продовжуй щоденні відповіді.';
+    }
 
-  if (!recs.length) return '📭 Недостатньо даних для звіту. Продовжуй щоденні відповіді.';
+    const dataset = buildDataset(records);
+    const period = days === 7 ? '7-денні' : '30-денні';
+    
+    const report = await chat([
+      { role: 'system', content: 'Ти коуч-аналітик. Дотримуйся суворого формату з інструкції. Українською. До 150 слів.' },
+      { role: 'user', content: analysisPrompt(dataset, period) },
+    ], 'gpt-4o-mini', 400);
 
-  const ds = buildDataset(recs);
-  const text = await chat([
-    { role: 'system', content: 'Ти коуч-аналітик. Дотримуйся суворого формату з інструкції AI Analytics. Українською. До 150 слів.' },
-    { role: 'user', content: analysisPrompt(ds, `${days}-денні`) },
-  ], 'gpt-4o-mini', 300);
-
-  return text || '📭 Недостатньо даних для звіту.';
+    return report || '📭 Не вдалося згенерувати звіт. Спробуй пізніше.';
+  } catch (error) {
+    console.error('[generateReport] Помилка:', error);
+    return '📭 Помилка генерації звіту. Спробуй пізніше.';
+  }
 };
 
 export const sendReport = async (bot, tgId, type) => {

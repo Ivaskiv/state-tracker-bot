@@ -1,5 +1,5 @@
 // src/utils/refreshMenu.js
-import keyboards from '../dialogue/utils/keyboards.js'; // ✅ правильний шлях (файл у тій самій папці)
+import keyboards from './keyboards.js'; // ✅ правильний шлях (файл у тій самій папці)
 
 const IS_DEV = process.env.NODE_ENV !== 'production';
 const INVISIBLE = '\u2063'; // невидимий символ, щоб текст був «непорожній»

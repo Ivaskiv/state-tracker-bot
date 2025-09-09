@@ -1,48 +1,67 @@
 // src/auth/services/userService.js
 import { getBase } from '../../config/database.js';
 
-const base = getBase();
-const USERS_TABLE = 'Users';
-
-export const getUserByTelegramId = async (tgId) => {
-  const records = await base(USERS_TABLE).select({
-    filterByFormula: `{TG_id}="${tgId}"`,
-    maxRecords: 1
-  }).firstPage();
-  
-  return records.length > 0 ? records[0].fields : null;
-};
-
-export const createUser = async ({ tgId, name, email }) => {
-  const [record] = await base(USERS_TABLE).create([{
-    fields: {
-      'TG_id': String(tgId),
-      'User Name': name,
-      'Email': email || '',
-      'Answer_Step': 'completed',
-      'Active_Subscription_Status': '✅ Активна'
-    }
-  }]);
-  return record.fields;
-};
-
-export const updateUserStep = async (tgId, step) => {
-  const records = await base(USERS_TABLE).select({
-    filterByFormula: `{TG_id}="${tgId}"`,
-    maxRecords: 1
-  }).firstPage();
-  
-  if (records.length > 0) {
-    await base(USERS_TABLE).update([{
-      id: records[0].id,
-      fields: { 'Answer_Step': step }
-    }]);
+const getActiveUsers = async () => {
+  try {
+    const base = getBase('Users');
+    const records = await base('Users')
+      .select({
+        filterByFormula: "{Active_Subscription_Status} = '✅ Активна'",
+      })
+      .all();
+    return records.map((r) => r.fields);
+  } catch (error) {
+    console.error('[userService.getActiveUsers] Помилка:', error);
+    return [];
   }
 };
 
-export const getAllUsers = async () => {
-  const records = await base(USERS_TABLE).select().all();
-  return records.map(r => ({ ...r.fields, id: r.id }));
+const getUserByTelegramId = async (tgId) => {
+  try {
+    const base = getBase('Users');
+    const records = await base('Users')
+      .select({
+        filterByFormula: `{TG_id} = '${tgId}'`,
+      })
+      .firstPage();
+    return records.length > 0 ? records[0].fields : null;
+  } catch (error) {
+    console.error('[userService.getUserByTelegramId] Помилка:', error);
+    return null;
+  }
 };
 
-export default { getUserByTelegramId, createUser, updateUserStep, getAllUsers };
+const updateUserStep = async (tgId, step) => {
+  try {
+    const base = getBase('Users');
+    const records = await base('Users')
+      .select({
+        filterByFormula: `{TG_id} = '${tgId}'`,
+      })
+      .firstPage();
+    if (records.length > 0) {
+      await base('Users').update(records[0].id, { Answer_Step: step });
+    }
+  } catch (error) {
+    console.error('[userService.updateUserStep] Помилка:', error);
+  }
+};
+
+const createUser = async ({ tgId, name, email }) => {
+  try {
+    const base = getBase('Users');
+    const record = await base('Users').create({
+      TG_id: tgId,
+      'User Name': name,
+      Email: email,
+      Active_Subscription_Status: '❌ Неактивна',
+      Answer_Step: ANSWER_STEPS.COMPLETED,
+    });
+    return record.fields;
+  } catch (error) {
+    console.error('[userService.createUser] Помилка:', error);
+    return null;
+  }
+};
+
+export default { getActiveUsers, getUserByTelegramId, updateUserStep, createUser };

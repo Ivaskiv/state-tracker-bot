@@ -18,8 +18,8 @@ export const formatDateForUser = (date, tgId, format = 'YYYY-MM-DD HH:mm:ss') =>
 };
 
 export const getUserDateString = (tgId) => {
-  const userTimezone = getUserTimezone(tgId);
-  return moment.tz(userTimezone).format('YYYY-MM-DD');
+  const timezone = TIMEZONE_CONFIG.USER_TIMEZONES[tgId] || TIMEZONE_CONFIG.DEFAULT;
+  return new Date().toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD
 };
 
 // export const getUserDateTime = (tgId) => {
@@ -27,6 +27,6 @@ export const getUserDateString = (tgId) => {
 //   return moment.tz(userTimezone).toISOString();
 // };
 export const getUserDateTime = (tgId) => {
-  const userTimezone = getUserTimezone(tgId);
-  return moment.tz(userTimezone).format('YYYY-MM-DD HH:mm');
-}
+  const timezone = TIMEZONE_CONFIG.USER_TIMEZONES[tgId] || TIMEZONE_CONFIG.DEFAULT;
+  return new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
+};
