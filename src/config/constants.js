@@ -44,6 +44,7 @@ export const ANSWER_STEPS = Object.freeze({
   END_EVENING: 'End_e',
   MORNING_PENDING: 'morning_pending',
   EVENING_PENDING: 'evening_pending',
+  AI_COACH_WAITING: 'AI_COACH_WAITING',
   COMPLETED: 'completed',
 });
 
@@ -82,19 +83,16 @@ export const EVENING_QUESTIONS = [
   'Яка моя головна перемога сьогодні?\nДія, стан, рішення — будь-який успіх.\n_Сьогодні я: ___________',
 ];
 
-// Додано timezone константи
 export const TIMEZONE_CONFIG = Object.freeze({
   DEFAULT: 'Europe/Kiev',
   FALLBACK: 'Europe/Prague',
-  USER_TIMEZONES: {
-    // Можна додати mapping користувачів до timezone
-  }
+  USER_TIMEZONES: {},
 });
 
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '08:00',
+  MORNING_TIME: '12:33',
   EVENING_TIME: '20:30',
-  MORNING_HOUR: 8,  
+  MORNING_HOUR: 8,
   EVENING_HOUR: 20,
   MORNING_START: 7,
   MORNING_END: 20,
@@ -103,25 +101,24 @@ export const SCHEDULE = Object.freeze({
   TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
 });
 
-// CRON розклади з урахуванням timezone
 export const CRON_SCHEDULES = Object.freeze({
   MORNING_QUESTIONS: '0 8 * * *',
   EVENING_QUESTIONS: '30 20 * * *',
-  MORNING_REMINDER: '0 12 * * *',   
-  EVENING_REMINDER: '0 21 * * *',   
-  REPORTS_REMINDER: '0 18 * * *',   
-  SUBSCRIPTION_CHECK: '0 10 * * *', 
+  MORNING_REMINDER: '0 12 * * *',
+  EVENING_REMINDER: '0 21 * * *',
+  REPORTS_REMINDER: '0 18 * * *',
+  SUBSCRIPTION_CHECK: '0 10 * * *',
 });
 
 export const REPORT_SCHEDULE = Object.freeze({
   WEEKLY: {
-    dayOfWeek: 0,        
+    dayOfWeek: 0,
     hour: 21,
     minute: 0,
     message: '📊 Щотижневий звіт',
   },
   MONTHLY: {
-    dayRange: [28, 29, 30, 31], 
+    dayRange: [28, 29, 30, 31],
     hour: 22,
     minute: 0,
     message: '📊 Місячний звіт',
@@ -139,10 +136,10 @@ export const SCHEDULER_MESSAGES = Object.freeze({
 });
 
 export const SCHEDULER_CONFIG = Object.freeze({
-  USER_DELAY_MS: 200,           
-  REPORT_DELAY_MS: 1000,        
-  MIN_RECORDS_FOR_REMINDER: 2,  
-  RECENT_RECORDS_DAYS: 3,       
+  USER_DELAY_MS: 200,
+  REPORT_DELAY_MS: 1000,
+  MIN_RECORDS_FOR_REMINDER: 2,
+  RECENT_RECORDS_DAYS: 3,
 });
 
 export const AFFIRMATION_CATEGORIES = [
@@ -155,3 +152,34 @@ export const AFFIRMATION_CATEGORIES = [
 
 export const LATE_TEXT = (nextType) =>
   `На жаль, ви не відповіли вчасно. Важливо відповідати в межах вікна — це формує дисципліну і прогрес. Будь ласка, відповідайте на ${nextType === 'Evening' ? 'вечірні' : 'ранкові'} питання.`;
+
+// Додані константи з menu.js
+export const MENU_TEXTS = Object.freeze({
+  HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
+  CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n� **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
+  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "� Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (6 запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
+  PROGRESS: (totalDays, morningCompleted, eveningCompleted) =>
+    `� ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`,
+  SUBSCRIPTION_ACTIVE: (plan, start, end) =>
+    `📦 ПІДПИСКА:\n\n✅ Активна\n� План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}\n\n📝 Реєстраційні дані: ✅ Заповнені`,
+  SUBSCRIPTION_INACTIVE: `📦 ПІДПИСКА:\n\n❌ Неактивна\n\n💰 ДОСТУПНІ ПЛАНИ:\n🔹 Тиждень фокусу — 7€\n🔹 Місяць дії — 30€\n🔹 Рік трансформації — 300€\n\n📧 Для оплати напиши: nadyastarway@gmail.com\n\n📝 Реєстраційні дані: ✅ Заповнені`,
+  AFFIRMATION: (text) => `🌀 Афірмація:\n\n${text}`,
+  QUICK_SUPPORT: (text) => `💝 Швидка підтримка!\n\n${text}`,
+  SELECT_MENU: 'Оберіть пункт з меню:',
+  REGISTER_FIRST: 'Спочатку зареєструйтесь /start',
+  PROGRESS_UNAVAILABLE: '📊 Прогрес тимчасово недоступний',
+  SUBSCRIPTION_UNAVAILABLE: 'Підписка тимчасово недоступна. Спробуй пізніше.',
+});
+
+export const MENU_MATCHERS = Object.freeze({
+  WEEKLY: (t) => t === '📈 Щотижневий звіт',
+  MONTHLY: (t) => t === '📈 Щомісячний звіт',
+  AFFIRM: (t) => t === '💎 Афірмація',
+  AI_COACH: (t) => t === '🤖 AI наставник',
+  PROGRESS: (t) => t === '📊 Мій прогрес',
+  SUBSCRIPTION: (t) => t === '💰 Підписка',
+  HELP: (t) => t === '❓ Допомога',
+  CONTACT: (t) => t === '📞 Зв\'язок з нами',
+  INSTRUCTIONS: (t) => t === '📝 Інструкції',
+  QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase()),
+});

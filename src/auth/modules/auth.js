@@ -99,7 +99,7 @@ function profileMessage(user) {
   const end = user['End_Date'] ? new Date(user['End_Date']).toLocaleDateString('uk-UA') : '—';
   return `📊 ПРОФІЛЬ\n\n👤 Ім'я: ${name}\n🆔 ID: ${tg}\n\n📦 ПІДПИСКА:\n${
     active.includes('✅')
-      ? `${active}\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`
+      ? `${active}\n📊 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`
       : '❌ Неактивна'
   }`;
 }

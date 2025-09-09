@@ -1,112 +1,111 @@
 // src/controllers/analyticsController.js
 import userService from '../auth/services/userService.js';
-import { generateReport, saveReportToAirtable } from '../dialogue/services/reportService.js';
+import { generateReport, saveReportToAirtable } from '../services/reportService.js'; 
 
-const generateWeeklyReport = async (ctx) => {
-  try {
+const analyticsController = {
+  async generateWeeklyReportForUser(tgId) {
+    try {
+      const user = await userService.getUserByTelegramId(tgId);
+      if (!user) {
+        console.error(`[analyticsController] Користувача з TG_id ${tgId} не знайдено`);
+        return null;
+      }
+
+      const report = await generateReport(tgId, 7);
+      await saveReportToAirtable({
+        tgId,
+        userName: user['User Name'] || 'Користувач',
+        period: 'Weekly',
+        days: 7,
+        reportText: report,
+      });
+      return report;
+    } catch (error) {
+      console.error(`[analyticsController] Помилка генерації щотижневого звіту для ${tgId}:`, error);
+      return null;
+    }
+  },
+
+  async generateMonthlyReportForUser(tgId) {
+    try {
+      const user = await userService.getUserByTelegramId(tgId);
+      if (!user) {
+        console.error(`[analyticsController] Користувача з TG_id ${tgId} не знайдено`);
+        return null;
+      }
+
+      const report = await generateReport(tgId, 30);
+      await saveReportToAirtable({
+        tgId,
+        userName: user['User Name'] || 'Користувач',
+        period: 'Monthly',
+        days: 30,
+        reportText: report,
+      });
+      return report;
+    } catch (error) {
+      console.error(`[analyticsController] Помилка генерації місячного звіту для ${tgId}:`, error);
+      return null;
+    }
+  },
+
+  async generateWeeklyReport(ctx) {
     const tgId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(tgId);
-    
-    if (!user) {
-      return ctx.reply('Спочатку зареєструйтесь /start');
+    try {
+      const user = await userService.getUserByTelegramId(tgId);
+      if (!user) {
+        await ctx.reply('Користувача не знайдено. Спробуйте /start');
+        return;
+      }
+
+      const report = await generateReport(tgId, 7);
+      if (report) {
+        await ctx.reply('📊 Щотижневий AI-звіт готовий!');
+        await ctx.reply(report);
+        await saveReportToAirtable({
+          tgId,
+          userName: user['User Name'] || 'Користувач',
+          period: 'Weekly',
+          days: 7,
+          reportText: report,
+        });
+      } else {
+        await ctx.reply('📊 Не вдалося згенерувати звіт. Спробуйте пізніше.');
+      }
+    } catch (error) {
+      console.error(`[analyticsController] Помилка генерації щотижневого звіту для ${tgId}:`, error);
+      await ctx.reply('📊 Помилка при генерації звіту.');
     }
+  },
 
-    const report = await generateReport(tgId, 7);
-    
-    await ctx.reply('📊 Твій щотижневий AI-звіт:');
-    await ctx.reply(report);
-
-    // Зберігаємо звіт
-    await saveReportToAirtable(
-      tgId, 
-      user['User Name'] || 'Користувач', 
-      'Weekly', 
-      report, 
-      7
-    );
-
-  } catch (error) {
-    console.error('[analyticsController] Помилка щотижневого звіту:', error);
-    await ctx.reply('❌ Помилка при створенні звіту. Спробуйте пізніше.');
-  }
-};
-
-const generateMonthlyReport = async (ctx) => {
-  try {
+  async generateMonthlyReport(ctx) {
     const tgId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(tgId);
-    
-    if (!user) {
-      return ctx.reply('Спочатку зареєструйтесь /start');
+    try {
+      const user = await userService.getUserByTelegramId(tgId);
+      if (!user) {
+        await ctx.reply('Користувача не знайдено. Спробуйте /start');
+        return;
+      }
+
+      const report = await generateReport(tgId, 30);
+      if (report) {
+        await ctx.reply('📈 Місячний AI-звіт готовий!');
+        await ctx.reply(report);
+        await saveReportToAirtable({
+          tgId,
+          userName: user['User Name'] || 'Користувач',
+          period: 'Monthly',
+          days: 30,
+          reportText: report,
+        });
+      } else {
+        await ctx.reply('📈 Не вдалося згенерувати звіт. Спробуйте пізніше.');
+      }
+    } catch (error) {
+      console.error(`[analyticsController] Помилка генерації місячного звіту для ${tgId}:`, error);
+      await ctx.reply('📈 Помилка при генерації звіту.');
     }
-
-    const report = await generateReport(tgId, 30);
-    
-    await ctx.reply('📈 Твій щомісячний AI-звіт:');
-    await ctx.reply(report);
-
-    // Зберігаємо звіт
-    await saveReportToAirtable(
-      tgId, 
-      user['User Name'] || 'Користувач', 
-      'Monthly', 
-      report, 
-      30
-    );
-
-  } catch (error) {
-    console.error('[analyticsController] Помилка місячного звіту:', error);
-    await ctx.reply('❌ Помилка при створенні звіту. Спробуйте пізніше.');
-  }
+  },
 };
 
-const generateWeeklyReportForUser = async (tgId) => {
-  try {
-    const report = await generateReport(tgId, 7);
-    const user = await userService.getUserByTelegramId(tgId);
-    
-    if (user) {
-      await saveReportToAirtable(
-        tgId, 
-        user['User Name'] || 'Користувач', 
-        'Weekly', 
-        report, 
-        7
-      );
-    }
-    
-    return report;
-  } catch (error) {
-    console.error('[analyticsController] Помилка генерації щотижневого звіту:', error);
-    return null;
-  }
-};
-
-const generateMonthlyReportForUser = async (tgId) => {
-  try {
-    const report = await generateReport(tgId, 30);
-    const user = await userService.getUserByTelegramId(tgId);
-    
-    if (user) {
-      await saveReportToAirtable(
-        tgId, 
-        user['User Name'] || 'Користувач', 
-        'Monthly', 
-        report, 
-        30
-      );
-    }
-    
-    return report;
-  } catch (error) {
-    console.error('[analyticsController] Помилка генерації місячного звіту:', error);
-    return null;
-  }
-};
-
-export default {
-  generateWeeklyReport,
-  generateMonthlyReport,
-  generateWeeklyReportForUser,
-  generateMonthlyReportForUser
-};
+export default analyticsController;

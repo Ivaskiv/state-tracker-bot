@@ -22,7 +22,11 @@ export const getUserDateString = (tgId) => {
   return moment.tz(userTimezone).format('YYYY-MM-DD');
 };
 
+// export const getUserDateTime = (tgId) => {
+//   const userTimezone = getUserTimezone(tgId);
+//   return moment.tz(userTimezone).toISOString();
+// };
 export const getUserDateTime = (tgId) => {
   const userTimezone = getUserTimezone(tgId);
-  return moment.tz(userTimezone).toISOString();
-};
+  return moment.tz(userTimezone).format('YYYY-MM-DD HH:mm');
+}

@@ -168,7 +168,7 @@
 //       const activePlan = user.fields['Active Subscription Plan'] || 'Не вказано';
       
 //       let message = `💰 СТАТУС ПІДПИСКИ\n\n`;
-//       message += `📋 План: ${activePlan}\n`;
+//       message += `📊 План: ${activePlan}\n`;
 //       message += `📅 Статус: ${subscriptionStatus}\n`;
 
 //       if (user.fields['End_Date']) {

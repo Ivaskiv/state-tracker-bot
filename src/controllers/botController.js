@@ -2,9 +2,10 @@
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import affirmationService from '../dialogue/services/affirmationService.js';
-import { ANSWER_STEPS, QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../config/constants.js';
+import { ANSWER_STEPS, QUESTION_TYPES, MORNING_QUESTIONS, EVENING_QUESTIONS, SCHEDULE } from '../config/constants.js';
 import keyboards from '../dialogue/utils/keyboards.js';
 import { sendReport } from '../services/reportService.js';
+import { getUserDateTime } from '../utils/timezoneUtils.js';
 
 const botController = (bot) => {
   // Start command
@@ -18,7 +19,7 @@ const botController = (bot) => {
       user = await userService.createUser({
         tgId,
         name,
-        email: ctx.from.username ? `${ctx.from.username}@telegram.user` : null,
+        email: ctx.from.username ? ctx.from.username + '@telegram.user' : null,
       });
     }
 
@@ -46,72 +47,117 @@ const botController = (bot) => {
     await handleMenuCommands(ctx, user, text);
   });
 
-// Замінити handleOngoingQuestions на:
-const handleQuestionAnswer = async (ctx, user, text) => {
-  const step = user.Answer_Step;
-if (!step || step === ANSWER_STEPS.COMPLETED) return false;
+  const handleQuestionAnswer = async (ctx, user, text) => {
+    const step = user.Answer_Step;
+    if (!step || step === ANSWER_STEPS.COMPLETED) return false;
 
-  // Блокування ранкових якщо почалися вечірні
-  if (step.startsWith('Q_m_') && await isEveningStarted(user.TG_id)) {
-    await ctx.reply('Вечірні питання почалися. Ранкові вже недоступні.', keyboards.mainMenuKeyboard());
-    await userService.updateUserStep(ctx.from.id, 'evening_pending');
-    return true;
-  }
-  const tgId = ctx.from.id;
-  const userName = user['User Name'] || 'Користувач';
+    const tgId = ctx.from.id;
+    const userName = user['User Name'] || 'Користувач';
 
-  if (step.startsWith('Q_m_')) {
-    const questionNum = parseInt(step.split('_')[2]);
-    const fieldName = `Q_m_${questionNum}`;
+    try {
+      // Morning questions logic
+      if (step.startsWith('Q_m_')) {
+        const currentTime = getUserDateTime(tgId);
+        const currentHour = new Date(currentTime).getHours();
+        const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+        if (currentHour >= eveningHour) {
+          await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
+          await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
+          return true;
+        }
 
-    await responseService.createOrUpdateResponse(
-      tgId, userName, QUESTION_TYPES.MORNING, step, questionNum, text, fieldName
-    );
+        const questionNum = parseInt(step.split('_')[2]);
+        const fieldName = `Q_m_${questionNum}`;
 
-if (questionNum < 6) {
-  const nextStep = `Q_m_${questionNum + 1}`;
-  await userService.updateUserStep(tgId, nextStep);
-  await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
-} else {
-  const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
-  await responseService.createOrUpdateResponse(
-    tgId, userName, QUESTION_TYPES.MORNING, ANSWER_STEPS.AFFIRMATION_MORNING, 0, affirmation, 'affirmation_m', true
-  );
-  await userService.updateUserStep(tgId, ANSWER_STEPS.END_MORNING);
-  await ctx.reply(`✅ Ранкові питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
-}    return true;
-  }
+        await responseService.createOrUpdateResponse(
+          tgId,
+          userName,
+          QUESTION_TYPES.MORNING,
+          step,
+          questionNum,
+          text,
+          fieldName
+        );
 
-  if (step.startsWith('Q_e_')) {
-    const questionNum = parseInt(step.split('_')[2]);
-    const fieldName = `Q_e_${questionNum}`;
+        if (questionNum < 6) {
+          const nextStep = `Q_m_${questionNum + 1}`;
+          await userService.updateUserStep(tgId, nextStep);
+          await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
+        } else {
+          const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
+          await responseService.createOrUpdateResponse(
+            tgId,
+            userName,
+            QUESTION_TYPES.MORNING,
+            ANSWER_STEPS.AFFIRMATION_MORNING,
+            0,
+            affirmation,
+            'affirmation_m',
+            true
+          );
+          await userService.updateUserStep(tgId, ANSWER_STEPS.END_MORNING);
+          await ctx.reply(`✅ Ранкові питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
+        }
+        return true;
+      }
 
-    await responseService.createOrUpdateResponse(
-      tgId, userName, QUESTION_TYPES.EVENING, step, questionNum, text, fieldName
-    );
+      // Evening questions logic
+      if (step.startsWith('Q_e_')) {
+        const questionNum = parseInt(step.split('_')[2]);
+        const fieldName = `Q_e_${questionNum}`;
 
-if (questionNum < 5) {
-  const nextStep = `Q_e_${questionNum + 1}`;
-  await userService.updateUserStep(tgId, nextStep);
-  await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
-} else {
-  const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
-  await responseService.createOrUpdateResponse(
-    tgId, userName, QUESTION_TYPES.EVENING, ANSWER_STEPS.AFFIRMATION_EVENING, 0, affirmation, 'affirmation_e', true
-  );
-  await userService.updateUserStep(tgId, ANSWER_STEPS.END_EVENING);
-  await ctx.reply(`✅ Вечірні питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
-}    return true;
-  }
+        await responseService.createOrUpdateResponse(
+          tgId,
+          userName,
+          QUESTION_TYPES.EVENING,
+          step,
+          questionNum,
+          text,
+          fieldName
+        );
 
-  return false;
-};
+        if (questionNum < 5) {
+          const nextStep = `Q_e_${questionNum + 1}`;
+          await userService.updateUserStep(tgId, nextStep);
+          await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
+        } else {
+          const affirmation = await affirmationService.getAffirmationAndMarkUsed('evening');
+          await responseService.createOrUpdateResponse(
+            tgId,
+            userName,
+            QUESTION_TYPES.EVENING,
+            ANSWER_STEPS.AFFIRMATION_EVENING,
+            0,
+            affirmation,
+            'affirmation_e',
+            true
+          );
+          await userService.updateUserStep(tgId, ANSWER_STEPS.END_EVENING);
+          await ctx.reply(`✅ Вечірні питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
+        }
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('[handleQuestionAnswer] Error:', error);
+      await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
+      return true;
+    }
+  };
 
   const handleMenuCommands = async (ctx, user, text) => {
     const isActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');
+    const currentTime = getUserDateTime(ctx.from.id);
+    const currentHour = new Date(currentTime).getHours();
+    const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
 
     switch (text) {
       case '🌅 Ранкові питання':
+        if (currentHour >= eveningHour) {
+          await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
+          return;
+        }
         await startMorningQuestions(ctx, user);
         break;
 
@@ -126,7 +172,7 @@ if (questionNum < 5) {
 
       case '📈 Щотижневий звіт':
         if (!isActiveSubscription) {
-          await ctx.reply('📋 Ця функція доступна тільки з активною підпискою');
+          await ctx.reply('📊 Ця функція доступна тільки з активною підпискою');
           return;
         }
         await sendReport(bot, ctx.from.id, 'weekly');
@@ -134,7 +180,7 @@ if (questionNum < 5) {
 
       case '📈 Щомісячний звіт':
         if (!isActiveSubscription) {
-          await ctx.reply('📋 Ця функція доступна тільки з активною підпискою');
+          await ctx.reply('📊 Ця функція доступна тільки з активною підпискою');
           return;
         }
         await sendReport(bot, ctx.from.id, 'monthly');
@@ -145,7 +191,7 @@ if (questionNum < 5) {
         break;
 
       case '📊 Мій прогрес':
-      case '📋 Мій прогрес':
+      case '📊 Мій прогрес':
         await showUserProgress(ctx, user);
         break;
 
@@ -155,13 +201,13 @@ if (questionNum < 5) {
         break;
 
       case '📞 Зв\'язок з нами':
-        const contactText = `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`;
+        const contactText = `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📊 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`;
         await ctx.reply(contactText, keyboards.supportKeyboard());
         break;
 
-      case '📋 Інструкції':
+      case '📊 Інструкції':
       case '📝 Інструкції':
-        const instructionsText = `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📋 Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• 08:00 — ранкові питання (6 запитань)\n• 20:30 — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`;
+        const instructionsText = `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (6 запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`;
         await ctx.reply(instructionsText, keyboards.mainMenuKeyboard());
         break;
 
@@ -171,14 +217,67 @@ if (questionNum < 5) {
   };
 
   const startMorningQuestions = async (ctx, user) => {
-    await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.MORNING_1);
+    const tgId = ctx.from.id;
+    const currentTime = getUserDateTime(tgId);
+    const currentHour = new Date(currentTime).getHours();
+    const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+
+    if (currentHour >= eveningHour) {
+      await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
+      return;
+    }
+
+    const isMorningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.MORNING);
+    if (isMorningCompleted) {
+      await ctx.reply('Ти вже завершив(ла) ранкові питання за сьогодні. Хочеш оновити відповіді?', {
+        reply_markup: {
+          inline_keyboard: [[{ text: 'Так, оновити', callback_data: 'restart_morning' }]],
+        },
+      });
+      return;
+    }
+    await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
     await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
   };
 
   const startEveningQuestions = async (ctx, user) => {
-    await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.EVENING_1);
+    const tgId = ctx.from.id;
+    const isEveningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
+    if (isEveningCompleted) {
+      await ctx.reply('Ти вже завершив(ла) вечірні питання за сьогодні. Хочеш оновити відповіді?', {
+        reply_markup: {
+          inline_keyboard: [[{ text: 'Так, оновити', callback_data: 'restart_evening' }]],
+        },
+      });
+      return;
+    }
+    await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
     await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
   };
+
+  // Handle callback queries for restart
+  bot.on('callback_query', async (ctx) => {
+    const tgId = ctx.from.id;
+    const data = ctx.callbackQuery.data;
+
+    if (data === 'restart_morning') {
+      const currentTime = getUserDateTime(tgId);
+      const currentHour = new Date(currentTime).getHours();
+      const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+      if (currentHour >= eveningHour) {
+        await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
+        await ctx.answerCbQuery();
+        return;
+      }
+      await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
+      await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
+      await ctx.answerCbQuery();
+    } else if (data === 'restart_evening') {
+      await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
+      await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
+      await ctx.answerCbQuery();
+    }
+  });
 
   const showUserProgress = async (ctx, user) => {
     if (!user) {
@@ -200,7 +299,7 @@ if (questionNum < 5) {
         if (evening) eveningCompleted++;
       });
 
-      const progressText = `📋 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`;
+      const progressText = `📊 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`;
       await ctx.reply(progressText, keyboards.mainMenuKeyboard());
     } catch (error) {
       console.error('[showUserProgress] Error:', error);
@@ -213,7 +312,7 @@ if (questionNum < 5) {
     const plan = user['Active Subscription Plan'] || 'Базовий';
 
     await ctx.reply(
-      `💰 Твоя підписка:\n\n📋 План: ${plan}\n📅 Статус: ${status}\n\n💎 Активна підписка дає доступ до:\n• Щотижневих AI-звітів\n• Щомісячних AI-звітів\n• Персоналізованих рекомендацій`,
+      `💰 Твоя підписка:\n\n📊 План: ${plan}\n📅 Статус: ${status}\n\n💎 Активна підписка дає доступ до:\n• Щотижневих AI-звітів\n• Щомісячних AI-звітів\n• Персоналізованих рекомендацій`,
       keyboards.mainMenuKeyboard()
     );
   };

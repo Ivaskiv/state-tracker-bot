@@ -48,3 +48,18 @@ export const sendReport = async (bot, tgId, type) => {
   await bot.telegram.sendMessage(tgId, type === 'weekly' ? '📊 Твій щотижневий AI-звіт:' : '📈 Твій щомісячний AI-звіт:');
   await bot.telegram.sendMessage(tgId, report);
 };
+
+// ДОДАТИ НИЖЧЕ (опційно, якщо потрібно зберігати звіти)
+export async function saveReportToAirtable(base, { tgId, userName, period, reportText, days }) {
+  const [rec] = await base('Reports').create([{
+    fields: {
+      TG_id: String(tgId),
+      'User Name': userName || 'Користувач',
+      Period: period,              // 'Weekly' | 'Monthly'
+      Days: days,
+      Report_Text: reportText,
+      Created_At: new Date().toISOString(),
+    }
+  }]);
+  return rec?.id;
+}

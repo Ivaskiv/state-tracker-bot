@@ -10,12 +10,12 @@ export const MENU_MATCHERS = {
   WEEKLY: (t) => t === '📈 Щотижневий звіт',
   MONTHLY: (t) => t === '📈 Щомісячний звіт',
   AFFIRM: (t) => t === '💎 Афірмація',
-  PROGRESS: (t) => ['📋 Мій прогрес', '📊 Мій прогрес'].includes(t),
+  PROGRESS: (t) => ['📊 Мій прогрес', '📊 Мій прогрес'].includes(t),
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
   CONTACT: (t) => t === '📞 Зв\'язок з нами',
   // ✅ Приймаємо ОБИДВА варіанти кнопки інструкцій
-  INSTRUCTIONS: (t) => ['📝 Інструкції', '📋 Інструкції'].includes(t),
+  INSTRUCTIONS: (t) => ['📝 Інструкції', '📊 Інструкції'].includes(t),
   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase())
 };
 
@@ -52,11 +52,11 @@ export async function handleMenuCommand(ctx) {
     return ctx.reply(helpText, keyboards.mainMenuKeyboard());
   }
   if (MENU_MATCHERS.CONTACT(text)) {
-    const contactText = `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`;
+    const contactText = `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📊 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`;
     return ctx.reply(contactText, keyboards.supportKeyboard());
   }
   if (MENU_MATCHERS.INSTRUCTIONS(text)) {
-    const instructionsText = `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📋 Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• 08:00 — ранкові питання (6 запитань)\n• 20:30 — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`;
+    const instructionsText = `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• 08:00 — ранкові питання (6 запитань)\n• 20:30 — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`;
     return ctx.reply(instructionsText, keyboards.mainMenuKeyboard());
   }
   if (MENU_MATCHERS.QUICK_OK(text)) {
@@ -83,7 +83,7 @@ async function showSubscriptionInfo(ctx, user) {
   const subscriptionText =
     `📦 ПІДПИСКА:\n\n` +
     (active.includes('✅')
-      ? `✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`
+      ? `✅ Активна\n📊 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`
       : '❌ Неактивна') +
     `\n\n📝 Реєстраційні дані: ✅ Заповнені`;
 
@@ -116,7 +116,7 @@ async function showUserProgress(ctx, user) {
     });
 
     const progressText =
-      `📋 ВАШ ПРОГРЕС (за 30 днів):\n\n` +
+      `📊 ВАШ ПРОГРЕС (за 30 днів):\n\n` +
       `📝 Всього днів: ${totalDays}\n` +
       `🌅 Ранкові: ${morningCompleted}\n` +
       `🌙 Вечірні: ${eveningCompleted}\n\n` +

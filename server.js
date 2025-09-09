@@ -4,6 +4,7 @@ import { Telegraf } from 'telegraf';
 import botController from './src/controllers/botController.js';
 // import { handleWayForPayWebhook } from './src/auth/services/paymentService.js'; // [SERVER DISABLED]
 import { initScheduler } from './src/dialogue/utils/scheduler.js';
+import { installPendingFlow } from './src/middleware/pendingFlow.js'; // ⬅️ виправлено імпорт
 
 dotenv.config();
 
@@ -13,7 +14,7 @@ const MODE = process.env.MODE || 'local';
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 // const WEBHOOK_URL = process.env.WEBHOOK_URL;      // [SERVER DISABLED]
 
-// Валідація середовища
+// Валідаціaя середовища
 console.log('🔍 Environment check:');
 console.log('- MODE:', MODE);
 console.log('- PORT:', PORT);
@@ -22,6 +23,7 @@ console.log('- TOKEN:', TOKEN ? `${TOKEN.slice(0, 10)}...` : 'MISSING');
 
 if (!TOKEN) {
   console.error('❌ TELEGRAM_BOT_TOKEN is missing');
+  console.error('Set TELEGRAM_BOT_TOKEN in your environment variables (.env).');
   process.exit(1);
 }
 
@@ -88,6 +90,9 @@ try {
   process.exit(1);
 }
 
+// ⬇️ Мідлвара: блокує меню під час незавершених відповідей + команди продовжити/завершити
+installPendingFlow(bot); // ⬅️ виправлено виклик
+
 // Ініціалізація планувальника
 console.log('⏰ Initializing scheduler...');
 try {
@@ -145,10 +150,10 @@ try {
 const sendTyping = async (ctx, delay = 800) => {
   try {
     await ctx.telegram.sendChatAction(ctx.from.id, 'typing');
+  } catch {}
+  try {
     await new Promise(resolve => setTimeout(resolve, delay));
-  } catch (error) {
-    // Ігноруємо помилки typing
-  }
+  } catch {}
 };
 
 // Грейсфул-стоп
@@ -166,4 +171,4 @@ const gracefulShutdown = async (signal) => {
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
- export { bot }; // опційно, якщо потрібно в інших модулях
+export { bot }; 
