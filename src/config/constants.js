@@ -27,6 +27,7 @@ export const QUESTION_TYPES = Object.freeze({
 
 export const ANSWER_STEPS = Object.freeze({
   BEGIN: 'Begin_answer',
+  PLAN_SELECTION: 'plan_selection', // вибір плану після реєстрації
   MORNING_1: 'Q_m_1',
   MORNING_2: 'Q_m_2',
   MORNING_3: 'Q_m_3',
@@ -44,7 +45,7 @@ export const ANSWER_STEPS = Object.freeze({
   END_EVENING: 'End_e',
   MORNING_PENDING: 'morning_pending',
   EVENING_PENDING: 'evening_pending',
-  AI_Mentor_WAITING: 'AI_Mentor_WAITING',
+  AI_MENTOR_WAITING: 'AI_Mentor_WAITING',
   COMPLETED: 'completed',
 });
 
@@ -90,10 +91,12 @@ export const TIMEZONE_CONFIG = Object.freeze({
 });
 
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '12:33',
+  MORNING_TIME: '13:55',
   EVENING_TIME: '20:30',
   MORNING_HOUR: 8,
+  MORNING_MINUTE: 0,
   EVENING_HOUR: 20,
+  EVENING_MINUTE: 30,
   MORNING_START: 7,
   MORNING_END: 20,
   EVENING_START: 20,
@@ -101,11 +104,14 @@ export const SCHEDULE = Object.freeze({
   TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
 });
 
+// Генеруємо cron вирази з SCHEDULE
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: '0 8 * * *',
-  EVENING_QUESTIONS: '30 20 * * *',
-  MORNING_REMINDER: '0 12 * * *',
-  EVENING_REMINDER: '0 21 * * *',
+  MORNING_QUESTIONS: `${SCHEDULE.MORNING_MINUTE} ${SCHEDULE.MORNING_HOUR} * * *`, // 0 8 * * *
+  EVENING_QUESTIONS: `${SCHEDULE.EVENING_MINUTE} ${SCHEDULE.EVENING_HOUR} * * *`, // 30 20 * * *
+  MORNING_REMINDER: `${SCHEDULE.MORNING_MINUTE + 10} ${SCHEDULE.MORNING_HOUR} * * *`, // 10 8 * * *
+  EVENING_REMINDER: `${SCHEDULE.EVENING_MINUTE + 10} ${SCHEDULE.EVENING_HOUR} * * *`, // 40 20 * * *
+  MORNING_REMINDER_SECOND: `${SCHEDULE.MORNING_MINUTE} ${SCHEDULE.MORNING_HOUR + 1} * * *`, // 0 9 * * *
+  EVENING_REMINDER_SECOND: `${SCHEDULE.EVENING_MINUTE} ${SCHEDULE.EVENING_HOUR + 1} * * *`, // 30 21 * * *
   REPORTS_REMINDER: '0 18 * * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
 });
@@ -128,8 +134,10 @@ export const REPORT_SCHEDULE = Object.freeze({
 export const SCHEDULER_MESSAGES = Object.freeze({
   MORNING_SESSION_START: (name) => `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`,
   EVENING_SESSION_START: (name) => `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`,
-  MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!',
-  EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!',
+  MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!\n\n🔄 Натисни "🔄 Продовжити відповіді"',
+  EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!\n\n🔄 Натисни "🔄 Продовжити відповіді"',
+  MORNING_REMINDER_SECOND: '🔔 Останнє нагадування про ранкові питання!',
+  EVENING_REMINDER_SECOND: '🔔 Останнє нагадування про вечірні питання!',
   REPORTS_REMINDER: `💡 Не забувай переглядати свої звіти!\n\n📊 "Щотижневий звіт" - аналіз шаблонів\n📈 "Щомісячний звіт" - глибокий інсайт\n\nЗвіти допомагають усвідомити прогрес та знайти точки росту! 🌱`,
   WEEKLY_REPORT_READY: '📊 Щотижневий AI-звіт готовий!',
   MONTHLY_REPORT_READY: '📈 Місячний AI-звіт готовий!',
@@ -140,6 +148,16 @@ export const SCHEDULER_CONFIG = Object.freeze({
   REPORT_DELAY_MS: 1000,
   MIN_RECORDS_FOR_REMINDER: 2,
   RECENT_RECORDS_DAYS: 3,
+  REMINDER_DELAY_1: 10 * 60 * 1000, // 10 хвилин
+  REMINDER_DELAY_2: 60 * 60 * 1000, // 60 хвилин
+});
+
+// Нагадування підписки
+export const SUBSCRIPTION_REMINDER_OFFSETS = [-3, -1, 0]; // дні до закінчення
+export const SUBSCRIPTION_REMINDER_MESSAGES = Object.freeze({
+  REMINDER_3_DAYS: (planName, endDate) => `⏰ Нагадування про підписку\n\nТвоя підписка "${planName}" закінчується через 3 дні (${endDate}).\n\nПоднови зараз, щоб не втратити доступ до всіх функцій! 💎`,
+  REMINDER_1_DAY: (planName, endDate) => `⚠️ Підписка закінчується завтра!\n\nПлан "${planName}" діє до ${endDate}.\n\nПоднови сьогодні, щоб продовжити свою трансформацію! ⚡`,
+  REMINDER_TODAY: (planName) => `🚨 Підписка закінчується сьогодні!\n\nТвій план "${planName}" стане неактивним.\n\nПоднови зараз, щоб не втратити прогрес! 🔥`,
 });
 
 export const AFFIRMATION_CATEGORIES = [
@@ -153,15 +171,66 @@ export const AFFIRMATION_CATEGORIES = [
 export const LATE_TEXT = (nextType) =>
   `На жаль, ви не відповіли вчасно. Важливо відповідати в межах вікна — це формує дисципліну і прогрес. Будь ласка, відповідайте на ${nextType === 'Evening' ? 'вечірні' : 'ранкові'} питання.`;
 
-// Додані константи з menu.js
+// AI-наставник константи (оновлено)
+export const AI_MENTOR_PROMPTS = Object.freeze({
+  SYSTEM_PROMPT: `Ти — AI-наставник трансформації, експертний коуч рівня Tony Robbins. 
+Твоя мета — генерувати конкретні мікро-дії та підтримуючі поради.
+
+Принципи:
+- Мікро-дії мають бути конкретними та виконуваними за 30-60 хв
+- Адаптуй складність під стан користувача
+- Завжди включай одну ключову дію та запасні варіанти
+- Говори підтримуюче, але конкретно
+
+Формат відповіді: JSON з microActions та motivation`,
+
+  FEEDBACK_PROMPT: `Ти — AI-наставник, який аналізує день користувача і дає підтримуючий фідбек.
+Фокусуйся на ресурсах та досягненнях, а не на проблемах.
+Дай одну конкретну рекомендацію на завтра.
+До 100 слів, українською мовою.`,
+
+  QUESTION_PROMPT: `Ти — AI-наставник для питань користувачів про цілі, стан, мотивацію.
+Відповідай коротко (до 150 слів), конкретно, з позиції підтримки.
+Пропонуй дії, а не тільки поради.
+Українська мова, теплий тон.`
+});
+
+export const AI_MENTOR_CONFIG = Object.freeze({
+  MAX_MICRO_ACTIONS: 3,
+  MIN_MICRO_ACTIONS: 1,
+  FALLBACK_FEEDBACK: "Продовжуй свій шлях! Кожен день — це новий крок до мети. Завтра зроби щось одне, але конкретне. 💪",
+  QUESTION_MODES: {
+    MICRO_ACTIONS: 'micro_actions',
+    GENERAL_ADVICE: 'general_advice',
+    GOAL_HELP: 'goal_help'
+  }
+});
+
+export const AI_MENTOR_MESSAGES = Object.freeze({
+  WELCOME: "🤖 Привіт! Я твій AI-наставник. Готовий допомогти з цілями та мотивацією!",
+  ASK_GOAL: "Розкажи, над чим працюємо сьогодні? Яка твоя головна ціль на день?",
+  ASK_STATE: "Як ти себе відчуваєш зараз? Опиши свій стан.",
+  GENERATING_ACTIONS: "⚡ Генерую персональні мікро-дії для тебе...",
+  MICRO_ACTIONS_READY: (actions) => 
+    `🎯 ПЕРСОНАЛЬНІ МІКРО-ДІЇ НА СЬОГОДНІ:\n\n` +
+    actions.microActions.map((action, i) => 
+      `${i + 1}️⃣ ${action.action}\n💡 ${action.tip}\n`
+    ).join('\n') +
+    `\n✨ ${actions.motivation}`,
+  QUESTION_PROMPT: "🤔 Задай мені питання про цілі, мотивацію або стан - я допоможу!",
+  ASK_ANOTHER: "Є ще питання? Або хочеш нові мікро-дії?",
+  ERROR_RESPONSE: "😔 Щось пішло не так. Спробуй ще раз або перефразуй питання."
+});
+
+// Меню константи (симетричне меню)
 export const MENU_TEXTS = Object.freeze({
   HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
-  CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n� **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
-  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "� Мій прогрес" — статистика\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (6 запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
+  CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
+  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n• "🤖 AI наставник" — персональна підтримка\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (6 запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
   PROGRESS: (totalDays, morningCompleted, eveningCompleted) =>
-    `� ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`,
+    `📊 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`,
   SUBSCRIPTION_ACTIVE: (plan, start, end) =>
-    `📦 ПІДПИСКА:\n\n✅ Активна\n� План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}\n\n📝 Реєстраційні дані: ✅ Заповнені`,
+    `📦 ПІДПИСКА:\n\n✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}\n\n📝 Реєстраційні дані: ✅ Заповнені`,
   SUBSCRIPTION_INACTIVE: `📦 ПІДПИСКА:\n\n❌ Неактивна\n\n💰 ДОСТУПНІ ПЛАНИ:\n🔹 Тиждень фокусу — 7€\n🔹 Місяць дії — 30€\n🔹 Рік трансформації — 300€\n\n📧 Для оплати напиши: nadyastarway@gmail.com\n\n📝 Реєстраційні дані: ✅ Заповнені`,
   AFFIRMATION: (text) => `🌀 Афірмація:\n\n${text}`,
   QUICK_SUPPORT: (text) => `💝 Швидка підтримка!\n\n${text}`,
@@ -169,50 +238,21 @@ export const MENU_TEXTS = Object.freeze({
   REGISTER_FIRST: 'Спочатку зареєструйтесь /start',
   PROGRESS_UNAVAILABLE: '📊 Прогрес тимчасово недоступний',
   SUBSCRIPTION_UNAVAILABLE: 'Підписка тимчасово недоступна. Спробуй пізніше.',
+  PLAN_SELECTION: 'Обери план підписки для активації aiMentor:',
 });
 
 export const MENU_MATCHERS = Object.freeze({
   WEEKLY: (t) => t === '📈 Щотижневий звіт',
   MONTHLY: (t) => t === '📈 Щомісячний звіт',
   AFFIRM: (t) => t === '💎 Афірмація',
-  AI_Mentor: (t) => t === '🤖 AI наставник',
+  AI_MENTOR: (t) => t === '🤖 AI наставник',
   PROGRESS: (t) => t === '📊 Мій прогрес',
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
   CONTACT: (t) => t === '📞 Зв\'язок з нами',
   INSTRUCTIONS: (t) => t === '📝 Інструкції',
+  PROFILE: (t) => t === 'ℹ️ Профіль',
+  CONTINUE_ANSWERS: (t) => t === '🔄 Продовжити відповіді',
+  SKIP_SESSION: (t) => t === '⏭️ Пропустити',
   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase()),
-});
-
-// ===== AI Mentor (конфіг + промпти) =====
-export const AI_MENTOR_CONFIG = Object.freeze({
-  MODEL: 'gpt-5-mini',
-  MAX_TOKENS: 700,
-  TEMPERATURE: 0.7,
-});
-
-export const AI_MENTOR_PROMPTS = Object.freeze({
-  SYSTEM: `Ти — особистий AI-коуч за методикою "Стан → Ціль → Вибір → Дія".
-Говори коротко, підтримуюче, по суті. Пропонуй 1–3 мікродії. Пиши українською.`,
-
-  MICRO_ACTIONS: ({ focusGoal, state, historyDataJson }) => `
-Згенеруй ВАЛІДНИЙ JSON:
-{
-  "date": "<YYYY-MM-DD>",
-  "focusGoal": "${focusGoal}",
-  "state": "${state}",
-  "microActions": [
-    { "action": "...", "priority": "висока|середня|альтернатива", "tip": "..." },
-    { "action": "...", "priority": "середня", "tip": "..." },
-    { "action": "...", "priority": "альтернатива", "tip": "..." }
-  ],
-  "motivation": "Коротка фраза підтримки"
-}
-Врахуй історію виконань (JSON): ${historyDataJson}`.trim(),
-
-  FEEDBACK: ({ answersJson }) => `
-Проаналізуй відповіді користувача (JSON): ${answersJson}
-1) Дай короткий емпатичний фідбек (2–3 речення).
-2) Назви 1–2 патерни/блоки.
-3) Запропонуй 1–3 мікродії на завтра (коротко).`.trim(),
 });

@@ -1,5 +1,5 @@
 // src/services/reportService.js
-import { findAll } from './airtableService.js';
+import responseService from '../dialogue/services/responseService.js'; // ДОДАНО ІМПОРТ
 import { chat } from './openaiClient.js';
 
 const WEEK_DAYS = 7;

@@ -1,175 +1,214 @@
 // src/middleware/pendingFlow.js
 import userService from '../auth/services/userService.js';
-import {
-  ANSWER_STEPS,
-  MORNING_QUESTIONS,
-  EVENING_QUESTIONS,
-  SCHEDULER_MESSAGES,
-} from '../config/constants.js';
+import { ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS, MENU_MATCHERS, SCHEDULE } from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
+import { getUserDateTime } from '../utils/timezoneUtils.js';
 
-// Кроки незавершених сесій
-const MORNING_SET = new Set([
-  ANSWER_STEPS.MORNING_1,
-  ANSWER_STEPS.MORNING_2,
-  ANSWER_STEPS.MORNING_3,
-  ANSWER_STEPS.MORNING_4,
-  ANSWER_STEPS.MORNING_5,
-  ANSWER_STEPS.MORNING_6,
-  ANSWER_STEPS.AFFIRMATION_MORNING,
-  ANSWER_STEPS.END_MORNING,
-]);
-const EVENING_SET = new Set([
-  ANSWER_STEPS.EVENING_1,
-  ANSWER_STEPS.EVENING_2,
-  ANSWER_STEPS.EVENING_3,
-  ANSWER_STEPS.EVENING_4,
-  ANSWER_STEPS.EVENING_5,
-  ANSWER_STEPS.AFFIRMATION_EVENING,
-  ANSWER_STEPS.END_EVENING,
-]);
-const isPendingStep = (step) => MORNING_SET.has(step) || EVENING_SET.has(step);
-const sessionTypeOf = (step) => (MORNING_SET.has(step) ? 'Morning' : 'Evening');
+// Глобальні таймери для персональних нагадувань
+const userReminders = new Map(); // tgId -> { timer1, timer2 }
 
-// Тексти меню як у твоїй клавіатурі (враховано обидва варіанти Інструкцій)
-const MENU_ITEMS = new Set([
-  '📈 Щотижневий звіт',
-  '📈 Щомісячний звіт',
-  '🤖 AI наставник',
-  '💎 Афірмація',
-  '📊 Мій прогрес',
-  '💰 Підписка',
-  '❓ Допомога',
-  '📝 Інструкції',
-  '📊 Інструкції',
-  "📞 Зв'язок з нами",
-  'ℹ️ Профіль',
-  '🏠 Головне меню',
-]);
-
-// Таймери персональних нагадувань (key = `${tgId}:${type}`)
-const timers = new Map();
-
-// Клавіатура блокування (reply)
-const PENDING_KEYBOARD = {
-  keyboard: [
-    ['🔄 Продовжити відповіді', '⏭️ Пропустити'],
-    ['🏠 Головне меню'],
-  ],
-  resize_keyboard: true,
-  one_time_keyboard: false,
+// Функція планування персональних нагадувань
+export const schedulePendingReminders = (bot, tgId, sessionType) => {
+  // Очищуємо попередні таймери
+  clearUserReminders(tgId);
+  
+  const reminders = {
+    timer1: setTimeout(async () => {
+      try {
+        const user = await userService.getUserByTelegramId(tgId);
+        if (!user || user.Answer_Step === ANSWER_STEPS.COMPLETED) return;
+        
+        const message = sessionType === 'Morning' 
+          ? '🔔 Не забудь відповісти на ранкові питання!\n\n🔄 Натисни "🔄 Продовжити відповіді"'
+          : '🔔 Час для вечірньої рефлексії!\n\n🔄 Натисни "🔄 Продовжити відповіді"';
+          
+        await bot.telegram.sendMessage(tgId, message, keyboards.continueAnswersKeyboard());
+        console.log(`[pendingFlow] Надіслано перше нагадування (+10хв) для ${tgId}`);
+      } catch (error) {
+        console.error(`[pendingFlow] Помилка першого нагадування для ${tgId}:`, error);
+      }
+    }, 10 * 60 * 1000), // 10 хвилин
+    
+    timer2: setTimeout(async () => {
+      try {
+        const user = await userService.getUserByTelegramId(tgId);
+        if (!user || user.Answer_Step === ANSWER_STEPS.COMPLETED) return;
+        
+        const message = sessionType === 'Morning'
+          ? '🔔 Останнє нагадування про ранкові питання!'
+          : '🔔 Останнє нагадування про вечірні питання!';
+          
+        await bot.telegram.sendMessage(tgId, message, keyboards.continueAnswersKeyboard());
+        console.log(`[pendingFlow] Надіслано друге нагадування (+60хв) для ${tgId}`);
+      } catch (error) {
+        console.error(`[pendingFlow] Помилка другого нагадування для ${tgId}:`, error);
+      }
+    }, 60 * 60 * 1000) // 60 хвилин
+  };
+  
+  userReminders.set(tgId, reminders);
+  console.log(`[pendingFlow] Заплановано персональні нагадування для ${tgId}, сесія: ${sessionType}`);
 };
 
-// ===== API =====
-export function installPendingFlow(bot) {
-  // 1) Блокування меню під час незавершених відповідей
-  bot.on('text', async (ctx, next) => {
-    const t = (ctx.message?.text || '').trim();
-    if (!MENU_ITEMS.has(t)) return next();
-
-    const tgId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(tgId);
-    const step = user?.Answer_Step || ANSWER_STEPS.COMPLETED;
-    if (!isPendingStep(step)) return next();
-
-    const name = user?.['User Name'] || 'друже';
-    const type = sessionTypeOf(step);
-    const prefix = type === 'Morning' ? 'ранкової' : 'вечірньої';
-
-    await ctx.reply(
-      `✋ ${name}, у тебе активна сесія ${prefix} рефлексії.\nОбери дію нижче:`,
-      { reply_markup: PENDING_KEYBOARD }
-    );
-  });
-
-  // 2) 🔄 Продовжити відповіді → повернення рівно на останнє питання
-  bot.hears('🔄 Продовжити відповіді', async (ctx) => {
-    const tgId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(tgId);
-    const step = user?.Answer_Step || ANSWER_STEPS.COMPLETED;
-
-    if (!isPendingStep(step)) {
-      await ctx.reply('Все готово ✅', keyboards.mainMenuKeyboard());
-      return;
-    }
-
-    const msg = renderPromptForStep(step, user?.['User Name']);
-    if (msg) await ctx.reply(msg);
-  });
-
-  // 3) ⏭️ Пропустити → завершення сесії + відміна нагадувань
-  bot.hears('⏭️ Пропустити', async (ctx) => {
-    const tgId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(tgId);
-    const step = user?.Answer_Step || ANSWER_STEPS.COMPLETED;
-
-    if (isPendingStep(step)) {
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-      cancelPendingReminders(tgId, sessionTypeOf(step));
-    }
-
-    await ctx.reply('Сесію пропущено. Повертаю в головне меню.', keyboards.mainMenuKeyboard());
-  });
-
-  // 4) 🏠 Головне меню
-  bot.hears('🏠 Головне меню', async (ctx) => {
-    await ctx.reply('Меню:', keyboards.mainMenuKeyboard());
-  });
-}
-
-// Персональні нагадування після старту сесії: +10хв та +60хв
-export function schedulePendingReminders(bot, tgId, type /* 'Morning' | 'Evening' */) {
-  cancelPendingReminders(tgId, type);
-  const key = `${tgId}:${type}`;
-
-  const tenMin = setTimeout(async () => {
-    try {
-      const txt =
-        (type === 'Morning' ? SCHEDULER_MESSAGES.MORNING_REMINDER : SCHEDULER_MESSAGES.EVENING_REMINDER) +
-        `\n\nНатисни «🔄 Продовжити відповіді».`;
-      await bot.telegram.sendMessage(tgId, txt);
-    } catch {}
-  }, 10 * 60 * 1000);
-
-  const sixtyMin = setTimeout(async () => {
-    try {
-      const txt =
-        (type === 'Morning' ? SCHEDULER_MESSAGES.MORNING_REMINDER : SCHEDULER_MESSAGES.EVENING_REMINDER) +
-        `\n\nНатисни «🔄 Продовжити відповіді».`;
-      await bot.telegram.sendMessage(tgId, txt);
-    } catch {}
-  }, 60 * 60 * 1000);
-
-  timers.set(key, [tenMin, sixtyMin]);
-}
-
-export function cancelPendingReminders(tgId, type /* 'Morning' | 'Evening' */) {
-  const key = `${tgId}:${type}`;
-  const arr = timers.get(key);
-  if (arr) {
-    arr.forEach(clearTimeout);
-    timers.delete(key);
+// Функція очищення таймерів
+export const clearUserReminders = (tgId) => {
+  const reminders = userReminders.get(tgId);
+  if (reminders) {
+    clearTimeout(reminders.timer1);
+    clearTimeout(reminders.timer2);
+    userReminders.delete(tgId);
+    console.log(`[pendingFlow] Очищено нагадування для ${tgId}`);
   }
-}
+};
 
-// Точний промпт за кроком (повертаємо останнє питання)
-function renderPromptForStep(step, name) {
-  // Ранок
-  if (step === ANSWER_STEPS.MORNING_1) return `🌞 Доброго ранку, ${name || 'друже'}!\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`;
-  if (step === ANSWER_STEPS.MORNING_2) return `2️⃣/6 ${MORNING_QUESTIONS[1]}`;
-  if (step === ANSWER_STEPS.MORNING_3) return `3️⃣/6 ${MORNING_QUESTIONS[2]}`;
-  if (step === ANSWER_STEPS.MORNING_4) return `4️⃣/6 ${MORNING_QUESTIONS[3]}`;
-  if (step === ANSWER_STEPS.MORNING_5) return `5️⃣/6 ${MORNING_QUESTIONS[4]}`;
-  if (step === ANSWER_STEPS.MORNING_6) return `6️⃣/6 ${MORNING_QUESTIONS[5]}`;
-  if (step === ANSWER_STEPS.AFFIRMATION_MORNING) return '✨ Ось твоя ранкова афірмація:\n\nНапиши її своїми словами.';
+// Функція отримання поточного питання
+const getCurrentQuestion = (step) => {
+  if (step.startsWith('Q_m_')) {
+    const questionNum = parseInt(step.split('_')[2]) - 1;
+    return `${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`;
+  }
+  
+  if (step.startsWith('Q_e_')) {
+    const questionNum = parseInt(step.split('_')[2]) - 1;
+    return `${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`;
+  }
+  
+  return null;
+};
 
-  // Вечір
-  if (step === ANSWER_STEPS.EVENING_1) return `🌙 Добрий вечір, ${name || 'друже'}!\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`;
-  if (step === ANSWER_STEPS.EVENING_2) return `2️⃣/5 ${EVENING_QUESTIONS[1]}`;
-  if (step === ANSWER_STEPS.EVENING_3) return `3️⃣/5 ${EVENING_QUESTIONS[2]}`;
-  if (step === ANSWER_STEPS.EVENING_4) return `4️⃣/5 ${EVENING_QUESTIONS[3]}`;
-  if (step === ANSWER_STEPS.EVENING_5) return `5️⃣/5 ${EVENING_QUESTIONS[4]}`;
-  if (step === ANSWER_STEPS.AFFIRMATION_EVENING) return '✨ Вечірня афірмація:\n\nНапиши підсумкову афірмацію дня.';
+// Перевірка чи користувач у процесі відповідей
+const isPendingResponse = (user) => {
+  if (!user || !user.Answer_Step) return false;
+  
+  const step = user.Answer_Step;
+  return step.startsWith('Q_m_') || step.startsWith('Q_e_') || 
+         step === ANSWER_STEPS.MORNING_PENDING || step === ANSWER_STEPS.EVENING_PENDING ||
+         step === ANSWER_STEPS.AI_MENTOR_WAITING;
+};
 
-  return '';
-}
+// Middleware для блокування меню при незавершених відповідях
+export const installPendingFlow = (bot) => {
+  bot.use(async (ctx, next) => {
+    const tgId = ctx.from?.id;
+    const text = ctx.message?.text?.trim();
+    
+    if (!tgId || !text || text.startsWith('/')) {
+      return next();
+    }
+
+    try {
+      const user = await userService.getUserByTelegramId(tgId);
+      if (!user) return next();
+
+      // Перевіряємо, чи користувач у процесі відповідей
+      const pending = isPendingResponse(user);
+      
+      // ВАЖЛИВО: Дозволяємо команди продовження/пропуску завжди
+      if (MENU_MATCHERS.CONTINUE_ANSWERS(text) || 
+          MENU_MATCHERS.SKIP_SESSION(text) ||
+          text.startsWith('🔄') || text.startsWith('⏭️')) {
+        return next();
+      }
+
+      // Якщо користувач НЕ у процесі відповідей - дозволяємо все
+      if (!pending) {
+        return next();
+      }
+
+      // Якщо користувач у процесі відповідей і це команда меню (крім продовження)
+      if (pending && isMenuCommand(text)) {
+        
+        // Перевіряємо часове вікно
+        const currentTime = getUserDateTime(tgId);
+        const currentHour = new Date(currentTime).getHours();
+        const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+        
+        const step = user.Answer_Step;
+        const isMorningStep = step.startsWith('Q_m_') || step === ANSWER_STEPS.MORNING_PENDING;
+        const isEveningStep = step.startsWith('Q_e_') || step === ANSWER_STEPS.EVENING_PENDING;
+        
+        // Якщо ранкові питання після 20:00 - переключаємо на вечірні
+        if (isMorningStep && currentHour >= eveningHour) {
+          await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
+          await ctx.reply(
+            '🌙 Ранкові питання недоступні після 20:00.\n\nМожеш почати вечірні питання або пропустити сесію.',
+            keyboards.continueAnswersKeyboard()
+          );
+          return;
+        }
+        
+        // Блокуємо меню і пропонуємо продовжити
+        const currentQuestion = getCurrentQuestion(step);
+        const sessionType = isMorningStep ? 'ранкові' : isEveningStep ? 'вечірні' : 'поточні';
+        
+        let message = `🔒 Спочатка заверши ${sessionType} питання або пропусти сесію.\n\n`;
+        
+        if (currentQuestion) {
+          message += `📝 Поточне питання:\n${currentQuestion}`;
+        } else {
+          message += `📝 У тебе незавершена сесія відповідей.`;
+        }
+        
+        await ctx.reply(message, keyboards.continueAnswersKeyboard());
+        return;
+      }
+
+      // Дозволяємо обробку відповідей на питання
+      return next();
+    } catch (error) {
+      console.error('[pendingFlow] Помилка middleware:', error);
+      return next();
+    }
+  });
+
+  // Функція перевірки чи це команда меню
+  const isMenuCommand = (text) => {
+    const menuCommands = [
+      '🤖 AI наставник',
+      '💎 Афірмація',
+      '📈 Щотижневий звіт',
+      '📈 Щомісячний звіт',
+      '💰 Підписка',
+      '📊 Мій прогрес',
+      '❓ Допомога',
+      '📞 Зв\'язок з нами',
+      '📊 Інструкції',
+      'ℹ️ Профіль'
+    ];
+    return menuCommands.includes(text);
+  };
+
+  // Callback query для inline кнопок
+  bot.on('callback_query', async (ctx) => {
+    const tgId = ctx.from.id;
+    const data = ctx.callbackQuery.data;
+    
+    try {
+      if (data === 'continue_answers') {
+        const user = await userService.getUserByTelegramId(tgId);
+        if (!user) {
+          await ctx.answerCbQuery('Користувача не знайдено');
+          return;
+        }
+        
+        const currentQuestion = getCurrentQuestion(user.Answer_Step);
+        if (currentQuestion) {
+          await ctx.reply(currentQuestion);
+          await ctx.answerCbQuery('Продовжуємо відповіді');
+        } else {
+          await ctx.reply('Питання завершені!', keyboards.mainMenuKeyboard());
+          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+          await ctx.answerCbQuery('Готово');
+        }
+      } else if (data === 'skip_session') {
+        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+        clearUserReminders(tgId); // очищуємо нагадування
+        await ctx.reply('Сесію пропущено. Повертаємося до меню.', keyboards.mainMenuKeyboard());
+        await ctx.answerCbQuery('Сесію пропущено');
+      }
+    } catch (error) {
+      console.error('[pendingFlow] Помилка callback:', error);
+      await ctx.answerCbQuery('Помилка');
+    }
+  });
+};

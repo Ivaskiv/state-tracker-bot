@@ -1,8 +1,8 @@
 // src/services/schedulerService.js
 import cron from 'node-cron';
-import userService from './userService.js';
 import reminderService from './reminderService.js';
 import { SCHEDULE, REPORT_SCHEDULE, QUESTION_TYPES } from '../../config/constants.js';
+import userService from '../../auth/services/userService.js';
 
 const setupScheduler = (bot) => {
   console.log("[scheduler] ⏰ Scheduler initialized");

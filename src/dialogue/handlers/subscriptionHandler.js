@@ -90,7 +90,7 @@
 //       // This is a mock implementation
 //       const baseUrl = 'https://secure.wayforpay.com/pay';
 //       const params = new URLSearchParams({
-//         merchantAccount: process.env.WAYFORPAY_MERCHANT_ACCOUNT || 'demo_merchant',
+//         merchantAccount: process.env.WAYFORPAY_MERCHANT || 'demo_merchant',
 //         orderReference: paymentData.orderReference,
 //         orderDate: Math.floor(Date.now() / 1000),
 //         amount: paymentData.amount,

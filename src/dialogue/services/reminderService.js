@@ -1,9 +1,9 @@
 // src/services/reminderService.js
-import userService from '../auth/services/userService.js';
-import { ANSWER_STEPS } from '../config/constants.js';
-import keyboards from '../dialogue/utils/keyboards.js';
+import userService from '../../auth/services/userService.js';
+import keyboards from '../../utils/keyboards.js';
+import { ANSWER_STEPS } from '../../config/constants.js';
 
-const activeReminders = new Map(); // tgId -> { timeout1, timeout2 }
+const activeReminders = new Map();
 
 export const setQuestionReminders = (bot, tgId, questionType) => {
   // Очищуємо попередні нагадування
