@@ -1,9 +1,10 @@
-// src/server.js
+// import express from 'express';                    // [SERVER DISABLED]
 import dotenv from 'dotenv';
 import { Telegraf } from 'telegraf';
 import botController from './src/controllers/botController.js';
+// import { handleWayForPayWebhook } from './src/auth/services/paymentService.js'; // [SERVER DISABLED]
 import { installPendingFlow } from './src/middleware/pendingFlow.js';
-import { startScheduler } from './src/utils/scheduler.js';
+import { startScheduler } from './src/utils/scheduler.js'; // ⬅️ ДОДАНО
 
 dotenv.config();
 
@@ -57,7 +58,7 @@ console.log('⏰ Initializing scheduler...');
 try {
   if (!schedulerInitialized) {
     console.log('🔄 Starting scheduler initialization...');
-    startScheduler(bot);
+    startScheduler(bot); // ⬅️ тепер визначено
     schedulerInitialized = true;
     console.log('✅ Scheduler initialized');
   } else {

@@ -12,7 +12,7 @@ export async function handleStart(ctx) {
     ctx.session = ctx.session || {};
     ctx.session.step = 'reg_name';
     ctx.session.temp = {};
-    return ctx.reply('🌟 Вітаю в AI-Coach! Як тебе звати?', keyboards.skipKeyboard());
+    return ctx.reply('🌟 Вітаю в aiMentor! Як тебе звати?', keyboards.skipKeyboard());
   }
   return ctx.reply(profileMessage(user), keyboards.mainMenuKeyboard());
 }

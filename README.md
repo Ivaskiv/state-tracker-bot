@@ -1,5 +1,5 @@
 # state-tracker-bot
-# Telegram AI Coach Bot
+# Telegram AI Mentor Bot
 
 AI-коуч для щоденної рефлексії та особистого зростання в Telegram.
 

@@ -1,6 +1,21 @@
 // src/utils/keyboards.js
 import { Markup } from 'telegraf';
-
+export const BUTTONS = Object.freeze({
+  WEEKLY_REPORT: '📈 Щотижневий звіт',
+  MONTHLY_REPORT: '📈 Щомісячний звіт',
+  AI_ASSISTANT: '🤖 AI наставник',
+  AFFIRMATION: '💎 Афірмація',
+  PROGRESS: '📊 Мій прогрес',
+  SUBSCRIPTION: '💰 Підписка',
+  HELP: '❓ Допомога',
+  INSTRUCTIONS: '📊 Інструкції',
+  CONTACT: '📞 Зв\'язок з нами',
+  PROFILE: 'ℹ️ Профіль',                // симетрія до CONTACT
+  CONTINUE_ANSWERS: '🔄 Продовжити відповіді',
+  SKIP: '⏭️ Пропустити',
+  HOME: '🏠 Головне меню',
+  AI_EXIT: '🔚 Вийти з AI',
+});
 export const mainMenuKeyboard = () => {
   return {
     reply_markup: {
@@ -14,6 +29,15 @@ export const mainMenuKeyboard = () => {
       resize_keyboard: true,
       one_time_keyboard: false
     }
+  };
+};
+
+export const continueAnswersKeyboard = () => {
+  return {
+    reply_markup: Markup.inlineKeyboard([
+      [Markup.button.callback('✅ Продовжити відповіді', 'continue_answers')],
+      [Markup.button.callback('⏭️ Пропустити сесію', 'skip_session')]
+    ]).reply_markup
   };
 };
 
@@ -43,6 +67,7 @@ const subscriptionKeyboard = () =>
 export default {
   mainMenuKeyboard,
   supportKeyboard,
+  continueAnswersKeyboard,
   skipKeyboard,
   subscriptionKeyboard
 };

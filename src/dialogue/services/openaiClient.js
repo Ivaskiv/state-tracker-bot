@@ -1,17 +1,27 @@
-import OpenAI from 'openai';
+// src/services/openaiClient.js
+import { Configuration, OpenAIApi } from 'openai';
+import dotenv from 'dotenv';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+dotenv.config();
 
-export const chat = async (messages, model = 'gpt-4o-mini', maxTokens = 300) => {
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const openai = new OpenAIApi(configuration);
+
+const chat = async (messages, model, maxTokens) => {
   try {
-    const completion = await openai.chat.completions.create({
-      model,
+    const response = await openai.createChatCompletion({
+      model: model || 'gpt-4o-mini',
       messages,
-      max_tokens: maxTokens
+      max_tokens: maxTokens || 500,
     });
-    return completion.choices?.[0]?.message?.content || '';
+    return response.data.choices[0].message.content.trim();
   } catch (error) {
-    console.error('OpenAI error:', error);
-    return '';
+    console.error('[openaiClient] Error:', error);
+    throw error;
   }
 };
+
+export { chat };

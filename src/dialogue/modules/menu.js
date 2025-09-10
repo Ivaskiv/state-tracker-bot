@@ -4,7 +4,7 @@ import analyticsController from '../../controllers/analyticsController.js';
 import affirmationService from '../services/affirmationService.js';
 import responseService from '../services/responseService.js';
 import userService from '../../auth/services/userService.js';
-import aiCoachController from '../../ai-coach/controllers/aiCoachController.js';
+import aiMentorController from '../../aiMentor/controllers.js/aiMentorController.js';
 import { MENU_TEXTS, MENU_MATCHERS } from '../../config/constants.js';
 
 export async function handleMenuCommand(ctx) {
@@ -22,8 +22,8 @@ export async function handleMenuCommand(ctx) {
     const aff = await affirmationService.getAffirmationAndMarkUsed();
     return ctx.reply(MENU_TEXTS.AFFIRMATION(toPlainText(aff)), keyboards.mainMenuKeyboard());
   }
-  if (MENU_MATCHERS.AI_COACH(text)) {
-    return aiCoachController.handleAICoachRequest(ctx);
+  if (MENU_MATCHERS.AI_Mentor(text)) {
+    return aiMentorController.handleAIMentorRequest(ctx);
   }
   if (MENU_MATCHERS.PROGRESS(text)) {
     return showUserProgress(ctx, user);
