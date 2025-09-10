@@ -14,7 +14,7 @@
 //   SUBSCRIPTION: (t) => t === '💰 Підписка',
 //   HELP: (t) => t === '❓ Допомога',
 //   CONTACT: (t) => t === '📞 Зв\'язок з нами',
-//   INSTRUCTIONS: (t) => ['📝 Інструкції', '📊 Інструкції'].includes(t),
+//   INSTRUCTIONS: (t) => ['📝  Інструкції', '📝  Інструкції'].includes(t),
 //   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase())
 // };
 

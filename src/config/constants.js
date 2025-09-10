@@ -23,6 +23,7 @@ export const SUBSCRIPTION_PLANS = Object.freeze({
 export const QUESTION_TYPES = Object.freeze({
   MORNING: 'Morning',
   EVENING: 'Evening',
+  AI_MESSAGE: 'Just a message',
 });
 
 export const ANSWER_STEPS = Object.freeze({
@@ -91,7 +92,7 @@ export const TIMEZONE_CONFIG = Object.freeze({
 });
 
 // ✅ ТІЛЬКИ ЦІ ДВА РЯДКИ ТРЕБА МІНЯТИ
-const MORNING_TIME = '16:54';
+const MORNING_TIME = '17:35';
 const EVENING_TIME = '20:30';
 
 // 🔄 АВТОМАТИЧНИЙ РОЗРАХУНОК
@@ -257,7 +258,7 @@ export const MENU_MATCHERS = Object.freeze({
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
   CONTACT: (t) => t === '📞 Зв\'язок з нами',
-  INSTRUCTIONS: (t) => t === '📝 Інструкції',
+  INSTRUCTIONS: (t) => t === '📝  Інструкції',
   PROFILE: (t) => t === 'ℹ️ Профіль',
   CONTINUE_ANSWERS: (t) => t === '🔄 Продовжити відповіді',
   SKIP_SESSION: (t) => t === '⏭️ Пропустити',

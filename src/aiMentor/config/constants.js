@@ -243,6 +243,6 @@ export const MENU_MATCHERS = Object.freeze({
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
   CONTACT: (t) => t === '📞 Зв\'язок з нами',
-  INSTRUCTIONS: (t) => t === '📝 Інструкції',
+  INSTRUCTIONS: (t) => t === '📝  Інструкції',
   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase()),
 });

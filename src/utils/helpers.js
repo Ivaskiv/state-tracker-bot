@@ -15,7 +15,7 @@ export const MENU_MATCHERS = {
   HELP: (t) => t === '❓ Допомога',
   CONTACT: (t) => t === '📞 Зв\'язок з нами',
   // ✅ Приймаємо ОБИДВА варіанти кнопки інструкцій
-  INSTRUCTIONS: (t) => ['📝 Інструкції', '📊 Інструкції'].includes(t),
+  INSTRUCTIONS: (t) => ['📝  Інструкції', '📝  Інструкції'].includes(t),
   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase())
 };
 

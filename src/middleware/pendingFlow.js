@@ -172,7 +172,7 @@ export const installPendingFlow = (bot) => {
       '📊 Мій прогрес',
       '❓ Допомога',
       '📞 Зв\'язок з нами',
-      '📊 Інструкції',
+      '📝  Інструкції',
       'ℹ️ Профіль'
     ];
     return menuCommands.includes(text);
