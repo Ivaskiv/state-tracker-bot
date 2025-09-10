@@ -27,7 +27,7 @@ export const QUESTION_TYPES = Object.freeze({
 
 export const ANSWER_STEPS = Object.freeze({
   BEGIN: 'Begin_answer',
-  PLAN_SELECTION: 'plan_selection', // вибір плану після реєстрації
+  PLAN_SELECTION: 'plan_selection',
   MORNING_1: 'Q_m_1',
   MORNING_2: 'Q_m_2',
   MORNING_3: 'Q_m_3',
@@ -90,13 +90,21 @@ export const TIMEZONE_CONFIG = Object.freeze({
   USER_TIMEZONES: {},
 });
 
+// ✅ ТІЛЬКИ ЦІ ДВА РЯДКИ ТРЕБА МІНЯТИ
+const MORNING_TIME = '16:54';
+const EVENING_TIME = '20:30';
+
+// 🔄 АВТОМАТИЧНИЙ РОЗРАХУНОК
+const [MORNING_HOUR, MORNING_MINUTE] = MORNING_TIME.split(':').map(Number);
+const [EVENING_HOUR, EVENING_MINUTE] = EVENING_TIME.split(':').map(Number);
+
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '13:55',
-  EVENING_TIME: '20:30',
-  MORNING_HOUR: 8,
-  MORNING_MINUTE: 0,
-  EVENING_HOUR: 20,
-  EVENING_MINUTE: 30,
+  MORNING_TIME,
+  EVENING_TIME,
+  MORNING_HOUR,
+  MORNING_MINUTE,
+  EVENING_HOUR,
+  EVENING_MINUTE,
   MORNING_START: 7,
   MORNING_END: 20,
   EVENING_START: 20,
@@ -104,14 +112,13 @@ export const SCHEDULE = Object.freeze({
   TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
 });
 
-// Генеруємо cron вирази з SCHEDULE
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: `${SCHEDULE.MORNING_MINUTE} ${SCHEDULE.MORNING_HOUR} * * *`, // 0 8 * * *
-  EVENING_QUESTIONS: `${SCHEDULE.EVENING_MINUTE} ${SCHEDULE.EVENING_HOUR} * * *`, // 30 20 * * *
-  MORNING_REMINDER: `${SCHEDULE.MORNING_MINUTE + 10} ${SCHEDULE.MORNING_HOUR} * * *`, // 10 8 * * *
-  EVENING_REMINDER: `${SCHEDULE.EVENING_MINUTE + 10} ${SCHEDULE.EVENING_HOUR} * * *`, // 40 20 * * *
-  MORNING_REMINDER_SECOND: `${SCHEDULE.MORNING_MINUTE} ${SCHEDULE.MORNING_HOUR + 1} * * *`, // 0 9 * * *
-  EVENING_REMINDER_SECOND: `${SCHEDULE.EVENING_MINUTE} ${SCHEDULE.EVENING_HOUR + 1} * * *`, // 30 21 * * *
+  MORNING_QUESTIONS: `${MORNING_MINUTE} ${MORNING_HOUR} * * *`,
+  EVENING_QUESTIONS: `${EVENING_MINUTE} ${EVENING_HOUR} * * *`,
+  MORNING_REMINDER: `${(MORNING_MINUTE + 10) % 60} ${MORNING_HOUR + Math.floor((MORNING_MINUTE + 10) / 60)} * * *`,
+  EVENING_REMINDER: `${(EVENING_MINUTE + 10) % 60} ${EVENING_HOUR + Math.floor((EVENING_MINUTE + 10) / 60)} * * *`,
+  MORNING_REMINDER_SECOND: `${MORNING_MINUTE} ${(MORNING_HOUR + 1) % 24} * * *`,
+  EVENING_REMINDER_SECOND: `${EVENING_MINUTE} ${(EVENING_HOUR + 1) % 24} * * *`,
   REPORTS_REMINDER: '0 18 * * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
 });
@@ -171,7 +178,7 @@ export const AFFIRMATION_CATEGORIES = [
 export const LATE_TEXT = (nextType) =>
   `На жаль, ви не відповіли вчасно. Важливо відповідати в межах вікна — це формує дисципліну і прогрес. Будь ласка, відповідайте на ${nextType === 'Evening' ? 'вечірні' : 'ранкові'} питання.`;
 
-// AI-наставник константи (оновлено)
+// AI-наставник константи
 export const AI_MENTOR_PROMPTS = Object.freeze({
   SYSTEM_PROMPT: `Ти — AI-наставник трансформації, експертний коуч рівня Tony Robbins. 
 Твоя мета — генерувати конкретні мікро-дії та підтримуючі поради.
@@ -222,7 +229,7 @@ export const AI_MENTOR_MESSAGES = Object.freeze({
   ERROR_RESPONSE: "😔 Щось пішло не так. Спробуй ще раз або перефразуй питання."
 });
 
-// Меню константи (симетричне меню)
+// Меню константи
 export const MENU_TEXTS = Object.freeze({
   HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
   CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,

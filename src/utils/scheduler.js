@@ -1,10 +1,8 @@
-// src/utils/scheduler.js
+// src/services/scheduler.js
 import cron from 'node-cron';
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
-import subscriptionReminderService from '../services/subscriptionReminderService.js';
 import { getUserDateTime } from '../utils/timezoneUtils.js';
-import { schedulePendingReminders } from '../middleware/pendingFlow.js';
 import {
   CRON_SCHEDULES,
   SCHEDULER_MESSAGES,
@@ -12,8 +10,8 @@ import {
   ANSWER_STEPS,
   SCHEDULE,
   SCHEDULER_CONFIG,
-  SUBSCRIPTION_REMINDER_OFFSETS,
 } from '../config/constants.js';
+import { schedulePendingReminders } from '../middleware/pendingFlow.js';
 
 const jobs = []; // зберігаємо усі задачі для подальшого stop()
 
@@ -106,25 +104,6 @@ const startSession = async (bot, type, tgId, name) => {
   }
 };
 
-// Функція перевірки підписок
-const checkSubscriptions = async (bot) => {
-  try {
-    console.log('[scheduler] 📅 Перевірка підписок на закінчення');
-    
-    // Перевіряємо кожен offset (-3, -1, 0 днів)
-    for (const offset of SUBSCRIPTION_REMINDER_OFFSETS) {
-      await subscriptionReminderService.checkAndSendReminders(bot, offset);
-      await new Promise(r => setTimeout(r, 1000)); // затримка між офсетами
-    }
-    
-    // Деактивуємо закінчені підписки
-    await subscriptionReminderService.deactivateExpiredSubscriptions();
-    
-  } catch (error) {
-    console.error('[scheduler] Помилка перевірки підписок:', error);
-  }
-};
-
 const startScheduler = (bot) => {
   // зупиняємо попередні задачі
   while (jobs.length) {
@@ -132,10 +111,6 @@ const startScheduler = (bot) => {
       jobs.pop().stop();
     } catch {}
   }
-
-  console.log('[scheduler] 🚀 Створюємо cron задачі...');
-  console.log(`[scheduler] MORNING_QUESTIONS: "${CRON_SCHEDULES.MORNING_QUESTIONS}"`);
-  console.log(`[scheduler] EVENING_QUESTIONS: "${CRON_SCHEDULES.EVENING_QUESTIONS}"`);
 
   // Ранкові нагадування
   jobs.push(
@@ -152,124 +127,60 @@ const startScheduler = (bot) => {
   );
 
   // Початок ранкових сесій
-  console.log(`[scheduler] 📅 Налаштовуємо ранкові сесії на "${CRON_SCHEDULES.MORNING_QUESTIONS}"`);
   jobs.push(
     cron.schedule(
       CRON_SCHEDULES.MORNING_QUESTIONS,
       async () => {
         try {
           console.log(
-            `[scheduler] 🌞 ЗАПУСК РАНКОВИХ СЕСІЙ о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`
+            `[scheduler] 🌞 Початок ранкових сесій о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`
           );
           const users = await userService.getActiveUsers();
           console.log(`[scheduler] 🌞 Активних користувачів: ${users.length}`);
 
-          if (users.length === 0) {
-            console.log('[scheduler] 🌞 Немає активних користувачів для ранкових питань');
-            return;
-          }
-
           for (const user of users) {
             const tgId = user['TG_id'];
             const name = user['User Name'] || 'Користувач';
-            
-            console.log(`[scheduler] 🌞 Обробляємо користувача ${tgId} (${name})`);
             await startSession(bot, QUESTION_TYPES.MORNING, tgId, name);
             await new Promise((r) => setTimeout(r, SCHEDULER_CONFIG.USER_DELAY_MS));
           }
-          
-          console.log('[scheduler] 🌞 Ранкові сесії завершено');
         } catch (error) {
-          console.error('[scheduler] ❌ Помилка ранкових сесій:', error);
+          console.error('[scheduler] Помилка ранкових сесій:', error);
         }
       },
-      { 
-        timezone: SCHEDULE.TIMEZONE,
-        scheduled: true
-      }
+      { timezone: SCHEDULE.TIMEZONE }
     )
   );
 
   // Початок вечірніх сесій
-  console.log(`[scheduler] 📅 Налаштовуємо вечірні сесії на "${CRON_SCHEDULES.EVENING_QUESTIONS}"`);
   jobs.push(
     cron.schedule(
       CRON_SCHEDULES.EVENING_QUESTIONS,
       async () => {
         try {
           console.log(
-            `[scheduler] 🌙 ЗАПУСК ВЕЧІРНІХ СЕСІЙ о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`
+            `[scheduler] 🌙 Початок вечірніх сесій о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`
           );
           const users = await userService.getActiveUsers();
           console.log(`[scheduler] 🌙 Активних користувачів: ${users.length}`);
 
-          if (users.length === 0) {
-            console.log('[scheduler] 🌙 Немає активних користувачів для вечірніх питань');
-            return;
-          }
-
           for (const user of users) {
             const tgId = user['TG_id'];
             const name = user['User Name'] || 'Користувач';
-            
-            console.log(`[scheduler] 🌙 Обробляємо користувача ${tgId} (${name})`);
             await startSession(bot, QUESTION_TYPES.EVENING, tgId, name);
             await new Promise((r) => setTimeout(r, SCHEDULER_CONFIG.USER_DELAY_MS));
           }
-          
-          console.log('[scheduler] 🌙 Вечірні сесії завершено');
         } catch (error) {
-          console.error('[scheduler] ❌ Помилка вечірніх сесій:', error);
-        }
-      },
-      { 
-        timezone: SCHEDULE.TIMEZONE,
-        scheduled: true
-      }
-    )
-  );
-
-  // Перевірка підписок щодня о 10:00
-  jobs.push(
-    cron.schedule(
-      CRON_SCHEDULES.SUBSCRIPTION_CHECK,
-      () => checkSubscriptions(bot),
-      { timezone: SCHEDULE.TIMEZONE }
-    )
-  );
-
-  // Нагадування про звіти
-  jobs.push(
-    cron.schedule(
-      CRON_SCHEDULES.REPORTS_REMINDER,
-      async () => {
-        try {
-          console.log('[scheduler] 📊 Нагадування про звіти');
-          const users = await userService.getActiveUsers();
-          
-          for (const user of users) {
-            const tgId = user['TG_id'];
-            await bot.telegram.sendMessage(tgId, SCHEDULER_MESSAGES.REPORTS_REMINDER);
-            await new Promise((r) => setTimeout(r, SCHEDULER_CONFIG.USER_DELAY_MS));
-          }
-        } catch (error) {
-          console.error('[scheduler] Помилка нагадувань про звіти:', error);
+          console.error('[scheduler] Помилка вечірніх сесій:', error);
         }
       },
       { timezone: SCHEDULE.TIMEZONE }
     )
   );
 
-  console.log('[scheduler] ✅ Планувальник запущено з усіма задачами:');
-  console.log(`- Ранкові сесії: ${SCHEDULE.MORNING_TIME} (${CRON_SCHEDULES.MORNING_QUESTIONS})`);
-  console.log(`- Вечірні сесії: ${SCHEDULE.EVENING_TIME} (${CRON_SCHEDULES.EVENING_QUESTIONS})`);
-  console.log(`- Ранкові нагадування: +10 хв (${CRON_SCHEDULES.MORNING_REMINDER})`);
-  console.log(`- Вечірні нагадування: +10 хв (${CRON_SCHEDULES.EVENING_REMINDER})`);
-  console.log(`- Перевірка підписок: ${CRON_SCHEDULES.SUBSCRIPTION_CHECK}`);
-  console.log(`- Нагадування про звіти: ${CRON_SCHEDULES.REPORTS_REMINDER}`);
-  console.log(`- Часова зона: ${SCHEDULE.TIMEZONE}`);
-  console.log(`- Поточний час: ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+  console.log('[scheduler] Планувальник запущено');
 };
 
-
+// ⬇️ Експорти
 export { startScheduler };
+export default { startScheduler };

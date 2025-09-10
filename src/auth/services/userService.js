@@ -7,8 +7,7 @@ const getActiveUsers = async () => {
     const base = getBase('Users');
     const records = await base('Users')
       .select({
-        filterByFormula: "{Active_Subscription_Status} = '✅ Активна'",
-      })
+filterByFormula: "FIND('✅ Активна', {Active_Subscription_Status}) > 0"      })
       .all();
     return records.map((r) => r.fields);
   } catch (error) {
