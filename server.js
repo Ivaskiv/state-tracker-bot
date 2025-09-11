@@ -1,4 +1,4 @@
-// server.js  (виправлено: повернуто старий scheduler + TZ)
+// server.js  (виправлено: видалено дублікат імпорту)
 import express from 'express';
 import dotenv from 'dotenv';
 import { Telegraf } from 'telegraf';
@@ -6,11 +6,11 @@ import botController from './src/controllers/botController.js';
 import wayforpayService from './src/services/wayforpayService.js';
 import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
 import { installPendingFlow } from './src/middleware/pendingFlow.js';
-import { startScheduler } from './src/utils/scheduler.js'; // ✅ старий планувальник
-import { SCHEDULE } from './src/config/constants.js';      // ✅ для TZ
+import { startScheduler } from './src/utils/scheduler.js';
+import { SCHEDULE } from './src/config/constants.js'; // ✅ ОДИН ІМПОРТ
 
 dotenv.config();
-import { SCHEDULE } from './src/config/constants.js';
+
 // ✅ Фікс часової зони ДО запуску cron/polling
 process.env.TZ = process.env.TZ || SCHEDULE.TIMEZONE;
 
@@ -59,7 +59,7 @@ try {
 
 console.log('⏰ Initializing scheduler...');
 try {
-  startScheduler(bot); // ✅ старий scheduler
+  startScheduler(bot);
   console.log('✅ Scheduler initialized');
 } catch (error) {
   console.error('❌ Error initializing scheduler:', error);

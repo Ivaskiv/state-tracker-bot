@@ -47,6 +47,7 @@ export const ANSWER_STEPS = Object.freeze({
   MORNING_PENDING: 'morning_pending',
   EVENING_PENDING: 'evening_pending',
 AI_MENTOR_ACTIVE: 'ai_mentor_active',
+WHEEL_BALANCE_ACTIVE: 'wheel_balance_active',
   COMPLETED: 'completed',
 });
 
@@ -263,4 +264,29 @@ AI_MENTOR: (t) => t === '🤖 AI наставник',
   CONTINUE_ANSWERS: (t) => t === '🔄 Продовжити відповіді',
   SKIP_SESSION: (t) => t === '⏭️ Пропустити',
   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase()),
+});
+
+export const WB_TABLE = 'Wheel Balance';
+
+export const WB_FIELDS = Object.freeze({
+  TG_ID: 'TG_id',
+  USER_NAME: 'User Name',
+  DATE: 'Date',
+  STATUS: 'Status',
+  STEP: 'Step',
+  AREAS: {
+    HEALTH: 'Health',
+    ENERGY: 'Energy',
+    CAREER: 'Career/Business',
+    FINANCE: 'Finance',
+    RELATIONSHIPS: 'Relationships',
+    FAMILY: 'Family',
+    GROWTH: 'Self/Growth',
+    LEISURE: 'Rest/Leisure',
+  }
+});
+
+export const WB_STATUS = Object.freeze({
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
 });

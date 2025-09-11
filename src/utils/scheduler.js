@@ -12,6 +12,7 @@ import {
   SCHEDULER_CONFIG,
 } from '../config/constants.js';
 import { schedulePendingReminders } from '../middleware/pendingFlow.js';
+import wheelBalanceController from '../controllers/wheelBalanceController.js';
 
 const jobs = []; // зберігаємо усі задачі для подальшого stop()
 
@@ -177,8 +178,25 @@ const startScheduler = (bot) => {
       { timezone: SCHEDULE.TIMEZONE }
     )
   );
+// ✅ ДОДАЄМО ЩОМІСЯЧНУ ПЕРЕВІРКУ КОЛЕСА БАЛАНСУ (1 число кожного місяця о 10:00)
+  jobs.push(
+    cron.schedule(
+      '0 10 1 * *', // 1 число кожного місяця о 10:00
+      async () => {
+        try {
+          console.log(
+            `[scheduler] 🎯 Щомісячна перевірка колеса балансу о ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`
+          );
+          await wheelBalanceController.checkMonthlyWheelNeed(bot);
+        } catch (error) {
+          console.error('[scheduler] Помилка щомісячної перевірки колеса:', error);
+        }
+      },
+      { timezone: SCHEDULE.TIMEZONE }
+    )
+  );
 
-  console.log('[scheduler] Планувальник запущено');
+  console.log('[scheduler] Планувальник запущено з колесом балансу');
 };
 
 // ⬇️ Експорти

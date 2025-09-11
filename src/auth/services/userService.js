@@ -49,6 +49,26 @@ const updateUserStep = async (tgId, step) => {
   }
 };
 
+// ✅ ДОДАНА функція оновлення активності користувача
+const updateUserActivity = async (tgId) => {
+  try {
+    const base = getBase('Users');
+    const records = await base('Users')
+      .select({
+        filterByFormula: `{TG_id} = '${tgId}'`,
+      })
+      .firstPage();
+    if (records.length > 0) {
+      await base('Users').update(records[0].id, { 
+        Last_Activity: new Date().toISOString() 
+      });
+      console.log(`[userService] Оновлено активність для ${tgId}`);
+    }
+  } catch (error) {
+    console.error('[userService.updateUserActivity] Помилка:', error);
+  }
+};
+
 const createUser = async ({ tgId, name, email, phone, timezone }) => {
   try {
     const base = getBase('Users');
@@ -62,6 +82,7 @@ const createUser = async ({ tgId, name, email, phone, timezone }) => {
       'Active Subscription Plan': 'Базовий',
       'Subscription Status': 'Inactive',
       Answer_Step: ANSWER_STEPS.PLAN_SELECTION,
+      Last_Activity: new Date().toISOString(), // ✅ ДОДАЄМО при створенні
     });
     console.log(`[userService] Створено користувача: ${tgId}, timezone: ${timezone}, крок: ${ANSWER_STEPS.PLAN_SELECTION}`);
     return record.fields;
@@ -130,6 +151,7 @@ export default {
   getActiveUsers, 
   getUserByTelegramId, 
   updateUserStep, 
+  updateUserActivity, 
   createUser,
   updateUserSubscription,
   getUsersWithExpiringSubscriptions
