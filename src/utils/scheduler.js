@@ -1,4 +1,4 @@
-// src/services/scheduler.js
+// src/utils/scheduler.js - ВИПРАВЛЕНО ДУБЛІКАТИ
 import cron from 'node-cron';
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
@@ -15,11 +15,24 @@ import { schedulePendingReminders } from '../middleware/pendingFlow.js';
 import wheelBalanceController from '../controllers/wheelBalanceController.js';
 
 const jobs = []; // зберігаємо усі задачі для подальшого stop()
+const sentReminders = new Set(); // ✅ ДОДАНО: запобігання дублікатам
 
 const sendReminder = async (bot, type, tgId, name) => {
   try {
+    // ✅ ПЕРЕВІРКА НА ДУБЛІКАТИ
+    const today = new Date().toISOString().split('T')[0];
+    const reminderKey = `${tgId}_${type}_${today}`;
+    
+    if (sentReminders.has(reminderKey)) {
+      console.log(`[sendReminder] ⏭️ Пропущено дублікат нагадування для ${tgId} (${type})`);
+      return;
+    }
+    
     const isCompleted = await responseService.isSessionCompleted(tgId, type);
-    if (isCompleted) return;
+    if (isCompleted) {
+      console.log(`[sendReminder] ⏭️ Сесія ${type} вже завершена для ${tgId}`);
+      return;
+    }
 
     const message =
       type === QUESTION_TYPES.MORNING
@@ -27,7 +40,11 @@ const sendReminder = async (bot, type, tgId, name) => {
         : SCHEDULER_MESSAGES.EVENING_REMINDER;
 
     await bot.telegram.sendMessage(tgId, message);
-    console.log(`[sendReminder] Надіслано нагадування для ${type} користувачу ${tgId}`);
+    
+    // ✅ ВІДМІЧАЄМО ЯК НАДІСЛАНЕ
+    sentReminders.add(reminderKey);
+    
+    console.log(`[sendReminder] ✅ Надіслано нагадування для ${type} користувачу ${tgId}`);
   } catch (error) {
     console.error(`[sendReminder] Помилка для ${type}, користувач ${tgId}:`, error);
   }
@@ -73,8 +90,20 @@ const sendEveningReminder = async (bot) => {
 
 const startSession = async (bot, type, tgId, name) => {
   try {
+    // ✅ ПЕРЕВІРКА НА ДУБЛІКАТИ СЕСІЙ
+    const today = new Date().toISOString().split('T')[0];
+    const sessionKey = `${tgId}_session_${type}_${today}`;
+    
+    if (sentReminders.has(sessionKey)) {
+      console.log(`[startSession] ⏭️ Пропущено дублікат сесії для ${tgId} (${type})`);
+      return;
+    }
+    
     const isCompleted = await responseService.isSessionCompleted(tgId, type);
-    if (isCompleted) return;
+    if (isCompleted) {
+      console.log(`[startSession] ⏭️ Сесія ${type} вже завершена для ${tgId}`);
+      return;
+    }
 
     const now = getUserDateTime(tgId);
     const hour = now.getHours();
@@ -99,10 +128,19 @@ const startSession = async (bot, type, tgId, name) => {
     // персональні нагадування +10 хв та +60 хв
     schedulePendingReminders(bot, tgId, isMorning ? 'Morning' : 'Evening');
 
-    console.log(`[startSession] Початок ${type} сесії для ${tgId}`);
+    // ✅ ВІДМІЧАЄМО СЕСІЮ ЯК РОЗПОЧАТУ
+    sentReminders.add(sessionKey);
+
+    console.log(`[startSession] ✅ Початок ${type} сесії для ${tgId}`);
   } catch (error) {
     console.error(`[startSession] Помилка для ${type}, користувач ${tgId}:`, error);
   }
+};
+
+// ✅ ОЧИЩЕННЯ КЕШУ О ОПІВНОЧІ
+const clearDailyCache = () => {
+  console.log('[scheduler] 🧹 Очищення денного кешу нагадувань');
+  sentReminders.clear();
 };
 
 const startScheduler = (bot) => {
@@ -112,6 +150,13 @@ const startScheduler = (bot) => {
       jobs.pop().stop();
     } catch {}
   }
+
+  // ✅ ОЧИЩЕННЯ КЕШУ О 00:00
+  jobs.push(
+    cron.schedule('0 0 * * *', clearDailyCache, {
+      timezone: SCHEDULE.TIMEZONE,
+    })
+  );
 
   // Ранкові нагадування
   jobs.push(
@@ -178,7 +223,8 @@ const startScheduler = (bot) => {
       { timezone: SCHEDULE.TIMEZONE }
     )
   );
-// ✅ ДОДАЄМО ЩОМІСЯЧНУ ПЕРЕВІРКУ КОЛЕСА БАЛАНСУ (1 число кожного місяця о 10:00)
+
+  // ✅ ЩОМІСЯЧНА ПЕРЕВІРКА КОЛЕСА БАЛАНСУ (1 число кожного місяця о 10:00)
   jobs.push(
     cron.schedule(
       '0 10 1 * *', // 1 число кожного місяця о 10:00
@@ -196,9 +242,7 @@ const startScheduler = (bot) => {
     )
   );
 
-  console.log('[scheduler] Планувальник запущено з колесом балансу');
+  console.log('[scheduler] ✅ Планувальник запущено без дублікатів');
 };
 
-// ⬇️ Експорти
 export { startScheduler };
-export default { startScheduler };

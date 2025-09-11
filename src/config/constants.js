@@ -1,4 +1,4 @@
-// src/config/constants.js
+// src/config/constants.js - ВИПРАВЛЕНО ДУБЛІКАТ ПОВІДОМЛЕННЯ
 export const SUBSCRIPTION_PLANS = Object.freeze({
   WEEK: {
     name: 'Тиждень фокусу',
@@ -147,7 +147,7 @@ export const SCHEDULER_MESSAGES = Object.freeze({
   EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!\n\n🔄 Натисни "🔄 Продовжити відповіді"',
   MORNING_REMINDER_SECOND: '🔔 Останнє нагадування про ранкові питання!',
   EVENING_REMINDER_SECOND: '🔔 Останнє нагадування про вечірні питання!',
-  REPORTS_REMINDER: `💡 Не забувай переглядати свої звіти!\n\n📊 "Щотижневий звіт" - аналіз шаблонів\n📈 "Щомісячний звіт" - глибокий інсайт\n\nЗвіти допомагають усвідомити прогрес та знайти точки росту! 🌱`,
+  REPORTS_REMINDER: `📊 Переглянь свої звіти для аналізу прогресу!\n\n"📈 Щотижневий звіт" та "📈 Щомісячний звіт" у меню.`, // ✅ ВИПРАВЛЕНО: БЕЗ ДУБЛІКАТІВ
   WEEKLY_REPORT_READY: '📊 Щотижневий AI-звіт готовий!',
   MONTHLY_REPORT_READY: '📈 Місячний AI-звіт готовий!',
 });

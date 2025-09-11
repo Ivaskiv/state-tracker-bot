@@ -1,4 +1,4 @@
-// src/controllers/botController.js
+// src/controllers/botController.js - ВИПРАВЛЕНО ІМПОРТ КОЛЕСА БАЛАНСУ
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import affirmationService from '../dialogue/services/affirmationService.js';
@@ -23,25 +23,23 @@ import keyboards from '../utils/keyboards.js';
 import { sendReport } from '../services/reportService.js';
 import { getUserDateTime } from '../utils/timezoneUtils.js';
 import wheelBalanceController from './wheelBalanceController.js';
-import { getActiveWheel, startWheelBalance } from '../wheelBalance/services/wheelBalanceService.js';
+import wheelBalanceService from '../services/wheelBalanceService.js'; // ✅ ВИПРАВЛЕНО ШЛЯХ
+
 async function handleWheelBalance(ctx, user) {
   const tgId = ctx.from.id;
-  let rec = await getActiveWheel(tgId);
+  let rec = await wheelBalanceService.getActiveWheel(tgId); // ✅ ВИКОРИСТОВУЄМО ПРАВИЛЬНИЙ СЕРВІС
 
   if (!rec) {
-    rec = await startWheelBalance(user);
+    rec = await wheelBalanceService.startWheelBalance(tgId); // ✅ ВИКОРИСТОВУЄМО ПРАВИЛЬНИЙ СЕРВІС
     await ctx.reply('🎯 Починаємо колесо балансу! Оціни сферу "Здоровʼя" від 0 до 10.');
   } else {
-    const step = rec.get('Step') || 1;
-    // Повертаємо користувача на актуальний крок:
-    const prompts = [
-      'Здоровʼя', 'Енергія', 'Карʼєра/Бізнес', 'Фінанси',
-      'Стосунки', 'Родина', 'Саморозвиток', 'Відпочинок/Дозвілля'
-    ];
-    const idx = Math.max(1, Math.min(step, prompts.length)) - 1;
+    const step = rec.fields.Wheel_Current_Sphere || 0; // ✅ ВИПРАВЛЕНО ПОЛЕ
+    const prompts = wheelBalanceService.LIFE_SPHERES; // ✅ ВИКОРИСТОВУЄМО ПРАВИЛЬНИЙ СЕРВІС
+    const idx = Math.max(0, Math.min(step, prompts.length - 1));
     await ctx.reply(`🎯 Продовжуємо. Оціни сферу "${prompts[idx]}" від 0 до 10.`);
   }
 }
+
 const botController = (bot) => {
   console.log('[botController] Initializing bot controller...');
 

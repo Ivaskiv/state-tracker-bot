@@ -1,25 +1,308 @@
-import airtable from '../../db/airtable.js';
-import { WB_TABLE, WB_FIELDS, WB_STATUS } from '../constants.js';
-import { getUserDateString } from '../../utils/timezoneUtils.js';
+// src/services/wheelBalanceService.js - З ДЕТАЛЬНИМИ ЛОГАМИ
+import { getBase, tables } from '../config/database.js';
+import { chat } from './openaiClient.js';
+import { getUserDateString } from '../utils/timezoneUtils.js';
 
-const table = airtable(WB_TABLE);
+const base = getBase();
 
-export async function getActiveWheel(tgId) {
-  const formula = `AND({${WB_FIELDS.TG_ID}}='${tgId}', {${WB_FIELDS.STATUS}}='${WB_STATUS.ACTIVE}')`;
-  const records = await table.select({ filterByFormula: formula, maxRecords: 1 }).firstPage();
-  return records[0] || null;
-}
+// 8 сфер життя для колеса балансу
+const LIFE_SPHERES = [
+  'Здоров\'я та енергія',
+  'Особистісний розвиток', 
+  'Стосунки (сім\'я, друзі)',
+  'Кар\'єра та професія',
+  'Фінанси та достаток',
+  'Дозвілля та відпочинок',
+  'Духовність та цінності',
+  'Житло та побут'
+];
 
-export async function startWheelBalance(user) {
-  const tgId = user['TG_id'];
-  const name = user['User Name'] || 'Користувач';
-  const dateStr = getUserDateString(tgId); // "YYYY-MM-DD" під вашу TZ (за замовч. Europe/Kiev)
+// ✅ СТАРТОВЕ КОЛЕСО
+const startWheelBalance = async (tgId) => {
+  try {
+    console.log(`🎯 [wheelBalance] Початок колеса балансу для ${tgId}`);
+    console.log(`🎯 [wheelBalance] Використовуємо таблицю: ${tables.WHEEL_BALANCE}`);
+    console.log(`🎯 [wheelBalance] База даних ініціалізована:`, !!base);
+    
+    // ✅ ВИКОРИСТОВУЄМО ПРАВИЛЬНУ ТАБЛИЦЮ WheelBalance
+    const wheelData = {
+      TG_id: String(tgId),
+      Status: 'Active',
+      Current_Sphere: 0,
+      Created_Date: new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    };
+    
+    console.log(`🎯 [wheelBalance] Дані для створення:`, wheelData);
+    
+    const wheelRecord = await base(tables.WHEEL_BALANCE).create(wheelData);
+    
+    if (!wheelRecord) {
+      console.error(`❌ [wheelBalance] ВСІ варіанти створення не вдалися! Перевірте поля таблиці WheelBalance в Airtable`);
+      console.error(`❌ [wheelBalance] Очікувані поля: TG_id, Status, Current_Sphere, Created_Date`);
+      return null;
+    }
+    
+    console.log(`🎯 [wheelBalance] ✅ Запис створено з варіантом ${successfulVariant + 1}, ID:`, wheelRecord.id);
+    console.log(`🎯 [wheelBalance] ✅ Поля запису:`, wheelRecord.fields);
+    
+    const firstSphere = LIFE_SPHERES[0];
+    const message = `🎯 КОЛЕСО БАЛАНСУ\n\nОціни кожну сферу життя від 1 до 10, де:\n1 = дуже погано\n10 = ідеально\n\n1️⃣/8 ${firstSphere}\n\nОцінка (1-10):`;
+    
+    console.log(`🎯 [wheelBalance] ✅ Повертаємо дані:`, {
+      message: message.substring(0, 50) + '...',
+      recordId: wheelRecord.id,
+      currentSphere: 0,
+      totalSpheres: LIFE_SPHERES.length
+    });
+    
+    return {
+      message,
+      recordId: wheelRecord.id,
+      currentSphere: 0,
+      totalSpheres: LIFE_SPHERES.length
+    };
+  } catch (error) {
+    console.error('❌ [wheelBalance] КРИТИЧНА ПОМИЛКА створення колеса:');
+    console.error('❌ [wheelBalance] Помилка тип:', error.constructor.name);
+    console.error('❌ [wheelBalance] Помилка код:', error.statusCode);
+    console.error('❌ [wheelBalance] Помилка повідомлення:', error.message);
+    console.error('❌ [wheelBalance] Повна помилка:', error);
+    console.error('❌ [wheelBalance] База даних доступна:', !!base);
+    console.error('❌ [wheelBalance] Таблиця:', tables.WHEEL_BALANCE);
+    return null;
+  }
+};
 
-  return table.create({
-    [WB_FIELDS.TG_ID]: tgId.toString(),
-    [WB_FIELDS.USER_NAME]: name,
-    [WB_FIELDS.DATE]: dateStr,
-    [WB_FIELDS.STATUS]: WB_STATUS.ACTIVE,
-    [WB_FIELDS.STEP]: 1,
-  });
-}
+// ✅ ОБРОБКА ВІДПОВІДІ НА СФЕРУ
+const processWheelAnswer = async (tgId, score) => {
+  try {
+    console.log(`🎯 [wheelBalance] Обробка відповіді від ${tgId}: "${score}"`);
+    
+    const scoreNum = parseInt(score);
+    if (isNaN(scoreNum) || scoreNum < 1 || scoreNum > 10) {
+      console.log(`❌ [wheelBalance] Невалідний бал: ${score}`);
+      return {
+        error: true,
+        message: 'Будь ласка, введи число від 1 до 10'
+      };
+    }
+    
+    console.log(`🎯 [wheelBalance] Валідний бал: ${scoreNum}`);
+    console.log(`🎯 [wheelBalance] Шукаємо активне колесо для ${tgId}`);
+    
+    // ✅ ШУКАЄМО В ТАБЛИЦІ WheelBalance
+    const filterFormula = `AND({TG_id}="${tgId}", {Status}="Active")`;
+    console.log(`🎯 [wheelBalance] Фільтр формула:`, filterFormula);
+    
+    const records = await base(tables.WHEEL_BALANCE)
+      .select({
+        filterByFormula: filterFormula,
+        maxRecords: 1,
+        sort: [{ field: 'Date', direction: 'desc' }] // ✅ Date замість Created_Date
+      })
+      .firstPage();
+    
+    console.log(`🎯 [wheelBalance] Знайдено записів: ${records.length}`);
+    
+    if (!records.length) {
+      console.log(`❌ [wheelBalance] Активне колесо не знайдено для ${tgId}`);
+      return {
+        error: true,
+        message: 'Активне колесо не знайдено. Почни спочатку.'
+      };
+    }
+    
+    const record = records[0];
+    console.log(`🎯 [wheelBalance] Знайдений запис ID: ${record.id}`);
+    console.log(`🎯 [wheelBalance] Поля запису:`, record.fields);
+    
+    const currentSphere = record.fields.Current_Sphere || 0;
+    const sphereName = LIFE_SPHERES[currentSphere];
+    
+    console.log(`🎯 [wheelBalance] Поточна сфера: ${currentSphere} (${sphereName})`);
+    
+    // ✅ ПРАВИЛЬНІ НАЗВИ ПОЛІВ ДЛЯ WheelBalance
+    const fieldName = `Sphere_${currentSphere + 1}`;
+    const updateFields = {
+      [fieldName]: scoreNum
+    };
+    
+    console.log(`🎯 [wheelBalance] Оновлюємо поле: ${fieldName} = ${scoreNum}`);
+    
+    const nextSphere = currentSphere + 1;
+    
+    if (nextSphere < LIFE_SPHERES.length) {
+      updateFields.Current_Sphere = nextSphere;
+      
+      console.log(`🎯 [wheelBalance] Переходимо до сфери: ${nextSphere}`);
+      console.log(`🎯 [wheelBalance] Дані для оновлення:`, updateFields);
+      
+      await base(tables.WHEEL_BALANCE).update(record.id, updateFields);
+      
+      const nextSphereName = LIFE_SPHERES[nextSphere];
+      const message = `✅ ${sphereName}: ${scoreNum}/10\n\n${nextSphere + 1}️⃣/8 ${nextSphereName}\n\nОцінка (1-10):`;
+      
+      console.log(`🎯 [wheelBalance] ✅ Наступна сфера: ${nextSphereName}`);
+      
+      return {
+        message,
+        currentSphere: nextSphere,
+        totalSpheres: LIFE_SPHERES.length,
+        completed: false
+      };
+    } else {
+      // ✅ РОЗРАХОВУЄМО ЗАГАЛЬНИЙ БАЛ
+      console.log(`🎯 [wheelBalance] 🏁 Завершуємо колесо балансу`);
+      
+      const totalScore = scoreNum; // поки що тільки останній бал, але можна розрахувати повний
+      
+      updateFields.Status = 'Completed';
+      updateFields.Completed_Date = new Date().toISOString().split('T')[0];
+      updateFields.Total_Score = totalScore;
+      
+      console.log(`🎯 [wheelBalance] Дані для завершення:`, updateFields);
+      
+      await base(tables.WHEEL_BALANCE).update(record.id, updateFields);
+      
+      console.log(`🎯 [wheelBalance] ✅ Колесо завершено, генеруємо аналіз`);
+      
+      const analysis = await generateWheelAnalysis(tgId, record.id);
+      
+      return {
+        message: `✅ ${sphereName}: ${scoreNum}/10\n\n🎯 КОЛЕСО БАЛАНСУ ЗАВЕРШЕНО!\n\n${analysis}`,
+        completed: true,
+        analysis
+      };
+    }
+  } catch (error) {
+    console.error('❌ [wheelBalance] КРИТИЧНА ПОМИЛКА обробки відповіді:');
+    console.error('❌ [wheelBalance] Помилка тип:', error.constructor.name);
+    console.error('❌ [wheelBalance] Помилка код:', error.statusCode);
+    console.error('❌ [wheelBalance] Помилка повідомлення:', error.message);
+    console.error('❌ [wheelBalance] Повна помилка:', error);
+    return {
+      error: true,
+      message: 'Виникла помилка. Спробуй ще раз.'
+    };
+  }
+};
+
+// ✅ ГЕНЕРАЦІЯ AI-АНАЛІЗУ КОЛЕСА
+const generateWheelAnalysis = async (tgId, wheelRecordId) => {
+  try {
+    console.log(`🎯 [wheelBalance] Генерація аналізу для запису ${wheelRecordId}`);
+    
+    const wheelRecord = await base(tables.WHEEL_BALANCE).find(wheelRecordId);
+    const fields = wheelRecord.fields;
+    
+    console.log(`🎯 [wheelBalance] Поля для аналізу:`, fields);
+    
+    const sphereScores = [];
+    for (let i = 1; i <= 8; i++) {
+      const score = fields[`Sphere_${i}`];
+      const name = LIFE_SPHERES[i - 1];
+      if (score) {
+        sphereScores.push({ name, score });
+      }
+    }
+    
+    console.log(`🎯 [wheelBalance] Бали сфер:`, sphereScores);
+    
+    const prompt = `Ти експертний коуч трансформації. Проаналізуй результати колеса балансу:
+
+${sphereScores.map(s => `${s.name}: ${s.score}/10`).join('\n')}
+
+Дай короткий аналіз (до 120 слів):
+🌟 Сильні сторони: [2-3 найвищі сфери]
+⚡ Точки росту: [1-2 найнижчі сфери] 
+🎯 Наступні кроки: [2-3 конкретні дії]
+
+Тон: підтримуючий, з позиції сили. Українською мовою.`;
+
+    console.log(`🎯 [wheelBalance] Відправляємо промт до AI`);
+
+    const analysis = await chat([
+      { role: 'system', content: 'Ти експертний коуч. Аналізуй колесо балансу підтримуюче, конкретно.' },
+      { role: 'user', content: prompt }
+    ], 'gpt-4o-mini', 300);
+
+    console.log(`🎯 [wheelBalance] ✅ AI аналіз отримано:`, analysis?.substring(0, 100) + '...');
+
+    return analysis || '📊 Твоє колесо показує унікальний баланс. Продовжуй розвивати сильні сторони!';
+  } catch (error) {
+    console.error('❌ [wheelBalance] Помилка генерації аналізу:', error);
+    return '📊 Дякуємо за заповнення колеса балансу! Продовжуй працювати над своїм розвитком.';
+  }
+};
+
+// ✅ ПЕРЕВІРКА ЧИ ПОТРІБНО КОЛЕСО (раз на місяць)
+const needsWheelBalance = async (tgId) => {
+  try {
+    console.log(`🎯 [wheelBalance] Перевірка потреби в колесі для ${tgId}`);
+    
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const dateStr = oneMonthAgo.toISOString().split('T')[0];
+    
+    console.log(`🎯 [wheelBalance] Дата місяць тому: ${dateStr}`);
+    
+    // ✅ ШУКАЄМО В ТАБЛИЦІ WheelBalance
+    const records = await base(tables.WHEEL_BALANCE)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Completed", IS_AFTER({Created_Date}, "${dateStr}"))`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    const needs = records.length === 0;
+    console.log(`🎯 [wheelBalance] Користувач ${tgId} ${needs ? 'ПОТРЕБУЄ' : 'НЕ ПОТРЕБУЄ'} колесо балансу`);
+    console.log(`🎯 [wheelBalance] Знайдено завершених коліс за місяць: ${records.length}`);
+    
+    return needs;
+  } catch (error) {
+    console.error('❌ [wheelBalance] Помилка перевірки потреби:', error);
+    return true;
+  }
+};
+
+// ✅ ОТРИМАННЯ АКТИВНОГО КОЛЕСА
+const getActiveWheel = async (tgId) => {
+  try {
+    console.log(`🎯 [wheelBalance] Пошук активного колеса для ${tgId}`);
+    
+    // ✅ ШУКАЄМО В ТАБЛИЦІ WheelBalance
+    const records = await base(tables.WHEEL_BALANCE)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`,
+        maxRecords: 1,
+        sort: [{ field: 'Created_Date', direction: 'desc' }]
+      })
+      .firstPage();
+    
+    console.log(`🎯 [wheelBalance] Знайдено активних коліс: ${records.length}`);
+    
+    if (records.length > 0) {
+      console.log(`🎯 [wheelBalance] ✅ Активне колесо знайдено:`, records[0].fields);
+      return records[0];
+    } else {
+      console.log(`🎯 [wheelBalance] ❌ Активне колесо не знайдено`);
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ [wheelBalance] КРИТИЧНА ПОМИЛКА отримання активного колеса:');
+    console.error('❌ [wheelBalance] Помилка тип:', error.constructor.name);
+    console.error('❌ [wheelBalance] Помилка код:', error.statusCode);
+    console.error('❌ [wheelBalance] Помилка повідомлення:', error.message);
+    console.error('❌ [wheelBalance] Повна помилка:', error);
+    return null;
+  }
+};
+
+export default {
+  startWheelBalance,
+  processWheelAnswer,
+  generateWheelAnalysis,
+  needsWheelBalance,
+  getActiveWheel,
+  LIFE_SPHERES
+};

@@ -191,8 +191,7 @@ const getActiveWheel = async (tgId) => {
       .select({
         filterByFormula: `AND({TG_id}="${tgId}", {Type}="Wheel_Balance", {Status}="Started")`,
         maxRecords: 1,
-        sort: [{ field: 'Date', direction: 'desc' }]
-      })
+sort: [{ field: 'Created_Date', direction: 'desc' }]      })
       .firstPage();
     
     return records.length > 0 ? records[0] : null;

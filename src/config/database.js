@@ -1,4 +1,4 @@
-// src/config/database.js
+// src/config/database.js - ДОДАНО НОВІ ТАБЛИЦІ
 import Airtable from "airtable";
 import dotenv from "dotenv";
 dotenv.config();
@@ -18,11 +18,10 @@ export const tables = Object.freeze({
   AFFIRMATIONS: 'Affirmations',
   USER_AFFIRMATIONS: 'User Affirmations',
   USER_REPORTS: 'User Reports',
-  USER_GOALS: 'User_Goals',
-  DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions',
-  USER_GOALS: 'User_Goals',
-DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions'}
-);
+  USER_GOALS: 'User_Goals', // ✅ НОВА ТАБЛИЦЯ
+  DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions', // ✅ НОВА ТАБЛИЦЯ
+  WHEEL_BALANCE: 'WheelBalance' // ✅ ТАБЛИЦЯ КОЛЕСА БАЛАНСУ
+});
 
 export const selectFromTable = (tableName, opts = {}) => base(tables[tableName] || tableName).select(opts);
 export const createRows = (tableName, rows) => base(tables[tableName] || tableName).create(rows, { typecast: true });

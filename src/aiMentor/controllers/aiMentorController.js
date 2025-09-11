@@ -1,11 +1,11 @@
-// src/aiMentor/controllers.js/aiMentorController.js
+// src/aiMentor/controllers/aiMentorController.js - ВИПРАВЛЕНО
 import userService from '../../auth/services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { aiMentorControlKeyboard } from '../../utils/keyboards.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 import typing from '../../utils/typing.js';
 import { aiMentorSession } from '../session.js';
-import { saveGoal, saveMicroAction } from '../services/goalService.js';
+import { saveGoal, saveMicroAction } from '../services/goalService.js'; // ВИПРАВЛЕНО: правильний імпорт
 
 const handleAIMentorRequest = async (ctx) => {
   try {
@@ -105,15 +105,20 @@ const generateAIResponse = async (question, user) => {
     
     if (response && response.trim()) {
       try {
-        await saveGoal(user['TG_id'], question);
+        // ✅ ЗБЕРІГАЄМО ПИТАННЯ ЯК ЦІЛЬ
+        const goalId = await saveGoal(user['TG_id'], question);
+        console.log(`[AI MENTOR] ✅ Ціль збережена з ID: ${goalId}`);
         
+        // ✅ ВИТЯГУЄМО ТА ЗБЕРІГАЄМО МІКРО-ДІЇ
         const actionMatches = response.match(/💡\s*([^✨]+)/);
         if (actionMatches) {
           const actions = actionMatches[1].trim();
-          await saveMicroAction(user['TG_id'], actions, true);
+          await saveMicroAction(user['TG_id'], actions, true, goalId);
+          console.log(`[AI MENTOR] ✅ Мікро-дія збережена для цілі ${goalId}`);
         }
-      } catch (error) {
-        console.error('[AI MENTOR] Помилка збереження:', error);
+      } catch (saveError) {
+        console.error('[AI MENTOR] ❌ Помилка збереження в нові таблиці:', saveError);
+        // Продовжуємо роботу навіть якщо збереження не вдалося
       }
 
       return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${response}`;
