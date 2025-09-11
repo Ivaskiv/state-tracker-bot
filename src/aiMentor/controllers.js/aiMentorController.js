@@ -1,50 +1,47 @@
-// src/aiMentor/controllers/aiMentorController.js - ЗБЕРЕЖЕННЯ В RESPONSES
-import aiMentorService from '../services/aiMentorService.js';
+// src/aiMentor/controllers/aiMentorController.js - використовує базу даних замість сесій
 import userService from '../../auth/services/userService.js';
-import responseService from '../../dialogue/services/responseService.js';
 import keyboards from '../../utils/keyboards.js';
-import { ANSWER_STEPS, QUESTION_TYPES } from '../../config/constants.js';
+import { ANSWER_STEPS } from '../../config/constants.js';
 
 const handleAIMentorRequest = async (ctx) => {
   try {
     const tgId = ctx.from.id;
-    console.log(`\n🤖 [AI MENTOR REQUEST] Початок для користувача ${tgId}`);
+    console.log(`🤖 [AI MENTOR REQUEST] Початок для користувача ${tgId}`);
     
     const user = await userService.getUserByTelegramId(tgId);
     if (!user) {
-      console.log(`❌ [AI MENTOR] Користувача ${tgId} не знайдено`);
       return ctx.reply('Спочатку зареєструйтесь /start', keyboards.mainMenuKeyboard());
     }
     
     const isActive = user['Active_Subscription_Status']?.includes('✅ Активна');
-    console.log(`💰 [AI MENTOR] Активна підписка для ${tgId}: ${isActive}`);
-    
     if (!isActive) {
-      console.log(`❌ [AI MENTOR] Немає підписки для ${tgId}`);
+      // Додаємо typing анімацію
+      await ctx.telegram.sendChatAction(tgId, 'typing');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       return ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
     }
     
-    console.log(`📝 [AI MENTOR] Поточний Answer_Step: "${user.Answer_Step}"`);
-    console.log(`🔄 [AI MENTOR] Встановлюємо Answer_Step на: "${ANSWER_STEPS.AI_MENTOR_WAITING}"`);
+    // Встановлюємо режим AI-наставника в базі даних
+    await userService.updateUserStep(tgId, ANSWER_STEPS.AI_MENTOR_ACTIVE);
+    console.log(`🔄 [AI MENTOR] Answer_Step встановлено на: ${ANSWER_STEPS.AI_MENTOR_ACTIVE}`);
     
-    // ✅ СПОЧАТКУ ОНОВЛЮЄМО СТАН
-    await userService.updateUserStep(tgId, ANSWER_STEPS.AI_MENTOR_WAITING);
-    
-    // ✅ ПЕРЕВІРЯЄМО ЧИ ОНОВИЛОСЯ
-    const updatedUser = await userService.getUserByTelegramId(tgId);
-    console.log(`✅ [AI MENTOR] Після оновлення Answer_Step: "${updatedUser.Answer_Step}"`);
-    console.log(`✅ [AI MENTOR] Стани збігаються: ${updatedUser.Answer_Step === ANSWER_STEPS.AI_MENTOR_WAITING}`);
-    
+    // Додаємо typing анімацію для реалістичного відчуття
     await ctx.telegram.sendChatAction(tgId, 'typing');
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1200));
     
     const helpText = `🤖 AI-НАСТАВНИК\n\nЯ твій персональний AI-коуч! Готовий відповісти на твоє питання.\n\n💡 Персональними порадами\n🎯 Мікро-діями для цілей\n⚡ Підтримкою в складних ситуаціях\n\nНапиши своє питання прямо зараз! 👇`;
     
     await ctx.reply(helpText);
-    console.log(`✅ [AI MENTOR] Інструкції надіслано, очікуємо питання від ${tgId}`);
+    console.log(`✅ [AI MENTOR] Інструкції надіслано для ${tgId}, Answer_Step: ${ANSWER_STEPS.AI_MENTOR_ACTIVE}`);
     
   } catch (error) {
     console.error('[AI MENTOR REQUEST] Помилка:', error);
+    
+    // Додаємо typing анімацію навіть при помилці
+    await ctx.telegram.sendChatAction(tgId, 'typing');
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
     await ctx.reply('❌ Помилка AI-наставника. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
   }
 };
@@ -52,56 +49,33 @@ const handleAIMentorRequest = async (ctx) => {
 const handleAIMentorQuestion = async (ctx, question) => {
   try {
     const tgId = ctx.from.id;
-    console.log(`\n🤖 [AI MENTOR QUESTION] Обробка питання від ${tgId}: "${question}"`);
+    console.log(`🤖 [AI MENTOR QUESTION] Обробка питання від ${tgId}: "${question}"`);
     
     const user = await userService.getUserByTelegramId(tgId);
     if (!user || !user['Active_Subscription_Status']?.includes('✅ Активна')) {
       console.log(`❌ [AI MENTOR] Немає доступу для ${tgId}`);
+      
+      // Скидаємо стан AI-наставника при відсутності доступу
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      
+      // Додаємо typing анімацію
+      await ctx.telegram.sendChatAction(tgId, 'typing');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       return ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
     }
     
+    // Показуємо typing під час обробки запиту
     await ctx.telegram.sendChatAction(tgId, 'typing');
     
-    let responseText;
-    const isGoalRequest = question.toLowerCase().includes('мікро-дії') || 
-                         question.toLowerCase().includes('ціль') ||
-                         question.toLowerCase().includes('дії для');
+    // Використовуємо OpenAI для відповіді
+    const responseText = await generateAIResponse(question, user);
     
-    if (isGoalRequest) {
-      console.log(`🎯 [AI MENTOR] Генерація мікро-дій для ${tgId}`);
-      const focusGoal = question.match(/ціль[:\s]*(.*)/i)?.[1] || question;
-      const state = user['Q_m_5'] || 'невідомий стан';
-      const result = await aiMentorService.generateMicroActions(focusGoal, state, tgId);
-      
-      const actionsText = result.microActions
-        .map((action, index) => `${index + 1}. ${action.action}\n💡 ${action.tip}`)
-        .join('\n\n');
-      responseText = `🎯 МІКРО-ДІЇ НА СЬОГОДНІ:\n\n${actionsText}\n\n✨ ${result.motivation}`;
-      
-    } else {
-      console.log(`💡 [AI MENTOR] Генерація поради для ${tgId}`);
-      const advice = await aiMentorService.generatePersonalizedAdvice(question, tgId);
-      responseText = `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${advice}`;
-    }
+    // Додаткова typing анімація перед відповіддю
+    await ctx.telegram.sendChatAction(tgId, 'typing');
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // ✅ ЗБЕРІГАЄМО ДІАЛОГ
-    try {
-      await responseService.createOrUpdateResponse(
-        tgId,
-        user['User Name'] || 'Користувач',
-        QUESTION_TYPES.AI_MESSAGE,
-        ANSWER_STEPS.COMPLETED,
-        0,
-        `ПИТАННЯ: ${question}\n\nВІДПОВІДЬ: ${responseText}`,
-        'ai_dialog'
-      );
-      console.log(`💾 [AI MENTOR] Діалог збережено для ${tgId}`);
-    } catch (saveError) {
-      console.error(`❌ [AI MENTOR] Помилка збереження:`, saveError);
-    }
-    
-    // ✅ ПОКАЗУЄМО КНОПКИ ПРОДОВЖЕННЯ
+    // Показуємо кнопки продовження
     const keyboard = {
       reply_markup: {
         inline_keyboard: [
@@ -116,12 +90,68 @@ const handleAIMentorQuestion = async (ctx, question) => {
     await ctx.reply(responseText, keyboard);
     console.log(`✅ [AI MENTOR] Відповідь надіслано для ${tgId}`);
     
-    // ✅ ЗАЛИШАЄМО В РЕЖИМІ AI-НАСТАВНИКА ДЛЯ ПРОДОВЖЕННЯ
-    // НЕ міняємо Answer_Step, щоб користувач міг задати ще питання
-    
   } catch (error) {
     console.error('[AI MENTOR QUESTION] Помилка:', error);
+    
+    // Додаємо typing анімацію навіть при помилці
+    await ctx.telegram.sendChatAction(tgId, 'typing');
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
     await ctx.reply('❌ Помилка при обробці питання. Спробуйте ще раз.');
+  }
+};
+
+// Функція для генерації AI відповіді
+const generateAIResponse = async (question, user) => {
+  try {
+    // Імпортуємо chat функцію
+    const { chat } = await import('../../services/openaiClient.js');
+    
+    const prompt = `Ти експертний AI-наставник рівня Tony Robbins + Simon Sinek.
+
+Користувач питає: "${question}"
+
+Дай персоналізовану відповідь:
+- З позиції "ти вже маєш силу всередині"
+- Конкретні мікро-дії, не загальні поради
+- До 150 слів
+- Підтримуючий тон
+- Українською мовою
+
+Формат:
+🎯 [короткий інсайт про ситуацію]
+💡 [1-2 конкретні дії]
+✨ [мотиваційне закриття]`;
+
+    console.log(`[AI MENTOR] Відправляємо запит до OpenAI...`);
+    
+    const response = await chat([
+      { 
+        role: 'system', 
+        content: 'Ти AI-наставник. Відповідай підтримуюче, конкретно, з позиції сили. Українською мовою.' 
+      },
+      { role: 'user', content: prompt }
+    ], 'gpt-4o-mini', 300);
+
+    console.log(`[AI MENTOR] OpenAI відповідь отримана: ${response.length} символів`);
+    
+    if (response && response.trim()) {
+      return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${response}`;
+    } else {
+      throw new Error('Порожня відповідь від OpenAI');
+    }
+    
+  } catch (error) {
+    console.error('[AI MENTOR] Помилка OpenAI:', error);
+    
+    // Fallback відповіді
+    const fallbackResponses = [
+      "🎯 Твоє питання показує глибину твоїх роздумів\n💡 Почни з одного маленького кроку сьогодні\n✨ Ти вже на правильному шляху до відповіді! 💪",
+      "🎯 Розумію твоє прагнення до ясності\n💡 Запиши свої думки на папері та обери одну дію\n✨ Довіряй своїй мудрості - вона в тобі є! 🌟",
+      "🎯 Такі питання виникають у сильних людей\n💡 Зроби паузу, подихай глибоко і прислухайся до себе\n✨ Ти знаєш відповідь, просто довіряй процесу! ✨"
+    ];
+    
+    return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)]}`;
   }
 };
 
@@ -133,12 +163,24 @@ const handleAIMentorCallback = async (ctx) => {
     console.log(`📱 [AI MENTOR CALLBACK] ${data} для ${tgId}`);
     
     if (data === 'ai_continue') {
+      // Залишаємо в режимі AI-наставника в базі даних
+      await userService.updateUserStep(tgId, ANSWER_STEPS.AI_MENTOR_ACTIVE);
+      
+      // Додаємо typing анімацію
+      await ctx.telegram.sendChatAction(tgId, 'typing');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       await ctx.reply('🤖 Задавай наступне питання! Я готовий допомогти 😊');
       await ctx.answerCbQuery('Продовжуємо діалог');
-      // Залишаємо Answer_Step = AI_MENTOR_WAITING
       
     } else if (data === 'ai_exit') {
+      // Виходимо з режиму AI-наставника
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      
+      // Додаємо typing анімацію
+      await ctx.telegram.sendChatAction(tgId, 'typing');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
       await ctx.answerCbQuery('Вихід з AI-наставника');
       console.log(`🚪 [AI MENTOR] Користувач ${tgId} вийшов з AI-наставника`);

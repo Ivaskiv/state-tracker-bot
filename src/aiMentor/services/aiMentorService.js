@@ -1,4 +1,4 @@
-// src/aiMentor/services/aiMentorService.js
+// src/aiMentor/services/aiMentorService.js - виправлення
 import { chat } from '../../services/openaiClient.js';
 import userService from '../../auth/services/userService.js';
 import responseService from '../../dialogue/services/responseService.js';
@@ -8,6 +8,8 @@ const systemPrompt = AI_MENTOR_PROMPTS.SYSTEM_PROMPT;
 
 async function generateMicroActions(focusGoal, state, tgId) {
   try {
+    console.log(`[aiMentorService] Генерація мікро-дій для цілі: "${focusGoal}", стан: "${state}"`);
+    
     const historyData = await getUserHistory(tgId);
 
     const prompt = `Ти AI-наставник для щоденних мікро-дій.
@@ -17,7 +19,7 @@ async function generateMicroActions(focusGoal, state, tgId) {
 - Стан: "${state}"
 - Історія за тиждень: ${JSON.stringify(historyData)}
 
-Створи 3-5 конкретних мікро-дій на сьогодні у форматі JSON:
+Створи 3 конкретні мікро-дії на сьогодні у форматі JSON:
 {
   "microActions": [
     {
@@ -48,9 +50,14 @@ async function generateMicroActions(focusGoal, state, tgId) {
       400
     );
 
+    console.log(`[aiMentorService] OpenAI відповідь: ${response}`);
+
     try {
-      return JSON.parse(response);
-    } catch {
+      const parsed = JSON.parse(response);
+      console.log(`[aiMentorService] JSON успішно розпарсено`);
+      return parsed;
+    } catch (parseError) {
+      console.error(`[aiMentorService] Помилка парсингу JSON:`, parseError);
       return getFallbackActions(focusGoal, state);
     }
   } catch (error) {
@@ -61,14 +68,16 @@ async function generateMicroActions(focusGoal, state, tgId) {
 
 async function generatePersonalizedAdvice(question, tgId) {
   try {
+    console.log(`[aiMentorService] Генерація поради для питання: "${question}"`);
+    
     const user = await userService.getUserByTelegramId(tgId);
     const recentRecords = await responseService.getUserRecords(tgId, 14);
     
     const userContext = recentRecords.slice(0, 3).map(r => ({
-      goals: [r.fields.Q_m_3, r.fields.Q_m_4].filter(Boolean),
-      state: r.fields.Q_m_5,
-      programs: r.fields.Q_e_3,
-      victories: r.fields.Q_e_5
+      goals: [r.fields?.Q_m_3, r.fields?.Q_m_4].filter(Boolean),
+      state: r.fields?.Q_m_5,
+      programs: r.fields?.Q_e_3,
+      victories: r.fields?.Q_e_5
     }));
 
     const prompt = `Ти експертний AI-наставник рівня Tony Robbins.
@@ -99,6 +108,8 @@ async function generatePersonalizedAdvice(question, tgId) {
       300
     );
 
+    console.log(`[aiMentorService] Порада згенерована, довжина: ${response.length}`);
+    
     return response || "🎯 Твоє питання важливе!\n💡 Почни з одного маленького кроку вперед\n✨ Ти вже на правильному шляху! 💪";
   } catch (error) {
     console.error('[aiMentorService] Помилка генерації поради:', error);
@@ -137,10 +148,10 @@ async function getUserHistory(tgId) {
   try {
     const records = await responseService.getUserRecords(tgId, 7);
     return records.map(r => ({
-      date: r.fields.Date_Response || 'невідома дата',
-      goal: r.fields.Q_m_4 || '',
-      state: r.fields.Q_m_5 || '',
-      victory: r.fields.Q_e_5 || ''
+      date: r.fields?.Date_Response || 'невідома дата',
+      goal: r.fields?.Q_m_4 || '',
+      state: r.fields?.Q_m_5 || '',
+      victory: r.fields?.Q_e_5 || ''
     }));
   } catch (error) {
     console.error('[aiMentorService] Помилка отримання історії:', error);
@@ -149,9 +160,11 @@ async function getUserHistory(tgId) {
 }
 
 function getFallbackActions(focusGoal, state) {
+  console.log(`[aiMentorService] Використовуємо fallback дії`);
+  
   const s = (state || '').toLowerCase();
   const isResourceful =
-    s.includes('енергія') || s.includes('сила') || s.includes('впевнен');
+    s.includes('енергія') || s.includes('сила') || s.includes('впевнен') || s.includes('ресурс');
 
   return {
     microActions: [

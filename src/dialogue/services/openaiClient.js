@@ -1,27 +1,43 @@
-// src/services/openaiClient.js
-import { Configuration, OpenAIApi } from 'openai';
+// src/services/openaiClient.js - виправлення
+import OpenAI from 'openai';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
+// Перевіряємо наявність API ключа
+if (!process.env.OPENAI_API_KEY) {
+  console.error('❌ OPENAI_API_KEY не знайдено в .env файлі');
+}
+
+export const openai = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY 
 });
 
-const openai = new OpenAIApi(configuration);
-
-const chat = async (messages, model, maxTokens) => {
+export const chat = async (messages, model = 'gpt-4o-mini', max_tokens = 600) => {
   try {
-    const response = await openai.createChatCompletion({
-      model: model || 'gpt-4o-mini',
-      messages,
-      max_tokens: maxTokens || 500,
+    console.log(`[OpenAI] Запит до ${model}, токенів: ${max_tokens}`);
+    
+    const response = await openai.chat.completions.create({ 
+      model, 
+      messages, 
+      max_tokens, 
+      temperature: 0.7 
     });
-    return response.data.choices[0].message.content.trim();
+    
+    const result = response.choices?.[0]?.message?.content?.trim() || '';
+    console.log(`[OpenAI] Відповідь отримано, довжина: ${result.length} символів`);
+    
+    return result;
   } catch (error) {
-    console.error('[openaiClient] Error:', error);
-    throw error;
+    console.error('[OpenAI] Помилка:', error.message || error);
+    
+    // Fallback відповіді
+    const fallbacks = [
+      "🎯 Для досягнення цілі важливо розбити її на маленькі кроки та діяти послідовно.",
+      "💪 Твоя сила в постійності. Роби невеликі кроки щодня - вони ведуть до великих результатів.",
+      "✨ Сфокусуйся на одній дії сьогодні. Довіряй процесу та своїй здатності рости.",
+      "🌱 Кожен день - це можливість стати кращою версією себе. Почни з того, що можеш зробити прямо зараз."
+    ];
+    
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
 };
-
-export { chat };

@@ -18,6 +18,10 @@ export const schedulePendingReminders = (bot, tgId, sessionType) => {
         const user = await userService.getUserByTelegramId(tgId);
         if (!user || user.Answer_Step === ANSWER_STEPS.COMPLETED) return;
         
+        // Додаємо typing анімацію
+        await bot.telegram.sendChatAction(tgId, 'typing');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         const message = sessionType === 'Morning' 
           ? '🔔 Не забудь відповісти на ранкові питання!\n\n🔄 Натисни "🔄 Продовжити відповіді"'
           : '🔔 Час для вечірньої рефлексії!\n\n🔄 Натисни "🔄 Продовжити відповіді"';
@@ -33,6 +37,10 @@ export const schedulePendingReminders = (bot, tgId, sessionType) => {
       try {
         const user = await userService.getUserByTelegramId(tgId);
         if (!user || user.Answer_Step === ANSWER_STEPS.COMPLETED) return;
+        
+        // Додаємо typing анімацію
+        await bot.telegram.sendChatAction(tgId, 'typing');
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         const message = sessionType === 'Morning'
           ? '🔔 Останнє нагадування про ранкові питання!'
@@ -76,14 +84,14 @@ const getCurrentQuestion = (step) => {
   return null;
 };
 
-// Перевірка чи користувач у процесі відповідей
+// Перевірка чи користувач у процесі відповідей (ВИКЛЮЧАЄМО AI_MENTOR_ACTIVE)
 const isPendingResponse = (user) => {
   if (!user || !user.Answer_Step) return false;
   
   const step = user.Answer_Step;
   return step.startsWith('Q_m_') || step.startsWith('Q_e_') || 
-         step === ANSWER_STEPS.MORNING_PENDING || step === ANSWER_STEPS.EVENING_PENDING ||
-         step === ANSWER_STEPS.AI_MENTOR_WAITING;
+         step === ANSWER_STEPS.MORNING_PENDING || step === ANSWER_STEPS.EVENING_PENDING;
+  // ВИДАЛИЛИ AI_MENTOR_ACTIVE - він не блокує меню
 };
 
 // Middleware для блокування меню при незавершених відповідях
@@ -100,10 +108,10 @@ export const installPendingFlow = (bot) => {
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) return next();
 
-      // Перевіряємо, чи користувач у процесі відповідей
+      // Перевіряємо, чи користувач у процесі відповідей (крім AI-наставника)
       const pending = isPendingResponse(user);
       
-      // ВАЖЛИВО: Дозволяємо команди продовження/пропуску завжди
+      // Дозволяємо команди продовження/пропуску завжди
       if (MENU_MATCHERS.CONTINUE_ANSWERS(text) || 
           MENU_MATCHERS.SKIP_SESSION(text) ||
           text.startsWith('🔄') || text.startsWith('⏭️')) {
@@ -115,7 +123,23 @@ export const installPendingFlow = (bot) => {
         return next();
       }
 
-      // Якщо користувач у процесі відповідей і це команда меню (крім продовження)
+      // Спеціальна обробка для AI-наставника при незавершених питаннях
+      if (pending && text === '🤖 AI наставник') {
+        const step = user.Answer_Step;
+        const sessionType = step.startsWith('Q_m_') ? 'ранкові' : 'вечірні';
+        
+        // Додаємо typing анімацію
+        await ctx.telegram.sendChatAction(tgId, 'typing');
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        await ctx.reply(
+          `🔒 Спочатку заверши ${sessionType} питання або пропусти сесію.\n\nПотім зможеш користуватися AI-наставником.`,
+          keyboards.continueAnswersKeyboard()
+        );
+        return;
+      }
+
+      // Якщо користувач у процесі відповідей і це команда меню (крім AI-наставника)
       if (pending && isMenuCommand(text)) {
         
         // Перевіряємо часове вікно
@@ -130,6 +154,11 @@ export const installPendingFlow = (bot) => {
         // Якщо ранкові питання після 20:00 - переключаємо на вечірні
         if (isMorningStep && currentHour >= eveningHour) {
           await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
+          
+          // Додаємо typing анімацію
+          await ctx.telegram.sendChatAction(tgId, 'typing');
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
           await ctx.reply(
             '🌙 Ранкові питання недоступні після 20:00.\n\nМожеш почати вечірні питання або пропустити сесію.',
             keyboards.continueAnswersKeyboard()
@@ -149,6 +178,10 @@ export const installPendingFlow = (bot) => {
           message += `📝 У тебе незавершена сесія відповідей.`;
         }
         
+        // Додаємо typing анімацію
+        await ctx.telegram.sendChatAction(tgId, 'typing');
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         await ctx.reply(message, keyboards.continueAnswersKeyboard());
         return;
       }
@@ -161,10 +194,9 @@ export const installPendingFlow = (bot) => {
     }
   });
 
-  // Функція перевірки чи це команда меню
+  // Функція перевірки чи це команда меню (ВИКЛЮЧИЛИ AI-наставника)
   const isMenuCommand = (text) => {
     const menuCommands = [
-      '🤖 AI наставник',
       '💎 Афірмація',
       '📈 Щотижневий звіт',
       '📈 Щомісячний звіт',
@@ -172,9 +204,10 @@ export const installPendingFlow = (bot) => {
       '📊 Мій прогрес',
       '❓ Допомога',
       '📞 Зв\'язок з нами',
-      '📝  Інструкції',
+      '📝 Інструкції', // виправлено пробіли
       'ℹ️ Профіль'
     ];
+    // НЕ включаємо '🤖 AI наставник' - він обробляється окремо
     return menuCommands.includes(text);
   };
 
@@ -193,9 +226,17 @@ export const installPendingFlow = (bot) => {
         
         const currentQuestion = getCurrentQuestion(user.Answer_Step);
         if (currentQuestion) {
+          // Додаємо typing анімацію
+          await ctx.telegram.sendChatAction(tgId, 'typing');
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
           await ctx.reply(currentQuestion);
           await ctx.answerCbQuery('Продовжуємо відповіді');
         } else {
+          // Додаємо typing анімацію
+          await ctx.telegram.sendChatAction(tgId, 'typing');
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
           await ctx.reply('Питання завершені!', keyboards.mainMenuKeyboard());
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
           await ctx.answerCbQuery('Готово');
@@ -203,6 +244,11 @@ export const installPendingFlow = (bot) => {
       } else if (data === 'skip_session') {
         await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
         clearUserReminders(tgId); // очищуємо нагадування
+        
+        // Додаємо typing анімацію
+        await ctx.telegram.sendChatAction(tgId, 'typing');
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         await ctx.reply('Сесію пропущено. Повертаємося до меню.', keyboards.mainMenuKeyboard());
         await ctx.answerCbQuery('Сесію пропущено');
       }

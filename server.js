@@ -45,7 +45,7 @@ try {
 
 console.log('🛠️ Installing pending flow middleware...');
 try {
-  // installPendingFlow(bot); // ТИМЧАСОВО ВИМКНЕНО - логіка перенесена в botController
+  installPendingFlow(bot); 
   console.log('✅ Pending flow logic moved to botController');
 } catch (error) {
   console.error('❌ Error installing pending flow middleware:', error);

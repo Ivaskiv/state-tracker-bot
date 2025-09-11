@@ -46,7 +46,7 @@ export const ANSWER_STEPS = Object.freeze({
   END_EVENING: 'End_e',
   MORNING_PENDING: 'morning_pending',
   EVENING_PENDING: 'evening_pending',
-  AI_MENTOR_WAITING: 'AI_Mentor_WAITING',
+AI_MENTOR_ACTIVE: 'ai_mentor_active',
   COMPLETED: 'completed',
 });
 
@@ -258,7 +258,7 @@ export const MENU_MATCHERS = Object.freeze({
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
   CONTACT: (t) => t === '📞 Зв\'язок з нами',
-  INSTRUCTIONS: (t) => t === '📝  Інструкції',
+  INSTRUCTIONS: (t) => t === '📝 Інструкції',
   PROFILE: (t) => t === 'ℹ️ Профіль',
   CONTINUE_ANSWERS: (t) => t === '🔄 Продовжити відповіді',
   SKIP_SESSION: (t) => t === '⏭️ Пропустити',

@@ -1,4 +1,4 @@
-// src/controllers/botController.js
+// src/controllers/botController.js - ПРОСТА ВИПРАВКА
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import affirmationService from '../dialogue/services/affirmationService.js';
@@ -13,7 +13,8 @@ import {
   EVENING_QUESTIONS, 
   SCHEDULE,
   SUBSCRIPTION_PLANS,
-  MENU_TEXTS
+  MENU_TEXTS,
+  MENU_MATCHERS
 } from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 import { sendReport } from '../services/reportService.js';
@@ -87,7 +88,7 @@ const botController = (bot) => {
     }
   });
 
-  bot.on('text', async (ctx) => {
+bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
     const text = ctx.message.text?.trim();
     if (!text) return;
@@ -99,20 +100,19 @@ const botController = (bot) => {
         return;
       }
 
-      console.log(`\n=== ДІАГНОСТИКА TEXT HANDLER ===`);
-      console.log(`👤 Користувач: ${tgId}`);
-      console.log(`💬 Текст: "${text}"`);
-      console.log(`📋 Answer_Step: "${user.Answer_Step}"`);
-      console.log(`🎯 AI_MENTOR_WAITING: "${ANSWER_STEPS.AI_MENTOR_WAITING}"`);
-      console.log(`✅ Збігається: ${user.Answer_Step === ANSWER_STEPS.AI_MENTOR_WAITING}`);
-      console.log(`================================\n`);
+      console.log(`🔍 [USER] Answer_Step: ${user.Answer_Step}`);
 
-      // AI-наставник має найвищий пріоритет
-      if (user.Answer_Step === ANSWER_STEPS.AI_MENTOR_WAITING) {
+      // AI-наставник має найвищий пріоритет - перевіряємо через базу даних
+      if (user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE) {
         console.log(`🤖 [AI-MENTOR] Обробка питання: "${text}"`);
         
         if (isExitCommand(text)) {
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+          
+          // Додаємо typing анімацію
+          await ctx.telegram.sendChatAction(tgId, 'typing');
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
           await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
           return;
         }
@@ -136,7 +136,6 @@ const botController = (bot) => {
       await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
     }
   });
-
   const isExitCommand = (text) => {
     const exitCommands = ['вихід', 'exit', '🏠 головне меню', 'меню'];
     return exitCommands.includes(text.toLowerCase());
@@ -242,96 +241,100 @@ const botController = (bot) => {
     const currentHour = new Date(currentTime).getHours();
     const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
 
-    switch (text) {
-      case '🤖 AI наставник':
-        console.log(`\n=== AI НАСТАВНИК АКТИВАЦІЯ ===`);
-        console.log(`👤 Користувач: ${ctx.from.id}`);
-        console.log(`💰 Підписка активна: ${isActiveSubscription}`);
-        
-        if (!isActiveSubscription) {
-          console.log(`❌ Відмова - немає підписки`);
-          await ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
-          return;
-        }
-        
-        console.log(`✅ Викликаємо handleAIMentorRequest`);
-        await aiMentorController.handleAIMentorRequest(ctx);
-        console.log(`✅ handleAIMentorRequest завершено`);
-        console.log(`==============================\n`);
+    if (MENU_MATCHERS.AI_MENTOR(text)) {
+      console.log(`🤖 [AI НАСТАВНИК] Активація для ${ctx.from.id}`);
+      
+      if (!isActiveSubscription) {
+        await ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
         return;
-
-      case '🌅 Ранкові питання':
-        if (currentHour >= eveningHour) {
-          await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
-          return;
-        }
-        await startMorningQuestions(ctx, user);
-        break;
-
-      case '🌙 Вечірні питання':
-        await startEveningQuestions(ctx, user);
-        break;
-
-      case '💎 Афірмація':
-        const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
-        await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
-        await refreshMenuIfDev(ctx);
-        break;
-
-      case '📈 Щотижневий звіт':
-        if (!isActiveSubscription) {
-          await ctx.reply('📋 Ця функція доступна тільки з активною підпискою', keyboards.mainMenuKeyboard());
-          return;
-        }
-        await sendReport(bot, ctx.from.id, 'weekly');
-        await refreshMenuIfDev(ctx);
-        break;
-
-      case '📈 Щомісячний звіт':
-        if (!isActiveSubscription) {
-          await ctx.reply('📋 Ця функція доступна тільки з активною підпискою', keyboards.mainMenuKeyboard());
-          return;
-        }
-        await sendReport(bot, ctx.from.id, 'monthly');
-        await refreshMenuIfDev(ctx);
-        break;
-
-      case '💰 Підписка':
-        await showSubscriptionInfo(ctx, user);
-        await refreshMenuIfDev(ctx);
-        break;
-
-      case '📊 Мій прогрес':
-        await showUserProgress(ctx, user);
-        await refreshMenuIfDev(ctx);
-        break;
-
-      case '❓ Допомога':
-        await ctx.reply(MENU_TEXTS.HELP, keyboards.mainMenuKeyboard());
-        await refreshMenuIfDev(ctx);
-        break;
-
-      case '📞 Зв\'язок з нами':
-        await ctx.reply(MENU_TEXTS.CONTACT, keyboards.supportKeyboard());
-        break;
-
-      case '📝  Інструкції':
-        await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.mainMenuKeyboard());
-        await refreshMenuIfDev(ctx);
-        break;
-
-      case 'ℹ️ Профіль':
-        await showUserProfile(ctx, user);
-        await refreshMenuIfDev(ctx);
-        break;
-
-      default:
-        console.log(`❓ [MENU] Невідома команда: "${text}"`);
-        await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
-        await refreshMenuIfDev(ctx);
+      }
+      
+      await aiMentorController.handleAIMentorRequest(ctx);
+      return;
     }
+
+    if (text === '🌅 Ранкові питання') {
+      if (currentHour >= eveningHour) {
+        await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
+        return;
+      }
+      await startMorningQuestions(ctx, user);
+      return;
+    }
+
+    if (text === '🌙 Вечірні питання') {
+      await startEveningQuestions(ctx, user);
+      return;
+    }
+
+    if (MENU_MATCHERS.AFFIRM(text)) {
+      const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
+      await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
+      await refreshMenuIfDev(ctx);
+      return;
+    }
+
+    if (MENU_MATCHERS.WEEKLY(text)) {
+      if (!isActiveSubscription) {
+        await ctx.reply('📋 Ця функція доступна тільки з активною підпискою', keyboards.mainMenuKeyboard());
+        return;
+      }
+      await sendReport(bot, ctx.from.id, 'weekly');
+      await refreshMenuIfDev(ctx);
+      return;
+    }
+
+    if (MENU_MATCHERS.MONTHLY(text)) {
+      if (!isActiveSubscription) {
+        await ctx.reply('📋 Ця функція доступна тільки з активною підпискою', keyboards.mainMenuKeyboard());
+        return;
+      }
+      await sendReport(bot, ctx.from.id, 'monthly');
+      await refreshMenuIfDev(ctx);
+      return;
+    }
+
+    if (MENU_MATCHERS.SUBSCRIPTION(text)) {
+      await showSubscriptionInfo(ctx, user);
+      await refreshMenuIfDev(ctx);
+      return;
+    }
+
+    if (MENU_MATCHERS.PROGRESS(text)) {
+      await showUserProgress(ctx, user);
+      await refreshMenuIfDev(ctx);
+      return;
+    }
+
+    if (MENU_MATCHERS.HELP(text)) {
+      await ctx.reply(MENU_TEXTS.HELP, keyboards.mainMenuKeyboard());
+      await refreshMenuIfDev(ctx);
+      return;
+    }
+
+    if (MENU_MATCHERS.CONTACT(text)) {
+      await ctx.reply(MENU_TEXTS.CONTACT, keyboards.supportKeyboard());
+      return;
+    }
+
+    if (MENU_MATCHERS.INSTRUCTIONS(text)) {
+      await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.mainMenuKeyboard());
+      await refreshMenuIfDev(ctx);
+      return;
+    }
+
+    if (MENU_MATCHERS.PROFILE(text)) {
+      await showUserProfile(ctx, user);
+      await refreshMenuIfDev(ctx);
+      return;
+    }
+
+    console.log(`❓ [MENU] Невідома команда: "${text}"`);
+    await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
+    await refreshMenuIfDev(ctx);
   };
 
+  // Решта функцій залишаються без змін
   const startMorningQuestions = async (ctx, user) => {
     const tgId = ctx.from.id;
     const currentTime = getUserDateTime(tgId);
