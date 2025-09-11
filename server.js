@@ -1,4 +1,4 @@
-// server.js
+// server.js  (виправлено: повернуто старий scheduler + TZ)
 import express from 'express';
 import dotenv from 'dotenv';
 import { Telegraf } from 'telegraf';
@@ -6,9 +6,13 @@ import botController from './src/controllers/botController.js';
 import wayforpayService from './src/services/wayforpayService.js';
 import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
 import { installPendingFlow } from './src/middleware/pendingFlow.js';
-import { startScheduler } from './src/utils/scheduler.js';
+import { startScheduler } from './src/utils/scheduler.js'; // ✅ старий планувальник
+import { SCHEDULE } from './src/config/constants.js';      // ✅ для TZ
 
 dotenv.config();
+import { SCHEDULE } from './src/config/constants.js';
+// ✅ Фікс часової зони ДО запуску cron/polling
+process.env.TZ = process.env.TZ || SCHEDULE.TIMEZONE;
 
 const PORT = process.env.PORT || 3000;
 const MODE = process.env.MODE || 'local';
@@ -18,6 +22,7 @@ console.log('🔍 Environment check:');
 console.log('- MODE:', MODE);
 console.log('- PORT:', PORT);
 console.log('- TOKEN:', TOKEN ? `${TOKEN.slice(0, 10)}...` : 'MISSING');
+console.log('- TZ:', process.env.TZ);
 
 if (!TOKEN) {
   console.error('❌ TELEGRAM_BOT_TOKEN is missing');
@@ -27,7 +32,7 @@ if (!TOKEN) {
 console.log('🤖 Initializing bot...');
 const bot = new Telegraf(TOKEN);
 
-bot.catch((err, ctx) => {
+bot.catch((err) => {
   console.error('❌ Bot error:', err);
   if (err.code === 409 && err.description?.includes('terminated by other getUpdates')) {
     console.error('❌ Conflict detected: Another bot instance is running.');
@@ -45,8 +50,8 @@ try {
 
 console.log('🛠️ Installing pending flow middleware...');
 try {
-  installPendingFlow(bot); 
-  console.log('✅ Pending flow logic moved to botController');
+  installPendingFlow(bot);
+  console.log('✅ Pending flow middleware installed');
 } catch (error) {
   console.error('❌ Error installing pending flow middleware:', error);
   process.exit(1);
@@ -54,56 +59,46 @@ try {
 
 console.log('⏰ Initializing scheduler...');
 try {
-  startScheduler(bot);
+  startScheduler(bot); // ✅ старий scheduler
   console.log('✅ Scheduler initialized');
 } catch (error) {
   console.error('❌ Error initializing scheduler:', error);
   process.exit(1);
 }
 
-// Налаштування Express для webhook
+// ==== Express (webhook + health) ====
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
-    bot: 'running'
+    bot: 'running',
+    tz: process.env.TZ,
   });
 });
 
-// WayForPay webhook endpoint
 app.post('/api/wayforpay/webhook', async (req, res) => {
   try {
-    console.log('[webhook] Отримано WayForPay webhook:', req.body);
-    
-    // Обробляємо webhook через wayforpayService
+    console.log('[webhook] WayForPay payload:', req.body);
     const processedData = wayforpayService.processWebhookData(req.body);
-    
-    // Викликаємо існуючий обробник
-    const result = await handleWayForPayWebhook(processedData);
-    
-    // Відповідаємо WayForPay
+    await handleWayForPayWebhook(processedData);
     const response = wayforpayService.generateWebhookResponse('accept');
     res.json(response);
-    
-    console.log('[webhook] Webhook успішно оброблено');
+    console.log('[webhook] ✅ processed');
   } catch (error) {
-    console.error('[webhook] Помилка обробки webhook:', error);
-    
+    console.error('[webhook] ❌ error:', error);
     const response = wayforpayService.generateWebhookResponse('decline');
     res.status(400).json(response);
   }
 });
 
-// Запуск сервера
+// ==== Run bot ====
 if (MODE === 'local') {
-  // Локальний режим: polling + Express для webhook
   console.log(`💻 Local mode: polling + Express webhook server (PORT=${PORT})`);
-  
+
   try {
     await bot.telegram.deleteWebhook({ drop_pending_updates: true });
     console.log('✅ Webhook cleared');
@@ -111,7 +106,7 @@ if (MODE === 'local') {
     console.error('❌ Failed to clear webhook:', error);
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await new Promise((r) => setTimeout(r, 1000));
 
   console.log('🔄 Starting polling...');
   try {
@@ -128,26 +123,22 @@ if (MODE === 'local') {
     process.exit(1);
   }
 
-  // Запускаємо Express сервер для webhook
   app.listen(PORT, () => {
     console.log(`🌐 Webhook server running on http://localhost:${PORT}`);
-    console.log(`📡 Webhook endpoint: http://localhost:${PORT}/api/wayforpay/webhook`);
+    console.log(`📡 WayForPay endpoint: http://localhost:${PORT}/api/wayforpay/webhook`);
   });
-  
 } else {
-  // Production режим: webhook
   console.log(`🚀 Production mode: webhook server (PORT=${PORT})`);
-  
+
   const webhookUrl = `${process.env.WEBHOOK_URL || 'https://yourdomain.com'}/webhook/${TOKEN}`;
-  
+
   app.use(`/webhook/${TOKEN}`, (req, res) => {
     bot.handleUpdate(req.body);
     res.sendStatus(200);
   });
-  
+
   app.listen(PORT, async () => {
     console.log(`🌐 Server running on port ${PORT}`);
-    
     try {
       await bot.telegram.setWebhook(webhookUrl);
       console.log(`✅ Webhook set to: ${webhookUrl}`);

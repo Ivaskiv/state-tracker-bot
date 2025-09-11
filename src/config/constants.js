@@ -92,7 +92,7 @@ export const TIMEZONE_CONFIG = Object.freeze({
 });
 
 // ✅ ТІЛЬКИ ЦІ ДВА РЯДКИ ТРЕБА МІНЯТИ
-const MORNING_TIME = '17:35';
+const MORNING_TIME = '15:59';
 const EVENING_TIME = '20:30';
 
 // 🔄 АВТОМАТИЧНИЙ РОЗРАХУНОК

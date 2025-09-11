@@ -7,7 +7,8 @@ const getActiveUsers = async () => {
     const base = getBase('Users');
     const records = await base('Users')
       .select({
-filterByFormula: "FIND('✅ Активна', {Active_Subscription_Status}) > 0"      })
+        filterByFormula: "FIND('✅ Активна', {Active_Subscription_Status}) > 0"
+      })
       .all();
     return records.map((r) => r.fields);
   } catch (error) {
@@ -48,19 +49,21 @@ const updateUserStep = async (tgId, step) => {
   }
 };
 
-const createUser = async ({ tgId, name, email }) => {
+const createUser = async ({ tgId, name, email, phone, timezone }) => {
   try {
     const base = getBase('Users');
     const record = await base('Users').create({
       TG_id: tgId,
       'User Name': name,
       Email: email,
+      Phone: phone,
+      Time_Zone: timezone || 'Europe/Prague',
       Active_Subscription_Status: '❌ Неактивна',
       'Active Subscription Plan': 'Базовий',
       'Subscription Status': 'Inactive',
-      Answer_Step: ANSWER_STEPS.PLAN_SELECTION, // після реєстрації одразу вибір плану
+      Answer_Step: ANSWER_STEPS.PLAN_SELECTION,
     });
-    console.log(`[userService] Створено користувача: ${tgId}, крок: ${ANSWER_STEPS.PLAN_SELECTION}`);
+    console.log(`[userService] Створено користувача: ${tgId}, timezone: ${timezone}, крок: ${ANSWER_STEPS.PLAN_SELECTION}`);
     return record.fields;
   } catch (error) {
     console.error('[userService.createUser] Помилка:', error);
@@ -68,7 +71,6 @@ const createUser = async ({ tgId, name, email }) => {
   }
 };
 
-// Оновлення підписки користувача (для payment webhook)
 const updateUserSubscription = async (tgId, subscriptionData) => {
   try {
     const base = getBase('Users');
@@ -100,13 +102,12 @@ const updateUserSubscription = async (tgId, subscriptionData) => {
   }
 };
 
-// Отримання користувачів з підписками, що закінчуються
 const getUsersWithExpiringSubscriptions = async (daysOffset) => {
   try {
     const base = getBase('Users');
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + daysOffset);
-    const targetDateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const targetDateStr = targetDate.toISOString().split('T')[0];
 
     const records = await base('Users')
       .select({

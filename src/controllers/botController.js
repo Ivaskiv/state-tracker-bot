@@ -6,6 +6,8 @@ import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
 import subscriptionReminderService from '../services/subscriptionReminderService.js';
 import { schedulePendingReminders, clearUserReminders } from '../middleware/pendingFlow.js';
 import { refreshMenuIfDev } from '../utils/refreshMenu.js';
+import typing from '../utils/typing.js';
+import { aiMentorSession } from '../aiMentor/session.js';
 import { 
   ANSWER_STEPS, 
   QUESTION_TYPES, 
@@ -19,8 +21,6 @@ import {
 import keyboards from '../utils/keyboards.js';
 import { sendReport } from '../services/reportService.js';
 import { getUserDateTime } from '../utils/timezoneUtils.js';
-import typing from '../utils/typing.js';
-import { aiMentorSession } from '../aiMentor/session.js';
 
 const botController = (bot) => {
   console.log('[botController] Initializing bot controller...');
@@ -102,11 +102,6 @@ const botController = (bot) => {
 
     try {
       const user = await userService.getUserByTelegramId(tgId);
-      // AI-наставник перевірка
-if (aiMentorSession.isActive(tgId)) {
-  await aiMentorController.handleAIMentorQuestion(ctx, text);
-  return;
-}
       if (!user) {
         await typing(ctx);
         await ctx.reply('Будь ласка, спочатку натисніть /start', keyboards.mainMenuKeyboard());
@@ -114,27 +109,30 @@ if (aiMentorSession.isActive(tgId)) {
       }
 
       console.log(`🔍 [USER] Answer_Step: ${user.Answer_Step}`);
-// ДОДАТИ ЦЕ ТУТ (всередині функції):
-    console.log(`=== ДІАГНОСТИКА AI MENTOR ===`);
-    console.log(`👤 Користувач: ${tgId}`);
-    console.log(`💬 Текст: "${text}"`);
-    console.log(`📋 Answer_Step: "${user.Answer_Step}"`);
-    console.log(`🎯 AI_MENTOR_ACTIVE: "${ANSWER_STEPS.AI_MENTOR_ACTIVE}"`);
-    console.log(`✅ Збігається: ${user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE}`);
-    console.log(`================================`);
-      // AI-наставник має найвищий пріоритет
-if (user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE) {
-  console.log(`🤖 [AI-MENTOR] Обробка питання: "${text}"`);
-  
-  if (isExitCommand(text)) {
-    await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-    await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
-    return;
-  }  
-  // Обробляємо питання через AI-наставника
-  await aiMentorController.handleAIMentorQuestion(ctx, text);
-  return;
-}
+      console.log(`=== ДІАГНОСТИКА AI MENTOR ===`);
+      console.log(`👤 Користувач: ${tgId}`);
+      console.log(`💬 Текст: "${text}"`);
+      console.log(`📋 Answer_Step: "${user.Answer_Step}"`);
+      console.log(`🎯 AI_MENTOR_ACTIVE: "${ANSWER_STEPS.AI_MENTOR_ACTIVE}"`);
+      console.log(`✅ Збігається: ${user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE}`);
+      console.log(`📱 aiMentorSession.isActive: ${aiMentorSession.isActive(tgId)}`);
+      console.log(`================================`);
+
+      // AI-наставник через сесію
+      if (aiMentorSession.isActive(tgId)) {
+        console.log(`🤖 [AI-MENTOR] Обробка питання через сесію: "${text}"`);
+        
+        if (isExitCommand(text)) {
+          aiMentorSession.end(tgId);
+          await typing(ctx);
+          await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
+          return;
+        }
+        
+        await aiMentorController.handleAIMentorQuestion(ctx, text);
+        return;
+      }
+
       if (user.Answer_Step === ANSWER_STEPS.PLAN_SELECTION) {
         await typing(ctx);
         await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
@@ -617,4 +615,5 @@ if (user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE) {
     }
   };
 };
+
 export default botController;
