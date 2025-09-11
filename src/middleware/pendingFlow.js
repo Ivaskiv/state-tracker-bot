@@ -3,6 +3,7 @@ import userService from '../auth/services/userService.js';
 import { ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS, MENU_MATCHERS, SCHEDULE } from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 import { getUserDateTime } from '../utils/timezoneUtils.js';
+import typing from '../utils/typing.js';
 
 // Глобальні таймери для персональних нагадувань
 const userReminders = new Map(); // tgId -> { timer1, timer2 }
@@ -19,9 +20,7 @@ export const schedulePendingReminders = (bot, tgId, sessionType) => {
         if (!user || user.Answer_Step === ANSWER_STEPS.COMPLETED) return;
         
         // Додаємо typing анімацію
-        await bot.telegram.sendChatAction(tgId, 'typing');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+await typing(ctx);        
         const message = sessionType === 'Morning' 
           ? '🔔 Не забудь відповісти на ранкові питання!\n\n🔄 Натисни "🔄 Продовжити відповіді"'
           : '🔔 Час для вечірньої рефлексії!\n\n🔄 Натисни "🔄 Продовжити відповіді"';
@@ -39,9 +38,7 @@ export const schedulePendingReminders = (bot, tgId, sessionType) => {
         if (!user || user.Answer_Step === ANSWER_STEPS.COMPLETED) return;
         
         // Додаємо typing анімацію
-        await bot.telegram.sendChatAction(tgId, 'typing');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+await typing(ctx);
         const message = sessionType === 'Morning'
           ? '🔔 Останнє нагадування про ранкові питання!'
           : '🔔 Останнє нагадування про вечірні питання!';
@@ -129,9 +126,7 @@ export const installPendingFlow = (bot) => {
         const sessionType = step.startsWith('Q_m_') ? 'ранкові' : 'вечірні';
         
         // Додаємо typing анімацію
-        await ctx.telegram.sendChatAction(tgId, 'typing');
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
+await typing(ctx);        
         await ctx.reply(
           `🔒 Спочатку заверши ${sessionType} питання або пропусти сесію.\n\nПотім зможеш користуватися AI-наставником.`,
           keyboards.continueAnswersKeyboard()
@@ -156,9 +151,7 @@ export const installPendingFlow = (bot) => {
           await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
           
           // Додаємо typing анімацію
-          await ctx.telegram.sendChatAction(tgId, 'typing');
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
+await typing(ctx);
           await ctx.reply(
             '🌙 Ранкові питання недоступні після 20:00.\n\nМожеш почати вечірні питання або пропустити сесію.',
             keyboards.continueAnswersKeyboard()
@@ -179,9 +172,7 @@ export const installPendingFlow = (bot) => {
         }
         
         // Додаємо typing анімацію
-        await ctx.telegram.sendChatAction(tgId, 'typing');
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
+await typing(ctx);
         await ctx.reply(message, keyboards.continueAnswersKeyboard());
         return;
       }
@@ -227,16 +218,13 @@ export const installPendingFlow = (bot) => {
         const currentQuestion = getCurrentQuestion(user.Answer_Step);
         if (currentQuestion) {
           // Додаємо typing анімацію
-          await ctx.telegram.sendChatAction(tgId, 'typing');
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
+await typing(ctx);
           await ctx.reply(currentQuestion);
           await ctx.answerCbQuery('Продовжуємо відповіді');
         } else {
           // Додаємо typing анімацію
-          await ctx.telegram.sendChatAction(tgId, 'typing');
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
+          await typing(ctx);
+
           await ctx.reply('Питання завершені!', keyboards.mainMenuKeyboard());
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
           await ctx.answerCbQuery('Готово');
@@ -246,9 +234,7 @@ export const installPendingFlow = (bot) => {
         clearUserReminders(tgId); // очищуємо нагадування
         
         // Додаємо typing анімацію
-        await ctx.telegram.sendChatAction(tgId, 'typing');
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
+        await typing(ctx);
         await ctx.reply('Сесію пропущено. Повертаємося до меню.', keyboards.mainMenuKeyboard());
         await ctx.answerCbQuery('Сесію пропущено');
       }

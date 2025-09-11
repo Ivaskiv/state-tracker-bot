@@ -144,9 +144,3 @@ export function toPlainText(v) {
   return String(v);
 }
 
-export async function typing(ctx, delay = 800) {
-  try {
-    await ctx.telegram.sendChatAction(ctx.from.id, 'typing');
-    await new Promise(res => setTimeout(res, delay));
-  } catch {}
-}

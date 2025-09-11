@@ -18,7 +18,6 @@ export const BUTTONS = Object.freeze({
   AI_EXIT: '🔚 Вийти з AI',
 });
 
-// Головне меню (симетричне)
 export const mainMenuKeyboard = () => {
   return {
     reply_markup: {
@@ -26,8 +25,8 @@ export const mainMenuKeyboard = () => {
         ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
         ["🤖 AI наставник", "💎 Афірмація"],
         ["📊 Мій прогрес", "💰 Підписка"],
-        ["❓ Допомога", "📝 Інструкції"], // повертаємо оригінальну іконку
-        ["📞 Зв'язок з нами", 'ℹ️ Профіль'] // симетрично
+        ["❓ Допомога", "📝 Інструкції"],
+        ["📞 Зв'язок з нами", 'ℹ️ Профіль']
       ],
       resize_keyboard: true,
       one_time_keyboard: false
@@ -35,7 +34,6 @@ export const mainMenuKeyboard = () => {
   };
 };
 
-// Клавіатура для продовження відповідей
 export const continueAnswersKeyboard = () => {
   return {
     reply_markup: Markup.inlineKeyboard([
@@ -45,7 +43,19 @@ export const continueAnswersKeyboard = () => {
   };
 };
 
-// Клавіатура підтримки
+export const aiMentorControlKeyboard = () => {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📝 Запитати ще', callback_data: 'ai_continue' },
+          { text: '🔚 Вийти з AI', callback_data: 'ai_exit' }
+        ]
+      ]
+    }
+  };
+};
+
 const supportKeyboard = () => {
   return {
     reply_markup: Markup.inlineKeyboard([
@@ -55,14 +65,12 @@ const supportKeyboard = () => {
   };
 };
 
-// Клавіатура для пропуску
 const skipKeyboard = () =>
   Markup.keyboard([
     ['⏭️ Пропустити'],
     ['🏠 Головне меню']
   ]).resize();
 
-// Клавіатура вибору плану підписки
 const subscriptionKeyboard = () =>
   Markup.inlineKeyboard([
     [Markup.button.callback('🔹 Тиждень фокусу — 7€', 'subscribe_week')],
@@ -71,7 +79,6 @@ const subscriptionKeyboard = () =>
     [Markup.button.callback('« Назад до меню', 'main_menu')]
   ]);
 
-// Клавіатура поновлення підписки (для нагадувань)
 const renewalKeyboard = () =>
   Markup.inlineKeyboard([
     [
@@ -86,6 +93,7 @@ export default {
   mainMenuKeyboard,
   supportKeyboard,
   continueAnswersKeyboard,
+  aiMentorControlKeyboard,
   skipKeyboard,
   subscriptionKeyboard,
   renewalKeyboard

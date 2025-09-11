@@ -1,8 +1,8 @@
-// src/controllers/botController.js - ПРОСТА ВИПРАВКА
+// src/controllers/botController.js
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import affirmationService from '../dialogue/services/affirmationService.js';
-import aiMentorController from '../aiMentor/controllers.js/aiMentorController.js';
+import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
 import subscriptionReminderService from '../services/subscriptionReminderService.js';
 import { schedulePendingReminders, clearUserReminders } from '../middleware/pendingFlow.js';
 import { refreshMenuIfDev } from '../utils/refreshMenu.js';
@@ -19,6 +19,8 @@ import {
 import keyboards from '../utils/keyboards.js';
 import { sendReport } from '../services/reportService.js';
 import { getUserDateTime } from '../utils/timezoneUtils.js';
+import typing from '../utils/typing.js';
+import { aiMentorSession } from '../aiMentor/session.js';
 
 const botController = (bot) => {
   console.log('[botController] Initializing bot controller...');
@@ -28,6 +30,8 @@ const botController = (bot) => {
     const name = ctx.from.first_name || 'Користувач';
     
     try {
+      await typing(ctx);
+      
       let user = await userService.getUserByTelegramId(tgId);
       
       if (!user) {
@@ -69,6 +73,7 @@ const botController = (bot) => {
       
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) {
+        await typing(ctx);
         await ctx.reply('Будь ласка, спочатку натисніть /start');
         return;
       }
@@ -79,50 +84,60 @@ const botController = (bot) => {
       await refreshMenuIfDev(ctx);
       
       if (process.env.NODE_ENV === 'production') {
+        await typing(ctx);
         await ctx.reply('🔄 Меню оновлено!', keyboards.mainMenuKeyboard());
       }
       
     } catch (error) {
       console.error('[/menu] Помилка:', error);
+      await typing(ctx);
       await ctx.reply('Виникла помилка при оновленні меню');
     }
   });
 
-bot.on('text', async (ctx) => {
+  bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
     const text = ctx.message.text?.trim();
     if (!text) return;
 
     try {
       const user = await userService.getUserByTelegramId(tgId);
+      // AI-наставник перевірка
+if (aiMentorSession.isActive(tgId)) {
+  await aiMentorController.handleAIMentorQuestion(ctx, text);
+  return;
+}
       if (!user) {
+        await typing(ctx);
         await ctx.reply('Будь ласка, спочатку натисніть /start', keyboards.mainMenuKeyboard());
         return;
       }
 
       console.log(`🔍 [USER] Answer_Step: ${user.Answer_Step}`);
-
-      // AI-наставник має найвищий пріоритет - перевіряємо через базу даних
-      if (user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE) {
-        console.log(`🤖 [AI-MENTOR] Обробка питання: "${text}"`);
-        
-        if (isExitCommand(text)) {
-          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          
-          // Додаємо typing анімацію
-          await ctx.telegram.sendChatAction(tgId, 'typing');
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
-          await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
-          return;
-        }
-        
-        await aiMentorController.handleAIMentorQuestion(ctx, text);
-        return;
-      }
-
+// ДОДАТИ ЦЕ ТУТ (всередині функції):
+    console.log(`=== ДІАГНОСТИКА AI MENTOR ===`);
+    console.log(`👤 Користувач: ${tgId}`);
+    console.log(`💬 Текст: "${text}"`);
+    console.log(`📋 Answer_Step: "${user.Answer_Step}"`);
+    console.log(`🎯 AI_MENTOR_ACTIVE: "${ANSWER_STEPS.AI_MENTOR_ACTIVE}"`);
+    console.log(`✅ Збігається: ${user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE}`);
+    console.log(`================================`);
+      // AI-наставник має найвищий пріоритет
+if (user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE) {
+  console.log(`🤖 [AI-MENTOR] Обробка питання: "${text}"`);
+  
+  if (isExitCommand(text)) {
+    await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+    await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
+    return;
+  }  
+  // Обробляємо питання через AI-наставника
+  await aiMentorController.handleAIMentorQuestion(ctx, text);
+  return;
+}
       if (user.Answer_Step === ANSWER_STEPS.PLAN_SELECTION) {
-        await handlePlanSelection(ctx, user, text);
+        await typing(ctx);
+        await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
         return;
       }
 
@@ -133,16 +148,14 @@ bot.on('text', async (ctx) => {
       
     } catch (error) {
       console.error('[botController.onText] Error:', error);
+      await typing(ctx);
       await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
     }
   });
+
   const isExitCommand = (text) => {
     const exitCommands = ['вихід', 'exit', '🏠 головне меню', 'меню'];
     return exitCommands.includes(text.toLowerCase());
-  };
-
-  const handlePlanSelection = async (ctx, user, text) => {
-    await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
   };
 
   const handleQuestionAnswer = async (ctx, user, text) => {
@@ -164,6 +177,7 @@ bot.on('text', async (ctx) => {
       return false;
     } catch (error) {
       console.error('[handleQuestionAnswer] Error:', error);
+      await typing(ctx);
       await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
       return true;
     }
@@ -175,6 +189,7 @@ bot.on('text', async (ctx) => {
     const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
     
     if (currentHour >= eveningHour) {
+      await typing(ctx);
       await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
       await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
       return true;
@@ -192,6 +207,7 @@ bot.on('text', async (ctx) => {
     if (questionNum < 6) {
       const nextStep = `Q_m_${questionNum + 1}`;
       await userService.updateUserStep(tgId, nextStep);
+      await typing(ctx);
       await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
     } else {
       await completeSession(ctx, tgId, userName, QUESTION_TYPES.MORNING, 'morning');
@@ -212,6 +228,7 @@ bot.on('text', async (ctx) => {
     if (questionNum < 5) {
       const nextStep = `Q_e_${questionNum + 1}`;
       await userService.updateUserStep(tgId, nextStep);
+      await typing(ctx);
       await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
     } else {
       await completeSession(ctx, tgId, userName, QUESTION_TYPES.EVENING, 'evening');
@@ -231,6 +248,7 @@ bot.on('text', async (ctx) => {
     await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
     
     const sessionName = questionType === QUESTION_TYPES.MORNING ? 'Ранкові' : 'Вечірні';
+    await typing(ctx);
     await ctx.reply(`✅ ${sessionName} питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
     await refreshMenuIfDev(ctx);
   };
@@ -245,6 +263,7 @@ bot.on('text', async (ctx) => {
       console.log(`🤖 [AI НАСТАВНИК] Активація для ${ctx.from.id}`);
       
       if (!isActiveSubscription) {
+        await typing(ctx);
         await ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
         return;
       }
@@ -255,6 +274,7 @@ bot.on('text', async (ctx) => {
 
     if (text === '🌅 Ранкові питання') {
       if (currentHour >= eveningHour) {
+        await typing(ctx);
         await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
         return;
       }
@@ -269,6 +289,7 @@ bot.on('text', async (ctx) => {
 
     if (MENU_MATCHERS.AFFIRM(text)) {
       const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
+      await typing(ctx);
       await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
       await refreshMenuIfDev(ctx);
       return;
@@ -276,6 +297,7 @@ bot.on('text', async (ctx) => {
 
     if (MENU_MATCHERS.WEEKLY(text)) {
       if (!isActiveSubscription) {
+        await typing(ctx);
         await ctx.reply('📋 Ця функція доступна тільки з активною підпискою', keyboards.mainMenuKeyboard());
         return;
       }
@@ -286,6 +308,7 @@ bot.on('text', async (ctx) => {
 
     if (MENU_MATCHERS.MONTHLY(text)) {
       if (!isActiveSubscription) {
+        await typing(ctx);
         await ctx.reply('📋 Ця функція доступна тільки з активною підпискою', keyboards.mainMenuKeyboard());
         return;
       }
@@ -307,17 +330,20 @@ bot.on('text', async (ctx) => {
     }
 
     if (MENU_MATCHERS.HELP(text)) {
+      await typing(ctx);
       await ctx.reply(MENU_TEXTS.HELP, keyboards.mainMenuKeyboard());
       await refreshMenuIfDev(ctx);
       return;
     }
 
     if (MENU_MATCHERS.CONTACT(text)) {
+      await typing(ctx);
       await ctx.reply(MENU_TEXTS.CONTACT, keyboards.supportKeyboard());
       return;
     }
 
     if (MENU_MATCHERS.INSTRUCTIONS(text)) {
+      await typing(ctx);
       await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.mainMenuKeyboard());
       await refreshMenuIfDev(ctx);
       return;
@@ -330,11 +356,11 @@ bot.on('text', async (ctx) => {
     }
 
     console.log(`❓ [MENU] Невідома команда: "${text}"`);
+    await typing(ctx);
     await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
     await refreshMenuIfDev(ctx);
   };
 
-  // Решта функцій залишаються без змін
   const startMorningQuestions = async (ctx, user) => {
     const tgId = ctx.from.id;
     const currentTime = getUserDateTime(tgId);
@@ -342,12 +368,14 @@ bot.on('text', async (ctx) => {
     const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
 
     if (currentHour >= eveningHour) {
+      await typing(ctx);
       await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
       return;
     }
 
     const isMorningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.MORNING);
     if (isMorningCompleted) {
+      await typing(ctx);
       await ctx.reply('Ти вже завершив(ла) ранкові питання за сьогодні. Хочеш оновити відповіді?', {
         reply_markup: { inline_keyboard: [[{ text: 'Так, оновити', callback_data: 'restart_morning' }]] },
       });
@@ -355,6 +383,7 @@ bot.on('text', async (ctx) => {
     }
 
     await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
+    await typing(ctx);
     await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
     schedulePendingReminders(bot, tgId, 'Morning');
   };
@@ -364,6 +393,7 @@ bot.on('text', async (ctx) => {
     const isEveningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
     
     if (isEveningCompleted) {
+      await typing(ctx);
       await ctx.reply('Ти вже завершив(ла) вечірні питання за сьогодні. Хочеш оновити відповіді?', {
         reply_markup: { inline_keyboard: [[{ text: 'Так, оновити', callback_data: 'restart_evening' }]] },
       });
@@ -371,6 +401,7 @@ bot.on('text', async (ctx) => {
     }
 
     await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
+    await typing(ctx);
     await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
     schedulePendingReminders(bot, tgId, 'Evening');
   };
@@ -404,12 +435,14 @@ bot.on('text', async (ctx) => {
       }
 
       if (data === 'main_menu') {
+        await typing(ctx);
         await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
         await ctx.answerCbQuery();
       }
       
     } catch (error) {
       console.error('[botController.callbackQuery] Error:', error);
+      await typing(ctx);
       await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
       await ctx.answerCbQuery();
     }
@@ -426,6 +459,7 @@ bot.on('text', async (ctx) => {
 
     const paymentUrl = generatePaymentUrl(tgId, planKey, planInfo);
     
+    await typing(ctx);
     await ctx.reply(
       `💳 ОБРАНИЙ ПЛАН\n\n📋 ${planInfo.name}\n💰 Вартість: ${planInfo.price}€\n⏰ Тривалість: ${planInfo.duration} днів\n📝 ${planInfo.description}\n\n🔗 Посилання для оплати:\n${paymentUrl}\n\n✅ Після оплати всі функції aiMentor будуть доступні!`,
       keyboards.mainMenuKeyboard()
@@ -442,17 +476,20 @@ bot.on('text', async (ctx) => {
       const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
       
       if (currentHour >= eveningHour) {
+        await typing(ctx);
         await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
         await ctx.answerCbQuery();
         return;
       }
       
       await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
+      await typing(ctx);
       await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
       schedulePendingReminders(bot, tgId, 'Morning');
       
     } else if (data === 'restart_evening') {
       await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
+      await typing(ctx);
       await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
       schedulePendingReminders(bot, tgId, 'Evening');
     }
@@ -462,6 +499,7 @@ bot.on('text', async (ctx) => {
 
   const showUserProgress = async (ctx, user) => {
     if (!user) {
+      await typing(ctx);
       await ctx.reply(MENU_TEXTS.REGISTER_FIRST, keyboards.mainMenuKeyboard());
       return;
     }
@@ -481,10 +519,12 @@ bot.on('text', async (ctx) => {
       });
 
       const progressText = MENU_TEXTS.PROGRESS(totalDays, morningCompleted, eveningCompleted);
+      await typing(ctx);
       await ctx.reply(progressText, keyboards.mainMenuKeyboard());
       
     } catch (error) {
       console.error('[showUserProgress] Error:', error);
+      await typing(ctx);
       await ctx.reply(MENU_TEXTS.PROGRESS_UNAVAILABLE, keyboards.mainMenuKeyboard());
     }
   };
@@ -502,10 +542,12 @@ bot.on('text', async (ctx) => {
         : MENU_TEXTS.SUBSCRIPTION_INACTIVE;
 
       const keyboard = isActive ? keyboards.mainMenuKeyboard() : keyboards.subscriptionKeyboard();
+      await typing(ctx);
       await ctx.reply(subscriptionText, keyboard);
       
     } catch (error) {
       console.error('[showSubscriptionInfo] Error:', error);
+      await typing(ctx);
       await ctx.reply(MENU_TEXTS.SUBSCRIPTION_UNAVAILABLE, keyboards.mainMenuKeyboard());
     }
   };
@@ -519,10 +561,12 @@ bot.on('text', async (ctx) => {
       const plan = user['Active Subscription Plan'] || 'Базовий';
       
       const profileText = `ℹ️ ТВІЙ ПРОФІЛЬ\n\n👤 Ім'я: ${name}\n📧 Email: ${email}\n🆔 ID: ${tgId}\n💰 План: ${plan}\n📅 Статус: ${status}`;
+      await typing(ctx);
       await ctx.reply(profileText, keyboards.mainMenuKeyboard());
       
     } catch (error) {
       console.error('[showUserProfile] Error:', error);
+      await typing(ctx);
       await ctx.reply('ℹ️ Інформація про профіль тимчасово недоступна', keyboards.mainMenuKeyboard());
     }
   };
@@ -573,5 +617,4 @@ bot.on('text', async (ctx) => {
     }
   };
 };
-
 export default botController;

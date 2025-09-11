@@ -253,7 +253,7 @@ export const MENU_MATCHERS = Object.freeze({
   WEEKLY: (t) => t === '📈 Щотижневий звіт',
   MONTHLY: (t) => t === '📈 Щомісячний звіт',
   AFFIRM: (t) => t === '💎 Афірмація',
-  AI_MENTOR: (t) => t === '🤖 AI наставник',
+AI_MENTOR: (t) => t === '🤖 AI наставник',
   PROGRESS: (t) => t === '📊 Мій прогрес',
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
