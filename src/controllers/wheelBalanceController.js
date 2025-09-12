@@ -1,4 +1,5 @@
-// src/controllers/wheelBalanceController.js
+// src/controllers/wheelBalanceController.js - ВИПРАВЛЕНО ЛОГІКУ
+
 import userService from '../auth/services/userService.js';
 import wheelBalanceService from '../services/wheelBalanceService.js';
 import keyboards from '../utils/keyboards.js';
@@ -14,10 +15,7 @@ const handleWheelBalanceRequest = async (ctx) => {
     const tgId = ctx.from.id;
     logger.info(`🎯 [WHEEL CONTROLLER] ========== ПОЧАТОК ЗАПИТУ ==========`);
     logger.info(`🎯 [WHEEL CONTROLLER] Користувач: ${tgId}`);
-    logger.info(`🎯 [WHEEL CONTROLLER] Ім'я: ${ctx.from.first_name || 'Невідоме'}`);
-    logger.info(`🎯 [WHEEL CONTROLLER] Username: ${ctx.from.username || 'Немає'}`);
 
-    logger.info(`🎯 [WHEEL CONTROLLER] Крок 1: Отримання користувача з БД`);
     const user = await userService.getUserByTelegramId(tgId);
     if (!user) {
       logger.info(`❌ [WHEEL CONTROLLER] Користувача ${tgId} НЕ ЗНАЙДЕНО в БД`);
@@ -31,58 +29,63 @@ const handleWheelBalanceRequest = async (ctx) => {
       answerStep: user['Answer_Step'],
     });
 
-    logger.info(`🎯 [WHEEL CONTROLLER] Крок 2: Перевірка підписки`);
     const isActive = isActiveSubscription(user);
     logger.info(`🎯 [WHEEL CONTROLLER] Підписка активна: ${isActive}`);
-    logger.info(`🎯 [WHEEL CONTROLLER] Статус підписки: "${user['Active_Subscription_Status']}"`);
+    
     if (!isActive) {
       logger.info(`❌ [WHEEL CONTROLLER] Доступ ЗАБОРОНЕНО - немає активної підписки`);
       await restrictAccessMessage('🎯 Колесо балансу', ctx);
       return;
     }
 
-    logger.info(`🎯 [WHEEL CONTROLLER] Крок 3: Пошук активного колеса`);
+    // ✅ СПОЧАТКУ ВСТАНОВЛЮЄМО STEP, ПОТІМ ПЕРЕВІРЯЄМО АКТИВНЕ КОЛЕСО
+    await userService.updateUserStep(tgId, WHEEL_STEP);
+    logger.info(`✅ [WHEEL CONTROLLER] Встановлено крок: ${WHEEL_STEP}`);
+
+    logger.info(`🎯 [WHEEL CONTROLLER] Пошук активного колеса`);
     let activeWheel = await wheelBalanceService.getActiveWheel(tgId);
 
     if (activeWheel) {
-      logger.info(`✅ [WHEEL CONTROLLER] Знайдено активне колесо:`, activeWheel.fields);
+      logger.info(`✅ [WHEEL CONTROLLER] Знайдено активне колесо:`, {
+        id: activeWheel.id,
+        step: activeWheel.fields.Step,
+        status: activeWheel.fields.Status
+      });
 
-      const currentSphereRaw = activeWheel.fields.Step;
-      const currentSphere = Number.isInteger(currentSphereRaw) ? currentSphereRaw : 0;
-      const sphereName = LIFE_SPHERES[currentSphere] || LIFE_SPHERES[0] || 'Сфера';
+      const currentStep = Number.isInteger(activeWheel.fields.Step) ? activeWheel.fields.Step : 0;
+      const sphereName = LIFE_SPHERES[currentStep] || LIFE_SPHERES[0] || 'Невідома сфера';
 
-      logger.info(`🎯 [WHEEL CONTROLLER] Поточна сфера: ${currentSphere} (${sphereName})`);
+      logger.info(`🎯 [WHEEL CONTROLLER] Поточна сфера: ${currentStep} (${sphereName})`);
 
-      await userService.updateUserStep(tgId, WHEEL_STEP);
-      logger.info(`✅ [WHEEL CONTROLLER] Встановлено крок: ${WHEEL_STEP}`);
-
-      await ctx.reply(
-        `🎯 У тебе є незавершене колесо балансу!\n\n${currentSphere + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`
-      );
+      const continueMessage = `🎯 У тебе є незавершене колесо балансу!\n\n${currentStep + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`;
+      await ctx.reply(continueMessage);
       logger.info(`✅ [WHEEL CONTROLLER] Виведено промпт для продовження`);
       return;
     }
 
-    logger.info(`🎯 [WHEEL CONTROLLER] Крок 4: Активне колесо не знайдено, створюємо нове`);
-    logger.info(`🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.startWheelBalance(${tgId})`);
-    const wheelData = await wheelBalanceService.startWheelBalance(tgId);
+    logger.info(`🎯 [WHEEL CONTROLLER] Активне колесо не знайдено, створюємо нове`);
+    
+    try {
+      const wheelData = await wheelBalanceService.startWheelBalance(tgId);
+      
+      if (!wheelData) {
+        logger.error(`❌ [WHEEL CONTROLLER] startWheelBalance повернув null для ${tgId}`);
+        await ctx.reply('❌ Помилка запуску колеса балансу. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
+        return;
+      }
 
-    if (!wheelData) {
-      logger.error(`❌ [WHEEL CONTROLLER] КРИТИЧНА ПОМИЛКА: startWheelBalance повернув null для ${tgId}`);
-      await ctx.reply('❌ Помилка запуску колеса балансу. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
-      return;
+      logger.info(`🎯 [WHEEL CONTROLLER] Відправка першого питання`);
+      await ctx.reply(wheelData.message);
+      
+      logger.info(`✅ [WHEEL CONTROLLER] ========== КОЛЕСО УСПІШНО ЗАПУЩЕНО ==========`);
+      
+    } catch (wheelError) {
+      logger.error(`❌ [WHEEL CONTROLLER] Помилка wheelBalanceService:`, wheelError);
+      await ctx.reply('❌ Помилка створення колеса балансу. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
     }
-
-    await userService.updateUserStep(tgId, WHEEL_STEP);
-    logger.info(`✅ [WHEEL CONTROLLER] Встановлено крок: ${WHEEL_STEP}`);
-
-    logger.info(`🎯 [WHEEL CONTROLLER] Крок 5: Відправка першого питання`);
-    logger.info(`🎯 [WHEEL CONTROLLER] Повідомлення:`, (wheelData.message || '').substring(0, 120) + '...');
-    await ctx.reply(wheelData.message);
-
-    logger.info(`✅ [WHEEL CONTROLLER] ========== КОЛЕСО УСПІШНО ЗАПУЩЕНО ==========`);
+    
   } catch (error) {
-    logger.error(`❌ [WHEEL CONTROLLER] Помилка при обробці запиту:`, error);
+    logger.error(`❌ [WHEEL CONTROLLER] Критична помилка:`, error);
     await handleError(ctx, error, '❌ Помилка колеса балансу. Спробуйте пізніше.');
   }
 };
@@ -96,6 +99,7 @@ const handleWheelBalanceAnswer = async (ctx, answer) => {
 
     const user = await userService.getUserByTelegramId(tgId);
     const hasAccess = isActiveSubscription(user);
+    
     if (!hasAccess) {
       logger.info(`❌ [WHEEL CONTROLLER] Немає доступу для ${tgId}`);
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
@@ -104,54 +108,62 @@ const handleWheelBalanceAnswer = async (ctx, answer) => {
     }
 
     logger.info(`🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer`);
-    const result = await wheelBalanceService.processWheelAnswer(tgId, answer);
+    
+    try {
+      const result = await wheelBalanceService.processWheelAnswer(tgId, answer);
 
-    if (result?.error) {
-      logger.info(`❌ [WHEEL CONTROLLER] Помилка: ${result.message}`);
-      if (result.message.includes('введи число від 1 до 10')) {
-        const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
-        if (activeWheel) {
-          const currentSphere = Number.isInteger(activeWheel.fields.Step) ? activeWheel.fields.Step : 0;
-          const sphereName = LIFE_SPHERES[currentSphere] || LIFE_SPHERES[0];
-          await ctx.reply(
-            `❌ ${result.message}\n\n${currentSphere + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`
-          );
-        } else {
-          logger.warn(`❌ [WHEEL CONTROLLER] Активне колесо не знайдено після помилки введення`);
+      if (result?.error) {
+        logger.info(`❌ [WHEEL CONTROLLER] Помилка від сервісу: ${result.message}`);
+        
+        if (result.message.includes('введи число від 1 до 10')) {
+          // Отримуємо свіжі дані про активне колесо для правильного промпта
+          const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
+          if (activeWheel) {
+            const currentStep = Number.isInteger(activeWheel.fields.Step) ? activeWheel.fields.Step : 0;
+            const sphereName = LIFE_SPHERES[currentStep] || LIFE_SPHERES[0];
+            
+            const errorMessage = `❌ ${result.message}\n\n${currentStep + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`;
+            await ctx.reply(errorMessage);
+          } else {
+            await ctx.reply(result.message, keyboards.mainMenuKeyboard());
+          }
+        } else if (result.message.includes('Активне колесо не знайдено')) {
+          logger.warn(`❌ [WHEEL CONTROLLER] Активне колесо втрачено, створюємо нове`);
+          
           const wheelData = await wheelBalanceService.startWheelBalance(tgId);
           if (wheelData) {
-            await userService.updateUserStep(tgId, WHEEL_STEP);
             await ctx.reply(wheelData.message);
           } else {
             await ctx.reply('❌ Помилка запуску колеса балансу. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
           }
-        }
-      } else if (result.message.includes('Активне колесо не знайдено')) {
-        logger.warn(`❌ [WHEEL CONTROLLER] Активне колесо не знайдено, створюємо нове`);
-        const wheelData = await wheelBalanceService.startWheelBalance(tgId);
-        if (wheelData) {
-          await userService.updateUserStep(tgId, WHEEL_STEP);
-          await ctx.reply(wheelData.message);
         } else {
-          await ctx.reply('❌ Помилка запуску колеса балансу. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
+          await ctx.reply(result.message, keyboards.mainMenuKeyboard());
         }
-      } else {
-        await ctx.reply(result.message, keyboards.mainMenuKeyboard());
+        return;
       }
-      return;
+
+      // ✅ УСПІШНИЙ РЕЗУЛЬТАТ
+      logger.info(`✅ [WHEEL CONTROLLER] Успішний результат від сервісу`);
+      logger.info(`🎯 [WHEEL CONTROLLER] Завершено: ${result?.completed ? 'ТАК' : 'НІ'}`);
+
+      const keyboardToUse = result?.completed ? keyboards.mainMenuKeyboard() : undefined;
+      await ctx.reply(result.message, keyboardToUse);
+
+      if (result?.completed) {
+        logger.info(`✅ [WHEEL CONTROLLER] Колесо завершено для ${tgId}`);
+        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+        logger.info(`✅ [WHEEL CONTROLLER] Встановлено крок: ${ANSWER_STEPS.COMPLETED}`);
+      }
+
+      logger.info(`✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========`);
+
+    } catch (serviceError) {
+      logger.error(`❌ [WHEEL CONTROLLER] Помилка wheelBalanceService.processWheelAnswer:`, serviceError);
+      await ctx.reply('❌ Помилка при обробці відповіді. Спробуйте ще раз.');
     }
 
-    await ctx.reply(result.message, result?.completed ? keyboards.mainMenuKeyboard() : undefined);
-
-    if (result?.completed) {
-      logger.info(`✅ [WHEEL CONTROLLER] Колесо завершено для ${tgId}`);
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-      logger.info(`✅ [WHEEL CONTROLLER] Встановлено крок: ${ANSWER_STEPS.COMPLETED}`);
-    }
-
-    logger.info(`✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ ОБРОБЛЕНА ==========`);
   } catch (error) {
-    logger.error(`❌ [WHEEL CONTROLLER] Помилка при обробці відповіді:`, error);
+    logger.error(`❌ [WHEEL CONTROLLER] Критична помилка при обробці відповіді:`, error);
     await handleError(ctx, error, '❌ Помилка при обробці відповіді. Спробуйте ще раз.');
   }
 };
@@ -177,8 +189,12 @@ const checkMonthlyWheelNeed = async (bot) => {
           `Минув місяць з останньої оцінки. Подивимося, як змінився твій життєвий баланс ✨\n\n` +
           `Натисни "🎯 Колесо балансу" для початку.`;
 
-        await bot.telegram.sendMessage(tgId, message, keyboards.mainMenuKeyboard());
-        logger.info(`✅ [WHEEL CONTROLLER] Нагадування надіслано користувачу ${tgId}`);
+        try {
+          await bot.telegram.sendMessage(tgId, message, keyboards.mainMenuKeyboard());
+          logger.info(`✅ [WHEEL CONTROLLER] Нагадування надіслано користувачу ${tgId}`);
+        } catch (sendError) {
+          logger.error(`❌ [WHEEL CONTROLLER] Помилка відправки нагадування для ${tgId}:`, sendError);
+        }
 
         await new Promise((r) => setTimeout(r, 500));
       } else {

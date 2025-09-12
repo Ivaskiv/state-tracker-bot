@@ -3,3 +3,5 @@
 {"level":"error","message":"❌ [WHEEL CONTROLLER] КРИТИЧНА ПОМИЛКА: startWheelBalance повернув null для 630111093","timestamp":"2025-09-12T12:34:57.665Z"}
 {"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] КРИТИЧНА ПОМИЛКА обробки відповіді: Unknown field name: \"Spirituality\"","statusCode":422,"timestamp":"2025-09-12T12:46:35.945Z"}
 {"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] КРИТИЧНА ПОМИЛКА обробки відповіді: Unknown field name: \"Spirituality\"","statusCode":422,"timestamp":"2025-09-12T12:46:36.586Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] КРИТИЧНА ПОМИЛКА обробки відповіді: Unknown field name: \"Spirituality_Values\"","statusCode":422,"timestamp":"2025-09-12T15:35:08.030Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] КРИТИЧНА ПОМИЛКА обробки відповіді: Unknown field name: \"Spirituality_Values\"","statusCode":422,"timestamp":"2025-09-12T15:39:29.605Z"}

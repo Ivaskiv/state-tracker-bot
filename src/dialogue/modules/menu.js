@@ -4,7 +4,7 @@ import analyticsController from '../../controllers/analyticsController.js';
 import affirmationService from '../services/affirmationService.js';
 import responseService from '../services/responseService.js';
 import userService from '../../auth/services/userService.js';
-import aiMentorController from '../../aiMentor/controllers.js/aiMentorController.js';
+import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
 import { MENU_TEXTS, MENU_MATCHERS } from '../../config/constants.js';
 
 export async function handleMenuCommand(ctx) {

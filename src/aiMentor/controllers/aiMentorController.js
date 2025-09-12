@@ -1,11 +1,12 @@
-// src/aiMentor/controllers/aiMentorController.js - ВИПРАВЛЕНО КНОПКУ ВИХОДУ
+// src/aiMentor/controllers/aiMentorController.js - ВИПРАВЛЕНО + ЗБЕРЕЖЕННЯ ДІАЛОГІВ
+
 import userService from '../../auth/services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { aiMentorControlKeyboard } from '../../utils/keyboards.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 import typing from '../../utils/typing.js';
 import { aiMentorSession } from '../session.js';
-import { saveGoal, saveMicroAction } from '../services/goalService.js';
+import conversationService from '../services/conversationService.js'; // ✅ ДОДАНО ІМПОРТ
 
 const handleAIMentorRequest = async (ctx) => {
   try {
@@ -31,7 +32,6 @@ const handleAIMentorRequest = async (ctx) => {
 
     const helpText = `🤖 AI-НАСТАВНИК\n\nЯ твій персональний AI-коуч! Готовий відповісти на твоє питання.\n\n💡 Персональними порадами\n🎯 Мікро-діями для цілей\n⚡ Підтримкою в складних ситуаціях\n\nНапиши своє питання прямо зараз! 👇`;
     
-    // ✅ ПОКАЗУЄМО ТІЛЬКИ КНОПКУ ВИХОДУ НА ПОЧАТКУ
     await ctx.reply(helpText, keyboards.aiMentorStartKeyboard());
     console.log(`✅ [AI MENTOR] Інструкції надіслано для ${tgId}, Answer_Step: ${ANSWER_STEPS.AI_MENTOR_ACTIVE}`);
     
@@ -59,7 +59,22 @@ const handleAIMentorQuestion = async (ctx, question) => {
     
     await typing(ctx);
     
+    // ✅ ГЕНЕРУЄМО ВІДПОВІДЬ
     const responseText = await generateAIResponse(question, user);
+    
+    // ✅ ЗБЕРІГАЄМО ДІАЛОГ
+    try {
+      await conversationService.saveAIConversation(
+        tgId, 
+        question, 
+        responseText, 
+        'ai_mentor'
+      );
+      console.log(`✅ [AI MENTOR] Діалог збережено для користувача ${tgId}`);
+    } catch (saveError) {
+      console.error(`❌ [AI MENTOR] Помилка збереження діалогу для ${tgId}:`, saveError);
+      // Продовжуємо роботу навіть якщо збереження не вдалося
+    }
     
     await typing(ctx);
     await ctx.reply(responseText, aiMentorControlKeyboard());
@@ -76,9 +91,26 @@ const generateAIResponse = async (question, user) => {
   try {
     const { chat } = await import('../../services/openaiClient.js');
     
+    // ✅ ОТРИМУЄМО КОНТЕКСТ ПОПЕРЕДНІХ РОЗМОВ
+    let conversationContext = '';
+    try {
+      const recentHistory = await conversationService.getAIConversationHistory(user['TG_id'], 3);
+      if (recentHistory.length > 0) {
+        conversationContext = '\n\nКонтекст попередніх розмов:\n';
+        recentHistory.reverse().forEach((conv, index) => {
+          conversationContext += `${index + 1}. Питання: "${conv.question.substring(0, 50)}..."\n`;
+          conversationContext += `   Відповідь: "${conv.response.substring(0, 80)}..."\n`;
+        });
+      }
+    } catch (historyError) {
+      console.warn('[AI MENTOR] Не вдалося отримати історію розмов:', historyError);
+      // Продовжуємо без контексту
+    }
+
     const prompt = `Ти експертний AI-наставник рівня Tony Robbins + Simon Sinek.
 
 Користувач питає: "${question}"
+${conversationContext}
 
 Дай персоналізовану відповідь:
 - З позиції "ти вже маєш силу всередині"
@@ -86,6 +118,7 @@ const generateAIResponse = async (question, user) => {
 - До 150 слів
 - Підтримуючий тон
 - Українською мовою
+- Враховуй контекст попередніх розмов, якщо є
 
 Формат:
 🎯 [короткий інсайт про ситуацію]
@@ -105,23 +138,6 @@ const generateAIResponse = async (question, user) => {
     console.log(`[AI MENTOR] OpenAI відповідь отримана: ${response.length} символів`);
     
     if (response && response.trim()) {
-      try {
-        // ✅ ЗБЕРІГАЄМО ПИТАННЯ ЯК ЦІЛЬ
-        const goalId = await saveGoal(user['TG_id'], question);
-        console.log(`[AI MENTOR] ✅ Ціль збережена з ID: ${goalId}`);
-        
-        // ✅ ВИТЯГУЄМО ТА ЗБЕРІГАЄМО МІКРО-ДІЇ
-        const actionMatches = response.match(/💡\s*([^✨]+)/);
-        if (actionMatches) {
-          const actions = actionMatches[1].trim();
-          await saveMicroAction(user['TG_id'], actions, true, goalId);
-          console.log(`[AI MENTOR] ✅ Мікро-дія збережена для цілі ${goalId}`);
-        }
-      } catch (saveError) {
-        console.error('[AI MENTOR] ❌ Помилка збереження в нові таблиці:', saveError);
-        // Продовжуємо роботу навіть якщо збереження не вдалося
-      }
-
       return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${response}`;
     } else {
       throw new Error('Порожня відповідь від OpenAI');
@@ -167,8 +183,31 @@ const handleAIMentorCallback = async (ctx) => {
   }
 };
 
+// ✅ НОВИЙ МЕТОД ДЛЯ ОТРИМАННЯ ЗВІТУ ПО AI ДІАЛОГАХ
+const getAIConversationReport = async (ctx) => {
+  try {
+    const tgId = ctx.from.id;
+    console.log(`📊 [AI MENTOR REPORT] Генерація звіту для ${tgId}`);
+    
+    const user = await userService.getUserByTelegramId(tgId);
+    if (!user || !user['Active_Subscription_Status']?.includes('✅ Активна')) {
+      return ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
+    }
+    
+    await typing(ctx);
+    
+    const report = await conversationService.generateAIConversationReport(tgId, 7);
+    await ctx.reply(report, keyboards.mainMenuKeyboard());
+    
+  } catch (error) {
+    console.error('[AI MENTOR REPORT] Помилка:', error);
+    await ctx.reply('❌ Не вдалося згенерувати звіт AI діалогів', keyboards.mainMenuKeyboard());
+  }
+};
+
 export default {
   handleAIMentorRequest,
   handleAIMentorQuestion,
   handleAIMentorCallback,
+  getAIConversationReport, // ✅ НОВИЙ МЕТОД
 };

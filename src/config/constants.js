@@ -51,24 +51,6 @@ export const ANSWER_STEPS = Object.freeze({
   COMPLETED: 'completed',
 });
 
-export const STEP_ORDER = [
-  ANSWER_STEPS.MORNING_1,
-  ANSWER_STEPS.MORNING_2,
-  ANSWER_STEPS.MORNING_3,
-  ANSWER_STEPS.MORNING_4,
-  ANSWER_STEPS.MORNING_5,
-  ANSWER_STEPS.MORNING_6,
-  ANSWER_STEPS.AFFIRMATION_MORNING,
-  ANSWER_STEPS.END_MORNING,
-  ANSWER_STEPS.EVENING_1,
-  ANSWER_STEPS.EVENING_2,
-  ANSWER_STEPS.EVENING_3,
-  ANSWER_STEPS.EVENING_4,
-  ANSWER_STEPS.EVENING_5,
-  ANSWER_STEPS.AFFIRMATION_EVENING,
-  ANSWER_STEPS.END_EVENING,
-];
-
 export const MORNING_QUESTIONS = [
   'Хто я сьогодні?\nОпиши себе як нову версію — з позиції сили.\n(Наприклад: я топ експерт, я власниця відомого бренду, я мільйонерка, я відома співачка...)\n_Я — ___________',
   'Яка я?\nДай відповідь на питання.\n(Наприклад: сильна, смілива, любляча, щира, рішуча...)\n_Я — ___________',
@@ -86,33 +68,80 @@ export const EVENING_QUESTIONS = [
   'Яка моя головна перемога сьогодні?\nДія, стан, рішення — будь-який успіх.\n_Сьогодні я: ___________',
 ];
 
-export const TIMEZONE_CONFIG = Object.freeze({
-  DEFAULT: 'Europe/Kiev',
-  FALLBACK: 'Europe/Prague',
-  USER_TIMEZONES: {},
+// ДОДАНО константи для колеса балансу
+export const WHEEL_BALANCE = Object.freeze({
+  TABLE: 'WheelBalance',
+  STATUS: {
+    ACTIVE: 'Active',
+    COMPLETED: 'Completed'
+  },
+  FIELDS: {
+    TG_ID: 'TG_id',
+    STATUS: 'Status', 
+    STEP: 'Step',
+    CREATED_DATE: 'Created_Date',
+    COMPLETED_DATE: 'Completed_Date',
+    TOTAL_SCORE: 'Total_Score',
+    HEALTH: 'Health',
+    SELF_GROWTH: 'Self_Growth', 
+    RELATIONSHIPS: 'Relationships',
+    CAREER_BUSINESS: 'Career_Business',
+    FINANCE: 'Finance',
+    REST_LEISURE: 'Rest_Leisure',
+    SPIRITUALITY: 'Spirituality_Values', // ВИПРАВЛЕНО назву поля
+    HOUSING: 'Housing'
+  }
 });
 
-// ✅ Константи для колеса балансу
+// ✅ 8 СФЕР ЖИТТЯ (показуються користувачу)
 export const LIFE_SPHERES = [
-  'Здоров’я та енергія',
-  'Особистісний розвиток',
-  'Стосунки (сім’я, друзі)',
-  'Кар’єра та професія',
+  'Здоров\'я та енергія',
+  'Особистісний розвиток', 
+  'Стосунки (сім\'я, друзі)',
+  'Кар\'єра та професія',
   'Фінанси та достаток',
   'Дозвілля та відпочинок',
   'Духовність та цінності',
   'Побут та оточення'
 ];
 
+// ✅ ПОЛЯ AIRTABLE (мають точно збігатися з назвами полів у таблиці WheelBalance)
 export const SPHERE_FIELDS = [
-'Health',
-  'Self_Growth', 
-  'Relationships',
-  'Career_Business',
-  'Finance', 
-  'Rest_Leisure', 
-  'Spirituality',
-  'Housing'];
+  'Health',           // Здоров'я та енергія
+  'Self_Growth',      // Особистісний розвиток  
+  'Relationships',    // Стосунки (сім'я, друзі)
+  'Career_Business',  // Кар'єра та професія
+  'Finance',          // Фінанси та достаток
+  'Rest_Leisure',     // Дозвілля та відпочинок
+  'Spirituality',     // Духовність та цінності
+  'Housing'           // Побут та оточення
+];
+
+// ✅ ПЕРЕВІРКА ВІДПОВІДНОСТІ
+if (LIFE_SPHERES.length !== SPHERE_FIELDS.length) {
+  console.error('❌ КРИТИЧНА ПОМИЛКА: Невідповідність довжини LIFE_SPHERES та SPHERE_FIELDS!');
+  console.error(`LIFE_SPHERES: ${LIFE_SPHERES.length} елементів`);
+  console.error(`SPHERE_FIELDS: ${SPHERE_FIELDS.length} елементів`);
+  throw new Error('LIFE_SPHERES and SPHERE_FIELDS arrays must have the same length');
+}
+
+// ✅ МАПІНГ ДЛЯ ДІАГНОСТИКИ
+export const SPHERE_MAPPING = LIFE_SPHERES.map((sphere, index) => ({
+  index,
+  displayName: sphere,
+  fieldName: SPHERE_FIELDS[index],
+  step: index // Step в Airtable (0-базовий)
+}));
+
+console.log('✅ [constants] Колесо балансу ініціалізовано:');
+console.log('- Кількість сфер:', LIFE_SPHERES.length);
+console.log('- Мапінг:', SPHERE_MAPPING);
+
+export const TIMEZONE_CONFIG = Object.freeze({
+  DEFAULT: 'Europe/Kiev',
+  FALLBACK: 'Europe/Prague',
+  USER_TIMEZONES: {},
+});
 
 export const SCHEDULE = Object.freeze({
   MORNING_TIME: '15:59',
@@ -137,21 +166,6 @@ export const CRON_SCHEDULES = Object.freeze({
   EVENING_REMINDER_SECOND: `${SCHEDULE.EVENING_MINUTE} ${(SCHEDULE.EVENING_HOUR + 1) % 24} * * *`,
   REPORTS_REMINDER: '0 18 * * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
-});
-
-export const REPORT_SCHEDULE = Object.freeze({
-  WEEKLY: {
-    dayOfWeek: 0,
-    hour: 21,
-    minute: 0,
-    message: '📊 Щотижневий звіт',
-  },
-  MONTHLY: {
-    dayRange: [28, 29, 30, 31],
-    hour: 22,
-    minute: 0,
-    message: '📊 Місячний звіт',
-  },
 });
 
 export const SCHEDULER_MESSAGES = Object.freeze({
@@ -182,16 +196,36 @@ export const SUBSCRIPTION_REMINDER_MESSAGES = Object.freeze({
   REMINDER_TODAY: (planName) => `🚨 Підписка закінчується сьогодні!\n\nТвій план "${planName}" стане неактивним.\n\nПоднови зараз, щоб не втратити прогрес! 🔥`,
 });
 
-export const AFFIRMATION_CATEGORIES = [
-  'Особистий розвиток',
-  'Бізнес-зріст',
-  'Ясність цілей',
-  'Впевненість',
-  'Інше',
-];
+export const MENU_TEXTS = Object.freeze({
+  HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
+  CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
+  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n• "🤖 AI наставник" — персональна підтримка\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (6 запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
+  PROGRESS: (totalDays, morningCompleted, eveningCompleted) =>
+    `📊 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`,
+  SUBSCRIPTION_ACTIVE: (plan, start, end) =>
+    `📦 ПІДПИСКА:\n\n✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}\n\n📝 Реєстраційні дані: ✅ Заповнені`,
+  SUBSCRIPTION_INACTIVE: `📦 ПІДПИСКА:\n\n❌ Неактивна\n\n💰 ДОСТУПНІ ПЛАНИ:\n🔹 Тиждень фокусу — 7€\n🔹 Місяць дії — 30€\n🔹 Рік трансформації — 300€\n\n📧 Для оплати напиши: nadyastarway@gmail.com\n\n📝 Реєстраційні дані: ✅ Заповнені`,
+  SELECT_MENU: 'Оберіть пункт з меню:',
+  REGISTER_FIRST: 'Спочатку зареєструйтесь /start',
+  PROGRESS_UNAVAILABLE: '📊 Прогрес тимчасово недоступний',
+  SUBSCRIPTION_UNAVAILABLE: 'Підписка тимчасово недоступна. Спробуй пізніше.',
+});
 
-export const LATE_TEXT = (nextType) =>
-  `На жаль, ви не відповіли вчасно. Важливо відповідати в межах вікна — це формує дисципліну і прогрес. Будь ласка, відповідайте на ${nextType === 'Evening' ? 'вечірні' : 'ранкові'} питання.`;
+export const MENU_MATCHERS = Object.freeze({
+  WEEKLY: (t) => t === '📈 Щотижневий звіт',
+  MONTHLY: (t) => t === '📈 Щомісячний звіт',
+  AFFIRM: (t) => t === '💎 Афірмація',
+  AI_MENTOR: (t) => t === '🤖 AI наставник',
+  PROGRESS: (t) => t === '📊 Мій прогрес',
+  SUBSCRIPTION: (t) => t === '💰 Підписка',
+  HELP: (t) => t === '❓ Допомога',
+  CONTACT: (t) => t === '📞 Зв\'язок з нами',
+  INSTRUCTIONS: (t) => t === '📝 Інструкції',
+  PROFILE: (t) => t === 'ℹ️ Профіль',
+  CONTINUE_ANSWERS: (t) => t === '🔄 Продовжити відповіді',
+  SKIP_SESSION: (t) => t === '⏭️ Пропустити',
+  QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase()),
+});
 
 export const AI_MENTOR_PROMPTS = Object.freeze({
   SYSTEM_PROMPT: `Ти — AI-наставник трансформації, експертний коуч рівня Tony Robbins. 
@@ -225,71 +259,4 @@ export const AI_MENTOR_CONFIG = Object.freeze({
     GENERAL_ADVICE: 'general_advice',
     GOAL_HELP: 'goal_help'
   }
-});
-
-export const AI_MENTOR_MESSAGES = Object.freeze({
-  WELCOME: "🤖 Привіт! Я твій AI-наставник. Готовий допомогти з цілями та мотивацією!",
-  ASK_GOAL: "Розкажи, над чим працюємо сьогодні? Яка твоя головна ціль на день?",
-  ASK_STATE: "Як ти себе відчуваєш зараз? Опиши свій стан.",
-  GENERATING_ACTIONS: "⚡ Генерую персональні мікро-дії для тебе...",
-  MICRO_ACTIONS_READY: (actions) => 
-    `🎯 ПЕРСОНАЛЬНІ МІКРО-ДІЇ НА СЬОГОДНІ:\n\n` +
-    actions.microActions.map((action, i) => 
-      `${i + 1}️⃣ ${action.action}\n💡 ${action.tip}\n`
-    ).join('\n') +
-    `\n✨ ${actions.motivation}`,
-  QUESTION_PROMPT: "🤔 Задай мені питання про цілі, мотивацію або стан - я допоможу!",
-  ASK_ANOTHER: "Є ще питання? Або хочеш нові мікро-дії?",
-  ERROR_RESPONSE: "😔 Щось пішло не так. Спробуй ще раз або перефразуй питання."
-});
-
-export const MENU_TEXTS = Object.freeze({
-  HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
-  CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
-  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n• "🤖 AI наставник" — персональна підтримка\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (6 запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (5 запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
-  PROGRESS: (totalDays, morningCompleted, eveningCompleted) =>
-    `📊 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`,
-  SUBSCRIPTION_ACTIVE: (plan, start, end) =>
-    `📦 ПІДПИСКА:\n\n✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}\n\n📝 Реєстраційні дані: ✅ Заповнені`,
-  SUBSCRIPTION_INACTIVE: `📦 ПІДПИСКА:\n\n❌ Неактивна\n\n💰 ДОСТУПНІ ПЛАНИ:\n🔹 Тиждень фокусу — 7€\n🔹 Місяць дії — 30€\n🔹 Рік трансформації — 300€\n\n📧 Для оплати напиши: nadyastarway@gmail.com\n\n📝 Реєстраційні дані: ✅ Заповнені`,
-  AFFIRMATION: (text) => `🌀 Афірмація:\n\n${text}`,
-  QUICK_SUPPORT: (text) => `💝 Швидка підтримка!\n\n${text}`,
-  SELECT_MENU: 'Оберіть пункт з меню:',
-  REGISTER_FIRST: 'Спочатку зареєструйтесь /start',
-  PROGRESS_UNAVAILABLE: '📊 Прогрес тимчасово недоступний',
-  SUBSCRIPTION_UNAVAILABLE: 'Підписка тимчасово недоступна. Спробуй пізніше.',
-  PLAN_SELECTION: 'Обери план підписки для активації aiMentor:',
-});
-
-export const MENU_MATCHERS = Object.freeze({
-  WEEKLY: (t) => t === '📈 Щотижневий звіт',
-  MONTHLY: (t) => t === '📈 Щомісячний звіт',
-  AFFIRM: (t) => t === '💎 Афірмація',
-  AI_MENTOR: (t) => t === '🤖 AI наставник',
-  PROGRESS: (t) => t === '📊 Мій прогрес',
-  SUBSCRIPTION: (t) => t === '💰 Підписка',
-  HELP: (t) => t === '❓ Допомога',
-  CONTACT: (t) => t === '📞 Зв\'язок з нами',
-  INSTRUCTIONS: (t) => t === '📝 Інструкції',
-  PROFILE: (t) => t === 'ℹ️ Профіль',
-  CONTINUE_ANSWERS: (t) => t === '🔄 Продовжити відповіді',
-  SKIP_SESSION: (t) => t === '⏭️ Пропустити',
-  QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase()),
-});
-
-export const WB_TABLE = 'Wheel Balance';
-
-export const WB_FIELDS = Object.freeze({
-  TG_ID: 'TG_id',
-  USER_NAME: 'User Name',
-  CREATED_DATE: 'Created_Date',
-  COMPLETED_DATE: 'Completed_Date',
-  TOTAL_SCORE: 'Total_Score',
-  STATUS: 'Status',
-  STEP: 'Step',
-});
-
-export const WB_STATUS = Object.freeze({
-  ACTIVE: 'active',
-  COMPLETED: 'completed',
 });
