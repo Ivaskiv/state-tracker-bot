@@ -271,7 +271,10 @@ export const WB_TABLE = 'Wheel Balance';
 export const WB_FIELDS = Object.freeze({
   TG_ID: 'TG_id',
   USER_NAME: 'User Name',
-  DATE: 'Date',
+  CREATED_DATE: 'Created_Date',
+    COMPLETED_DATE: 'Completed_Date',
+TOTAL_SCORE: 'Total_Score',
+  SPHERE: (i) => `Sphere_${i}`, // i = 1..8
   STATUS: 'Status',
   STEP: 'Step',
   AREAS: {
