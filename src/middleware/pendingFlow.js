@@ -275,7 +275,8 @@ const handleContinueAnswers = async (ctx, user) => {
   if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
     const activeWheel = await wheelBalanceService.getActiveWheel(user.TG_id);
     if (activeWheel) {
-      const currentSphere = activeWheel.fields.Step || 0; // ✅ ВИКОРИСТОВУЄМО ПОЛЕ Step
+      // ✅ ВИПРАВЛЕНО: використовуємо правильне поле Step з activeWheel.fields
+      const currentSphere = activeWheel.fields.Step || 0;
       const sphereName = wheelBalanceService.LIFE_SPHERES[currentSphere];
       
       await typing(ctx);
@@ -309,11 +310,6 @@ const handleSkipSession = async (ctx, tgId) => {
   // ✅ ОЧИЩАЄМО ВСІ АКТИВНІ СТАНИ
   await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
   clearUserReminders(tgId);
-  
-  // ✅ ЗАВЕРШУЄМО СЕСІЮ AI НАСТАВНИКА ЯКЩО АКТИВНА
-  if (aiMentorSession.isActive(tgId)) {
-    aiMentorSession.end(tgId);
-  }
   
   await typing(ctx);
   await ctx.reply('Сесію пропущено. Повертаємося до меню.', keyboards.mainMenuKeyboard());

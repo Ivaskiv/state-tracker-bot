@@ -1,4 +1,4 @@
-// src/config/constants.js - ВИПРАВЛЕНО ДУБЛІКАТ ПОВІДОМЛЕННЯ
+// src/config/constants.js
 export const SUBSCRIPTION_PLANS = Object.freeze({
   WEEK: {
     name: 'Тиждень фокусу',
@@ -46,8 +46,8 @@ export const ANSWER_STEPS = Object.freeze({
   END_EVENING: 'End_e',
   MORNING_PENDING: 'morning_pending',
   EVENING_PENDING: 'evening_pending',
-AI_MENTOR_ACTIVE: 'ai_mentor_active',
-WHEEL_BALANCE_ACTIVE: 'wheel_balance_active',
+  AI_MENTOR_ACTIVE: 'ai_mentor_active',
+  WHEEL_BALANCE_ACTIVE: 'wheel_balance_active',
   COMPLETED: 'completed',
 });
 
@@ -92,21 +92,35 @@ export const TIMEZONE_CONFIG = Object.freeze({
   USER_TIMEZONES: {},
 });
 
-// ✅ ТІЛЬКИ ЦІ ДВА РЯДКИ ТРЕБА МІНЯТИ
-const MORNING_TIME = '15:59';
-const EVENING_TIME = '20:30';
+// ✅ Константи для колеса балансу
+export const LIFE_SPHERES = [
+  'Здоров’я та енергія',
+  'Особистісний розвиток',
+  'Стосунки (сім’я, друзі)',
+  'Кар’єра та професія',
+  'Фінанси та достаток',
+  'Дозвілля та відпочинок',
+  'Духовність та цінності',
+  'Побут та оточення'
+];
 
-// 🔄 АВТОМАТИЧНИЙ РОЗРАХУНОК
-const [MORNING_HOUR, MORNING_MINUTE] = MORNING_TIME.split(':').map(Number);
-const [EVENING_HOUR, EVENING_MINUTE] = EVENING_TIME.split(':').map(Number);
+export const SPHERE_FIELDS = [
+'Health',
+  'Self_Growth', 
+  'Relationships',
+  'Career_Business',
+  'Finance', 
+  'Rest_Leisure', 
+  'Spirituality',
+  'Housing'];
 
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME,
-  EVENING_TIME,
-  MORNING_HOUR,
-  MORNING_MINUTE,
-  EVENING_HOUR,
-  EVENING_MINUTE,
+  MORNING_TIME: '15:59',
+  EVENING_TIME: '20:30',
+  MORNING_HOUR: 15,
+  MORNING_MINUTE: 59,
+  EVENING_HOUR: 20,
+  EVENING_MINUTE: 30,
   MORNING_START: 7,
   MORNING_END: 20,
   EVENING_START: 20,
@@ -115,12 +129,12 @@ export const SCHEDULE = Object.freeze({
 });
 
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: `${MORNING_MINUTE} ${MORNING_HOUR} * * *`,
-  EVENING_QUESTIONS: `${EVENING_MINUTE} ${EVENING_HOUR} * * *`,
-  MORNING_REMINDER: `${(MORNING_MINUTE + 10) % 60} ${MORNING_HOUR + Math.floor((MORNING_MINUTE + 10) / 60)} * * *`,
-  EVENING_REMINDER: `${(EVENING_MINUTE + 10) % 60} ${EVENING_HOUR + Math.floor((EVENING_MINUTE + 10) / 60)} * * *`,
-  MORNING_REMINDER_SECOND: `${MORNING_MINUTE} ${(MORNING_HOUR + 1) % 24} * * *`,
-  EVENING_REMINDER_SECOND: `${EVENING_MINUTE} ${(EVENING_HOUR + 1) % 24} * * *`,
+  MORNING_QUESTIONS: `${SCHEDULE.MORNING_MINUTE} ${SCHEDULE.MORNING_HOUR} * * *`,
+  EVENING_QUESTIONS: `${SCHEDULE.EVENING_MINUTE} ${SCHEDULE.EVENING_HOUR} * * *`,
+  MORNING_REMINDER: `${(SCHEDULE.MORNING_MINUTE + 10) % 60} ${SCHEDULE.MORNING_HOUR + Math.floor((SCHEDULE.MORNING_MINUTE + 10) / 60)} * * *`,
+  EVENING_REMINDER: `${(SCHEDULE.EVENING_MINUTE + 10) % 60} ${SCHEDULE.EVENING_HOUR + Math.floor((SCHEDULE.EVENING_MINUTE + 10) / 60)} * * *`,
+  MORNING_REMINDER_SECOND: `${SCHEDULE.MORNING_MINUTE} ${(SCHEDULE.MORNING_HOUR + 1) % 24} * * *`,
+  EVENING_REMINDER_SECOND: `${SCHEDULE.EVENING_MINUTE} ${(SCHEDULE.EVENING_HOUR + 1) % 24} * * *`,
   REPORTS_REMINDER: '0 18 * * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
 });
@@ -147,7 +161,7 @@ export const SCHEDULER_MESSAGES = Object.freeze({
   EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!\n\n🔄 Натисни "🔄 Продовжити відповіді"',
   MORNING_REMINDER_SECOND: '🔔 Останнє нагадування про ранкові питання!',
   EVENING_REMINDER_SECOND: '🔔 Останнє нагадування про вечірні питання!',
-  REPORTS_REMINDER: `📊 Переглянь свої звіти для аналізу прогресу!\n\n"📈 Щотижневий звіт" та "📈 Щомісячний звіт" у меню.`, // ✅ ВИПРАВЛЕНО: БЕЗ ДУБЛІКАТІВ
+  REPORTS_REMINDER: `📊 Переглянь свої звіти для аналізу прогресу!\n\n"📈 Щотижневий звіт" та "📈 Щомісячний звіт" у меню.`,
   WEEKLY_REPORT_READY: '📊 Щотижневий AI-звіт готовий!',
   MONTHLY_REPORT_READY: '📈 Місячний AI-звіт готовий!',
 });
@@ -161,8 +175,7 @@ export const SCHEDULER_CONFIG = Object.freeze({
   REMINDER_DELAY_2: 60 * 60 * 1000, // 60 хвилин
 });
 
-// Нагадування підписки
-export const SUBSCRIPTION_REMINDER_OFFSETS = [-3, -1, 0]; // дні до закінчення
+export const SUBSCRIPTION_REMINDER_OFFSETS = [-3, -1, 0];
 export const SUBSCRIPTION_REMINDER_MESSAGES = Object.freeze({
   REMINDER_3_DAYS: (planName, endDate) => `⏰ Нагадування про підписку\n\nТвоя підписка "${planName}" закінчується через 3 дні (${endDate}).\n\nПоднови зараз, щоб не втратити доступ до всіх функцій! 💎`,
   REMINDER_1_DAY: (planName, endDate) => `⚠️ Підписка закінчується завтра!\n\nПлан "${planName}" діє до ${endDate}.\n\nПоднови сьогодні, щоб продовжити свою трансформацію! ⚡`,
@@ -180,7 +193,6 @@ export const AFFIRMATION_CATEGORIES = [
 export const LATE_TEXT = (nextType) =>
   `На жаль, ви не відповіли вчасно. Важливо відповідати в межах вікна — це формує дисципліну і прогрес. Будь ласка, відповідайте на ${nextType === 'Evening' ? 'вечірні' : 'ранкові'} питання.`;
 
-// AI-наставник константи
 export const AI_MENTOR_PROMPTS = Object.freeze({
   SYSTEM_PROMPT: `Ти — AI-наставник трансформації, експертний коуч рівня Tony Robbins. 
 Твоя мета — генерувати конкретні мікро-дії та підтримуючі поради.
@@ -231,7 +243,6 @@ export const AI_MENTOR_MESSAGES = Object.freeze({
   ERROR_RESPONSE: "😔 Щось пішло не так. Спробуй ще раз або перефразуй питання."
 });
 
-// Меню константи
 export const MENU_TEXTS = Object.freeze({
   HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
   CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
@@ -254,7 +265,7 @@ export const MENU_MATCHERS = Object.freeze({
   WEEKLY: (t) => t === '📈 Щотижневий звіт',
   MONTHLY: (t) => t === '📈 Щомісячний звіт',
   AFFIRM: (t) => t === '💎 Афірмація',
-AI_MENTOR: (t) => t === '🤖 AI наставник',
+  AI_MENTOR: (t) => t === '🤖 AI наставник',
   PROGRESS: (t) => t === '📊 Мій прогрес',
   SUBSCRIPTION: (t) => t === '💰 Підписка',
   HELP: (t) => t === '❓ Допомога',
@@ -272,21 +283,10 @@ export const WB_FIELDS = Object.freeze({
   TG_ID: 'TG_id',
   USER_NAME: 'User Name',
   CREATED_DATE: 'Created_Date',
-    COMPLETED_DATE: 'Completed_Date',
-TOTAL_SCORE: 'Total_Score',
-  SPHERE: (i) => `Sphere_${i}`, // i = 1..8
+  COMPLETED_DATE: 'Completed_Date',
+  TOTAL_SCORE: 'Total_Score',
   STATUS: 'Status',
   STEP: 'Step',
-  AREAS: {
-    HEALTH: 'Health',
-    ENERGY: 'Energy',
-    CAREER: 'Career/Business',
-    FINANCE: 'Finance',
-    RELATIONSHIPS: 'Relationships',
-    FAMILY: 'Family',
-    GROWTH: 'Self/Growth',
-    LEISURE: 'Rest/Leisure',
-  }
 });
 
 export const WB_STATUS = Object.freeze({

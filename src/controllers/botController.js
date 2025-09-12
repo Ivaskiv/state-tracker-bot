@@ -1,8 +1,7 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО ЛОГІКУ БЛОКУВАННЯ
+// src/controllers/botController.js
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import affirmationService from '../dialogue/services/affirmationService.js';
-import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
 import subscriptionReminderService from '../services/subscriptionReminderService.js';
 import { schedulePendingReminders, clearUserReminders } from '../middleware/pendingFlow.js';
 import { refreshMenuIfDev } from '../utils/refreshMenu.js';
@@ -17,16 +16,24 @@ import {
   SCHEDULE,
   SUBSCRIPTION_PLANS,
   MENU_TEXTS,
-  MENU_MATCHERS
+  MENU_MATCHERS,
+  LIFE_SPHERES
 } from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 import { sendReport } from '../services/reportService.js';
 import { getUserDateTime } from '../utils/timezoneUtils.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import wheelBalanceService from '../services/wheelBalanceService.js';
+import { isActiveSubscription, restrictAccessMessage } from '../utils/subscriptionUtils.js';
+import { handleError } from '../utils/errorHandler.js';
+import { completeSession } from '../utils/sessionUtils.js';
+import logger from '../utils/logger.js';
+import aiMentorController from '../aiMentor/controllers.js/aiMentorController.js';
+
+const WHEEL_STEP = 'WheelBalance';
 
 const botController = (bot) => {
-  console.log('[botController] Initializing bot controller...');
+  logger.info('[botController] Initializing bot controller...');
 
   bot.use(globalTypingMiddleware());
 
@@ -47,8 +54,6 @@ const botController = (bot) => {
         const welcomeMessage = `🌟 Вітаю в aiMentor, ${name}!\n\nЯ твій персональний коуч трансформації. Готова допомогти тобі відстежувати щоденний прогрес та досягати цілей! ✨\n\n🎯 Для початку пропоную заповнити твоє колесо балансу — це допоможе оцінити всі сфери життя і створити план розвитку.`;
         
         await ctx.reply(welcomeMessage);
-        
-        // ✅ ОДРАЗУ ЗАПУСКАЄМО КОЛЕСО БАЛАНСУ ДЛЯ НОВОГО КОРИСТУВАЧА
         await wheelBalanceController.handleWheelBalanceRequest(ctx);
         return;
       }
@@ -56,7 +61,7 @@ const botController = (bot) => {
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
       clearUserReminders(tgId);
       
-      const isActive = user['Active_Subscription_Status']?.includes('✅ Активна');
+      const isActive = isActiveSubscription(user);
       const welcomeMessage = isActive 
         ? `Привіт знову, ${name}! 👋\n\nГотова продовжити свою трансформацію? ✨`
         : `Привіт, ${name}! 👋\n\nДля користування aiMentor потрібна активна підписка.`;
@@ -64,8 +69,7 @@ const botController = (bot) => {
       await ctx.reply(welcomeMessage, keyboards.mainMenuKeyboard());
       
     } catch (error) {
-      console.error('[botController.start] Error:', error);
-      await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
+      await handleError(ctx, error);
     }
   });
 
@@ -73,7 +77,7 @@ const botController = (bot) => {
     const tgId = ctx.from.id;
     
     try {
-      console.log(`[/menu] Оновлення меню для ${tgId}`);
+      logger.info(`[/menu] Оновлення меню для ${tgId}`);
       
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) {
@@ -91,37 +95,60 @@ const botController = (bot) => {
       }
       
     } catch (error) {
-      console.error('[/menu] Помилка:', error);
-      await ctx.reply('Виникла помилка при оновленні меню');
+      await handleError(ctx, error, 'Виникла помилка при оновленні меню');
     }
   });
 
   bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
-    const text = ctx.message.text?.trim();
-    if (!text) return;
+    const rawText = ctx.message.text?.trim();
+    if (!rawText) return;
+
+    // Нормалізація тексту для уникнення проблем з емодзі чи пробілами
+    const text = rawText.replace(/\s+/g, ' ').trim();
 
     try {
+      logger.info(`=== ДІАГНОСТИКА TEXT HANDLER ===`);
+      logger.info(`👤 Користувач: ${tgId}`);
+      logger.info(`💬 Текст: "${text}"`);
+
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) {
+        logger.info(`❌ Користувача ${tgId} не знайдено`);
         await ctx.reply('Будь ласка, спочатку натисніть /start', keyboards.mainMenuKeyboard());
         return;
       }
 
-      console.log(`🔍 [USER] Answer_Step: ${user.Answer_Step}, Text: "${text}"`);
-
-      // ✅ ПЕРЕВІРКА АКТИВНИХ СЕСІЙ
+      logger.info(`📋 Answer_Step: "${user.Answer_Step || 'undefined'}"`);
       const isActiveMorning = user.Answer_Step && (user.Answer_Step.startsWith('Q_m_') || user.Answer_Step === ANSWER_STEPS.MORNING_PENDING);
       const isActiveEvening = user.Answer_Step && (user.Answer_Step.startsWith('Q_e_') || user.Answer_Step === ANSWER_STEPS.EVENING_PENDING);
-      const isActiveWheel = user.Answer_Step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE;
       const isActiveAI = aiMentorSession.isActive(tgId);
+      const isActiveWheel = user.Answer_Step === WHEEL_STEP;
 
-      // ✅ AI-НАСТАВНИК: БЛОКУЄМО ВСЕ КРІМ ВИХОДУ
+      logger.info(`🎯 AI_MENTOR_WAITING: "${isActiveAI ? 'true' : 'undefined'}"`);
+      logger.info(`✅ Збігається: ${isActiveMorning || isActiveEvening || isActiveAI || isActiveWheel}`);
+
+      if (isActiveWheel) {
+        const result = await wheelBalanceService.processWheelAnswer(tgId, text);
+        if (result?.error && result.message.includes('введи число від 1 до 10')) {
+          const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
+          if (activeWheel) {
+            const currentSphere = Number.isInteger(activeWheel.fields.Step) ? activeWheel.fields.Step : 0;
+            const sphereName = LIFE_SPHERES[currentSphere] || LIFE_SPHERES[0];
+            await ctx.reply(
+              `❌ ${result.message}\n\n${currentSphere + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`
+            );
+            return;
+          }
+        }
+        await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
+        return;
+      }
+
       if (isActiveAI) {
         if (text === '🔚 Вийти з AI' || text.toLowerCase().includes('вихід') || text.toLowerCase().includes('exit')) {
           aiMentorSession.end(tgId);
-          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
+          await completeSession(tgId, ctx, '👋 Дякую за спілкування! Повертаємося до головного меню.');
           return;
         }
         
@@ -129,15 +156,11 @@ const botController = (bot) => {
         return;
       }
 
-      // ✅ ОБРОБКА ПИТАНЬ ТІЛЬКИ ЯКЩО Є АКТИВНА СЕСІЯ
-      if (isActiveMorning || isActiveEvening || isActiveWheel) {
-        
-        // Дозволяємо команди продовження/пропуску
+      if (isActiveMorning || isActiveEvening) {
         if (text === '🔄 Продовжити відповіді' || text === '⏭️ Пропустити') {
-          return; // дозволяємо обробку в pendingFlow
+          return;
         }
         
-        // ✅ БЛОКУЄМО ВСІ КОМАНДИ МЕНЮ ПРИ АКТИВНИХ ПИТАННЯХ
         const menuCommands = [
           '💎 Афірмація', '📈 Щотижневий звіт', '📈 Щомісячний звіт', 
           '🤖 AI наставник', '🎯 Колесо балансу', '💰 Підписка',
@@ -146,13 +169,9 @@ const botController = (bot) => {
         ];
         
         if (menuCommands.includes(text)) {
-          console.log(`🚫 [BLOCK] Блокуємо команду "${text}" при активній сесії`);
+          logger.info(`🚫 [BLOCK] Блокуємо команду "${text}" при активній сесії`);
           
-          let sessionType = 'питання';
-          if (isActiveMorning) sessionType = 'ранкові питання';
-          else if (isActiveEvening) sessionType = 'вечірні питання';  
-          else if (isActiveWheel) sessionType = 'колесо балансу';
-          
+          let sessionType = isActiveMorning ? 'ранкові питання' : 'вечірні питання';
           await ctx.reply(
             `🔒 Спочатку заверши ${sessionType} або пропусти сесію.\n\n📝 У тебе незавершена сесія відповідей.`,
             keyboards.continueAnswersKeyboard()
@@ -160,34 +179,24 @@ const botController = (bot) => {
           return;
         }
         
-        // ✅ ОБРОБЛЯЄМО ВІДПОВІДІ НА ПИТАННЯ
-        if (isActiveWheel) {
-          await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
-          return;
-        }
-        
-        if (isActiveMorning || isActiveEvening) {
-          await handleQuestionAnswer(ctx, user, text);
-          return;
-        }
+        await handleQuestionAnswer(ctx, user, text);
+        return;
       }
 
-      // ✅ ЗВИЧАЙНА ОБРОБКА КОМАНД МЕНЮ
       if (user.Answer_Step === ANSWER_STEPS.PLAN_SELECTION) {
         await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
         return;
       }
 
+      logger.info(`📋 [MENU] Обробка команди: "${text}"`);
       await handleMenuCommands(ctx, user, text);
       
     } catch (error) {
-      console.error('[botController.onText] Error:', error);
-      await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
+      await handleError(ctx, error);
     }
   });
 
-  const handleQuestionAnswer = async (ctx, user, text) => {
-    const step = user.Answer_Step;
+  const handleQuestionAnswer = async (ctx, user, text, step) => {
     if (!step || step === ANSWER_STEPS.COMPLETED) return false;
     
     const tgId = ctx.from.id;
@@ -204,8 +213,7 @@ const botController = (bot) => {
 
       return false;
     } catch (error) {
-      console.error('[handleQuestionAnswer] Error:', error);
-      await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
+      await handleError(ctx, error);
       return true;
     }
   };
@@ -213,7 +221,7 @@ const botController = (bot) => {
   const processMorningQuestions = async (ctx, user, text, step, tgId, userName) => {
     const currentTime = getUserDateTime(tgId);
     const currentHour = new Date(currentTime).getHours();
-    const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+    const eveningHour = SCHEDULE.EVENING_HOUR;
     
     if (currentHour >= eveningHour) {
       await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
@@ -224,7 +232,6 @@ const botController = (bot) => {
     const questionNum = parseInt(step.split('_')[2]);
     const fieldName = `Q_m_${questionNum}`;
     
-    // ✅ ЗБЕРІГАЄМО ВІДПОВІДЬ В ТАБЛИЦЮ RESPONSES
     await responseService.createOrUpdateResponse(
       tgId, userName, QUESTION_TYPES.MORNING, step, questionNum, text, fieldName
     );
@@ -236,7 +243,7 @@ const botController = (bot) => {
       await userService.updateUserStep(tgId, nextStep);
       await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
     } else {
-      await completeSession(ctx, tgId, userName, QUESTION_TYPES.MORNING, 'morning');
+      await completeSessionWithAffirmation(ctx, tgId, userName, QUESTION_TYPES.MORNING, 'morning');
     }
     return true;
   };
@@ -245,7 +252,6 @@ const botController = (bot) => {
     const questionNum = parseInt(step.split('_')[2]);
     const fieldName = `Q_e_${questionNum}`;
     
-    // ✅ ЗБЕРІГАЄМО ВІДПОВІДЬ В ТАБЛИЦЮ RESPONSES
     await responseService.createOrUpdateResponse(
       tgId, userName, QUESTION_TYPES.EVENING, step, questionNum, text, fieldName
     );
@@ -257,12 +263,12 @@ const botController = (bot) => {
       await userService.updateUserStep(tgId, nextStep);
       await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
     } else {
-      await completeSession(ctx, tgId, userName, QUESTION_TYPES.EVENING, 'evening');
+      await completeSessionWithAffirmation(ctx, tgId, userName, QUESTION_TYPES.EVENING, 'evening');
     }
     return true;
   };
 
-  const completeSession = async (ctx, tgId, userName, questionType, sessionType) => {
+  const completeSessionWithAffirmation = async (ctx, tgId, userName, questionType, sessionType) => {
     const affirmation = await affirmationService.getAffirmationAndMarkUsed(sessionType);
     const affirmationField = questionType === QUESTION_TYPES.MORNING ? 'affirmation_m' : 'affirmation_e';
     const affirmationStep = questionType === QUESTION_TYPES.MORNING ? ANSWER_STEPS.AFFIRMATION_MORNING : ANSWER_STEPS.AFFIRMATION_EVENING;
@@ -271,143 +277,123 @@ const botController = (bot) => {
       tgId, userName, questionType, affirmationStep, 0, affirmation, affirmationField, true
     );
     
-    await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-    
     const sessionName = questionType === QUESTION_TYPES.MORNING ? 'Ранкові' : 'Вечірні';
-    await ctx.reply(`✅ ${sessionName} питання завершено!\n\n💎 ${affirmation}`, keyboards.mainMenuKeyboard());
-    await refreshMenuIfDev(ctx);
+    await completeSession(tgId, ctx, `✅ ${sessionName} питання завершено!\n\n💎 ${affirmation}`);
   };
 
-  const handleMenuCommands = async (ctx, user, text) => {
-    const isActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');
-    const currentTime = getUserDateTime(ctx.from.id);
-    const currentHour = new Date(currentTime).getHours();
-    const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
-
-    if (MENU_MATCHERS.AI_MENTOR(text)) {
-      console.log(`🤖 [AI НАСТАВНИК] Активація для ${ctx.from.id}`);
-      
-      if (!isActiveSubscription) {
-        await ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
-        return;
+  const menuHandlers = {
+    [MENU_MATCHERS.AI_MENTOR]: async (ctx, user) => {
+      logger.info(`🤖 [AI НАСТАВНИК] Активація для ${ctx.from.id}`);
+      if (!isActiveSubscription(user)) {
+        return await restrictAccessMessage('🤖 AI-наставник', ctx);
       }
-      
       await aiMentorController.handleAIMentorRequest(ctx);
-      return;
-    }
-
-    if (text === '🎯 Колесо балансу') {
-      console.log(`🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========`);
-      console.log(`🎯 [КОЛЕСО БАЛАНСУ] Користувач: ${ctx.from.id}`);
-      console.log(`🎯 [КОЛЕСО БАЛАНСУ] Ім'я: ${ctx.from.first_name}`);
+    },
+    '🎯 Колесо балансу': async (ctx, user) => {
+      logger.info(`🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========`);
+      logger.info(`🎯 [КОЛЕСО БАЛАНСУ] Користувач: ${ctx.from.id}`);
+      logger.info(`🎯 [КОЛЕСО БАЛАНСУ] Ім'я: ${ctx.from.first_name}`);
       
-      if (!isActiveSubscription) {
-        console.log(`❌ [КОЛЕСО БАЛАНСУ] Доступ заборонено - немає підписки`);
-        await ctx.reply('🎯 Колесо балансу доступне тільки з активною підпискою', keyboards.mainMenuKeyboard());
-        return;
+      if (!isActiveSubscription(user)) {
+        logger.info(`❌ [КОЛЕСО БАЛАНСУ] Доступ заборонено - немає підписки`);
+        return await restrictAccessMessage('🎯 Колесо балансу', ctx);
       }
       
-      console.log(`✅ [КОЛЕСО БАЛАНСУ] Підписка активна, запускаємо wheelBalanceController`);
+      await userService.updateUserStep(ctx.from.id, WHEEL_STEP);
+      logger.info(`✅ [КОЛЕСО БАЛАНСУ] Встановлено Answer_Step: ${WHEEL_STEP}`);
       
       try {
         await wheelBalanceController.handleWheelBalanceRequest(ctx);
-        console.log(`✅ [КОЛЕСО БАЛАНСУ] Успішно викликано handleWheelBalanceRequest`);
+        logger.info(`✅ [КОЛЕСО БАЛАНСУ] Успішно викликано handleWheelBalanceRequest`);
       } catch (controllerError) {
-        console.error(`❌ [КОЛЕСО БАЛАНСУ] Помилка в контролері:`, controllerError);
+        logger.error(`❌ [КОЛЕСО БАЛАНСУ] Помилка в контролері:`, controllerError);
         await ctx.reply('❌ Помилка запуску колеса балансу. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
       }
-      
-      console.log(`🎯 [КОЛЕСО БАЛАНСУ] ========== КІНЕЦЬ ЗАПИТУ ==========`);
-      return;
-    }
-
-    if (text === '🌅 Ранкові питання') {
+    },
+    '🌅 Ранкові питання': async (ctx, user) => {
+      const currentTime = getUserDateTime(ctx.from.id);
+      const currentHour = new Date(currentTime).getHours();
+      const eveningHour = SCHEDULE.EVENING_HOUR;
       if (currentHour >= eveningHour) {
-        await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
-        return;
+        return await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
       }
       await startMorningQuestions(ctx, user);
-      return;
-    }
-
-    if (text === '🌙 Вечірні питання') {
+    },
+    '🌙 Вечірні питання': async (ctx, user) => {
       await startEveningQuestions(ctx, user);
-      return;
-    }
-
-    if (MENU_MATCHERS.AFFIRM(text)) {
+    },
+    [MENU_MATCHERS.AFFIRM]: async (ctx, user) => {
       const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
       await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
       await refreshMenuIfDev(ctx);
-      return;
-    }
-
-    if (MENU_MATCHERS.WEEKLY(text)) {
-      if (!isActiveSubscription) {
-        await ctx.reply('📋 Ця функція доступна тільки з активною підпискою', keyboards.mainMenuKeyboard());
-        return;
+    },
+    [MENU_MATCHERS.WEEKLY]: async (ctx, user) => {
+      if (!isActiveSubscription(user)) {
+        return await restrictAccessMessage('📋 Щотижневий звіт', ctx);
       }
       await sendReport(bot, ctx.from.id, 'weekly');
       await refreshMenuIfDev(ctx);
-      return;
-    }
-
-    if (MENU_MATCHERS.MONTHLY(text)) {
-      if (!isActiveSubscription) {
-        await ctx.reply('📋 Ця функція доступна тільки з активною підпискою', keyboards.mainMenuKeyboard());
-        return;
+    },
+    [MENU_MATCHERS.MONTHLY]: async (ctx, user) => {
+      if (!isActiveSubscription(user)) {
+        return await restrictAccessMessage('📋 Щомісячний звіт', ctx);
       }
       await sendReport(bot, ctx.from.id, 'monthly');
       await refreshMenuIfDev(ctx);
-      return;
-    }
-
-    if (MENU_MATCHERS.SUBSCRIPTION(text)) {
+    },
+    [MENU_MATCHERS.SUBSCRIPTION]: async (ctx, user) => {
       await showSubscriptionInfo(ctx, user);
       await refreshMenuIfDev(ctx);
-      return;
-    }
-
-    if (MENU_MATCHERS.PROGRESS(text)) {
+    },
+    [MENU_MATCHERS.PROGRESS]: async (ctx, user) => {
       await showUserProgress(ctx, user);
       await refreshMenuIfDev(ctx);
-      return;
-    }
-
-    if (MENU_MATCHERS.HELP(text)) {
+    },
+    [MENU_MATCHERS.HELP]: async (ctx, user) => {
       await ctx.reply(MENU_TEXTS.HELP, keyboards.mainMenuKeyboard());
       await refreshMenuIfDev(ctx);
-      return;
-    }
-
-    if (MENU_MATCHERS.CONTACT(text)) {
+    },
+    [MENU_MATCHERS.CONTACT]: async (ctx, user) => {
       await ctx.reply(MENU_TEXTS.CONTACT, keyboards.supportKeyboard());
-      return;
-    }
-
-    if (MENU_MATCHERS.INSTRUCTIONS(text)) {
+    },
+    [MENU_MATCHERS.INSTRUCTIONS]: async (ctx, user) => {
       await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.mainMenuKeyboard());
       await refreshMenuIfDev(ctx);
-      return;
-    }
-
-    if (MENU_MATCHERS.PROFILE(text)) {
+    },
+    [MENU_MATCHERS.PROFILE]: async (ctx, user) => {
       await showUserProfile(ctx, user);
       await refreshMenuIfDev(ctx);
-      return;
     }
-
-    console.log(`❓ [MENU] Невідома команда: "${text}"`);
-    await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
-    await refreshMenuIfDev(ctx);
   };
 
-  // ✅ ПОЧАТОК РАНКОВИХ ПИТАНЬ З НАГАДУВАННЯМИ
+  const handleMenuCommands = async (ctx, user, text) => {
+    // Додаткове логування ключів для діагностики
+    const availableCommands = Object.keys(menuHandlers).filter(key => typeof key === 'string');
+    logger.info(`📋 [MENU] Доступні команди:`, availableCommands);
+    logger.info(`📋 [MENU] Вхідний текст: "${text}"`);
+
+    // Пошук ключа з нормалізацією
+    const handlerKey = Object.keys(menuHandlers).find(key => 
+      typeof key === 'function' 
+        ? key(text.replace(/\s+/g, ' ').trim()) 
+        : key.replace(/\s+/g, ' ').trim() === text
+    );
+
+    if (handlerKey) {
+      logger.info(`✅ [MENU] Знайдено обробник для: "${handlerKey}"`);
+      await menuHandlers[handlerKey](ctx, user);
+    } else {
+      logger.info(`❓ [MENU] Невідома команда: "${text}"`);
+      await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
+      await refreshMenuIfDev(ctx);
+    }
+  };
+
   const startMorningQuestions = async (ctx, user) => {
     const tgId = ctx.from.id;
     const currentTime = getUserDateTime(tgId);
     const currentHour = new Date(currentTime).getHours();
-    const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+    const eveningHour = SCHEDULE.EVENING_HOUR;
 
     if (currentHour >= eveningHour) {
       await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
@@ -424,12 +410,9 @@ const botController = (bot) => {
 
     await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
     await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
-    
-    // ✅ НАГАДУВАННЯ ЧЕРЕЗ 10 ХВИЛИН
     schedulePendingReminders(bot, tgId, 'Morning');
   };
 
-  // ✅ ПОЧАТОК ВЕЧІРНІХ ПИТАНЬ З НАГАДУВАННЯМИ  
   const startEveningQuestions = async (ctx, user) => {
     const tgId = ctx.from.id;
     const isEveningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
@@ -443,8 +426,6 @@ const botController = (bot) => {
 
     await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
     await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
-    
-    // ✅ НАГАДУВАННЯ ЧЕРЕЗ 10 ХВИЛИН
     schedulePendingReminders(bot, tgId, 'Evening');
   };
 
@@ -453,9 +434,8 @@ const botController = (bot) => {
     const data = ctx.callbackQuery.data;
 
     try {
-      console.log(`📱 [CALLBACK] ${data} від ${tgId}`);
+      logger.info(`📱 [CALLBACK] ${data} від ${tgId}`);
 
-      // ✅ ОБРОБКА ПРОДОВЖЕННЯ/ПРОПУСКУ ВІДПОВІДЕЙ
       if (data === 'continue_answers') {
         const user = await userService.getUserByTelegramId(tgId);
         if (!user) {
@@ -472,7 +452,7 @@ const botController = (bot) => {
       }
 
       if (data === 'ai_continue' || data === 'ai_exit') {
-        console.log(`🤖 [CALLBACK] AI-наставник: ${data}`);
+        logger.info(`🤖 [CALLBACK] AI-наставник: ${data}`);
         await aiMentorController.handleAIMentorCallback(ctx);
         return;
       }
@@ -498,68 +478,50 @@ const botController = (bot) => {
       }
       
     } catch (error) {
-      console.error('[botController.callbackQuery] Error:', error);
-      await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
+      await handleError(ctx, error);
       await ctx.answerCbQuery();
     }
   });
 
-  // ✅ ФУНКЦІЇ ОБРОБКИ CALLBACK
   const handleContinueAnswers = async (ctx, user) => {
     const step = user.Answer_Step;
     
-    // Колесо балансу
-    if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
+    if (step === WHEEL_STEP) {
       const activeWheel = await wheelBalanceService.getActiveWheel(user.TG_id);
       if (activeWheel) {
-        const currentSphere = activeWheel.fields.Step || 0;
-        const sphereName = wheelBalanceService.LIFE_SPHERES[currentSphere];
+        const currentSphere = Number.isInteger(activeWheel.fields.Step) ? activeWheel.fields.Step : 0;
+        const sphereName = LIFE_SPHERES[currentSphere] || LIFE_SPHERES[0];
         
         await typing(ctx);
         await ctx.reply(`🎯 КОЛЕСО БАЛАНСУ\n\n${currentSphere + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`);
         await ctx.answerCbQuery('Продовжуємо колесо балансу');
       } else {
-        await typing(ctx);
-        await ctx.reply('Колесо балансу завершено!', keyboards.mainMenuKeyboard());
-        await userService.updateUserStep(user.TG_id, ANSWER_STEPS.COMPLETED);
+        await completeSession(user.TG_id, ctx, 'Колесо балансу завершено!');
         await ctx.answerCbQuery('Готово');
       }
       return;
     }
     
-    // Ранкові/вечірні питання
     const currentQuestion = getCurrentQuestion(step);
     if (currentQuestion && !currentQuestion.includes('🎯 Колесо балансу')) {
       await typing(ctx);
       await ctx.reply(currentQuestion);
       await ctx.answerCbQuery('Продовжуємо відповіді');
     } else {
-      await typing(ctx);
-      await ctx.reply('Питання завершені!', keyboards.mainMenuKeyboard());
-      await userService.updateUserStep(user.TG_id, ANSWER_STEPS.COMPLETED);
+      await completeSession(user.TG_id, ctx, 'Питання завершені!');
       await ctx.answerCbQuery('Готово');
     }
   };
 
-  // ✅ ФУНКЦІЯ ПРОПУСКУ СЕСІЇ
   const handleSkipSession = async (ctx, tgId) => {
-    // Очищаємо всі активні стани
-    await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-    clearUserReminders(tgId);
-    
-    // Завершуємо сесію AI наставника якщо активна
-    if (aiMentorController.aiMentorSession && aiMentorController.aiMentorSession.isActive(tgId)) {
-      aiMentorController.aiMentorSession.end(tgId);
+    if (aiMentorSession.isActive(tgId)) {
+      aiMentorSession.end(tgId);
     }
-    
-    await typing(ctx);
-    await ctx.reply('✅ Сесію пропущено. Тепер всі кнопки меню доступні!', keyboards.mainMenuKeyboard());
+    await completeSession(tgId, ctx, '✅ Сесію пропущено. Тепер всі кнопки меню доступні!');
     await ctx.answerCbQuery('Сесію пропущено');
-    
-    console.log(`✅ [SKIP] Сесію пропущено для ${tgId}, всі функції розблоковано`);
+    logger.info(`✅ [SKIP] Сесію пропущено для ${tgId}, всі функції розблоковано`);
   };
 
-  // ✅ ФУНКЦІЯ ОТРИМАННЯ ПОТОЧНОГО ПИТАННЯ
   const getCurrentQuestion = (step) => {
     if (step.startsWith('Q_m_')) {
       const questionNum = parseInt(step.split('_')[2]) - 1;
@@ -571,7 +533,7 @@ const botController = (bot) => {
       return `${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`;
     }
     
-    if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
+    if (step === WHEEL_STEP) {
       return '🎯 Колесо балансу в процесі...';
     }
     
@@ -602,7 +564,7 @@ const botController = (bot) => {
     if (data === 'restart_morning') {
       const currentTime = getUserDateTime(tgId);
       const currentHour = new Date(currentTime).getHours();
-      const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+      const eveningHour = SCHEDULE.EVENING_HOUR;
       
       if (currentHour >= eveningHour) {
         await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
@@ -647,8 +609,7 @@ const botController = (bot) => {
       await ctx.reply(progressText, keyboards.mainMenuKeyboard());
       
     } catch (error) {
-      console.error('[showUserProgress] Error:', error);
-      await ctx.reply(MENU_TEXTS.PROGRESS_UNAVAILABLE, keyboards.mainMenuKeyboard());
+      await handleError(ctx, error, MENU_TEXTS.PROGRESS_UNAVAILABLE);
     }
   };
 
@@ -659,7 +620,7 @@ const botController = (bot) => {
       const startDate = user['Start_Date'] ? new Date(user['Start_Date']).toLocaleDateString('uk-UA') : '—';
       const endDate = user['End_Date'] ? new Date(user['End_Date']).toLocaleDateString('uk-UA') : '—';
 
-      const isActive = status.includes('✅ Активна');
+      const isActive = isActiveSubscription(user);
       const subscriptionText = isActive 
         ? MENU_TEXTS.SUBSCRIPTION_ACTIVE(plan, startDate, endDate)
         : MENU_TEXTS.SUBSCRIPTION_INACTIVE;
@@ -668,8 +629,7 @@ const botController = (bot) => {
       await ctx.reply(subscriptionText, keyboard);
       
     } catch (error) {
-      console.error('[showSubscriptionInfo] Error:', error);
-      await ctx.reply(MENU_TEXTS.SUBSCRIPTION_UNAVAILABLE, keyboards.mainMenuKeyboard());
+      await handleError(ctx, error, MENU_TEXTS.SUBSCRIPTION_UNAVAILABLE);
     }
   };
 
@@ -685,8 +645,7 @@ const botController = (bot) => {
       await ctx.reply(profileText, keyboards.mainMenuKeyboard());
       
     } catch (error) {
-      console.error('[showUserProfile] Error:', error);
-      await ctx.reply('ℹ️ Інформація про профіль тимчасово недоступна', keyboards.mainMenuKeyboard());
+      await handleError(ctx, error, 'ℹ️ Інформація про профіль тимчасово недоступна');
     }
   };
 
@@ -714,26 +673,38 @@ const botController = (bot) => {
       
       const url = new URL('https://secure.wayforpay.com/pay');
       Object.entries({
-        merchantAccount, merchantDomainName, orderReference,
-        orderDate: orderDate.toString(), amount: amount.toString(), currency,
-        orderTimeout: '3600', clientFirstName: 'aiMentor', clientLastName: 'User',
-        clientEmail: `user${tgId}@telegram.user`, clientPhone: '+380000000000',
-        language: 'UA', serviceUrl: `${process.env.WEBHOOK_URL || 'https://yourdomain.com'}/api/wayforpay/webhook`,
+        merchantAccount,
+        merchantDomainName,
+        orderReference,
+        orderDate: orderDate.toString(),
+        amount: amount.toString(),
+        currency,
+        orderTimeout: '3600',
+        clientFirstName: 'aiMentor',
+        clientLastName: 'User',
+        clientEmail: `user${tgId}@telegram.user`,
+        clientPhone: '+380000000000',
+        language: 'UA',
+        serviceUrl: `${process.env.WEBHOOK_URL || 'https://yourdomain.com'}/api/wayforpay/webhook`,
         returnUrl: `https://t.me/${process.env.BOT_USERNAME || 'your_bot'}`,
-        merchantSignature: signature, clientAccountId: tgId.toString(),
-        socialUri: `tg://user?id=${tgId}`, TG_id: tgId.toString(),
-        planKey: planKey, planDuration: planInfo.duration.toString()
+        merchantSignature: signature,
+        clientAccountId: tgId.toString(),
+        productName,
+        productCount: productCount.toString(),
+        productPrice: productPrice.toString()
       }).forEach(([key, value]) => url.searchParams.append(key, value));
       
-      url.searchParams.append('productName[]', productName);
-      url.searchParams.append('productPrice[]', productPrice.toString());
-      url.searchParams.append('productCount[]', '1');
-
+      logger.info(`✅ [PAYMENT] Generated payment URL for ${tgId}: ${url.toString().substring(0, 50)}...`);
       return url.toString();
     } catch (error) {
-      console.error('[generatePaymentUrl] Помилка:', error);
-      return `https://secure.wayforpay.com/payment/fallback_${planKey.toLowerCase()}_${tgId}`;
+      logger.error(`❌ [PAYMENT] Error generating payment URL for ${tgId}:`, error);
+      return 'https://secure.wayforpay.com/pay?error=generation_failed';
     }
+  };
+
+  return {
+    startMorningQuestions,
+    startEveningQuestions,
   };
 };
 
