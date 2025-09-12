@@ -1,4 +1,4 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО ІМПОРТ КОЛЕСА БАЛАНСУ
+// src/controllers/botController.js - ВИПРАВЛЕНО ЛОГІКУ БЛОКУВАННЯ
 import userService from '../auth/services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import affirmationService from '../dialogue/services/affirmationService.js';
@@ -23,27 +23,11 @@ import keyboards from '../utils/keyboards.js';
 import { sendReport } from '../services/reportService.js';
 import { getUserDateTime } from '../utils/timezoneUtils.js';
 import wheelBalanceController from './wheelBalanceController.js';
-import wheelBalanceService from '../services/wheelBalanceService.js'; // ✅ ВИПРАВЛЕНО ШЛЯХ
-
-async function handleWheelBalance(ctx, user) {
-  const tgId = ctx.from.id;
-  let rec = await wheelBalanceService.getActiveWheel(tgId); // ✅ ВИКОРИСТОВУЄМО ПРАВИЛЬНИЙ СЕРВІС
-
-  if (!rec) {
-    rec = await wheelBalanceService.startWheelBalance(tgId); // ✅ ВИКОРИСТОВУЄМО ПРАВИЛЬНИЙ СЕРВІС
-    await ctx.reply('🎯 Починаємо колесо балансу! Оціни сферу "Здоровʼя" від 0 до 10.');
-  } else {
-    const step = rec.fields.Wheel_Current_Sphere || 0; // ✅ ВИПРАВЛЕНО ПОЛЕ
-    const prompts = wheelBalanceService.LIFE_SPHERES; // ✅ ВИКОРИСТОВУЄМО ПРАВИЛЬНИЙ СЕРВІС
-    const idx = Math.max(0, Math.min(step, prompts.length - 1));
-    await ctx.reply(`🎯 Продовжуємо. Оціни сферу "${prompts[idx]}" від 0 до 10.`);
-  }
-}
+import wheelBalanceService from '../services/wheelBalanceService.js';
 
 const botController = (bot) => {
   console.log('[botController] Initializing bot controller...');
 
-  // ✅ ГЛОБАЛЬНИЙ TYPING MIDDLEWARE
   bot.use(globalTypingMiddleware());
 
   bot.start(async (ctx) => {
@@ -51,8 +35,6 @@ const botController = (bot) => {
     const name = ctx.from.first_name || 'Користувач';
     
     try {
-      // typing вже викликаний middleware
-      
       let user = await userService.getUserByTelegramId(tgId);
       
       if (!user) {
@@ -62,11 +44,12 @@ const botController = (bot) => {
           email: ctx.from.username ? `${ctx.from.username}@telegram.user` : null,
         });
         
-        const welcomeMessage = `🌟 Вітаю в aiMentor, ${name}!\n\nЯ твій персональний коуч трансформації. Готова допомогти тобі відстежувати щоденний прогрес та досягати цілей! ✨\n\n${MENU_TEXTS.PLAN_SELECTION}`;
+        const welcomeMessage = `🌟 Вітаю в aiMentor, ${name}!\n\nЯ твій персональний коуч трансформації. Готова допомогти тобі відстежувати щоденний прогрес та досягати цілей! ✨\n\n🎯 Для початку пропоную заповнити твоє колесо балансу — це допоможе оцінити всі сфери життя і створити план розвитку.`;
         
-        await ctx.reply(welcomeMessage, keyboards.subscriptionKeyboard());
-        await userService.updateUserStep(tgId, ANSWER_STEPS.PLAN_SELECTION);
-        console.log(`[botController] Created new user: ${tgId}, awaiting plan selection`);
+        await ctx.reply(welcomeMessage);
+        
+        // ✅ ОДРАЗУ ЗАПУСКАЄМО КОЛЕСО БАЛАНСУ ДЛЯ НОВОГО КОРИСТУВАЧА
+        await wheelBalanceController.handleWheelBalanceRequest(ctx);
         return;
       }
       
@@ -125,22 +108,19 @@ const botController = (bot) => {
         return;
       }
 
-      console.log(`🔍 [USER] Answer_Step: ${user.Answer_Step}`);
-      console.log(`=== ДІАГНОСТИКА AI MENTOR ===`);
-      console.log(`👤 Користувач: ${tgId}`);
-      console.log(`💬 Текст: "${text}"`);
-      console.log(`📋 Answer_Step: "${user.Answer_Step}"`);
-      console.log(`🎯 AI_MENTOR_ACTIVE: "${ANSWER_STEPS.AI_MENTOR_ACTIVE}"`);
-      console.log(`✅ Збігається: ${user.Answer_Step === ANSWER_STEPS.AI_MENTOR_ACTIVE}`);
-      console.log(`📱 aiMentorSession.isActive: ${aiMentorSession.isActive(tgId)}`);
-      console.log(`================================`);
+      console.log(`🔍 [USER] Answer_Step: ${user.Answer_Step}, Text: "${text}"`);
 
-      // AI-наставник через сесію
-      if (aiMentorSession.isActive(tgId)) {
-        console.log(`🤖 [AI-MENTOR] Обробка питання через сесію: "${text}"`);
-        
-        if (isExitCommand(text)) {
+      // ✅ ПЕРЕВІРКА АКТИВНИХ СЕСІЙ
+      const isActiveMorning = user.Answer_Step && (user.Answer_Step.startsWith('Q_m_') || user.Answer_Step === ANSWER_STEPS.MORNING_PENDING);
+      const isActiveEvening = user.Answer_Step && (user.Answer_Step.startsWith('Q_e_') || user.Answer_Step === ANSWER_STEPS.EVENING_PENDING);
+      const isActiveWheel = user.Answer_Step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE;
+      const isActiveAI = aiMentorSession.isActive(tgId);
+
+      // ✅ AI-НАСТАВНИК: БЛОКУЄМО ВСЕ КРІМ ВИХОДУ
+      if (isActiveAI) {
+        if (text === '🔚 Вийти з AI' || text.toLowerCase().includes('вихід') || text.toLowerCase().includes('exit')) {
           aiMentorSession.end(tgId);
+          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
           await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
           return;
         }
@@ -149,14 +129,55 @@ const botController = (bot) => {
         return;
       }
 
+      // ✅ ОБРОБКА ПИТАНЬ ТІЛЬКИ ЯКЩО Є АКТИВНА СЕСІЯ
+      if (isActiveMorning || isActiveEvening || isActiveWheel) {
+        
+        // Дозволяємо команди продовження/пропуску
+        if (text === '🔄 Продовжити відповіді' || text === '⏭️ Пропустити') {
+          return; // дозволяємо обробку в pendingFlow
+        }
+        
+        // ✅ БЛОКУЄМО ВСІ КОМАНДИ МЕНЮ ПРИ АКТИВНИХ ПИТАННЯХ
+        const menuCommands = [
+          '💎 Афірмація', '📈 Щотижневий звіт', '📈 Щомісячний звіт', 
+          '🤖 AI наставник', '🎯 Колесо балансу', '💰 Підписка',
+          '📊 Мій прогрес', '❓ Допомога', '📞 Зв\'язок з нами',
+          '📝 Інструкції', 'ℹ️ Профіль'
+        ];
+        
+        if (menuCommands.includes(text)) {
+          console.log(`🚫 [BLOCK] Блокуємо команду "${text}" при активній сесії`);
+          
+          let sessionType = 'питання';
+          if (isActiveMorning) sessionType = 'ранкові питання';
+          else if (isActiveEvening) sessionType = 'вечірні питання';  
+          else if (isActiveWheel) sessionType = 'колесо балансу';
+          
+          await ctx.reply(
+            `🔒 Спочатку заверши ${sessionType} або пропусти сесію.\n\n📝 У тебе незавершена сесія відповідей.`,
+            keyboards.continueAnswersKeyboard()
+          );
+          return;
+        }
+        
+        // ✅ ОБРОБЛЯЄМО ВІДПОВІДІ НА ПИТАННЯ
+        if (isActiveWheel) {
+          await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
+          return;
+        }
+        
+        if (isActiveMorning || isActiveEvening) {
+          await handleQuestionAnswer(ctx, user, text);
+          return;
+        }
+      }
+
+      // ✅ ЗВИЧАЙНА ОБРОБКА КОМАНД МЕНЮ
       if (user.Answer_Step === ANSWER_STEPS.PLAN_SELECTION) {
         await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
         return;
       }
 
-      if (await handleQuestionAnswer(ctx, user, text)) return;
-
-      console.log(`📋 [MENU] Обробка команди: "${text}"`);
       await handleMenuCommands(ctx, user, text);
       
     } catch (error) {
@@ -164,11 +185,6 @@ const botController = (bot) => {
       await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
     }
   });
-
-  const isExitCommand = (text) => {
-    const exitCommands = ['вихід', 'exit', '🏠 головне меню', 'меню'];
-    return exitCommands.includes(text.toLowerCase());
-  };
 
   const handleQuestionAnswer = async (ctx, user, text) => {
     const step = user.Answer_Step;
@@ -178,12 +194,6 @@ const botController = (bot) => {
     const userName = user['User Name'] || 'Користувач';
 
     try {
-      // ✅ ОБРОБКА КОЛЕСА БАЛАНСУ
-      if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
-        await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
-        return true;
-      }
-    
       if (step.startsWith('Q_m_')) {
         return await processMorningQuestions(ctx, user, text, step, tgId, userName);
       }
@@ -214,6 +224,7 @@ const botController = (bot) => {
     const questionNum = parseInt(step.split('_')[2]);
     const fieldName = `Q_m_${questionNum}`;
     
+    // ✅ ЗБЕРІГАЄМО ВІДПОВІДЬ В ТАБЛИЦЮ RESPONSES
     await responseService.createOrUpdateResponse(
       tgId, userName, QUESTION_TYPES.MORNING, step, questionNum, text, fieldName
     );
@@ -234,6 +245,7 @@ const botController = (bot) => {
     const questionNum = parseInt(step.split('_')[2]);
     const fieldName = `Q_e_${questionNum}`;
     
+    // ✅ ЗБЕРІГАЄМО ВІДПОВІДЬ В ТАБЛИЦЮ RESPONSES
     await responseService.createOrUpdateResponse(
       tgId, userName, QUESTION_TYPES.EVENING, step, questionNum, text, fieldName
     );
@@ -284,16 +296,28 @@ const botController = (bot) => {
       return;
     }
 
-    // ✅ ОБРОБКА КНОПКИ КОЛЕСА БАЛАНСУ
     if (text === '🎯 Колесо балансу') {
-      console.log(`🎯 [КОЛЕСО БАЛАНСУ] Активація для ${ctx.from.id}`);
+      console.log(`🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========`);
+      console.log(`🎯 [КОЛЕСО БАЛАНСУ] Користувач: ${ctx.from.id}`);
+      console.log(`🎯 [КОЛЕСО БАЛАНСУ] Ім'я: ${ctx.from.first_name}`);
       
       if (!isActiveSubscription) {
+        console.log(`❌ [КОЛЕСО БАЛАНСУ] Доступ заборонено - немає підписки`);
         await ctx.reply('🎯 Колесо балансу доступне тільки з активною підпискою', keyboards.mainMenuKeyboard());
         return;
       }
       
-      await wheelBalanceController.handleWheelBalanceRequest(ctx);
+      console.log(`✅ [КОЛЕСО БАЛАНСУ] Підписка активна, запускаємо wheelBalanceController`);
+      
+      try {
+        await wheelBalanceController.handleWheelBalanceRequest(ctx);
+        console.log(`✅ [КОЛЕСО БАЛАНСУ] Успішно викликано handleWheelBalanceRequest`);
+      } catch (controllerError) {
+        console.error(`❌ [КОЛЕСО БАЛАНСУ] Помилка в контролері:`, controllerError);
+        await ctx.reply('❌ Помилка запуску колеса балансу. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
+      }
+      
+      console.log(`🎯 [КОЛЕСО БАЛАНСУ] ========== КІНЕЦЬ ЗАПИТУ ==========`);
       return;
     }
 
@@ -378,6 +402,7 @@ const botController = (bot) => {
     await refreshMenuIfDev(ctx);
   };
 
+  // ✅ ПОЧАТОК РАНКОВИХ ПИТАНЬ З НАГАДУВАННЯМИ
   const startMorningQuestions = async (ctx, user) => {
     const tgId = ctx.from.id;
     const currentTime = getUserDateTime(tgId);
@@ -399,9 +424,12 @@ const botController = (bot) => {
 
     await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
     await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
+    
+    // ✅ НАГАДУВАННЯ ЧЕРЕЗ 10 ХВИЛИН
     schedulePendingReminders(bot, tgId, 'Morning');
   };
 
+  // ✅ ПОЧАТОК ВЕЧІРНІХ ПИТАНЬ З НАГАДУВАННЯМИ  
   const startEveningQuestions = async (ctx, user) => {
     const tgId = ctx.from.id;
     const isEveningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
@@ -415,6 +443,8 @@ const botController = (bot) => {
 
     await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
     await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
+    
+    // ✅ НАГАДУВАННЯ ЧЕРЕЗ 10 ХВИЛИН
     schedulePendingReminders(bot, tgId, 'Evening');
   };
 
@@ -424,6 +454,22 @@ const botController = (bot) => {
 
     try {
       console.log(`📱 [CALLBACK] ${data} від ${tgId}`);
+
+      // ✅ ОБРОБКА ПРОДОВЖЕННЯ/ПРОПУСКУ ВІДПОВІДЕЙ
+      if (data === 'continue_answers') {
+        const user = await userService.getUserByTelegramId(tgId);
+        if (!user) {
+          await ctx.answerCbQuery('Користувача не знайдено');
+          return;
+        }
+        await handleContinueAnswers(ctx, user);
+        return;
+      }
+      
+      if (data === 'skip_session') {
+        await handleSkipSession(ctx, tgId);
+        return;
+      }
 
       if (data === 'ai_continue' || data === 'ai_exit') {
         console.log(`🤖 [CALLBACK] AI-наставник: ${data}`);
@@ -457,6 +503,80 @@ const botController = (bot) => {
       await ctx.answerCbQuery();
     }
   });
+
+  // ✅ ФУНКЦІЇ ОБРОБКИ CALLBACK
+  const handleContinueAnswers = async (ctx, user) => {
+    const step = user.Answer_Step;
+    
+    // Колесо балансу
+    if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
+      const activeWheel = await wheelBalanceService.getActiveWheel(user.TG_id);
+      if (activeWheel) {
+        const currentSphere = activeWheel.fields.Step || 0;
+        const sphereName = wheelBalanceService.LIFE_SPHERES[currentSphere];
+        
+        await typing(ctx);
+        await ctx.reply(`🎯 КОЛЕСО БАЛАНСУ\n\n${currentSphere + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`);
+        await ctx.answerCbQuery('Продовжуємо колесо балансу');
+      } else {
+        await typing(ctx);
+        await ctx.reply('Колесо балансу завершено!', keyboards.mainMenuKeyboard());
+        await userService.updateUserStep(user.TG_id, ANSWER_STEPS.COMPLETED);
+        await ctx.answerCbQuery('Готово');
+      }
+      return;
+    }
+    
+    // Ранкові/вечірні питання
+    const currentQuestion = getCurrentQuestion(step);
+    if (currentQuestion && !currentQuestion.includes('🎯 Колесо балансу')) {
+      await typing(ctx);
+      await ctx.reply(currentQuestion);
+      await ctx.answerCbQuery('Продовжуємо відповіді');
+    } else {
+      await typing(ctx);
+      await ctx.reply('Питання завершені!', keyboards.mainMenuKeyboard());
+      await userService.updateUserStep(user.TG_id, ANSWER_STEPS.COMPLETED);
+      await ctx.answerCbQuery('Готово');
+    }
+  };
+
+  // ✅ ФУНКЦІЯ ПРОПУСКУ СЕСІЇ
+  const handleSkipSession = async (ctx, tgId) => {
+    // Очищаємо всі активні стани
+    await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+    clearUserReminders(tgId);
+    
+    // Завершуємо сесію AI наставника якщо активна
+    if (aiMentorController.aiMentorSession && aiMentorController.aiMentorSession.isActive(tgId)) {
+      aiMentorController.aiMentorSession.end(tgId);
+    }
+    
+    await typing(ctx);
+    await ctx.reply('✅ Сесію пропущено. Тепер всі кнопки меню доступні!', keyboards.mainMenuKeyboard());
+    await ctx.answerCbQuery('Сесію пропущено');
+    
+    console.log(`✅ [SKIP] Сесію пропущено для ${tgId}, всі функції розблоковано`);
+  };
+
+  // ✅ ФУНКЦІЯ ОТРИМАННЯ ПОТОЧНОГО ПИТАННЯ
+  const getCurrentQuestion = (step) => {
+    if (step.startsWith('Q_m_')) {
+      const questionNum = parseInt(step.split('_')[2]) - 1;
+      return `${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`;
+    }
+    
+    if (step.startsWith('Q_e_')) {
+      const questionNum = parseInt(step.split('_')[2]) - 1;
+      return `${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`;
+    }
+    
+    if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
+      return '🎯 Колесо балансу в процесі...';
+    }
+    
+    return null;
+  };
 
   const handleSubscriptionCallback = async (ctx, data, tgId) => {
     const planKey = data.replace('subscribe_', '').toUpperCase();

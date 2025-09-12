@@ -1,11 +1,11 @@
-// src/aiMentor/controllers/aiMentorController.js - ВИПРАВЛЕНО
+// src/aiMentor/controllers/aiMentorController.js - ВИПРАВЛЕНО КНОПКУ ВИХОДУ
 import userService from '../../auth/services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { aiMentorControlKeyboard } from '../../utils/keyboards.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 import typing from '../../utils/typing.js';
 import { aiMentorSession } from '../session.js';
-import { saveGoal, saveMicroAction } from '../services/goalService.js'; // ВИПРАВЛЕНО: правильний імпорт
+import { saveGoal, saveMicroAction } from '../services/goalService.js';
 
 const handleAIMentorRequest = async (ctx) => {
   try {
@@ -31,7 +31,8 @@ const handleAIMentorRequest = async (ctx) => {
 
     const helpText = `🤖 AI-НАСТАВНИК\n\nЯ твій персональний AI-коуч! Готовий відповісти на твоє питання.\n\n💡 Персональними порадами\n🎯 Мікро-діями для цілей\n⚡ Підтримкою в складних ситуаціях\n\nНапиши своє питання прямо зараз! 👇`;
     
-    await ctx.reply(helpText);
+    // ✅ ПОКАЗУЄМО ТІЛЬКИ КНОПКУ ВИХОДУ НА ПОЧАТКУ
+    await ctx.reply(helpText, keyboards.aiMentorStartKeyboard());
     console.log(`✅ [AI MENTOR] Інструкції надіслано для ${tgId}, Answer_Step: ${ANSWER_STEPS.AI_MENTOR_ACTIVE}`);
     
   } catch (error) {
@@ -149,7 +150,7 @@ const handleAIMentorCallback = async (ctx) => {
     if (data === 'ai_continue') {
       await userService.updateUserStep(tgId, ANSWER_STEPS.AI_MENTOR_ACTIVE);
       await typing(ctx);
-      await ctx.reply('🤖 Задавай наступне питання! Я готовий допомогти 😊');
+      await ctx.reply('🤖 Задавай наступне питання! Я готовий допомогти 😊', aiMentorControlKeyboard());
       await ctx.answerCbQuery('Продовжуємо діалог');
       
     } else if (data === 'ai_exit') {

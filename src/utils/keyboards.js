@@ -1,4 +1,4 @@
-// src/utils/keyboards.js
+// src/utils/keyboards.js - ДОДАНО ОКРЕМІ КЛАВІАТУРИ ДЛЯ AI
 import { Markup } from 'telegraf';
 
 export const BUTTONS = Object.freeze({
@@ -25,7 +25,7 @@ export const mainMenuKeyboard = () => {
       keyboard: [
         ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
         ["🤖 AI наставник", "💎 Афірмація"],
-        ["🎯 Колесо балансу", "📊 Мій прогрес"], // ✅ ДОДАНО КОЛЕСО
+        ["🎯 Колесо балансу", "📊 Мій прогрес"], 
         ["💰 Підписка", "❓ Допомога"],
         ["📝 Інструкції", "📞 Зв'язок з нами"],
         ['ℹ️ Профіль']
@@ -45,13 +45,27 @@ export const continueAnswersKeyboard = () => {
   };
 };
 
+// ✅ ТІЛЬКИ КНОПКА ВИХОДУ ДЛЯ ПОЧАТКОВОГО ПОВІДОМЛЕННЯ AI
+export const aiMentorStartKeyboard = () => {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🔚 Вийти з AI', callback_data: 'ai_exit' }
+        ]
+      ]
+    }
+  };
+};
+
+// ✅ ДВІ КНОПКИ ПІСЛЯ ПЕРШОГО ПИТАННЯ
 export const aiMentorControlKeyboard = () => {
   return {
     reply_markup: {
       inline_keyboard: [
         [
           { text: '📝 Запитати ще', callback_data: 'ai_continue' },
-          { text: '🔚 Вийти з AI', callback_data: 'ai_exit' }
+          { text: '🔚 Війти з AI', callback_data: 'ai_exit' }
         ]
       ]
     }
@@ -95,7 +109,8 @@ export default {
   mainMenuKeyboard,
   supportKeyboard,
   continueAnswersKeyboard,
-  aiMentorControlKeyboard,
+  aiMentorStartKeyboard,      // ✅ НОВА: тільки вихід
+  aiMentorControlKeyboard,    // ✅ ІСНУЮЧА: дві кнопки
   skipKeyboard,
   subscriptionKeyboard,
   renewalKeyboard

@@ -1,4 +1,4 @@
-// src/middleware/pendingFlow.js
+// src/middleware/pendingFlow.js - ВИПРАВЛЕНО ЛОГІКУ БЛОКУВАННЯ
 import userService from '../auth/services/userService.js';
 import { ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS, MENU_MATCHERS, SCHEDULE } from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
@@ -75,6 +75,29 @@ const sendReminder = async (bot, tgId, sessionType, reminderNumber) => {
   }
 };
 
+// ✅ ВИПРАВЛЕНА ФУНКЦІЯ ПЕРЕВІРКИ АКТИВНИХ ВІДПОВІДЕЙ
+const isPendingResponse = (user) => {
+  if (!user || !user.Answer_Step) return false;
+  
+  const step = user.Answer_Step;
+  
+  // ✅ ПЕРЕВІРЯЄМО ВСІ АКТИВНІ СТАНИ
+  const activeSteps = [
+    // Ранкові питання
+    ANSWER_STEPS.MORNING_1, ANSWER_STEPS.MORNING_2, ANSWER_STEPS.MORNING_3,
+    ANSWER_STEPS.MORNING_4, ANSWER_STEPS.MORNING_5, ANSWER_STEPS.MORNING_6,
+    // Вечірні питання  
+    ANSWER_STEPS.EVENING_1, ANSWER_STEPS.EVENING_2, ANSWER_STEPS.EVENING_3,
+    ANSWER_STEPS.EVENING_4, ANSWER_STEPS.EVENING_5,
+    // Pending стани
+    ANSWER_STEPS.MORNING_PENDING, ANSWER_STEPS.EVENING_PENDING,
+    // Колесо балансу
+    ANSWER_STEPS.WHEEL_BALANCE_ACTIVE
+  ];
+  
+  return activeSteps.includes(step);
+};
+
 // Утиліти для визначення стану користувача
 const getCurrentQuestion = (step) => {
   if (step.startsWith('Q_m_')) {
@@ -94,19 +117,6 @@ const getCurrentQuestion = (step) => {
   return null;
 };
 
-const isPendingResponse = (user) => {
-  if (!user || !user.Answer_Step) return false;
-  
-  const step = user.Answer_Step;
-  const pendingSteps = [
-    ANSWER_STEPS.MORNING_PENDING,
-    ANSWER_STEPS.EVENING_PENDING,
-    ANSWER_STEPS.WHEEL_BALANCE_ACTIVE
-  ];
-  
-  return step.startsWith('Q_m_') || step.startsWith('Q_e_') || pendingSteps.includes(step);
-};
-
 const updateUserActivity = async (tgId) => {
   try {
     await userService.updateUserActivity(tgId);
@@ -122,11 +132,14 @@ const getSessionType = (step) => {
   return 'поточні';
 };
 
+// ✅ ВИПРАВЛЕНА ФУНКЦІЯ КОМАНД МЕНЮ
 const isMenuCommand = (text) => {
   const menuCommands = [
     '💎 Афірмація',
     '📈 Щотижневий звіт',
-    '📈 Щомісячний звіт',
+    '📈 Щомісячний звіт', 
+    '🤖 AI наставник',
+    '🎯 Колесо балансу',
     '💰 Підписка',
     '📊 Мій прогрес',
     '❓ Допомога',
@@ -155,62 +168,56 @@ export const installPendingFlow = (bot) => {
 
       const pending = isPendingResponse(user);
       
-      // Дозвол команд продовження/пропуску
+      console.log(`[pendingFlow] 🔍 ДІАГНОСТИКА для ${tgId}:`);
+      console.log(`- Текст: "${text}"`);
+      console.log(`- Answer_Step: "${user.Answer_Step}"`);
+      console.log(`- isPending: ${pending}`);
+      console.log(`- isMenuCommand: ${isMenuCommand(text)}`);
+
+      // ✅ ДОЗВОЛЯЄМО КОМАНДИ ПРОДОВЖЕННЯ/ПРОПУСКУ
       if (MENU_MATCHERS.CONTINUE_ANSWERS(text) || 
           MENU_MATCHERS.SKIP_SESSION(text) ||
           text.startsWith('🔄') || text.startsWith('⏭️')) {
+        console.log(`[pendingFlow] ✅ Дозволено команду продовження: "${text}"`);
         return next();
       }
 
-      if (!pending) {
+      // ✅ ПЕРЕВІРЯЄМО СТАН КОРИСТУВАЧА СВІЖО З БД
+      const freshUser = await userService.getUserByTelegramId(tgId);
+      const freshPending = isPendingResponse(freshUser);
+      
+      console.log(`[pendingFlow] 🔄 СВІЖА ПЕРЕВІРКА: Answer_Step="${freshUser.Answer_Step}", isPending=${freshPending}`);
+
+      // ✅ ЯКЩО НЕМАЄ АКТИВНИХ ПИТАНЬ - ДОЗВОЛЯЄМО ВСЕ
+      if (!freshPending) {
+        console.log(`[pendingFlow] ✅ Немає активних питань, дозволяємо: "${text}"`);
         return next();
       }
 
-      const step = user.Answer_Step;
+      const step = freshUser.Answer_Step;
       const sessionType = getSessionType(step);
 
-      // Обробка спеціальних команд при незавершених відповідях
-      if ((text === '🤖 AI наставник' || text === '🎯 Колесо балансу') && pending) {
-        await typing(ctx);
-        await ctx.reply(
-          `🔒 Спочатку заверши ${sessionType} або пропусти сесію.\n\nПотім зможеш користуватися цією функцією.`,
-          keyboards.continueAnswersKeyboard()
-        );
-        return;
-      }
-
-      // Обробка колеса балансу
-      if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
-        if (isMenuCommand(text)) {
-          await typing(ctx);
-          await ctx.reply(
-            `🔒 Спочатку заверши колесо балансу або пропусти сесію.\n\n📝 У тебе незавершене колесо балансу.`,
-            keyboards.continueAnswersKeyboard()
-          );
-          return;
-        }
-        return next(); // Дозволяємо відповіді на колесо
-      }
-
-      // Обробка часового вікна для ранкових питань
-      if ((step.startsWith('Q_m_') || step === ANSWER_STEPS.MORNING_PENDING) && isMenuCommand(text)) {
-        const currentTime = getUserDateTime(tgId);
-        const currentHour = new Date(currentTime).getHours();
-        const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+      // ✅ БЛОКУЄМО КОМАНДИ МЕНЮ ПРИ АКТИВНИХ ПИТАННЯХ
+      if (freshPending && isMenuCommand(text)) {
+        console.log(`[pendingFlow] 🚫 БЛОКУЄМО команду меню: "${text}" (активний стан: ${step})`);
         
-        if (currentHour >= eveningHour) {
-          await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
-          await typing(ctx);
-          await ctx.reply(
-            '🌙 Ранкові питання недоступні після 20:00.\n\nМожеш почати вечірні питання або пропустити сесію.',
-            keyboards.continueAnswersKeyboard()
-          );
-          return;
+        // Обробка часового вікна для ранкових питань
+        if ((step.startsWith('Q_m_') || step === ANSWER_STEPS.MORNING_PENDING)) {
+          const currentTime = getUserDateTime(tgId);
+          const currentHour = new Date(currentTime).getHours();
+          const eveningHour = parseInt(SCHEDULE.EVENING_TIME.split(':')[0]);
+          
+          if (currentHour >= eveningHour) {
+            await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
+            await typing(ctx);
+            await ctx.reply(
+              '🌙 Ранкові питання недоступні після 20:00.\n\nМожеш почати вечірні питання або пропустити сесію.',
+              keyboards.continueAnswersKeyboard()
+            );
+            return;
+          }
         }
-      }
 
-      // Блокування меню при незавершених відповідях
-      if (pending && isMenuCommand(text)) {
         const currentQuestion = getCurrentQuestion(step);
         let message = `🔒 Спочатку заверши ${sessionType} або пропусти сесію.\n\n`;
         
@@ -222,9 +229,11 @@ export const installPendingFlow = (bot) => {
         
         await typing(ctx);
         await ctx.reply(message, keyboards.continueAnswersKeyboard());
-        return;
+        return; // ✅ БЛОКУЄМО ВИКОНАННЯ
       }
 
+      // ✅ ДОЗВОЛЯЄМО ВІДПОВІДІ НА ПИТАННЯ
+      console.log(`[pendingFlow] ✅ Дозволяємо відповідь на питання: "${text}"`);
       return next();
     } catch (error) {
       console.error('[pendingFlow] Помилка middleware:', error);
@@ -266,7 +275,7 @@ const handleContinueAnswers = async (ctx, user) => {
   if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
     const activeWheel = await wheelBalanceService.getActiveWheel(user.TG_id);
     if (activeWheel) {
-      const currentSphere = activeWheel.fields.Current_Sphere || 0;
+      const currentSphere = activeWheel.fields.Step || 0; // ✅ ВИКОРИСТОВУЄМО ПОЛЕ Step
       const sphereName = wheelBalanceService.LIFE_SPHERES[currentSphere];
       
       await typing(ctx);
@@ -297,10 +306,18 @@ const handleContinueAnswers = async (ctx, user) => {
 
 // Обробка пропуску сесії
 const handleSkipSession = async (ctx, tgId) => {
+  // ✅ ОЧИЩАЄМО ВСІ АКТИВНІ СТАНИ
   await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
   clearUserReminders(tgId);
+  
+  // ✅ ЗАВЕРШУЄМО СЕСІЮ AI НАСТАВНИКА ЯКЩО АКТИВНА
+  if (aiMentorSession.isActive(tgId)) {
+    aiMentorSession.end(tgId);
+  }
   
   await typing(ctx);
   await ctx.reply('Сесію пропущено. Повертаємося до меню.', keyboards.mainMenuKeyboard());
   await ctx.answerCbQuery('Сесію пропущено');
+  
+  console.log(`✅ [SKIP] Сесію пропущено для ${tgId}, Answer_Step: COMPLETED`);
 };
