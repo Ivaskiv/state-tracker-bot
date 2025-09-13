@@ -100,14 +100,14 @@ export async function handleRegistrationStep(ctx) {
     return true;
   }
 
-  if (step === 'reg_timezone') {
+if (step === 'reg_timezone') {
     const selectedTimezone = TIMEZONES.find(tz => text === tz);
     if (!selectedTimezone) {
       await ctx.reply('Обери часовий пояс зі списку:', timezoneKeyboard());
       return true;
     }
 
-    const timezone = selectedTimezone.split(' ')[0]; // витягуємо тільки Europe/Prague
+    const timezone = selectedTimezone.split(' ')[0];
     
     const tgId = ctx.from.id;
     const user = await userService.createUser({
@@ -118,22 +118,26 @@ export async function handleRegistrationStep(ctx) {
       timezone: timezone
     });
 
-    // очищаємо сесію реєстрації
     ctx.session.step = null;
     ctx.session.temp = {};
 
-    // Перевіряємо активну підписку
     const hasActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');
-    if (!hasActiveSubscription) {
+    
+    if (hasActiveSubscription) {
+      // ✅ АВТОЗАПУСК КОЛЕСА БАЛАНСУ ПІСЛЯ РЕЄСТРАЦІЇ З АКТИВНОЮ ПІДПИСКОЮ
+      const welcomeMessage = `🎉 Реєстрація завершена!\n\nТвій часовий пояс: ${selectedTimezone}\n\n🎯 Почнемо з оцінки твого життєвого балансу!`;
+      await ctx.reply(welcomeMessage);
+      
+      // Запускаємо колесо балансу
+      await wheelBalanceController.handleWheelBalanceRequest(ctx);
+      return true;
+    } else {
       const welcomeMessage = `🎉 Реєстрація завершена!\n\nТвій часовий пояс: ${selectedTimezone}\nРанкові питання о 8:00, вечірні о 20:30 за твоїм часом.\n\n💰 Для початку роботи потрібна активна підписка.\nОбери план у меню "💰 Підписка"`;
       await ctx.reply(welcomeMessage, keyboards.mainMenuKeyboard());
       return true;
     }
-
-    await ctx.reply(profileMessage(user), keyboards.mainMenuKeyboard());
-    return true;
   }
-
+  
   return false;
 }
 

@@ -1,13 +1,10 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО ПОДВІЙНИЙ ВИКЛИК
+// src/controllers/botController.js - ВИПРАВЛЕНО + ЗБЕРЕЖЕННЯ ДІАЛОГІВ
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
-import wheelBalanceService from '../services/wheelBalanceService.js';
 import { clearUserReminders } from '../middleware/pendingFlow.js';
 import { aiMentorSession } from '../aiMentor/session.js';
 import { globalTypingMiddleware } from '../middleware/typingMiddleware.js';
-import { handleMenuCommands } from './menuHandlers.js';
-import { handleQuestionAnswer } from './sessionHandlers.js';
 import { ANSWER_STEPS} from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 import { isActiveSubscription } from '../utils/subscriptionUtils.js';
@@ -15,6 +12,8 @@ import { handleError } from '../utils/errorHandler.js';
 import { completeSession } from '../utils/sessionUtils.js';
 import logger from '../utils/logger.js';
 import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
+import { handleMenuCommands } from '../dialogue/handlers/menuHandlers.js';
+import { handleQuestionAnswer, handleRestartCallback } from '../dialogue/handlers/sessionHandlers.js';
 
 const WHEEL_STEP = 'WheelBalance';
 
@@ -82,11 +81,11 @@ const botController = (bot) => {
       const isActiveAI = aiMentorSession.isActive(tgId);
       const isActiveQuestions = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
 
-      // ✅ КОЛЕСО БАЛАНСУ - ТІЛЬКИ ОДИН ВИКЛИК
+      // Колесо балансу
       if (isActiveWheel) {
         logger.info(`🎯 [botController] Обробка колеса балансу для ${tgId}: "${text}"`);
         await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
-        return; // ✅ ВАЖЛИВО: завершуємо обробку тут
+        return;
       }
 
       // AI наставник
@@ -117,6 +116,12 @@ const botController = (bot) => {
     const data = ctx.callbackQuery.data;
 
     try {
+      // Обробка рестарту сесій
+      if (data === 'restart_morning' || data === 'restart_evening' || data === 'cancel_restart') {
+        await handleRestartCallback(ctx);
+        return;
+      }
+
       if (data === 'skip_session') {
         aiMentorSession.end(ctx.from.id);
         await completeSession(ctx.from.id, ctx, '✅ Сесію пропущено.');
@@ -131,6 +136,11 @@ const botController = (bot) => {
 
       if (data === 'wheel_retry' || data === 'wheel_exit') {
         await wheelBalanceController.handleWheelRetryCallback(ctx);
+        return;
+      }
+
+      if (data === 'wheel_start_new' || data === 'wheel_to_menu') {
+        await wheelBalanceController.handleWheelMenuCallback(ctx);
         return;
       }
 

@@ -1,15 +1,16 @@
-// src/controllers/menuHandlers.js - ВИПРАВЛЕНО
-import userService from '../auth/services/userService.js';
-import affirmationService from '../dialogue/services/affirmationService.js';
-import { sendReport } from '../services/reportService.js';
-import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
-import wheelBalanceController from './wheelBalanceController.js';
-import { isActiveSubscription, restrictAccessMessage } from '../utils/subscriptionUtils.js';
-import { handleError } from '../utils/errorHandler.js';
-import { MENU_TEXTS } from '../config/constants.js';
-import keyboards from '../utils/keyboards.js';
-import responseService from '../dialogue/services/responseService.js';
-import logger from '../utils/logger.js';
+// src/controllers/menuHandlers.js - СТВОРИТИ НОВИЙ ФАЙЛ
+import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
+import wheelBalanceController from '../../controllers/wheelBalanceController.js';
+import wheelBalanceService from '../services/wheelBalanceService.js';
+import { isActiveSubscription, restrictAccessMessage } from '../../utils/subscriptionUtils.js';
+import { handleError } from '../../utils/errorHandler.js';
+import { MENU_TEXTS } from '../../config/constants.js';
+import keyboards from '../../utils/keyboards.js';
+import responseService from '../services/responseService.js';
+import logger from '../../utils/logger.js';
+import affirmationService from '../services/affirmationService.js';
+import { sendReport } from '../../services/reportService.js';
+import userService from '../../auth/services/userService.js';
 
 // Головна функція обробки команд меню
 const handleMenuCommands = async (ctx, user, text, bot) => {
@@ -28,8 +29,28 @@ const handleMenuCommands = async (ctx, user, text, bot) => {
     if (!isActiveSubscription(user)) {
       return await restrictAccessMessage('🎯 Колесо балансу', ctx);
     }
-    await userService.updateUserStep(ctx.from.id, 'WheelBalance');
-    return await wheelBalanceController.handleWheelBalanceRequest(ctx);
+    
+    // Показуємо останній результат або запускаємо нове
+    const stats = await wheelBalanceService.getUserWheelStats(ctx.from.id);
+    
+    if (stats.total > 0 && stats.lastScore) {
+      // Показуємо останній результат
+      const lastDate = new Date(stats.lastDate).toLocaleDateString('uk-UA');
+      const resultMessage = `🎯 ТВОЄ ОСТАННЄ КОЛЕСО БАЛАНСУ\n\n📅 Дата: ${lastDate}\n📊 Загальний бал: ${stats.lastScore}/10\n\n${stats.records[0].AI_Analysis || 'Аналіз недоступний'}\n\n💡 Хочеш пройти знову?`;
+      
+      return await ctx.reply(resultMessage, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Пройти знову', callback_data: 'wheel_start_new' }],
+            [{ text: '🏠 Головне меню', callback_data: 'wheel_to_menu' }]
+          ]
+        }
+      });
+    } else {
+      // Запускаємо нове колесо
+      await userService.updateUserStep(ctx.from.id, 'WheelBalance');
+      return await wheelBalanceController.handleWheelBalanceRequest(ctx);
+    }
   }
 
   // Афірмації

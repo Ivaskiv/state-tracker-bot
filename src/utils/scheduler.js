@@ -58,6 +58,19 @@ const canSendMessage = (tgId, messageType) => {
 const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions = null) => {
   try {
     if (!canSendMessage(tgId, messageType)) return false;
+    
+    // ✅ ДОДАЄМО КНОПКИ ДО НАГАДУВАНЬ
+    if (messageType.includes('reminder') && !keyboardOptions) {
+      keyboardOptions = {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Продовжити відповіді', callback_data: 'continue_answers' }],
+            [{ text: '⏭️ Пропустити сесію', callback_data: 'skip_session' }]
+          ]
+        }
+      };
+    }
+    
     await bot.telegram.sendMessage(tgId, message, keyboardOptions);
     console.log(`[scheduler] ✅ Надіслано ${messageType} користувачу ${tgId}`);
     return true;
@@ -232,11 +245,12 @@ const startScheduler = (bot) => {
 
   console.log('[scheduler] ✅ Запуск нового планувальника...');
 
+  // ✅ ТІЛЬКИ ПО ОДНОМУ ДЖОБУ ДЛЯ КОЖНОГО ТИПУ
   createAndStartTask('0 0 * * *', clearDailyCache, 'daily_cache_clear');
-  // ❗️ЄДИНИЙ джоб для кожного типу (без дублю EVENING_QUESTIONS/MORNING_QUESTIONS)
-  createAndStartTask(CRON_SCHEDULES.MORNING_REMINDER, () => { sendMorningReminder(bot); }, 'morning_reminders');
-  createAndStartTask(CRON_SCHEDULES.EVENING_REMINDER, () => { sendEveningReminder(bot); }, 'evening_reminders');
-
+  createAndStartTask(CRON_SCHEDULES.MORNING_REMINDER, () => { sendMorningReminder(bot); }, 'morning_session');
+  createAndStartTask(CRON_SCHEDULES.EVENING_REMINDER, () => { sendEveningReminder(bot); }, 'evening_session');
+  
+  // Щомісячна перевірка колеса (1 число кожного місяця о 10:00)
   createAndStartTask('0 10 1 * *', async () => {
     try {
       console.log(`[scheduler] 🎯 Щомісячна перевірка колеса балансу`);
@@ -246,19 +260,7 @@ const startScheduler = (bot) => {
     }
   }, 'monthly_wheel_check');
 
-  console.log(`[scheduler] ✅ Планувальник запущено:`);
-  console.log(`- ${jobs.length} активних задач`);
-  console.log(`- Ранкові: ${CRON_SCHEDULES.MORNING_REMINDER}`);
-  console.log(`- Вечірні: ${CRON_SCHEDULES.EVENING_REMINDER}`);
-  console.log(`- Часова зона: ${SCHEDULE.TIMEZONE}`);
-  jobs.forEach((job, i) => {
-    let status = 'unknown';
-    try {
-      status = typeof job.getStatus === 'function' ? job.getStatus() : (job.running ? 'running' : 'stopped');
-    } catch (_) {}
-    const isUp = status === 'running' || status === 'scheduled';
-    console.log(`- Задача ${i + 1}: ${job.options?.name || 'unnamed'} - ${isUp ? 'запущена' : 'зупинена'}`);
-  });
+  console.log(`[scheduler] ✅ Планувальник запущено: ${jobs.length} задач`);
 };
 
 const stopScheduler = () => {

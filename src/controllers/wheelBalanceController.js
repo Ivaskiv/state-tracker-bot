@@ -38,7 +38,6 @@ const handleWheelBalanceRequest = async (ctx) => {
       return;
     }
 
-    // ✅ СПОЧАТКУ ВСТАНОВЛЮЄМО STEP, ПОТІМ ПЕРЕВІРЯЄМО АКТИВНЕ КОЛЕСО
     await userService.updateUserStep(tgId, WHEEL_STEP);
     logger.info(`✅ [WHEEL CONTROLLER] Встановлено крок: ${WHEEL_STEP}`);
 
@@ -90,6 +89,8 @@ const handleWheelBalanceRequest = async (ctx) => {
   }
 };
 
+// src/controllers/wheelBalanceController.js - ПРОДОВЖЕННЯ
+
 const handleWheelBalanceAnswer = async (ctx, answer) => {
   try {
     const tgId = ctx.from.id;
@@ -116,7 +117,6 @@ const handleWheelBalanceAnswer = async (ctx, answer) => {
         logger.info(`❌ [WHEEL CONTROLLER] Помилка від сервісу: ${result.message}`);
         
         if (result.message.includes('введи число від 1 до 10')) {
-          // Отримуємо свіжі дані про активне колесо для правильного промпта
           const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
           if (activeWheel) {
             const currentStep = Number.isInteger(activeWheel.fields.Step) ? activeWheel.fields.Step : 0;
@@ -142,7 +142,6 @@ const handleWheelBalanceAnswer = async (ctx, answer) => {
         return;
       }
 
-      // ✅ УСПІШНИЙ РЕЗУЛЬТАТ
       logger.info(`✅ [WHEEL CONTROLLER] Успішний результат від сервісу`);
       logger.info(`🎯 [WHEEL CONTROLLER] Завершено: ${result?.completed ? 'ТАК' : 'НІ'}`);
 
@@ -208,14 +207,13 @@ const checkMonthlyWheelNeed = async (bot) => {
   }
 };
 
-// ✅ ОБРОБКА CALLBACK ДЛЯ ПОВТОРНОГО ПРОХОДЖЕННЯ
+// Обробка callback для повторного проходження
 const handleWheelRetryCallback = async (ctx) => {
   const data = ctx.callbackQuery.data;
   const tgId = ctx.from.id;
 
   try {
     if (data === 'wheel_retry') {
-      // Запускаємо нове колесо
       await userService.updateUserStep(tgId, WHEEL_STEP);
       const wheelData = await wheelBalanceService.startWheelBalance(tgId);
       
@@ -238,9 +236,38 @@ const handleWheelRetryCallback = async (ctx) => {
   }
 };
 
+// НОВИЙ CALLBACK ДЛЯ МЕНЮ КОЛЕСА
+const handleWheelMenuCallback = async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  const tgId = ctx.from.id;
+
+  try {
+    if (data === 'wheel_start_new') {
+      await userService.updateUserStep(tgId, WHEEL_STEP);
+      const wheelData = await wheelBalanceService.startWheelBalance(tgId);
+      
+      if (wheelData) {
+        await ctx.reply(wheelData.message);
+        await ctx.answerCbQuery('Запускаємо нове колесо!');
+      } else {
+        await ctx.reply('❌ Помилка запуску. Спробуй пізніше.', keyboards.mainMenuKeyboard());
+        await ctx.answerCbQuery('Помилка');
+      }
+    } else if (data === 'wheel_to_menu') {
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await ctx.reply('Повертаємося до головного меню', keyboards.mainMenuKeyboard());
+      await ctx.answerCbQuery('Повертаємося до меню');
+    }
+  } catch (error) {
+    logger.error('[WHEEL CONTROLLER] Помилка menu callback:', error);
+    await ctx.answerCbQuery('Помилка');
+  }
+};
+
 export default {
   handleWheelBalanceRequest,
   handleWheelBalanceAnswer,
   checkMonthlyWheelNeed,
-  handleWheelRetryCallback
+  handleWheelRetryCallback,
+  handleWheelMenuCallback // ДОДАНО НОВИЙ МЕТОД
 };

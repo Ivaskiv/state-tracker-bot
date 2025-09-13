@@ -19,18 +19,17 @@ export const createOrUpdateResponse = async (
     const currentDateTime = getUserDateTime(tgId);
     const tgIdString = String(tgId);
 
-    console.log(`[responseService] 💾 ЗБЕРЕЖЕННЯ ВІДПОВІДІ:`);
+    console.log(`[responseService] 💾 ЗБЕРЕЖЕННЯ/ОНОВЛЕННЯ ВІДПОВІДІ:`);
     console.log(`- Користувач: ${tgIdString} (${userName})`);
     console.log(`- Дата: ${today}`);
     console.log(`- Поле: ${fieldName}`);
 
-    // 🔍 Шукаємо існуючий запис на сьогодні
+    // 🔍 ЗАВЖДИ ШУКАЄМО ІСНУЮЧИЙ ЗАПИС
     const existingRecords = await base('Responses').select({
       filterByFormula: `AND({TG_id}="${tgIdString}", DATESTR({Date Response})="${today}")`,
       maxRecords: 1,
     }).firstPage();
 
-    // 📝 ТІЛЬКИ ТІ ПОЛЯ, ЯКІ МОЖНА ЗАПИСУВАТИ (без computed полів)
     const fieldsToUpdate = {
       'TG_id': tgIdString,
       'User Name': userName,
@@ -44,7 +43,7 @@ export const createOrUpdateResponse = async (
     }
 
     if (existingRecords.length > 0) {
-      // 🔄 ОНОВЛЮЄМО існуючий запис
+      // ✅ ЗАВЖДИ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
       const recordId = existingRecords[0].id;
       
       await base('Responses').update([{ 
@@ -52,9 +51,9 @@ export const createOrUpdateResponse = async (
         fields: fieldsToUpdate 
       }]);
       
-      console.log(`[responseService] ✅ ОНОВЛЕНО запис ${recordId}`);
+      console.log(`[responseService] ✅ ОНОВЛЕНО існуючий запис ${recordId}`);
     } else {
-      // ➕ СТВОРЮЄМО новий запис
+      // ➕ СТВОРЮЄМО ТІЛЬКИ ЯКЩО НЕМАЄ ЗАПИСУ НА СЬОГОДНІ
       await base('Responses').create([{ 
         fields: fieldsToUpdate 
       }]);
@@ -64,11 +63,6 @@ export const createOrUpdateResponse = async (
 
   } catch (error) {
     console.error(`[responseService] ❌ ПОМИЛКА збереження:`, error);
-    
-    // Виводимо детальну інформацію про помилку
-    console.error(`- Поля для збереження:`, Object.keys(fieldsToUpdate));
-    console.error(`- Значення полів:`, fieldsToUpdate);
-    
     throw error;
   }
 };

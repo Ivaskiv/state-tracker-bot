@@ -1,5 +1,5 @@
 // src/services/wheelBalanceService.js
-import airtableService from './airtableService.js';
+// import airtableService from './airtableService.js';
 
 // ✅ 8 СФЕР ЖИТТЯ
 const LIFE_SPHERES = [

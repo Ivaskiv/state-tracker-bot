@@ -1,19 +1,20 @@
 // src/controllers/sessionHandlers.js - НОВИЙ ФАЙЛ
-import userService from '../auth/services/userService.js';
-import responseService from '../dialogue/services/responseService.js';
-import affirmationService from '../dialogue/services/affirmationService.js';
-import { schedulePendingReminders, clearUserReminders } from '../middleware/pendingFlow.js';
-import { getUserDateTime } from '../utils/timezoneUtils.js';
-import { completeSession } from '../utils/sessionUtils.js';
-import { handleError } from '../utils/errorHandler.js';
-import keyboards from '../utils/keyboards.js';
+import userService from '../../auth/services/userService.js';
+import responseService from '../services/responseService.js';
+import affirmationService from '../services/affirmationService.js';
+import { schedulePendingReminders } from '../../middleware/pendingFlow.js';
+import { getUserDateTime } from '../../utils/timezoneUtils.js';
+import { completeSession } from '../../utils/sessionUtils.js';
+import { handleError } from '../../utils/errorHandler.js';
+import keyboards from '../../utils/keyboards.js';
 import {
   ANSWER_STEPS, 
   QUESTION_TYPES, 
   MORNING_QUESTIONS, 
   EVENING_QUESTIONS, 
   SCHEDULE
-} from '../config/constants.js';
+} from '../../config/constants.js';
+
 
 // Початок ранкових питань
 const startMorningQuestions = async (ctx, user, bot) => {
@@ -29,8 +30,13 @@ const startMorningQuestions = async (ctx, user, bot) => {
 
   const isMorningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.MORNING);
   if (isMorningCompleted) {
-    await ctx.reply('Ти вже завершив(ла) ранкові питання за сьогодні. Хочеш оновити відповіді?', {
-      reply_markup: { inline_keyboard: [[{ text: 'Так, оновити', callback_data: 'restart_morning' }]] },
+    await ctx.reply('✅ Ти вже завершила ранкові питання за сьогодні.\n\n🔄 Хочеш оновити свої відповіді?', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 Відповісти ще раз', callback_data: 'restart_morning' }],
+          [{ text: '❌ Відмінити', callback_data: 'cancel_restart' }]
+        ]
+      }
     });
     return;
   }
@@ -46,8 +52,13 @@ const startEveningQuestions = async (ctx, user, bot) => {
   const isEveningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
   
   if (isEveningCompleted) {
-    await ctx.reply('Ти вже завершив(ла) вечірні питання за сьогодні. Хочеш оновити відповіді?', {
-      reply_markup: { inline_keyboard: [[{ text: 'Так, оновити', callback_data: 'restart_evening' }]] },
+    await ctx.reply('✅ Ти вже завершила вечірні питання за сьогодні.\n\n🔄 Хочеш оновити свої відповіді?', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 Відповісти ще раз', callback_data: 'restart_evening' }],
+          [{ text: '❌ Відмінити', callback_data: 'cancel_restart' }]
+        ]
+      }
     });
     return;
   }
@@ -100,8 +111,6 @@ const processMorningQuestions = async (ctx, user, text, step, tgId, userName) =>
     tgId, userName, QUESTION_TYPES.MORNING, step, questionNum, text, fieldName
   );
 
-  clearUserReminders(tgId);
-
   if (questionNum < 6) {
     const nextStep = `Q_m_${questionNum + 1}`;
     await userService.updateUserStep(tgId, nextStep);
@@ -120,8 +129,6 @@ const processEveningQuestions = async (ctx, user, text, step, tgId, userName) =>
   await responseService.createOrUpdateResponse(
     tgId, userName, QUESTION_TYPES.EVENING, step, questionNum, text, fieldName
   );
-
-  clearUserReminders(tgId);
 
   if (questionNum < 5) {
     const nextStep = `Q_e_${questionNum + 1}`;
@@ -147,11 +154,39 @@ const completeSessionWithAffirmation = async (ctx, tgId, userName, questionType,
   await completeSession(tgId, ctx, `✅ ${sessionName} питання завершено!\n\n💎 ${affirmation}`);
 };
 
+// Обробка рестарту сесій
+const handleRestartCallback = async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  const tgId = ctx.from.id;
+
+  try {
+    if (data === 'restart_morning') {
+      await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
+      await ctx.reply(`🔄 ОНОВЛЮЄМО РАНКОВІ ВІДПОВІДІ\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
+      await ctx.answerCbQuery('Починаємо заново');
+      
+    } else if (data === 'restart_evening') {
+      await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
+      await ctx.reply(`🔄 ОНОВЛЮЄМО ВЕЧІРНІ ВІДПОВІДІ\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
+      await ctx.answerCbQuery('Починаємо заново');
+      
+    } else if (data === 'cancel_restart') {
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await ctx.reply('❌ Відмінено. Повертаємося до меню.', keyboards.mainMenuKeyboard());
+      await ctx.answerCbQuery('Відмінено');
+    }
+  } catch (error) {
+    console.error('[sessionHandlers] Помилка рестарту:', error);
+    await ctx.answerCbQuery('Помилка');
+  }
+};
+
 export {
   startMorningQuestions,
   startEveningQuestions,
   handleQuestionAnswer,
   processMorningQuestions,
   processEveningQuestions,
-  completeSessionWithAffirmation
+  completeSessionWithAffirmation,
+  handleRestartCallback
 };

@@ -132,7 +132,7 @@ export const TIMEZONE_CONFIG = Object.freeze({
 
 // ⏰ ГОЛОВНИЙ РОЗДІЛ РОЗКЛАДУ: міняєш MORNING_TIME / EVENING_TIME — усе перераховується
 const _SCHEDULE = {
-  MORNING_TIME: '20:43',
+  MORNING_TIME: '15:50',
   EVENING_TIME: '21:30',
   MORNING_START: 7,
   MORNING_END: 20,
@@ -161,7 +161,7 @@ const cronFrom = (hour, minute) => `${minute} ${hour} * * *`;
 const { hour: MH, minute: MM } = parseTime(_SCHEDULE.MORNING_TIME);
 const { hour: EH, minute: EM } = parseTime(_SCHEDULE.EVENING_TIME);
 
-// Додаємо похідні значення в SCHEDULE (зберігаємо API)
+// Додаємо похідні значення в SCHEDULE
 _SCHEDULE.MORNING_HOUR = MH;
 _SCHEDULE.MORNING_MINUTE = MM;
 _SCHEDULE.EVENING_HOUR = EH;
@@ -177,13 +177,10 @@ const er60 = addMinutes(EH, EM, 60);
 
 export const CRON_SCHEDULES = Object.freeze({
   // старт/нагадування відбувається рівно в MORNING_TIME/EVENING_TIME
-  MORNING_QUESTIONS: cronFrom(MH, MM),
+ MORNING_QUESTIONS: cronFrom(MH, MM),
   EVENING_QUESTIONS: cronFrom(EH, EM),
-  MORNING_REMINDER: cronFrom(MH, MM),
-  EVENING_REMINDER: cronFrom(EH, EM),
-  // запасні приклади (якщо потрібно використовувати вдруге)
-  MORNING_REMINDER_SECOND: cronFrom(mr10.hour, mr10.minute),
-  EVENING_REMINDER_SECOND: cronFrom(er10.hour, er10.minute),
+  MORNING_REMINDER: cronFrom(MH, MM),    
+  EVENING_REMINDER: cronFrom(EH, EM),    
   REPORTS_REMINDER: '0 18 * * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
 });
@@ -282,3 +279,6 @@ export const AI_MENTOR_CONFIG = Object.freeze({
 });
 
 console.log('✅ [constants] Колесо балансу і розклад ініціалізовано');
+console.log(`✅ [constants] CRON розклад ініціалізовано:`);
+console.log(`- Ранок: ${CRON_SCHEDULES.MORNING_REMINDER} (${_SCHEDULE.MORNING_TIME})`);
+console.log(`- Вечір: ${CRON_SCHEDULES.EVENING_REMINDER} (${_SCHEDULE.EVENING_TIME})`);

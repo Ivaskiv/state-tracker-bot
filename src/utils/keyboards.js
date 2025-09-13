@@ -46,7 +46,6 @@ export const continueAnswersKeyboard = () => {
   };
 };
 
-// ✅ НОВА КЛАВІАТУРА ДЛЯ ЗАВЕРШЕННЯ КОЛЕСА БАЛАНСУ
 export const wheelBalanceCompleteKeyboard = () => {
   return {
     reply_markup: {
@@ -60,7 +59,6 @@ export const wheelBalanceCompleteKeyboard = () => {
   };
 };
 
-// ✅ ТІЛЬКИ КНОПКА ВИХОДУ ДЛЯ ПОЧАТКОВОГО ПОВІДОМЛЕННЯ AI
 export const aiMentorStartKeyboard = () => {
   return {
     reply_markup: {
@@ -73,7 +71,6 @@ export const aiMentorStartKeyboard = () => {
   };
 };
 
-// ✅ ДВІ КНОПКИ ПІСЛЯ ПЕРШОГО ПИТАННЯ
 export const aiMentorControlKeyboard = () => {
   return {
     reply_markup: {
@@ -126,7 +123,7 @@ export default {
   continueAnswersKeyboard,
   aiMentorStartKeyboard,
   aiMentorControlKeyboard,
-  wheelBalanceCompleteKeyboard, // ✅ ДОДАНО НОВУ КЛАВІАТУРУ
+  wheelBalanceCompleteKeyboard,
   skipKeyboard,
   subscriptionKeyboard,
   renewalKeyboard

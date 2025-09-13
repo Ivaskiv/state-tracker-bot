@@ -19,7 +19,7 @@ export const schedulePendingReminders = (bot, tgId, sessionType) => {
   };
   
   userReminders.set(tgId, reminders);
-  console.log(`[pendingFlow] Заплановано нагадування для ${tgId}, сесія: ${sessionType}`);
+  console.log(`[pendingFlow] ✅ Заплановано 2 нагадування для ${tgId}, сесія: ${sessionType}`);
 };
 
 // Очищення таймерів
@@ -42,11 +42,10 @@ const sendReminder = async (bot, tgId, sessionType, reminderNumber) => {
       return;
     }
     
-    // Перевірка активності користувача
     const lastActivity = user.Last_Activity ? new Date(user.Last_Activity) : null;
     const now = new Date();
     const timeSinceActivity = lastActivity ? (now - lastActivity) / 1000 / 60 : 999;
-    const activityThreshold = reminderNumber === 1 ? 2 : 5; // 2 хв для першого, 5 хв для другого
+    const activityThreshold = reminderNumber === 1 ? 2 : 5;
     
     if (timeSinceActivity < activityThreshold) {
       console.log(`[pendingFlow] Нагадування ${reminderNumber} пропущено - користувач ${tgId} активний`);
@@ -57,8 +56,8 @@ const sendReminder = async (bot, tgId, sessionType, reminderNumber) => {
     
     const messages = {
       1: {
-        Morning: '🔔 Не забудь відповісти на ранкові питання!\n\n🔄 Натисни "🔄 Продовжити відповіді"',
-        Evening: '🔔 Час для вечірньої рефлексії!\n\n🔄 Натисни "🔄 Продовжити відповіді"'
+        Morning: '🔔 Не забудь відповісти на ранкові питання!',
+        Evening: '🔔 Час для вечірньої рефлексії!'
       },
       2: {
         Morning: '🔔 Останнє нагадування про ранкові питання!',
@@ -67,7 +66,17 @@ const sendReminder = async (bot, tgId, sessionType, reminderNumber) => {
     };
     
     const message = messages[reminderNumber][sessionType];
-    await bot.telegram.sendMessage(tgId, message, keyboards.continueAnswersKeyboard());
+    
+    const keyboard = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 Продовжити відповіді', callback_data: 'continue_answers' }],
+          [{ text: '⏭️ Пропустити сесію', callback_data: 'skip_session' }]
+        ]
+      }
+    };
+    
+    await bot.telegram.sendMessage(tgId, message, keyboard);
     console.log(`[pendingFlow] Надіслано нагадування ${reminderNumber} для ${tgId}`);
     
   } catch (error) {
@@ -81,24 +90,18 @@ const isPendingResponse = (user) => {
   
   const step = user.Answer_Step;
   
-  // ✅ ПЕРЕВІРЯЄМО ВСІ АКТИВНІ СТАНИ
   const activeSteps = [
-    // Ранкові питання
     ANSWER_STEPS.MORNING_1, ANSWER_STEPS.MORNING_2, ANSWER_STEPS.MORNING_3,
     ANSWER_STEPS.MORNING_4, ANSWER_STEPS.MORNING_5, ANSWER_STEPS.MORNING_6,
-    // Вечірні питання  
     ANSWER_STEPS.EVENING_1, ANSWER_STEPS.EVENING_2, ANSWER_STEPS.EVENING_3,
     ANSWER_STEPS.EVENING_4, ANSWER_STEPS.EVENING_5,
-    // Pending стани
     ANSWER_STEPS.MORNING_PENDING, ANSWER_STEPS.EVENING_PENDING,
-    // Колесо балансу
     ANSWER_STEPS.WHEEL_BALANCE_ACTIVE
   ];
   
   return activeSteps.includes(step);
 };
 
-// Утиліти для визначення стану користувача
 const getCurrentQuestion = (step) => {
   if (step.startsWith('Q_m_')) {
     const questionNum = parseInt(step.split('_')[2]) - 1;
@@ -175,8 +178,7 @@ export const installPendingFlow = (bot) => {
       console.log(`- isMenuCommand: ${isMenuCommand(text)}`);
 
       // ✅ ДОЗВОЛЯЄМО КОМАНДИ ПРОДОВЖЕННЯ/ПРОПУСКУ
-      if (MENU_MATCHERS.CONTINUE_ANSWERS(text) || 
-          MENU_MATCHERS.SKIP_SESSION(text) ||
+      if (text === '🔄 Продовжити відповіді' || text === '⏭️ Пропустити' ||
           text.startsWith('🔄') || text.startsWith('⏭️')) {
         console.log(`[pendingFlow] ✅ Дозволено команду продовження: "${text}"`);
         return next();
@@ -219,7 +221,7 @@ export const installPendingFlow = (bot) => {
         }
 
         const currentQuestion = getCurrentQuestion(step);
-        let message = `🔒 Спочатку заверши ${sessionType} або пропусти сесію.\n\n`;
+        let message = `🔒 Спочатку заверши ${sessionType} питання або пропусти сесію.\n\n`;
         
         if (currentQuestion && !currentQuestion.includes('🎯 Колесо балансу')) {
           message += `📝 Поточне питання:\n${currentQuestion}`;
@@ -275,7 +277,6 @@ const handleContinueAnswers = async (ctx, user) => {
   if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE) {
     const activeWheel = await wheelBalanceService.getActiveWheel(user.TG_id);
     if (activeWheel) {
-      // ✅ ВИПРАВЛЕНО: використовуємо правильне поле Step з activeWheel.fields
       const currentSphere = activeWheel.fields.Step || 0;
       const sphereName = wheelBalanceService.LIFE_SPHERES[currentSphere];
       
@@ -307,7 +308,6 @@ const handleContinueAnswers = async (ctx, user) => {
 
 // Обробка пропуску сесії
 const handleSkipSession = async (ctx, tgId) => {
-  // ✅ ОЧИЩАЄМО ВСІ АКТИВНІ СТАНИ
   await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
   clearUserReminders(tgId);
   
