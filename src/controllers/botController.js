@@ -1,4 +1,5 @@
-// src/controllers/botController.js - КОРОТКО БЕЗ ПОМИЛОК
+// src/controllers/botController.js - ВИПРАВЛЕНО ПОДВІЙНИЙ ВИКЛИК
+
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import wheelBalanceService from '../services/wheelBalanceService.js';
@@ -81,15 +82,11 @@ const botController = (bot) => {
       const isActiveAI = aiMentorSession.isActive(tgId);
       const isActiveQuestions = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
 
-      // Колесо балансу
+      // ✅ КОЛЕСО БАЛАНСУ - ТІЛЬКИ ОДИН ВИКЛИК
       if (isActiveWheel) {
-        const result = await wheelBalanceService.processWheelAnswer(tgId, text);
-        if (result?.error) {
-          await ctx.reply(result.message);
-          return;
-        }
+        logger.info(`🎯 [botController] Обробка колеса балансу для ${tgId}: "${text}"`);
         await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
-        return;
+        return; // ✅ ВАЖЛИВО: завершуємо обробку тут
       }
 
       // AI наставник
@@ -129,6 +126,11 @@ const botController = (bot) => {
 
       if (data === 'ai_continue' || data === 'ai_exit') {
         await aiMentorController.handleAIMentorCallback(ctx);
+        return;
+      }
+
+      if (data === 'wheel_retry' || data === 'wheel_exit') {
+        await wheelBalanceController.handleWheelRetryCallback(ctx);
         return;
       }
 

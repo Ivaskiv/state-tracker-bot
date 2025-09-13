@@ -776,3 +776,343 @@
 {"level":"info","message":"🎯 [wheelBalance] Користувач: 630111093","timestamp":"2025-09-12T16:26:21.135Z"}
 {"level":"info","message":"🎯 [wheelBalance] Відповідь: \"📊 Мій прогрес\"","timestamp":"2025-09-12T16:26:21.136Z"}
 {"level":"info","message":"❌ [wheelBalance] Невалідний бал: 📊 Мій прогрес","timestamp":"2025-09-12T16:26:21.137Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:37:21.360Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:37:46.132Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Запит від 630111093","timestamp":"2025-09-12T16:37:46.800Z"}
+{"level":"error","message":"❌ [WHEEL CONTROLLER] Помилка: LIFE_SPHERES is not defined","stack":"ReferenceError: LIFE_SPHERES is not defined\n    at Object.handleWheelBalanceRequest (file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/wheelBalanceController.js:36:26)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async handleMenuCommands (file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/menuHandlers.js:32:12)\n    at async file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/botController.js:114:7\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21","timestamp":"2025-09-12T16:37:47.193Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:39:20.419Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"1\"","timestamp":"2025-09-12T16:39:35.196Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:39:44.825Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:41:23.548Z"}
+{"level":"info","message":"🎯 [wheelBalance] ДІАГНОСТИКА КОНФІГУРАЦІЇ:","timestamp":"2025-09-12T16:42:58.008Z"}
+{"level":"info","message":"- LIFE_SPHERES довжина: 8","timestamp":"2025-09-12T16:42:58.013Z"}
+{"level":"info","message":"- SPHERE_FIELDS довжина: 8","timestamp":"2025-09-12T16:42:58.013Z"}
+{"0":"Здоров'я та енергія","1":"Особистісний розвиток","2":"Стосунки (сім'я, друзі)","3":"Кар'єра та професія","4":"Фінанси та достаток","5":"Дозвілля та відпочинок","6":"Духовність та цінності","7":"Побут та оточення","level":"info","message":"- LIFE_SPHERES:","timestamp":"2025-09-12T16:42:58.013Z"}
+{"0":"Health","1":"Self_Growth","2":"Relationships","3":"Career_Business","4":"Finance","5":"Rest_Leisure","6":"Spirituality","7":"Housing","level":"info","message":"- SPHERE_FIELDS:","timestamp":"2025-09-12T16:42:58.014Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:42:58.026Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:44:00.985Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T16:44:01.506Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:44:01.507Z"}
+{"answerStep":"WheelBalance","level":"info","message":"✅ [WHEEL CONTROLLER] Користувач знайдений:","name":"Vira","subscription":"✅ Активна до 11.10.2025","timestamp":"2025-09-12T16:44:01.687Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Підписка активна: true","timestamp":"2025-09-12T16:44:01.688Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Встановлено крок: WheelBalance","timestamp":"2025-09-12T16:44:02.196Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Пошук активного колеса","timestamp":"2025-09-12T16:44:02.197Z"}
+{"level":"info","message":"🎯 [wheelBalance] Пошук активного колеса для 630111093","timestamp":"2025-09-12T16:44:02.197Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-12T16:44:02.378Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Активне колесо не знайдено, створюємо нове","timestamp":"2025-09-12T16:44:02.379Z"}
+{"level":"info","message":"🎯 [wheelBalance] ========== ПОЧАТОК КОЛЕСА БАЛАНСУ ==========","timestamp":"2025-09-12T16:44:02.379Z"}
+{"level":"info","message":"🎯 [wheelBalance] Користувач: 630111093","timestamp":"2025-09-12T16:44:02.380Z"}
+{"level":"info","message":"🎯 [wheelBalance] Пошук активного колеса для 630111093","timestamp":"2025-09-12T16:44:02.380Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-12T16:44:02.569Z"}
+{"Created_Date":"2025-09-12","Status":"Active","Step":0,"TG_id":"630111093","level":"info","message":"🎯 [wheelBalance] Дані для створення:","timestamp":"2025-09-12T16:44:02.570Z"}
+{"level":"info","message":"🎯 [wheelBalance] Таблиця для запису: WheelBalance","timestamp":"2025-09-12T16:44:02.570Z"}
+{"level":"info","message":"🎯 [wheelBalance] Підключення до base:","timestamp":"2025-09-12T16:44:02.570Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Колесо створено, ID: rec0rTNkqyZ7cgic3","timestamp":"2025-09-12T16:44:02.916Z"}
+{"Created_Date":"2025-09-12","Status":"Active","Step":0,"TG_id":"630111093","level":"info","message":"🎯 [wheelBalance] ✅ Створені поля:","timestamp":"2025-09-12T16:44:02.917Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Початковий Step: 0","timestamp":"2025-09-12T16:44:02.917Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Готовий до відправки першого питання","timestamp":"2025-09-12T16:44:02.917Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відправка першого питання","timestamp":"2025-09-12T16:44:02.917Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== КОЛЕСО УСПІШНО ЗАПУЩЕНО ==========","timestamp":"2025-09-12T16:44:02.962Z"}
+{"level":"info","message":"🎯 [wheelBalance] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:44:11.795Z"}
+{"level":"info","message":"🎯 [wheelBalance] Користувач: 630111093","timestamp":"2025-09-12T16:44:11.795Z"}
+{"level":"info","message":"🎯 [wheelBalance] Відповідь: \"1\"","timestamp":"2025-09-12T16:44:11.795Z"}
+{"level":"info","message":"🎯 [wheelBalance] Пошук активного колеса для 630111093","timestamp":"2025-09-12T16:44:11.795Z"}
+{"level":"info","message":"🎯 [wheelBalance] Пошук активного колеса для 630111093","timestamp":"2025-09-12T16:44:11.795Z"}
+{"createdDate":"2025-09-12","id":"rec0rTNkqyZ7cgic3","level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо:","status":"Active","step":0,"timestamp":"2025-09-12T16:44:11.981Z"}
+{"level":"info","message":"🎯 [wheelBalance] Знайдено активне колесо, ID: rec0rTNkqyZ7cgic3","timestamp":"2025-09-12T16:44:11.982Z"}
+{"level":"info","message":"🎯 [wheelBalance] Поточний крок (Step): 0","timestamp":"2025-09-12T16:44:11.982Z"}
+{"level":"info","message":"🎯 [wheelBalance] Сфера: Здоров'я та енергія","timestamp":"2025-09-12T16:44:11.982Z"}
+{"level":"info","message":"🎯 [wheelBalance] Поле Airtable: Health","timestamp":"2025-09-12T16:44:11.982Z"}
+{"level":"info","message":"🎯 [wheelBalance] Оцінка: 1","timestamp":"2025-09-12T16:44:11.982Z"}
+{"level":"info","message":"🎯 [wheelBalance] Переходимо до наступної сфери: 1 (Особистісний розвиток)","timestamp":"2025-09-12T16:44:11.982Z"}
+{"Health":1,"Step":1,"level":"info","message":"🎯 [wheelBalance] Дані для оновлення:","timestamp":"2025-09-12T16:44:11.982Z"}
+{"level":"info","message":"🎯 [wheelBalance] Оновлюємо запис rec0rTNkqyZ7cgic3","timestamp":"2025-09-12T16:44:11.982Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Запис успішно оновлено","timestamp":"2025-09-12T16:44:12.301Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Переходимо до сфери 2/8: Особистісний розвиток","timestamp":"2025-09-12T16:44:12.301Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:44:12.302Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:44:12.302Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"1\"","timestamp":"2025-09-12T16:44:12.302Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:44:12.487Z"}
+{"level":"info","message":"🎯 [wheelBalance] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:44:12.488Z"}
+{"level":"info","message":"🎯 [wheelBalance] Користувач: 630111093","timestamp":"2025-09-12T16:44:12.488Z"}
+{"level":"info","message":"🎯 [wheelBalance] Відповідь: \"1\"","timestamp":"2025-09-12T16:44:12.488Z"}
+{"level":"info","message":"🎯 [wheelBalance] Пошук активного колеса для 630111093","timestamp":"2025-09-12T16:44:12.488Z"}
+{"level":"info","message":"🎯 [wheelBalance] Пошук активного колеса для 630111093","timestamp":"2025-09-12T16:44:12.489Z"}
+{"createdDate":"2025-09-12","id":"rec0rTNkqyZ7cgic3","level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо:","status":"Active","step":1,"timestamp":"2025-09-12T16:44:12.682Z"}
+{"level":"info","message":"🎯 [wheelBalance] Знайдено активне колесо, ID: rec0rTNkqyZ7cgic3","timestamp":"2025-09-12T16:44:12.683Z"}
+{"level":"info","message":"🎯 [wheelBalance] Поточний крок (Step): 1","timestamp":"2025-09-12T16:44:12.683Z"}
+{"level":"info","message":"🎯 [wheelBalance] Сфера: Особистісний розвиток","timestamp":"2025-09-12T16:44:12.683Z"}
+{"level":"info","message":"🎯 [wheelBalance] Поле Airtable: Self_Growth","timestamp":"2025-09-12T16:44:12.683Z"}
+{"level":"info","message":"🎯 [wheelBalance] Оцінка: 1","timestamp":"2025-09-12T16:44:12.683Z"}
+{"level":"info","message":"🎯 [wheelBalance] Переходимо до наступної сфери: 2 (Стосунки (сім'я, друзі))","timestamp":"2025-09-12T16:44:12.683Z"}
+{"Self_Growth":1,"Step":2,"level":"info","message":"🎯 [wheelBalance] Дані для оновлення:","timestamp":"2025-09-12T16:44:12.683Z"}
+{"level":"info","message":"🎯 [wheelBalance] Оновлюємо запис rec0rTNkqyZ7cgic3","timestamp":"2025-09-12T16:44:12.684Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Запис успішно оновлено","timestamp":"2025-09-12T16:44:12.988Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Переходимо до сфери 3/8: Стосунки (сім'я, друзі)","timestamp":"2025-09-12T16:44:12.988Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:44:12.989Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:44:12.989Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:44:13.060Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:46:22.366Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:46:36.326Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"3\"","timestamp":"2025-09-12T16:46:48.307Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=rec0rTNkqyZ7cgic3, Step=2","timestamp":"2025-09-12T16:46:48.487Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 2 (сфера: Стосунки (сім'я, друзі))","timestamp":"2025-09-12T16:46:48.488Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Relationships = 3","timestamp":"2025-09-12T16:46:48.488Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 2 -> 3","timestamp":"2025-09-12T16:46:48.489Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 4/8 Кар'єра та професія","timestamp":"2025-09-12T16:46:48.791Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:46:48.793Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:46:48.793Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"3\"","timestamp":"2025-09-12T16:46:48.794Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:46:48.996Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"3\"","timestamp":"2025-09-12T16:46:48.997Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=rec0rTNkqyZ7cgic3, Step=3","timestamp":"2025-09-12T16:46:49.176Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 3 (сфера: Кар'єра та професія)","timestamp":"2025-09-12T16:46:49.176Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Career_Business = 3","timestamp":"2025-09-12T16:46:49.177Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 3 -> 4","timestamp":"2025-09-12T16:46:49.177Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 5/8 Фінанси та достаток","timestamp":"2025-09-12T16:46:49.471Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:46:49.471Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:46:49.472Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:46:49.518Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:52:08.533Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:52:26.379Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:52:26.380Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:52:26.380Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:52:26.380Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:52:26.688Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:52:26.690Z"}
+{"level":"info","message":"❌ [WHEEL CONTROLLER] Помилка від сервісу: Будь ласка, введи число від 1 до 10","timestamp":"2025-09-12T16:52:26.691Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=rec0rTNkqyZ7cgic3, Step=4","timestamp":"2025-09-12T16:52:26.890Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"2\"","timestamp":"2025-09-12T16:52:39.330Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:52:39.331Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:52:39.331Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"2\"","timestamp":"2025-09-12T16:52:39.331Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:52:39.534Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"2\"","timestamp":"2025-09-12T16:52:39.534Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=rec0rTNkqyZ7cgic3, Step=4","timestamp":"2025-09-12T16:52:39.726Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 4 (сфера: Фінанси та достаток)","timestamp":"2025-09-12T16:52:39.727Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Finance = 2","timestamp":"2025-09-12T16:52:39.727Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 4 -> 5","timestamp":"2025-09-12T16:52:39.727Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 6/8 Дозвілля та відпочинок","timestamp":"2025-09-12T16:52:40.116Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:52:40.116Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:52:40.116Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:52:40.162Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"3\"","timestamp":"2025-09-12T16:52:45.717Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:52:45.717Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:52:45.717Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"3\"","timestamp":"2025-09-12T16:52:45.717Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:52:45.907Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"3\"","timestamp":"2025-09-12T16:52:45.907Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=rec0rTNkqyZ7cgic3, Step=5","timestamp":"2025-09-12T16:52:46.140Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 5 (сфера: Дозвілля та відпочинок)","timestamp":"2025-09-12T16:52:46.141Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Rest_Leisure = 3","timestamp":"2025-09-12T16:52:46.141Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 5 -> 6","timestamp":"2025-09-12T16:52:46.141Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 7/8 Духовність та цінності","timestamp":"2025-09-12T16:52:46.493Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:52:46.493Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:52:46.493Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:52:46.537Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"5\"","timestamp":"2025-09-12T16:52:50.996Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:52:50.996Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:52:50.996Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"5\"","timestamp":"2025-09-12T16:52:50.996Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:52:51.182Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"5\"","timestamp":"2025-09-12T16:52:51.182Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=rec0rTNkqyZ7cgic3, Step=6","timestamp":"2025-09-12T16:52:51.364Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 6 (сфера: Духовність та цінності)","timestamp":"2025-09-12T16:52:51.365Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Spirituality = 5","timestamp":"2025-09-12T16:52:51.365Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 6 -> 7","timestamp":"2025-09-12T16:52:51.365Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 8/8 Побут та оточення","timestamp":"2025-09-12T16:52:51.817Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:52:51.817Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:52:51.817Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:52:51.861Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"1\"","timestamp":"2025-09-12T16:52:59.577Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:52:59.577Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:52:59.578Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"1\"","timestamp":"2025-09-12T16:52:59.578Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:52:59.766Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"1\"","timestamp":"2025-09-12T16:52:59.766Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=rec0rTNkqyZ7cgic3, Step=7","timestamp":"2025-09-12T16:52:59.971Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 7 (сфера: Побут та оточення)","timestamp":"2025-09-12T16:52:59.971Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Housing = 1","timestamp":"2025-09-12T16:52:59.972Z"}
+{"level":"info","message":"🎯 [wheelBalance] ЗАВЕРШЕННЯ КОЛЕСА (остання сфера 7)","timestamp":"2025-09-12T16:52:59.972Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:53:09.675Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: ТАК","timestamp":"2025-09-12T16:53:09.679Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Колесо завершено для 630111093","timestamp":"2025-09-12T16:53:09.756Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Встановлено крок: completed","timestamp":"2025-09-12T16:53:10.288Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:53:10.289Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-12T16:53:32.406Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-12T16:53:32.612Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Колесо створено, ID: recThrusGDQf70IHs, Step: 0","timestamp":"2025-09-12T16:53:32.976Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"1\"","timestamp":"2025-09-12T16:53:54.187Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:53:54.188Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:53:54.188Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"1\"","timestamp":"2025-09-12T16:53:54.188Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:53:54.392Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"1\"","timestamp":"2025-09-12T16:53:54.392Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recThrusGDQf70IHs, Step=0","timestamp":"2025-09-12T16:53:54.588Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 0 (сфера: Здоров'я та енергія)","timestamp":"2025-09-12T16:53:54.588Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Health = 1","timestamp":"2025-09-12T16:53:54.588Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 0 -> 1","timestamp":"2025-09-12T16:53:54.588Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 2/8 Особистісний розвиток","timestamp":"2025-09-12T16:53:54.937Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:53:54.938Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:53:54.938Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:53:55.079Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"2\"","timestamp":"2025-09-12T16:54:00.100Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:54:00.101Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:54:00.101Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"2\"","timestamp":"2025-09-12T16:54:00.101Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:54:00.288Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"2\"","timestamp":"2025-09-12T16:54:00.289Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recThrusGDQf70IHs, Step=1","timestamp":"2025-09-12T16:54:00.515Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 1 (сфера: Особистісний розвиток)","timestamp":"2025-09-12T16:54:00.515Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Self_Growth = 2","timestamp":"2025-09-12T16:54:00.515Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 1 -> 2","timestamp":"2025-09-12T16:54:00.515Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 3/8 Стосунки (сім'я, друзі)","timestamp":"2025-09-12T16:54:00.881Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:54:00.882Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:54:00.882Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:54:00.936Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"3\"","timestamp":"2025-09-12T16:54:08.699Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:54:08.700Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:54:08.700Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"3\"","timestamp":"2025-09-12T16:54:08.700Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:54:08.906Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"3\"","timestamp":"2025-09-12T16:54:08.907Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recThrusGDQf70IHs, Step=2","timestamp":"2025-09-12T16:54:09.103Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 2 (сфера: Стосунки (сім'я, друзі))","timestamp":"2025-09-12T16:54:09.103Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Relationships = 3","timestamp":"2025-09-12T16:54:09.104Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 2 -> 3","timestamp":"2025-09-12T16:54:09.104Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 4/8 Кар'єра та професія","timestamp":"2025-09-12T16:54:09.419Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:54:09.420Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:54:09.420Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:54:09.527Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"4\"","timestamp":"2025-09-12T16:54:15.657Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:54:15.658Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:54:15.658Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"4\"","timestamp":"2025-09-12T16:54:15.658Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:54:15.835Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"4\"","timestamp":"2025-09-12T16:54:15.835Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recThrusGDQf70IHs, Step=3","timestamp":"2025-09-12T16:54:16.025Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 3 (сфера: Кар'єра та професія)","timestamp":"2025-09-12T16:54:16.026Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Career_Business = 4","timestamp":"2025-09-12T16:54:16.026Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 3 -> 4","timestamp":"2025-09-12T16:54:16.026Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 5/8 Фінанси та достаток","timestamp":"2025-09-12T16:54:16.346Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:54:16.346Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:54:16.346Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:54:16.414Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"5\"","timestamp":"2025-09-12T16:54:22.632Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:54:22.633Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:54:22.633Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"5\"","timestamp":"2025-09-12T16:54:22.633Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:54:22.807Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"5\"","timestamp":"2025-09-12T16:54:22.807Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recThrusGDQf70IHs, Step=4","timestamp":"2025-09-12T16:54:23.014Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 4 (сфера: Фінанси та достаток)","timestamp":"2025-09-12T16:54:23.015Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Finance = 5","timestamp":"2025-09-12T16:54:23.015Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 4 -> 5","timestamp":"2025-09-12T16:54:23.015Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 6/8 Дозвілля та відпочинок","timestamp":"2025-09-12T16:54:23.330Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:54:23.331Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:54:23.331Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:54:23.536Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"6\"","timestamp":"2025-09-12T16:54:30.406Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:54:30.407Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:54:30.408Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"6\"","timestamp":"2025-09-12T16:54:30.408Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:54:30.597Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"6\"","timestamp":"2025-09-12T16:54:30.597Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recThrusGDQf70IHs, Step=5","timestamp":"2025-09-12T16:54:30.786Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 5 (сфера: Дозвілля та відпочинок)","timestamp":"2025-09-12T16:54:30.787Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Rest_Leisure = 6","timestamp":"2025-09-12T16:54:30.787Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 5 -> 6","timestamp":"2025-09-12T16:54:30.787Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 7/8 Духовність та цінності","timestamp":"2025-09-12T16:54:31.102Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:54:31.102Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:54:31.102Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:54:31.153Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"7\"","timestamp":"2025-09-12T16:54:34.239Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:54:34.240Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:54:34.240Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"7\"","timestamp":"2025-09-12T16:54:34.240Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:54:34.453Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"7\"","timestamp":"2025-09-12T16:54:34.453Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recThrusGDQf70IHs, Step=6","timestamp":"2025-09-12T16:54:34.631Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 6 (сфера: Духовність та цінності)","timestamp":"2025-09-12T16:54:34.632Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Spirituality = 7","timestamp":"2025-09-12T16:54:34.632Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 6 -> 7","timestamp":"2025-09-12T16:54:34.632Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Наступне питання: 8/8 Побут та оточення","timestamp":"2025-09-12T16:54:34.989Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:54:34.990Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: НІ","timestamp":"2025-09-12T16:54:34.990Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:54:35.054Z"}
+{"level":"info","message":"🎯 [botController] Обробка колеса балансу для 630111093: \"8\"","timestamp":"2025-09-12T16:54:41.225Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T16:54:41.225Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:54:41.225Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відповідь: \"8\"","timestamp":"2025-09-12T16:54:41.226Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Викликаємо wheelBalanceService.processWheelAnswer","timestamp":"2025-09-12T16:54:41.399Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: \"8\"","timestamp":"2025-09-12T16:54:41.400Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recThrusGDQf70IHs, Step=7","timestamp":"2025-09-12T16:54:41.584Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОТОЧНИЙ КРОК: 7 (сфера: Побут та оточення)","timestamp":"2025-09-12T16:54:41.585Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо в поле: Housing = 8","timestamp":"2025-09-12T16:54:41.585Z"}
+{"level":"info","message":"🎯 [wheelBalance] ЗАВЕРШЕННЯ КОЛЕСА (остання сфера 7)","timestamp":"2025-09-12T16:54:41.585Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Успішний результат від сервісу","timestamp":"2025-09-12T16:54:46.408Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Завершено: ТАК","timestamp":"2025-09-12T16:54:46.408Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Колесо завершено для 630111093","timestamp":"2025-09-12T16:54:46.523Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Встановлено крок: completed","timestamp":"2025-09-12T16:54:47.000Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:54:47.000Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-12T16:55:13.909Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-12T16:55:22.278Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-12T16:57:17.339Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:57:42.637Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:57:48.784Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:58:19.712Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:58:22.028Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:58:23.141Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:07:29.831Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:07:51.112Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:07:52.165Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:08:36.302Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:08:38.186Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:15:36.487Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:15:57.782Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:15:58.830Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:16:25.284Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:16:27.114Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:19:45.614Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:19:58.884Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:20:43.985Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:20:45.677Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:27:37.744Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:29:17.056Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:30:36.820Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:30:42.548Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:30:47.739Z"}
+{"level":"info","message":"✅ [sessionUtils] Сесію завершено для 630111093","timestamp":"2025-09-12T17:37:19.487Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-12T17:37:30.107Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"❓ Допомога\"","timestamp":"2025-09-12T17:37:34.519Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"💰 Підписка\"","timestamp":"2025-09-12T17:37:40.122Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"ℹ️ Профіль\"","timestamp":"2025-09-12T17:37:45.788Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:38:23.288Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:38:25.536Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:42:25.026Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:44:42.322Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:44:47.019Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T17:47:44.431Z"}
+{"level":"info","message":"✅ [sessionUtils] Сесію завершено для 7469228524","timestamp":"2025-09-12T17:51:34.263Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🙏\"","timestamp":"2025-09-12T17:51:43.153Z"}
+{"level":"info","message":"❓ [MENU] Невідома команда: \"🙏\"","timestamp":"2025-09-12T17:51:43.153Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"ℹ️ Профіль\"","timestamp":"2025-09-12T17:51:50.707Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📝 Інструкції\"","timestamp":"2025-09-12T17:52:03.108Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-12T17:52:23.639Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-12T17:52:30.659Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-12T17:59:32.421Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T17:59:45.477Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T17:59:45.942Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 7469228524","timestamp":"2025-09-12T17:59:45.942Z"}
+{"answerStep":"WheelBalance","level":"info","message":"✅ [WHEEL CONTROLLER] Користувач знайдений:","name":"Менеджер Nadya Starway","subscription":"✅ Активна до 11.10.2025","timestamp":"2025-09-12T17:59:46.217Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Підписка активна: true","timestamp":"2025-09-12T17:59:46.218Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] Встановлено крок: WheelBalance","timestamp":"2025-09-12T17:59:46.637Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Пошук активного колеса","timestamp":"2025-09-12T17:59:46.638Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 7469228524","timestamp":"2025-09-12T17:59:46.820Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Активне колесо не знайдено, створюємо нове","timestamp":"2025-09-12T17:59:46.821Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 7469228524","timestamp":"2025-09-12T17:59:46.822Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 7469228524","timestamp":"2025-09-12T17:59:47.022Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Колесо створено, ID: recbh7dEuRvNMumYc, Step: 0","timestamp":"2025-09-12T17:59:47.295Z"}
+{"level":"info","message":"🎯 [WHEEL CONTROLLER] Відправка першого питання","timestamp":"2025-09-12T17:59:47.295Z"}
+{"level":"info","message":"✅ [WHEEL CONTROLLER] ========== КОЛЕСО УСПІШНО ЗАПУЩЕНО ==========","timestamp":"2025-09-12T17:59:47.373Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T18:03:58.349Z"}

@@ -1,4 +1,5 @@
-// src/utils/keyboards.js - ДОДАНО ОКРЕМІ КЛАВІАТУРИ ДЛЯ AI
+// src/utils/keyboards.js - ДОДАНО КЛАВІАТУРУ ДЛЯ ЗАВЕРШЕННЯ КОЛЕСА
+
 import { Markup } from 'telegraf';
 
 export const BUTTONS = Object.freeze({
@@ -42,6 +43,20 @@ export const continueAnswersKeyboard = () => {
       [Markup.button.callback('🔄 Продовжити відповіді', 'continue_answers')],
       [Markup.button.callback('⏭️ Пропустити сесію', 'skip_session')]
     ]).reply_markup
+  };
+};
+
+// ✅ НОВА КЛАВІАТУРА ДЛЯ ЗАВЕРШЕННЯ КОЛЕСА БАЛАНСУ
+export const wheelBalanceCompleteKeyboard = () => {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🔄 Пройти ще раз', callback_data: 'wheel_retry' },
+          { text: '🏠 Головне меню', callback_data: 'wheel_exit' }
+        ]
+      ]
+    }
   };
 };
 
@@ -109,8 +124,9 @@ export default {
   mainMenuKeyboard,
   supportKeyboard,
   continueAnswersKeyboard,
-  aiMentorStartKeyboard,      // ✅ НОВА: тільки вихід
-  aiMentorControlKeyboard,    // ✅ ІСНУЮЧА: дві кнопки
+  aiMentorStartKeyboard,
+  aiMentorControlKeyboard,
+  wheelBalanceCompleteKeyboard, // ✅ ДОДАНО НОВУ КЛАВІАТУРУ
   skipKeyboard,
   subscriptionKeyboard,
   renewalKeyboard

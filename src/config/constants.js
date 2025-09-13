@@ -1,4 +1,5 @@
 // src/config/constants.js
+
 export const SUBSCRIPTION_PLANS = Object.freeze({
   WEEK: {
     name: 'Тиждень фокусу',
@@ -77,18 +78,18 @@ export const WHEEL_BALANCE = Object.freeze({
   },
   FIELDS: {
     TG_ID: 'TG_id',
-    STATUS: 'Status', 
+    STATUS: 'Status',
     STEP: 'Step',
     CREATED_DATE: 'Created_Date',
     COMPLETED_DATE: 'Completed_Date',
     TOTAL_SCORE: 'Total_Score',
     HEALTH: 'Health',
-    SELF_GROWTH: 'Self_Growth', 
+    SELF_GROWTH: 'Self_Growth',
     RELATIONSHIPS: 'Relationships',
     CAREER_BUSINESS: 'Career_Business',
     FINANCE: 'Finance',
     REST_LEISURE: 'Rest_Leisure',
-    SPIRITUALITY: 'Spirituality_Values', // ВИПРАВЛЕНО назву поля
+    SPIRITUALITY: 'Spirituality_Values',
     HOUSING: 'Housing'
   }
 });
@@ -96,7 +97,7 @@ export const WHEEL_BALANCE = Object.freeze({
 // ✅ 8 СФЕР ЖИТТЯ (показуються користувачу)
 export const LIFE_SPHERES = [
   'Здоров\'я та енергія',
-  'Особистісний розвиток', 
+  'Особистісний розвиток',
   'Стосунки (сім\'я, друзі)',
   'Кар\'єра та професія',
   'Фінанси та достаток',
@@ -105,65 +106,84 @@ export const LIFE_SPHERES = [
   'Побут та оточення'
 ];
 
-// ✅ ПОЛЯ AIRTABLE (мають точно збігатися з назвами полів у таблиці WheelBalance)
+// ✅ ПОЛЯ AIRTABLE (точно збігаються з таблицею WheelBalance)
 export const SPHERE_FIELDS = [
-  'Health',           // Здоров'я та енергія
-  'Self_Growth',      // Особистісний розвиток  
-  'Relationships',    // Стосунки (сім'я, друзі)
-  'Career_Business',  // Кар'єра та професія
-  'Finance',          // Фінанси та достаток
-  'Rest_Leisure',     // Дозвілля та відпочинок
-  'Spirituality',     // Духовність та цінності
-  'Housing'           // Побут та оточення
+  WHEEL_BALANCE.FIELDS.HEALTH,
+  WHEEL_BALANCE.FIELDS.SELF_GROWTH,
+  WHEEL_BALANCE.FIELDS.RELATIONSHIPS,
+  WHEEL_BALANCE.FIELDS.CAREER_BUSINESS,
+  WHEEL_BALANCE.FIELDS.FINANCE,
+  WHEEL_BALANCE.FIELDS.REST_LEISURE,
+  WHEEL_BALANCE.FIELDS.SPIRITUALITY,
+  WHEEL_BALANCE.FIELDS.HOUSING
 ];
 
-// ✅ ПЕРЕВІРКА ВІДПОВІДНОСТІ
 if (LIFE_SPHERES.length !== SPHERE_FIELDS.length) {
   console.error('❌ КРИТИЧНА ПОМИЛКА: Невідповідність довжини LIFE_SPHERES та SPHERE_FIELDS!');
-  console.error(`LIFE_SPHERES: ${LIFE_SPHERES.length} елементів`);
-  console.error(`SPHERE_FIELDS: ${SPHERE_FIELDS.length} елементів`);
   throw new Error('LIFE_SPHERES and SPHERE_FIELDS arrays must have the same length');
 }
 
-// ✅ МАПІНГ ДЛЯ ДІАГНОСТИКИ
-export const SPHERE_MAPPING = LIFE_SPHERES.map((sphere, index) => ({
-  index,
-  displayName: sphere,
-  fieldName: SPHERE_FIELDS[index],
-  step: index // Step в Airtable (0-базовий)
-}));
-
-console.log('✅ [constants] Колесо балансу ініціалізовано:');
-console.log('- Кількість сфер:', LIFE_SPHERES.length);
-console.log('- Мапінг:', SPHERE_MAPPING);
-
+// ⏰ ТАЙМЗОНА
 export const TIMEZONE_CONFIG = Object.freeze({
   DEFAULT: 'Europe/Kiev',
   FALLBACK: 'Europe/Prague',
   USER_TIMEZONES: {},
 });
 
-export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '15:59',
-  EVENING_TIME: '20:30',
-  MORNING_HOUR: 15,
-  MORNING_MINUTE: 59,
-  EVENING_HOUR: 20,
-  EVENING_MINUTE: 30,
+// ⏰ ГОЛОВНИЙ РОЗДІЛ РОЗКЛАДУ: міняєш MORNING_TIME / EVENING_TIME — усе перераховується
+const _SCHEDULE = {
+  MORNING_TIME: '20:43',
+  EVENING_TIME: '21:30',
   MORNING_START: 7,
   MORNING_END: 20,
   EVENING_START: 20,
   EVENING_END: 23,
   TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
-});
+};
+
+const parseTime = (t) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
+  let h = m ? parseInt(m[1], 10) : 9;
+  let min = m ? parseInt(m[2], 10) : 0;
+  if (Number.isNaN(h) || h < 0 || h > 23) h = 9;
+  if (Number.isNaN(min) || min < 0 || min > 59) min = 0;
+  return { hour: h, minute: min };
+};
+
+const addMinutes = (hour, minute, delta) => {
+  const total = (hour * 60 + minute + delta) % 1440;
+  const norm = total < 0 ? total + 1440 : total;
+  return { hour: Math.floor(norm / 60), minute: norm % 60 };
+};
+
+const cronFrom = (hour, minute) => `${minute} ${hour} * * *`;
+
+const { hour: MH, minute: MM } = parseTime(_SCHEDULE.MORNING_TIME);
+const { hour: EH, minute: EM } = parseTime(_SCHEDULE.EVENING_TIME);
+
+// Додаємо похідні значення в SCHEDULE (зберігаємо API)
+_SCHEDULE.MORNING_HOUR = MH;
+_SCHEDULE.MORNING_MINUTE = MM;
+_SCHEDULE.EVENING_HOUR = EH;
+_SCHEDULE.EVENING_MINUTE = EM;
+
+export const SCHEDULE = Object.freeze(_SCHEDULE);
+
+// ⏰ CRON-ВИРАЗИ будуються від MORNING_TIME/EVENING_TIME
+const mr10 = addMinutes(MH, MM, 10);
+const er10 = addMinutes(EH, EM, 10);
+const mr60 = addMinutes(MH, MM, 60);
+const er60 = addMinutes(EH, EM, 60);
 
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: `${SCHEDULE.MORNING_MINUTE} ${SCHEDULE.MORNING_HOUR} * * *`,
-  EVENING_QUESTIONS: `${SCHEDULE.EVENING_MINUTE} ${SCHEDULE.EVENING_HOUR} * * *`,
-  MORNING_REMINDER: `${(SCHEDULE.MORNING_MINUTE + 10) % 60} ${SCHEDULE.MORNING_HOUR + Math.floor((SCHEDULE.MORNING_MINUTE + 10) / 60)} * * *`,
-  EVENING_REMINDER: `${(SCHEDULE.EVENING_MINUTE + 10) % 60} ${SCHEDULE.EVENING_HOUR + Math.floor((SCHEDULE.EVENING_MINUTE + 10) / 60)} * * *`,
-  MORNING_REMINDER_SECOND: `${SCHEDULE.MORNING_MINUTE} ${(SCHEDULE.MORNING_HOUR + 1) % 24} * * *`,
-  EVENING_REMINDER_SECOND: `${SCHEDULE.EVENING_MINUTE} ${(SCHEDULE.EVENING_HOUR + 1) % 24} * * *`,
+  // старт/нагадування відбувається рівно в MORNING_TIME/EVENING_TIME
+  MORNING_QUESTIONS: cronFrom(MH, MM),
+  EVENING_QUESTIONS: cronFrom(EH, EM),
+  MORNING_REMINDER: cronFrom(MH, MM),
+  EVENING_REMINDER: cronFrom(EH, EM),
+  // запасні приклади (якщо потрібно використовувати вдруге)
+  MORNING_REMINDER_SECOND: cronFrom(mr10.hour, mr10.minute),
+  EVENING_REMINDER_SECOND: cronFrom(er10.hour, er10.minute),
   REPORTS_REMINDER: '0 18 * * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
 });
@@ -185,8 +205,8 @@ export const SCHEDULER_CONFIG = Object.freeze({
   REPORT_DELAY_MS: 1000,
   MIN_RECORDS_FOR_REMINDER: 2,
   RECENT_RECORDS_DAYS: 3,
-  REMINDER_DELAY_1: 10 * 60 * 1000, // 10 хвилин
-  REMINDER_DELAY_2: 60 * 60 * 1000, // 60 хвилин
+  REMINDER_DELAY_1: 10 * 60 * 1000,
+  REMINDER_DELAY_2: 60 * 60 * 1000,
 });
 
 export const SUBSCRIPTION_REMINDER_OFFSETS = [-3, -1, 0];
@@ -260,3 +280,5 @@ export const AI_MENTOR_CONFIG = Object.freeze({
     GOAL_HELP: 'goal_help'
   }
 });
+
+console.log('✅ [constants] Колесо балансу і розклад ініціалізовано');

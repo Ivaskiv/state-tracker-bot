@@ -1,4 +1,4 @@
-// src/controllers/wheelBalanceController.js - ВИПРАВЛЕНО ЛОГІКУ
+// src/controllers/wheelBalanceController.js - ВИПРАВЛЕНО КРИТИЧНІ ПОМИЛКИ
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceService from '../services/wheelBalanceService.js';
@@ -146,7 +146,7 @@ const handleWheelBalanceAnswer = async (ctx, answer) => {
       logger.info(`✅ [WHEEL CONTROLLER] Успішний результат від сервісу`);
       logger.info(`🎯 [WHEEL CONTROLLER] Завершено: ${result?.completed ? 'ТАК' : 'НІ'}`);
 
-      const keyboardToUse = result?.completed ? keyboards.mainMenuKeyboard() : undefined;
+      const keyboardToUse = result?.completed ? keyboards.wheelBalanceCompleteKeyboard() : undefined;
       await ctx.reply(result.message, keyboardToUse);
 
       if (result?.completed) {
@@ -208,8 +208,39 @@ const checkMonthlyWheelNeed = async (bot) => {
   }
 };
 
+// ✅ ОБРОБКА CALLBACK ДЛЯ ПОВТОРНОГО ПРОХОДЖЕННЯ
+const handleWheelRetryCallback = async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  const tgId = ctx.from.id;
+
+  try {
+    if (data === 'wheel_retry') {
+      // Запускаємо нове колесо
+      await userService.updateUserStep(tgId, WHEEL_STEP);
+      const wheelData = await wheelBalanceService.startWheelBalance(tgId);
+      
+      if (wheelData) {
+        await ctx.reply(wheelData.message);
+        await ctx.answerCbQuery('Запускаємо нове колесо!');
+      } else {
+        await ctx.reply('❌ Помилка запуску. Спробуй пізніше.', keyboards.mainMenuKeyboard());
+        await ctx.answerCbQuery('Помилка');
+      }
+      
+    } else if (data === 'wheel_exit') {
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await ctx.reply('Повертаємося до головного меню', keyboards.mainMenuKeyboard());
+      await ctx.answerCbQuery('Вихід');
+    }
+  } catch (error) {
+    logger.error('[WHEEL CONTROLLER] Помилка callback:', error);
+    await ctx.answerCbQuery('Помилка');
+  }
+};
+
 export default {
   handleWheelBalanceRequest,
   handleWheelBalanceAnswer,
   checkMonthlyWheelNeed,
+  handleWheelRetryCallback
 };
