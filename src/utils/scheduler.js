@@ -1,4 +1,4 @@
-// src/utils/scheduler.js
+// src/utils/scheduler.js - ВИПРАВЛЕНО ДУБЛІКАТИ
 
 import cron from 'node-cron';
 import userService from '../auth/services/userService.js';
@@ -22,12 +22,12 @@ const messageSent = new Map();
 const MESSAGE_COOLDOWN = 60 * 1000;
 
 // 🔒 Глобальні локи від повторного виклику в межах хвилини
-const tickLocks = new Map();      // ключ типу: Morning|Evening + YYYY-MM-DDTHH:MM
-const userStartLocks = new Set(); // ключ типу: tgId_type_YYYY-MM-DD
-const inFlightUsers = new Set();  // ключ типу: tgId_type (захист від паралельних стартів)
+const tickLocks = new Map();
+const userStartLocks = new Set();
+const inFlightUsers = new Set();
 
 const minuteKey = (type) => {
-  const iso = new Date().toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+  const iso = new Date().toISOString().slice(0, 16);
   return `${type}_${iso}`;
 };
 
@@ -38,7 +38,6 @@ const guardTick = (type) => {
     return false;
   }
   tickLocks.set(key, Date.now());
-  // приберемо ключ через 70 секунд (на випадок лагів)
   setTimeout(() => tickLocks.delete(key), 70 * 1000).unref?.();
   return true;
 };
@@ -51,7 +50,6 @@ const canSendMessage = (tgId, messageType) => {
     messageSent.set(key, now);
     return true;
   }
-  console.log(`[scheduler] ⏭️ Пропущено дублікат ${messageType} для ${tgId} (cooldown)`);
   return false;
 };
 
@@ -59,7 +57,6 @@ const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions 
   try {
     if (!canSendMessage(tgId, messageType)) return false;
     
-    // ✅ ДОДАЄМО КНОПКИ ДО НАГАДУВАНЬ
     if (messageType.includes('reminder') && !keyboardOptions) {
       keyboardOptions = {
         reply_markup: {
@@ -87,17 +84,15 @@ const USERS_CACHE_TTL = 5 * 60 * 1000;
 const getActiveUsersDebounced = async () => {
   const now = Date.now();
   if (usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
-    console.log(`[scheduler] 📋 Використовуємо кеш користувачів (${usersCache.length} активних)`);
     return usersCache;
   }
-  console.log(`[scheduler] 🔄 Оновлюємо кеш активних користувачів...`);
   usersCache = await userService.getActiveUsers();
   usersCacheTime = now;
   console.log(`[scheduler] ✅ Оновлено кеш: ${usersCache.length} активних користувачів`);
   return usersCache;
 };
 
-// Старт/рестарт/нагадування для одного користувача (ідемпотентно)
+// ✅ ВИПРАВЛЕНО - БЕЗ ДУБЛІКАТІВ
 const sendReminder = async (bot, type, tgId, name) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -108,17 +103,13 @@ const sendReminder = async (bot, type, tgId, name) => {
     const step = user?.Answer_Step || '';
     const sessionActive = isMorning ? step.startsWith('Q_m_') : step.startsWith('Q_e_');
 
-    // Якщо завершена — дозволяємо ОНОВЛЕННЯ (restart) тільки 1 раз на день
     const completed = await responseService.isSessionCompleted(tgId, type);
+    
     if (completed && !sessionActive) {
       const restartKey = `${tgId}_${type}_${today}_restart`;
-      if (userStartLocks.has(restartKey)) {
-        console.log(`[scheduler] ⏭️ Restart already sent for ${tgId} (${type})`);
-        return false;
-      }
+      if (userStartLocks.has(restartKey)) return false;
       userStartLocks.add(restartKey);
 
-      // Захист від паралельних викликів
       const inflightKey = `${tgId}_${type}`;
       if (inFlightUsers.has(inflightKey)) return false;
       inFlightUsers.add(inflightKey);
@@ -126,8 +117,8 @@ const sendReminder = async (bot, type, tgId, name) => {
       try {
         await userService.updateUserStep(tgId, startStep);
         const msg = isMorning
-          ? SCHEDULER_MESSAGES.MORNING_SESSION_RESTART(name)
-          : SCHEDULER_MESSAGES.EVENING_SESSION_RESTART(name);
+          ? SCHEDULER_MESSAGES.MORNING_SESSION_START(name)
+          : SCHEDULER_MESSAGES.EVENING_SESSION_START(name);
         const ok = await safeSendMessage(bot, tgId, msg, `${type}_restart`);
         if (ok) schedulePendingReminders(bot, tgId, isMorning ? 'Morning' : 'Evening');
         return ok;
@@ -136,13 +127,9 @@ const sendReminder = async (bot, type, tgId, name) => {
       }
     }
 
-    // Якщо сесія не активна — стартуємо тільки 1 раз на день
     if (!sessionActive) {
       const startKey = `${tgId}_${type}_${today}_start`;
-      if (userStartLocks.has(startKey)) {
-        console.log(`[scheduler] ⏭️ Start already sent for ${tgId} (${type})`);
-        return false;
-      }
+      if (userStartLocks.has(startKey)) return false;
       userStartLocks.add(startKey);
 
       const inflightKey = `${tgId}_${type}`;
@@ -162,12 +149,9 @@ const sendReminder = async (bot, type, tgId, name) => {
       }
     }
 
-    // Якщо вже активна — одне нагадування на день
     const reminderKey = `${tgId}_${type}_${today}_reminder`;
-    if (sentReminders.has(reminderKey)) {
-      console.log(`[scheduler] ⏭️ Пропущено дублікат нагадування ${type} для ${tgId}`);
-      return false;
-    }
+    if (sentReminders.has(reminderKey)) return false;
+    
     const msg = isMorning ? SCHEDULER_MESSAGES.MORNING_REMINDER : SCHEDULER_MESSAGES.EVENING_REMINDER;
     const ok = await safeSendMessage(bot, tgId, msg, `${type}_reminder`);
     if (ok) sentReminders.add(reminderKey);
@@ -180,9 +164,8 @@ const sendReminder = async (bot, type, tgId, name) => {
 };
 
 const sendMorningReminder = async (bot) => {
-  // 🔒 Пропускаємо дубльований «тік» цієї хвилини
   if (!guardTick('Morning')) return;
-  console.log(`[scheduler] 🔔 РАНОК (start/restart/reminder) - ${new Date().toLocaleString('uk-UA')}`);
+  console.log(`[scheduler] 🔔 РАНОК - ${new Date().toLocaleString('uk-UA')}`);
 
   try {
     const users = await getActiveUsersDebounced();
@@ -201,9 +184,8 @@ const sendMorningReminder = async (bot) => {
 };
 
 const sendEveningReminder = async (bot) => {
-  // 🔒 Пропускаємо дубльований «тік» цієї хвилини
   if (!guardTick('Evening')) return;
-  console.log(`[scheduler] 🔔 ВЕЧІР (start/restart/reminder) - ${new Date().toLocaleString('uk-UA')}`);
+  console.log(`[scheduler] 🔔 ВЕЧІР - ${new Date().toLocaleString('uk-UA')}`);
 
   try {
     const users = await getActiveUsersDebounced();
@@ -221,13 +203,31 @@ const sendEveningReminder = async (bot) => {
   }
 };
 
+// ✅ ВИПРАВЛЕНО - ОДИН РАЗ НА ДЕНЬ
+const sendReportsReminder = async (bot) => {
+  if (!guardTick('Reports')) return;
+  console.log(`[scheduler] 💡 Нагадування про звіти - ${new Date().toLocaleString('uk-UA')}`);
+
+  try {
+    const users = await getActiveUsersDebounced();
+    console.log(`[scheduler] 💡 Нагадування про звіти - Знайдено ${users.length} активних користувачів`);
+    
+    for (const user of users) {
+      const tgId = user['TG_id'];
+      await safeSendMessage(bot, tgId, SCHEDULER_MESSAGES.REPORTS_REMINDER, 'reports_reminder');
+      await new Promise((r) => setTimeout(r, SCHEDULER_CONFIG.REPORT_DELAY_MS));
+    }
+  } catch (error) {
+    console.error('[scheduler] ❌ Помилка нагадування про звіти:', error);
+  }
+};
+
 const clearDailyCache = () => {
   console.log('[scheduler] 🧹 Очищення денних кешів');
   sentReminders.clear();
   messageSent.clear();
   usersCache = null;
   usersCacheTime = 0;
-  // очищаємо й «старт-локи» на новий день
   userStartLocks.clear();
 };
 
@@ -245,12 +245,10 @@ const startScheduler = (bot) => {
 
   console.log('[scheduler] ✅ Запуск нового планувальника...');
 
-  // ✅ ТІЛЬКИ ПО ОДНОМУ ДЖОБУ ДЛЯ КОЖНОГО ТИПУ
   createAndStartTask('0 0 * * *', clearDailyCache, 'daily_cache_clear');
   createAndStartTask(CRON_SCHEDULES.MORNING_REMINDER, () => { sendMorningReminder(bot); }, 'morning_session');
   createAndStartTask(CRON_SCHEDULES.EVENING_REMINDER, () => { sendEveningReminder(bot); }, 'evening_session');
-  
-  // Щомісячна перевірка колеса (1 число кожного місяця о 10:00)
+  createAndStartTask('0 18 * * *', () => { sendReportsReminder(bot); }, 'reports_reminder'); // ✅ ОДИН РАЗ НА ДЕНЬ
   createAndStartTask('0 10 1 * *', async () => {
     try {
       console.log(`[scheduler] 🎯 Щомісячна перевірка колеса балансу`);

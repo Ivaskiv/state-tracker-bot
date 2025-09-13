@@ -1,4 +1,4 @@
-// src/services/wheelBalanceService.js - ВИПРАВЛЕНО ЛОГІКУ ПИТАНЬ
+// src/services/wheelBalanceService.js - ВИПРАВЛЕНО ІМПОРТИ ТА ЛОГІКУ
 
 import { getBase, tables } from '../config/database.js';
 import { chat } from './openaiClient.js';
@@ -263,5 +263,6 @@ export default {
   processWheelAnswer,
   getActiveWheel,
   needsWheelBalance,
-  getUserWheelStats
+  getUserWheelStats,
+  LIFE_SPHERES 
 };

@@ -1,4 +1,4 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО + ЗБЕРЕЖЕННЯ ДІАЛОГІВ
+// src/controllers/botController.js - ВИПРАВЛЕНО ЛОГІКУ AI МЕНТОРА
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
@@ -80,6 +80,20 @@ const botController = (bot) => {
       const isActiveWheel = step === WHEEL_STEP;
       const isActiveAI = aiMentorSession.isActive(tgId);
       const isActiveQuestions = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
+
+      // ✅ ПРІОРИТЕТ: АФІРМАЦІЯ ЗАВЖДИ ПРАЦЮЄ (НАВІТЬ В AI МЕНТОРІ)
+      if (text === '💎 Афірмація') {
+        // Виходимо з AI ментора якщо активний
+        if (isActiveAI) {
+          aiMentorSession.end(tgId);
+          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+          logger.info(`🚪 [botController] Вихід з AI ментора для афірмації ${tgId}`);
+        }
+        
+        // Обробляємо афірмацію через меню
+        await handleMenuCommands(ctx, user, text, bot);
+        return;
+      }
 
       // Колесо балансу
       if (isActiveWheel) {

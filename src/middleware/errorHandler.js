@@ -1,4 +1,4 @@
-// src/utils/errorHandler.js - ВИПРАВЛЕНО
+// src/utils/errorHandler.js - ВИПРАВЛЕНО ІМПОРТ
 import keyboards from './keyboards.js';
 
 export const handleError = async (ctx, error, defaultMessage = 'Виникла помилка. Спробуйте ще раз.') => {

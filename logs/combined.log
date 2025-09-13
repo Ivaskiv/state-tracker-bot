@@ -1155,3 +1155,51 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T15:55:48.464Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T15:56:55.555Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T15:59:15.645Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:06:37.660Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:06:50.836Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:06:52.552Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:03.479Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:05.160Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:07.376Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:26.226Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:27.681Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:30.467Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:31.878Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:33.415Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:38.000Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:40.748Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:07:43.692Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:08:15.584Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:08:27.488Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:08:29.581Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:27:25.541Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:27:34.822Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:27:35.979Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:27:38.787Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:31:34.802Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:32:20.324Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:32:21.325Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:32:25.478Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:32:34.444Z"}
+{"level":"info","message":"✅ [sessionUtils] Сесію завершено для 630111093","timestamp":"2025-09-13T16:32:52.622Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"❓ Допомога\"","timestamp":"2025-09-13T16:32:56.597Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-13T16:33:08.687Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:38:25.186Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:38:26.747Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:38:31.170Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:38:41.898Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:38:42.195Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-13T16:38:51.955Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:41:22.364Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:42:21.085Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\" для користувача 630111093","timestamp":"2025-09-13T16:43:34.710Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:44:20.855Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:45:00.113Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-13T16:45:15.972Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:49:01.657Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:49:42.384Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:50:33.849Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:51:29.891Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:51:40.189Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:51:41.863Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-13T16:51:59.423Z"}

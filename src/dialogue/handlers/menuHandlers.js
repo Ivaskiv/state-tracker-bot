@@ -1,7 +1,8 @@
-// src/controllers/menuHandlers.js - СТВОРИТИ НОВИЙ ФАЙЛ
+// src/dialogue/handlers/menuHandlers.js - ВІДНОВЛЕНО ОРИГІНАЛЬНИЙ КОД
+
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
-import wheelBalanceService from '../services/wheelBalanceService.js';
+import wheelBalanceService from '../../services/wheelBalanceService.js';
 import { isActiveSubscription, restrictAccessMessage } from '../../utils/subscriptionUtils.js';
 import { handleError } from '../../utils/errorHandler.js';
 import { MENU_TEXTS } from '../../config/constants.js';
