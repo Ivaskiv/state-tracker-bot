@@ -5,9 +5,8 @@ import { ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS, SCHEDULE } from '..
 import keyboards from '../utils/keyboards.js';
 import { getUserDateTime } from '../utils/timezoneUtils.js';
 import typing from '../utils/typing.js';
-// import wheelBalanceService from '../dialogue/services/wheelBalanceService.js';
-import { aiMentorSession } from '../aiMentor/session.js';
 import wheelBalanceService from '../services/wheelBalanceService.js';
+import { aiMentorSession } from '../aiMentor/session.js';
 
 const userReminders = new Map();
 
@@ -139,11 +138,11 @@ const updateUserActivity = async (tgId) => {
 };
 
 const getSessionType = (step, tgId) => {
-  if (step.startsWith('Q_m_') || step === ANSWER_STEPS.MORNING_PENDING) return 'ранкові';
-  if (step.startsWith('Q_e_') || step === ANSWER_STEPS.EVENING_PENDING) return 'вечірні';
+  if (step.startsWith('Q_m_') || step === ANSWER_STEPS.MORNING_PENDING) return 'ранкові питання';
+  if (step.startsWith('Q_e_') || step === ANSWER_STEPS.EVENING_PENDING) return 'вечірні питання';
   if (step === ANSWER_STEPS.WHEEL_BALANCE_ACTIVE || step === 'WheelBalance') return 'колесо балансу';
-  if (step === ANSWER_STEPS.AI_MENTOR_ACTIVE || aiMentorSession.isActive(parseInt(tgId))) return 'AI наставник';
-  return 'поточні';
+  if (step === ANSWER_STEPS.AI_MENTOR_ACTIVE || aiMentorSession.isActive(parseInt(tgId))) return 'AI наставника';
+  return 'поточну сесію';
 };
 
 // ✅ КОМАНДИ МЕНЮ
@@ -207,6 +206,16 @@ export const installPendingFlow = (bot) => {
       const step = freshUser.Answer_Step;
       const sessionType = getSessionType(step, tgId);
 
+      // ✅ СПЕЦІАЛЬНА ОБРОБКА АФІРМАЦІЇ ДЛЯ AI МЕНТОРА
+      if (pending && text === '💎 Афірмація' && sessionType === 'AI наставника') {
+        console.log(`[pendingFlow] ✅ ДОЗВОЛЯЄМО афірмацію для AI ментора ${tgId}`);
+        // Завершуємо AI сесію та дозволяємо афірмацію
+        aiMentorSession.end(tgId);
+        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+        console.log(`[pendingFlow] 🚪 Завершено AI сесію для афірмації ${tgId}`);
+        return next(); // ✅ ДОЗВОЛЯЄМО ВИКОНАННЯ АФІРМАЦІЇ
+      }
+
       // ✅ БЛОКУЄМО КОМАНДИ МЕНЮ ПРИ АКТИВНИХ ПИТАННЯХ
       if (pending && isMenuCommand(text)) {
         console.log(`[pendingFlow] 🚫 БЛОКУЄМО команду меню: "${text}" (активний стан: ${step})`);
@@ -237,7 +246,8 @@ export const installPendingFlow = (bot) => {
 
         let message;
         
-        if (sessionType === 'AI наставник') {
+        // ✅ РІЗНІ ПОВІДОМЛЕННЯ ДЛЯ AI НАСТАВНИКА ТА ІНШИХ СЕСІЙ
+        if (sessionType === 'AI наставника') {
           message = `🤖 Зараз в тебе активна сесія AI наставника.\n\nЩоб використати кнопки меню:`;
         } else {
           const currentQuestion = getCurrentQuestion(step);
@@ -276,6 +286,8 @@ export const installPendingFlow = (bot) => {
     const tgId = ctx.from.id;
     const data = ctx.callbackQuery.data;
     
+    console.log(`[pendingFlow] 📱 Callback отримано: ${data} від ${tgId}`);
+    
     try {
       if (data === 'continue_answers') {
         await updateUserActivity(tgId);
@@ -286,13 +298,15 @@ export const installPendingFlow = (bot) => {
           return;
         }
         
+        console.log(`[pendingFlow] 🔄 Обробка продовження для ${tgId}, крок: ${user.Answer_Step}`);
         await handleContinueAnswers(ctx, user);
+        
       } else if (data === 'skip_session') {
         await handleSkipSession(ctx, tgId);
       }
     } catch (error) {
       console.error('[pendingFlow] Помилка callback:', error);
-      await ctx.answerCbQuery('Помилка');
+      await ctx.answerCbQuery('Помилка обробки');
     }
   });
 };
@@ -301,6 +315,8 @@ export const installPendingFlow = (bot) => {
 const handleContinueAnswers = async (ctx, user) => {
   const step = user.Answer_Step;
   const tgId = user.TG_id;
+  
+  console.log(`[pendingFlow] 🔄 ПРОДОВЖЕННЯ ВІДПОВІДЕЙ для ${tgId}, крок: ${step}`);
   
   // ✅ ПЕРЕВІРКА AI МЕНТОРА
   if (step === ANSWER_STEPS.AI_MENTOR_ACTIVE || aiMentorSession.isActive(parseInt(tgId))) {
@@ -329,18 +345,48 @@ const handleContinueAnswers = async (ctx, user) => {
     return;
   }
   
-  // Ранкові/вечірні питання
-  const currentQuestion = getCurrentQuestion(step);
-  if (currentQuestion && !currentQuestion.includes('🎯 Колесо балансу') && !currentQuestion.includes('🤖 AI наставник')) {
-    await typing(ctx);
-    await ctx.reply(currentQuestion);
-    await ctx.answerCbQuery('Продовжуємо відповіді');
-  } else {
-    await typing(ctx);
-    await ctx.reply('Питання завершені!', keyboards.mainMenuKeyboard());
-    await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-    await ctx.answerCbQuery('Готово');
+  // ✅ РАНКОВІ/ВЕЧІРНІ ПИТАННЯ - ПОКАЗУЄМО ПОТОЧНЕ ПИТАННЯ
+  if (step.startsWith('Q_m_')) {
+    const questionNum = parseInt(step.split('_')[2]);
+    const questionIndex = questionNum - 1;
+    
+    if (questionIndex >= 0 && questionIndex < MORNING_QUESTIONS.length) {
+      const currentQuestion = `${questionNum}️⃣/6 ${MORNING_QUESTIONS[questionIndex]}`;
+      await typing(ctx);
+      await ctx.reply(`🌞 РАНКОВІ ПИТАННЯ\n\n${currentQuestion}`);
+      await ctx.answerCbQuery('Продовжуємо ранкові питання');
+    } else {
+      await typing(ctx);
+      await ctx.reply('Ранкові питання завершені!', keyboards.mainMenuKeyboard());
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await ctx.answerCbQuery('Готово');
+    }
+    return;
   }
+  
+  if (step.startsWith('Q_e_')) {
+    const questionNum = parseInt(step.split('_')[2]);
+    const questionIndex = questionNum - 1;
+    
+    if (questionIndex >= 0 && questionIndex < EVENING_QUESTIONS.length) {
+      const currentQuestion = `${questionNum}️⃣/5 ${EVENING_QUESTIONS[questionIndex]}`;
+      await typing(ctx);
+      await ctx.reply(`🌙 ВЕЧІРНІ ПИТАННЯ\n\n${currentQuestion}`);
+      await ctx.answerCbQuery('Продовжуємо вечірні питання');
+    } else {
+      await typing(ctx);
+      await ctx.reply('Вечірні питання завершені!', keyboards.mainMenuKeyboard());
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      await ctx.answerCbQuery('Готово');
+    }
+    return;
+  }
+  
+  // Інші випадки
+  await typing(ctx);
+  await ctx.reply('Немає активних питань', keyboards.mainMenuKeyboard());
+  await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+  await ctx.answerCbQuery('Готово');
 };
 
 // Обробка пропуску сесії

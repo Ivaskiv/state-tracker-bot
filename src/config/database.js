@@ -18,9 +18,10 @@ export const tables = Object.freeze({
   AFFIRMATIONS: 'Affirmations',
   USER_AFFIRMATIONS: 'User Affirmations',
   USER_REPORTS: 'User Reports',
-  USER_GOALS: 'User_Goals', // ✅ НОВА ТАБЛИЦЯ
-  DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions', // ✅ НОВА ТАБЛИЦЯ
-  WHEEL_BALANCE: 'WheelBalance' // ✅ ТАБЛИЦЯ КОЛЕСА БАЛАНСУ
+  USER_GOALS: 'User_Goals',
+  DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions', 
+  WHEEL_BALANCE: 'WheelBalance', 
+  AI_CONVERSATIONS: 'AI_Conversations'
 });
 
 export const selectFromTable = (tableName, opts = {}) => base(tables[tableName] || tableName).select(opts);

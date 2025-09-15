@@ -81,45 +81,67 @@ const botController = (bot) => {
       const isActiveAI = aiMentorSession.isActive(tgId);
       const isActiveQuestions = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
 
-      // ✅ ПРІОРИТЕТ: АФІРМАЦІЯ ЗАВЖДИ ПРАЦЮЄ (НАВІТЬ В AI МЕНТОРІ)
-      if (text === '💎 Афірмація') {
-        // Виходимо з AI ментора якщо активний
-        if (isActiveAI) {
+      // ✅ ПРІОРИТЕТ 1: AI НАСТАВНИК (блокує всі команди меню крім виходу)
+      if (isActiveAI) {
+        console.log(`🤖 [botController] AI ментор активний для ${tgId}, текст: "${text}"`);
+        
+        if (text.includes('вихід') || text.includes('exit') || text === '🚪 Вийти із сесії') {
+          aiMentorSession.end(tgId);
+          await completeSession(tgId, ctx, '👋 Повертаємося до меню.');
+          return;
+        }
+        
+        // ✅ БЛОКУЄМО ВСІ КОМАНДИ МЕНЮ КРІМ АФІРМАЦІЇ
+        const menuCommands = [
+          '📈 Щотижневий звіт', '📈 Щомісячний звіт', '🤖 AI наставник',
+          '🎯 Колесо балансу', '💰 Підписка', '📊 Мій прогрес',
+          '❓ Допомога', '📞 Зв\'язок з нами', '📝 Інструкції', 'ℹ️ Профіль'
+        ];
+        
+        if (menuCommands.includes(text)) {
+          console.log(`🚫 [botController] БЛОКУЄМО команду "${text}" через активний AI ментор`);
+          await ctx.reply(
+            `🤖 Зараз в тебе активна сесія AI наставника.\n\nЩоб використати кнопки меню:`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '📝 Продовжити відповідати', callback_data: 'continue_answers' }],
+                  [{ text: '🚪 Вийти із сесії', callback_data: 'skip_session' }]
+                ]
+              }
+            }
+          );
+          return;
+        }
+        
+        // ✅ ДОЗВОЛЯЄМО АФІРМАЦІЮ НАВІТЬ В AI МЕНТОРІ
+        if (text === '💎 Афірмація') {
           aiMentorSession.end(tgId);
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
           logger.info(`🚪 [botController] Вихід з AI ментора для афірмації ${tgId}`);
+          await handleMenuCommands(ctx, user, text, bot);
+          return;
         }
         
-        // Обробляємо афірмацію через меню
-        await handleMenuCommands(ctx, user, text, bot);
+        // Обробляємо як питання до AI
+        await aiMentorController.handleAIMentorQuestion(ctx, text);
         return;
       }
 
-      // Колесо балансу
+      // ✅ ПРІОРИТЕТ 2: КОЛЕСО БАЛАНСУ
       if (isActiveWheel) {
         logger.info(`🎯 [botController] Обробка колеса балансу для ${tgId}: "${text}"`);
         await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
         return;
       }
 
-      // AI наставник
-      if (isActiveAI) {
-        if (text.includes('вихід') || text.includes('exit')) {
-          aiMentorSession.end(tgId);
-          await completeSession(tgId, ctx, '👋 Повертаємося до меню.');
-          return;
-        }
-        await aiMentorController.handleAIMentorQuestion(ctx, text);
-        return;
-      }
-
-      // Ранкові/вечірні питання
+      // ✅ ПРІОРИТЕТ 3: РАНКОВІ/ВЕЧІРНІ ПИТАННЯ
       if (isActiveQuestions) {
         const answered = await handleQuestionAnswer(ctx, user, text);
         if (answered) return;
       }
 
-      // Команди меню
+      // ✅ ПРІОРИТЕТ 4: КОМАНДИ МЕНЮ
       await handleMenuCommands(ctx, user, text, bot);
     } catch (error) {
       await handleError(ctx, error);
@@ -128,18 +150,17 @@ const botController = (bot) => {
 
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
+    const tgId = ctx.from.id;
+
+    console.log(`[botController] 📱 Callback: ${data} від ${tgId}`);
 
     try {
+      // ✅ ВАЖЛИВО: НЕ ОБРОБЛЯЄМО continue_answers та skip_session тут!
+      // Вони обробляються в pendingFlow.js
+      
       // Обробка рестарту сесій
       if (data === 'restart_morning' || data === 'restart_evening' || data === 'cancel_restart') {
         await handleRestartCallback(ctx);
-        return;
-      }
-
-      if (data === 'skip_session') {
-        aiMentorSession.end(ctx.from.id);
-        await completeSession(ctx.from.id, ctx, '✅ Сесію пропущено.');
-        await ctx.answerCbQuery();
         return;
       }
 
@@ -158,10 +179,13 @@ const botController = (bot) => {
         return;
       }
 
-      await ctx.answerCbQuery();
+      // ✅ ЯКЩО CALLBACK НЕ РОЗПІЗНАНО - ВІДПОВІДАЄМО
+      console.log(`[botController] ❓ Невідомий callback: ${data}`);
+      await ctx.answerCbQuery('Команда не розпізнана');
+      
     } catch (error) {
       await handleError(ctx, error);
-      await ctx.answerCbQuery();
+      await ctx.answerCbQuery('Помилка обробки');
     }
   });
 

@@ -3,7 +3,7 @@
 import userService from '../auth/services/userService.js';
 import wheelBalanceService from '../services/wheelBalanceService.js';
 import keyboards from '../utils/keyboards.js';
-import { ANSWER_STEPS, LIFE_SPHERES } from '../config/constants.js';
+import { ANSWER_STEPS } from '../config/constants.js';
 import { isActiveSubscription, restrictAccessMessage } from '../utils/subscriptionUtils.js';
 import { handleError } from '../utils/errorHandler.js';
 import logger from '../utils/logger.js';
@@ -52,7 +52,7 @@ const handleWheelBalanceRequest = async (ctx) => {
       });
 
       const currentStep = Number.isInteger(activeWheel.fields.Step) ? activeWheel.fields.Step : 0;
-      const sphereName = LIFE_SPHERES[currentStep] || LIFE_SPHERES[0] || 'Невідома сфера';
+      const sphereName = wheelBalanceService.LIFE_SPHERES[currentStep] || wheelBalanceService.LIFE_SPHERES[0] || 'Невідома сфера';
 
       logger.info(`🎯 [WHEEL CONTROLLER] Поточна сфера: ${currentStep} (${sphereName})`);
 
@@ -89,8 +89,6 @@ const handleWheelBalanceRequest = async (ctx) => {
   }
 };
 
-// src/controllers/wheelBalanceController.js - ПРОДОВЖЕННЯ
-
 const handleWheelBalanceAnswer = async (ctx, answer) => {
   try {
     const tgId = ctx.from.id;
@@ -120,7 +118,7 @@ const handleWheelBalanceAnswer = async (ctx, answer) => {
           const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
           if (activeWheel) {
             const currentStep = Number.isInteger(activeWheel.fields.Step) ? activeWheel.fields.Step : 0;
-            const sphereName = LIFE_SPHERES[currentStep] || LIFE_SPHERES[0];
+            const sphereName = wheelBalanceService.LIFE_SPHERES[currentStep] || wheelBalanceService.LIFE_SPHERES[0];
             
             const errorMessage = `❌ ${result.message}\n\n${currentStep + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`;
             await ctx.reply(errorMessage);
@@ -269,5 +267,5 @@ export default {
   handleWheelBalanceAnswer,
   checkMonthlyWheelNeed,
   handleWheelRetryCallback,
-  handleWheelMenuCallback // ДОДАНО НОВИЙ МЕТОД
+  handleWheelMenuCallback
 };

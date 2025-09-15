@@ -132,8 +132,8 @@ export const TIMEZONE_CONFIG = Object.freeze({
 
 // ⏰ ГОЛОВНИЙ РОЗДІЛ РОЗКЛАДУ: міняєш MORNING_TIME / EVENING_TIME — усе перераховується
 const _SCHEDULE = {
-  MORNING_TIME: '15:50',
-  EVENING_TIME: '21:30',
+  MORNING_TIME: '11:24',
+  EVENING_TIME: '20:30',
   MORNING_START: 7,
   MORNING_END: 20,
   EVENING_START: 20,

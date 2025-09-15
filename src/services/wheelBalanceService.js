@@ -264,5 +264,5 @@ export default {
   getActiveWheel,
   needsWheelBalance,
   getUserWheelStats,
-  LIFE_SPHERES 
+  LIFE_SPHERES // ✅ ДОДАНО ЕКСПОРТ
 };
