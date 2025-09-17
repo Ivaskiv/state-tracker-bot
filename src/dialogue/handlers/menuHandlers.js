@@ -1,8 +1,7 @@
-// src/dialogue/handlers/menuHandlers.js - ВІДНОВЛЕНО ОРИГІНАЛЬНИЙ КОД
+// src/dialogue/handlers/menuHandlers.js - ВИПРАВЛЕНО КОЛЕСО БАЛАНСУ
 
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
-import wheelBalanceService from '../../services/wheelBalanceService.js';
 import { isActiveSubscription, restrictAccessMessage } from '../../utils/subscriptionUtils.js';
 import { handleError } from '../../utils/errorHandler.js';
 import { MENU_TEXTS } from '../../config/constants.js';
@@ -13,7 +12,6 @@ import affirmationService from '../services/affirmationService.js';
 import { sendReport } from '../../services/reportService.js';
 import userService from '../../auth/services/userService.js';
 
-// Головна функція обробки команд меню
 const handleMenuCommands = async (ctx, user, text, bot) => {
   logger.info(`📋 [MENU] Обробка команди: "${text}"`);
 
@@ -25,33 +23,14 @@ const handleMenuCommands = async (ctx, user, text, bot) => {
     return await aiMentorController.handleAIMentorRequest(ctx);
   }
 
-  // Колесо балансу
+  // ✅ КОЛЕСО БАЛАНСУ - ПРЯМЕ ВИКЛИКАННЯ
   if (text === '🎯 Колесо балансу') {
     if (!isActiveSubscription(user)) {
       return await restrictAccessMessage('🎯 Колесо балансу', ctx);
     }
     
-    // Показуємо останній результат або запускаємо нове
-    const stats = await wheelBalanceService.getUserWheelStats(ctx.from.id);
-    
-    if (stats.total > 0 && stats.lastScore) {
-      // Показуємо останній результат
-      const lastDate = new Date(stats.lastDate).toLocaleDateString('uk-UA');
-      const resultMessage = `🎯 ТВОЄ ОСТАННЄ КОЛЕСО БАЛАНСУ\n\n📅 Дата: ${lastDate}\n📊 Загальний бал: ${stats.lastScore}/10\n\n${stats.records[0].AI_Analysis || 'Аналіз недоступний'}\n\n💡 Хочеш пройти знову?`;
-      
-      return await ctx.reply(resultMessage, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔄 Пройти знову', callback_data: 'wheel_start_new' }],
-            [{ text: '🏠 Головне меню', callback_data: 'wheel_to_menu' }]
-          ]
-        }
-      });
-    } else {
-      // Запускаємо нове колесо
-      await userService.updateUserStep(ctx.from.id, 'WheelBalance');
-      return await wheelBalanceController.handleWheelBalanceRequest(ctx);
-    }
+    // Прямо запускаємо колесо балансу
+    return await wheelBalanceController.handleWheelBalanceRequest(ctx);
   }
 
   // Афірмації
@@ -110,7 +89,6 @@ const handleMenuCommands = async (ctx, user, text, bot) => {
   await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
 };
 
-// Показ прогресу користувача
 const showUserProgress = async (ctx, user) => {
   if (!user) {
     return await ctx.reply(MENU_TEXTS.REGISTER_FIRST, keyboards.mainMenuKeyboard());
@@ -137,7 +115,6 @@ const showUserProgress = async (ctx, user) => {
   }
 };
 
-// Показ інформації про підписку
 const showSubscriptionInfo = async (ctx, user) => {
   try {
     const status = user['Active_Subscription_Status'] || '❌ Неактивна';
@@ -157,7 +134,6 @@ const showSubscriptionInfo = async (ctx, user) => {
   }
 };
 
-// Показ профілю користувача
 const showUserProfile = async (ctx, user) => {
   try {
     const tgId = ctx.from.id;

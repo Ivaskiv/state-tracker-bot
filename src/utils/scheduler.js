@@ -87,12 +87,13 @@ const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions 
       return false;
     }
     
-    if (messageType.includes('reminder') && !keyboardOptions) {
+    // ✅ АВТОМАТИЧНО ДОДАЄМО КНОПКИ ДЛЯ ВСІХ НАГАДУВАНЬ
+    if (!keyboardOptions) {
       keyboardOptions = {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🔄 Продовжити відповіді', callback_data: 'continue_answers' }],
-            [{ text: '⏭️ Пропустити сесію', callback_data: 'skip_session' }]
+            [{ text: '📝 Продовжити відповідати', callback_data: 'continue_answers' }],
+            [{ text: '🚪 Пропустити сесію', callback_data: 'skip_session' }]
           ]
         }
       };
@@ -145,12 +146,19 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
     const step = user?.Answer_Step || '';
     const sessionActive = type === QUESTION_TYPES.MORNING ? step.startsWith('Q_m_') : step.startsWith('Q_e_');
     
+    // ✅ ЯКЩО СЕСІЯ ВЖЕ АКТИВНА - НЕ СТВОРЮЄМО НОВУ
+    if (sessionActive) {
+      console.log(`[scheduler] ⏭️ ПРОПУСК ${sessionType} - сесія вже активна для ${tgId}`);
+      return false;
+    }
+    
     const completed = await responseService.isSessionCompleted(tgId, type);
     
-    if (completed && !sessionActive) {
+    // ✅ ЯКЩО ЗАВЕРШЕНО - ПРОПОНУЄМО РЕСТАРТ
+    if (completed) {
       const message = type === QUESTION_TYPES.MORNING
-        ? `🌞 Ти вже завершила ранкові питання.\n\n🔄 Хочеш оновити відповіді?`
-        : `🌙 Ти вже завершила вечірні питання.\n\n🔄 Хочеш оновити відповіді?`;
+        ? `🌞 Ти вже завершила ранкові питання сьогодні.\n\n🔄 Хочеш оновити відповіді?`
+        : `🌙 Ти вже завершила вечірні питання сьогодні.\n\n🔄 Хочеш оновити відповіді?`;
       
       return await safeSendMessage(bot, tgId, message, `${sessionType}_restart_offer`, {
         reply_markup: {
@@ -162,29 +170,22 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
       });
     }
     
-    if (!sessionActive) {
-      const startStep = type === QUESTION_TYPES.MORNING ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
-      
-      console.log(`[scheduler] 🎯 ЗАПУСК нової ${sessionType} сесії для ${tgId}`);
-      await userService.updateUserStep(tgId, startStep);
-      
-      const firstQuestion = type === QUESTION_TYPES.MORNING
-        ? `🌞 Ранкова рефлексія, ${name}!\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`
-        : `🌙 Вечірня рефлексія, ${name}!\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`;
-      
-      const sent = await safeSendMessage(bot, tgId, firstQuestion, `${sessionType}_start`);
-      if (sent) {
-        schedulePendingReminders(bot, tgId, sessionType);
-        console.log(`[scheduler] ✅ ЗАПУЩЕНО ${sessionType} сесію для ${tgId}`);
-      }
-      return sent;
+    // ✅ ТІЛЬКИ ЯКЩО НЕ ЗАВЕРШЕНО І НЕ АКТИВНА - СТВОРЮЄМО НОВУ СЕСІЮ
+    const startStep = type === QUESTION_TYPES.MORNING ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
+    
+    console.log(`[scheduler] 🎯 ЗАПУСК нової ${sessionType} сесії для ${tgId}`);
+    await userService.updateUserStep(tgId, startStep);
+    
+    const firstQuestion = type === QUESTION_TYPES.MORNING
+      ? `🌞 Ранкова рефлексія, ${name}!\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`
+      : `🌙 Вечірня рефлексія, ${name}!\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`;
+    
+    const sent = await safeSendMessage(bot, tgId, firstQuestion, `${sessionType}_start`);
+    if (sent) {
+      schedulePendingReminders(bot, tgId, sessionType);
+      console.log(`[scheduler] ✅ ЗАПУЩЕНО ${sessionType} сесію для ${tgId}`);
     }
-    
-    const reminderMessage = type === QUESTION_TYPES.MORNING 
-      ? SCHEDULER_MESSAGES.MORNING_REMINDER 
-      : SCHEDULER_MESSAGES.EVENING_REMINDER;
-    
-    return await safeSendMessage(bot, tgId, reminderMessage, `${sessionType}_reminder`);
+    return sent;
 
   } catch (error) {
     console.error(`[scheduler] ❌ Помилка сесії ${type} для ${tgId}:`, error);

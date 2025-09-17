@@ -1,130 +1,162 @@
-// src/utils/keyboards.js - ДОДАНО КЛАВІАТУРУ ДЛЯ ЗАВЕРШЕННЯ КОЛЕСА
+// src/utils/keyboards.js - ВИПРАВЛЕНА ВЕРСІЯ
 
-import { Markup } from 'telegraf';
+const keyboards = {
+  // Головне меню з кнопками
+  mainMenuKeyboard() {
+    return {
+      reply_markup: {
+        keyboard: [
+          [{ text: '🤖 AI наставник' }, { text: '🎯 Колесо балансу' }],
+          [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
+          [{ text: '📊 Мій прогрес' }, { text: '💎 Афірмація' }],
+          [{ text: '💰 Підписка' }, { text: '📞 Зв\'язок з нами' }],
+          [{ text: 'ℹ️ Профіль' }, { text: '❓ Допомога' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+        persistent: true
+      }
+    };
+  },
 
-export const BUTTONS = Object.freeze({
-  WEEKLY_REPORT: '📈 Щотижневий звіт',
-  MONTHLY_REPORT: '📈 Щомісячний звіт',
-  AI_ASSISTANT: '🤖 AI наставник',
-  AFFIRMATION: '💎 Афірмація',
-  WHEEL_BALANCE: '🎯 Колесо балансу', 
-  PROGRESS: '📊 Мій прогрес',
-  SUBSCRIPTION: '💰 Підписка',
-  HELP: '❓ Допомога',
-  INSTRUCTIONS: '📝 Інструкції',
-  CONTACT: '📞 Зв\'язок з нами',
-  PROFILE: 'ℹ️ Профіль', 
-  CONTINUE_ANSWERS: '🔄 Продовжити відповіді',
-  SKIP: '⏭️ Пропустити',
-  HOME: '🏠 Головне меню',
-  AI_EXIT: '🔚 Вийти з AI',
-});
-
-export const mainMenuKeyboard = () => {
-  return {
-    reply_markup: {
-      keyboard: [
-        ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
-        ["🤖 AI наставник", "💎 Афірмація"],
-        ["🎯 Колесо балансу", "📊 Мій прогрес"], 
-        ["💰 Підписка", "❓ Допомога"],
-        ["📝 Інструкції", "📞 Зв'язок з нами"],
-        ['ℹ️ Профіль']
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false
-    }
-  };
-};
-
-export const continueAnswersKeyboard = () => {
-  return {
-    reply_markup: Markup.inlineKeyboard([
-      [Markup.button.callback('🔄 Продовжити відповіді', 'continue_answers')],
-      [Markup.button.callback('⏭️ Пропустити сесію', 'skip_session')]
-    ]).reply_markup
-  };
-};
-
-export const wheelBalanceCompleteKeyboard = () => {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: '🔄 Пройти ще раз', callback_data: 'wheel_retry' },
-          { text: '🏠 Головне меню', callback_data: 'wheel_exit' }
+  // Inline клавіатура для підтвердження дії
+  confirmationInlineKeyboard(actionText = 'дію') {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Так', callback_data: 'confirm_yes' },
+            { text: '❌ Ні', callback_data: 'confirm_no' }
+          ]
         ]
-      ]
-    }
-  };
-};
+      }
+    };
+  },
 
-export const aiMentorStartKeyboard = () => {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: '🔚 Вийти з AI', callback_data: 'ai_exit' }
+  // Inline клавіатура для AI наставника
+  aiMentorInlineKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📝 Продовжити', callback_data: 'ai_continue' }],
+          [{ text: '🚪 Вийти', callback_data: 'ai_exit' }]
         ]
-      ]
-    }
-  };
-};
+      }
+    };
+  },
 
-export const aiMentorControlKeyboard = () => {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: '📝 Запитати ще', callback_data: 'ai_continue' },
-          { text: '🔚 Війти з AI', callback_data: 'ai_exit' }
+  // Inline клавіатура для колеса балансу (оцінки 1-10)
+  wheelScoreInlineKeyboard() {
+    const keyboard = [];
+    
+    // Перший ряд: 1-5
+    keyboard.push([
+      { text: '1️⃣', callback_data: 'wheel_score_1' },
+      { text: '2️⃣', callback_data: 'wheel_score_2' },
+      { text: '3️⃣', callback_data: 'wheel_score_3' },
+      { text: '4️⃣', callback_data: 'wheel_score_4' },
+      { text: '5️⃣', callback_data: 'wheel_score_5' }
+    ]);
+    
+    // Другий ряд: 6-10
+    keyboard.push([
+      { text: '6️⃣', callback_data: 'wheel_score_6' },
+      { text: '7️⃣', callback_data: 'wheel_score_7' },
+      { text: '8️⃣', callback_data: 'wheel_score_8' },
+      { text: '9️⃣', callback_data: 'wheel_score_9' },
+      { text: '🔟', callback_data: 'wheel_score_10' }
+    ]);
+    
+    // Третій ряд: кнопка виходу
+    keyboard.push([
+      { text: '🚪 Вийти', callback_data: 'wheel_exit' }
+    ]);
+
+    return {
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    };
+  },
+
+  // Inline клавіатура після завершення колеса балансу
+  wheelCompleteInlineKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 Пройти знову', callback_data: 'wheel_retry' }],
+          [{ text: '🆕 Нове колесо', callback_data: 'wheel_start_new' }],
+          [{ text: '🏠 В меню', callback_data: 'wheel_to_menu' }]
         ]
-      ]
-    }
-  };
+      }
+    };
+  },
+
+  // Inline клавіатура для продовження/пропуску сесій
+  continueSessionInlineKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📝 Продовжити відповідати', callback_data: 'continue_answers' }],
+          [{ text: '🚪 Пропустити сесію', callback_data: 'skip_session' }]
+        ]
+      }
+    };
+  },
+
+  // Inline клавіатура для рестарту сесій
+  restartSessionInlineKeyboard(sessionType) {
+    const sessionText = sessionType === 'morning' ? 'ранкову сесію' : 'вечірню сесію';
+    
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: `🔄 Перезапустити ${sessionText}`, callback_data: `restart_${sessionType}` }],
+          [{ text: '❌ Скасувати', callback_data: 'cancel_restart' }]
+        ]
+      }
+    };
+  },
+
+  // Inline клавіатура для підписки
+  subscriptionInlineKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💰 Інформація про підписку', callback_data: 'subscription_info' }],
+          [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }]
+        ]
+      }
+    };
+  },
+
+  // Просте видалення клавіатури
+  removeKeyboard() {
+    return {
+      reply_markup: {
+        remove_keyboard: true
+      }
+    };
+  },
+
+  // Форсоване оновлення клавіатури
+  forceUpdateKeyboard() {
+    return {
+      reply_markup: {
+        keyboard: [
+          [{ text: '🤖 AI наставник' }, { text: '🎯 Колесо балансу' }],
+          [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
+          [{ text: '📊 Мій прогрес' }, { text: '💎 Афірмація' }],
+          [{ text: '💰 Підписка' }, { text: '📞 Зв\'язок з нами' }],
+          [{ text: 'ℹ️ Профіль' }, { text: '❓ Допомога' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+        persistent: true,
+        selective: false
+      }
+    };
+  }
 };
 
-const supportKeyboard = () => {
-  return {
-    reply_markup: Markup.inlineKeyboard([
-      [Markup.button.url('📱 Telegram ментора', 'https://t.me/Nadya2316')],
-      [Markup.button.url('🔧 Техпідтримка', 'https://t.me/vira_333')]
-    ]).reply_markup
-  };
-};
-
-const skipKeyboard = () =>
-  Markup.keyboard([
-    ['⏭️ Пропустити'],
-    ['🏠 Головне меню']
-  ]).resize();
-
-const subscriptionKeyboard = () =>
-  Markup.inlineKeyboard([
-    [Markup.button.callback('🔹 Тиждень фокусу — 7€', 'subscribe_week')],
-    [Markup.button.callback('🔹 Місяць дії — 30€', 'subscribe_month')],
-    [Markup.button.callback('🔹 Рік трансформації — 300€', 'subscribe_year')],
-    [Markup.button.callback('« Назад до меню', 'main_menu')]
-  ]);
-
-const renewalKeyboard = () =>
-  Markup.inlineKeyboard([
-    [
-      Markup.button.callback('🔄 Поновити тиждень — 7€', 'renew_week'),
-      Markup.button.callback('🔄 Поновити місяць — 30€', 'renew_month')
-    ],
-    [Markup.button.callback('🔄 Поновити рік — 300€', 'renew_year')],
-    [Markup.button.callback('💬 Зв\'язатися з підтримкою', 'contact_support')]
-  ]);
-
-export default {
-  mainMenuKeyboard,
-  supportKeyboard,
-  continueAnswersKeyboard,
-  aiMentorStartKeyboard,
-  aiMentorControlKeyboard,
-  wheelBalanceCompleteKeyboard,
-  skipKeyboard,
-  subscriptionKeyboard,
-  renewalKeyboard
-};
+export default keyboards;

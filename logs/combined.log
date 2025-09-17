@@ -1574,3 +1574,21 @@
 {"level":"info","message":"🎯 [wheelBalance] ПЕРЕХІД: крок 6 -> 7","timestamp":"2025-09-17T11:41:00.999Z"}
 {"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] Помилка обробки: Unknown field name: \"Spirituality_Values\"","statusCode":422,"timestamp":"2025-09-17T11:41:01.198Z"}
 {"level":"info","message":"❌ [WHEEL CONTROLLER] Помилка від сервісу: Виникла помилка. Спробуй ще раз.","timestamp":"2025-09-17T11:41:01.198Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:22:13.788Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:27:51.105Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:27:51.663Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:28:18.735Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:28:19.006Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:28:43.849Z"}
+{"level":"info","message":"✅ [sessionUtils] Сесію завершено для 630111093","timestamp":"2025-09-17T16:30:04.218Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📈 Щомісячний звіт\"","timestamp":"2025-09-17T16:30:05.568Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:34:28.341Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:34:52.207Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:35:12.118Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:40:54.891Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:41:05.412Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:43:23.004Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:43:23.929Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:43:38.168Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:43:54.876Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-17T16:44:20.046Z"}
