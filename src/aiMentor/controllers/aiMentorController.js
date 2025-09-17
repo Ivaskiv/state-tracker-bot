@@ -1,4 +1,5 @@
-// src/aiMentor/controllers/aiMentorController.js
+// src/aiMentor/controllers/aiMentorController.js - ПРОСТИЙ ФІКС
+
 import userService from '../../auth/services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
@@ -10,8 +11,6 @@ import { chat } from '../../services/openaiClient.js';
 
 /**
  * Визначає тип контексту питання
- * @param {string} question - Питання користувача
- * @returns {string} Тип контексту
  */
 const determineContextType = (question) => {
   const lowerQuestion = question.toLowerCase();
@@ -32,7 +31,6 @@ const determineContextType = (question) => {
 
 /**
  * Обробка запиту на початок сесії AI-наставника
- * @param {Object} ctx - Контекст Telegraf
  */
 const handleAIMentorRequest = async (ctx) => {
   const tgId = String(ctx.from.id);
@@ -51,28 +49,22 @@ const handleAIMentorRequest = async (ctx) => {
       return ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
     }
 
+    // ✅ ЗАПУСКАЄМО СЕСІЮ БЕЗ ЗМІНИ Answer_Step
     aiMentorSession.start(tgId);
-    await userService.updateUserStep(tgId, ANSWER_STEPS.AI_MENTOR_ACTIVE);
-    logger.info(`🤖 [AI MENTOR] Сесія запущена, Answer_Step: ${ANSWER_STEPS.AI_MENTOR_ACTIVE}, isActive: ${aiMentorSession.isActive(tgId)}`);
+    logger.info(`🤖 [AI MENTOR] Сесія запущена для ${tgId}, isActive: ${aiMentorSession.isActive(tgId)}`);
 
     const helpText = `🤖 AI-НАСТАВНИК\n\nЯ твій персональний AI-коуч! Готовий відповісти на твоє питання.\n\n💡 Персональними порадами\n🎯 Мікро-діями для цілей\n⚡ Підтримкою в складних ситуаціях\n\nНапиши своє питання прямо зараз! 👇`;
     await ctx.reply(helpText, keyboards.aiMentorStartKeyboard());
     logger.info(`✅ [AI MENTOR] Інструкції надіслано для ${tgId}`);
 
   } catch (error) {
-    logger.error('❌ [AI MENTOR REQUEST] Помилка:', {
-      message: error.message,
-      stack: error.stack,
-      statusCode: error.statusCode
-    });
+    logger.error('❌ [AI MENTOR REQUEST] Помилка:', error);
     await ctx.reply('❌ Помилка AI-наставника. Спробуйте пізніше.', keyboards.mainMenuKeyboard());
   }
 };
 
 /**
  * Обробка питання до AI-наставника
- * @param {Object} ctx - Контекст Telegraf
- * @param {string} question - Питання користувача
  */
 const handleAIMentorQuestion = async (ctx, question) => {
   const tgId = String(ctx.from.id);
@@ -83,8 +75,13 @@ const handleAIMentorQuestion = async (ctx, question) => {
     if (!user || !user['Active_Subscription_Status']?.includes('✅ Активна')) {
       logger.warn(`❌ [AI MENTOR] Немає доступу для ${tgId}`);
       aiMentorSession.end(tgId);
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
       return ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
+    }
+
+    // ✅ ПЕРЕВІРЯЄМО ЧИ АКТИВНА СЕСІЯ
+    if (!aiMentorSession.isActive(String(tgId))) {
+      logger.warn(`❌ [AI MENTOR] Сесія неактивна для ${tgId}, запускаємо знову`);
+      aiMentorSession.start(String(tgId));
     }
 
     const contextType = determineContextType(question);
@@ -93,39 +90,35 @@ const handleAIMentorQuestion = async (ctx, question) => {
     const responseText = await generateAIResponse(question, user, contextType);
     
     // Збереження діалогу
-    await conversationService.saveAIConversation(
-      tgId,
-      question,
-      responseText,
-      {
-        contextType,
-        userGoal: question.substring(0, 100),
-        userState: 'unknown',
-        generatedActions: responseText.match(/💡.*?(?=✨|$)/s)?.[0] || '',
-        courseSuggested: ''
-      }
-    );
-    logger.info(`✅ [AI MENTOR] Діалог збережено для ${tgId}`);
+    try {
+      await conversationService.saveAIConversation(
+        tgId,
+        question,
+        responseText,
+        {
+          contextType,
+          userGoal: question.substring(0, 100),
+          userState: 'unknown',
+          generatedActions: responseText.match(/💡.*?(?=✨|$)/s)?.[0] || '',
+          courseSuggested: ''
+        }
+      );
+      logger.info(`✅ [AI MENTOR] Діалог збережено для ${tgId}`);
+    } catch (saveError) {
+      logger.warn(`⚠️ [AI MENTOR] Не вдалося зберегти діалог:`, saveError);
+    }
 
     await ctx.reply(responseText, keyboards.aiMentorControlKeyboard());
     logger.info(`✅ [AI MENTOR] Відповідь надіслано для ${tgId}`);
 
   } catch (error) {
-    logger.error('❌ [AI MENTOR QUESTION] Помилка:', {
-      message: error.message,
-      stack: error.stack,
-      statusCode: error.statusCode
-    });
-    await ctx.reply('❌ Помилка при обробці питання. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
+    logger.error('❌ [AI MENTOR QUESTION] Помилка:', error);
+    await ctx.reply('❌ Помилка при обробці питання. Спробуйте ще раз.');
   }
 };
 
 /**
  * Генерація відповіді від AI
- * @param {string} question - Питання користувача
- * @param {Object} user - Дані користувача
- * @param {string} contextType - Тип контексту
- * @returns {string} Відповідь AI
  */
 const generateAIResponse = async (question, user, contextType) => {
   try {
@@ -140,14 +133,11 @@ const generateAIResponse = async (question, user, contextType) => {
         });
       }
     } catch (historyError) {
-      logger.warn('[AI MENTOR] Не вдалося отримати історію розмов:', {
-        message: historyError.message,
-        stack: historyError.stack
-      });
+      logger.warn('[AI MENTOR] Не вдалося отримати історію розмов:', historyError);
     }
 
     const systemPrompt = AI_MENTOR_PROMPTS[contextType] || AI_MENTOR_PROMPTS.SYSTEM_PROMPT;
-    const prompt = `Користувач: ${user['Name'] || 'Анонім'} (TG_id: ${user['TG_id']})
+    const prompt = `Користувач: ${user['User Name'] || 'Анонім'} (TG_id: ${user['TG_id']})
 Питання: "${question}"
 ${conversationContext}
 
@@ -167,11 +157,7 @@ ${systemPrompt}`;
     return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${response}`;
 
   } catch (error) {
-    logger.error('[AI MENTOR] Помилка OpenAI:', {
-      message: error.message,
-      stack: error.stack,
-      statusCode: error.statusCode
-    });
+    logger.error('[AI MENTOR] Помилка OpenAI:', error);
 
     const fallbackResponses = {
       [CONTEXT_TYPES.MICRO_ACTIONS]: '🎯 Твій проєкт має потенціал! Розбий його на маленькі кроки.\n💡 1. Визнач одну ключову дію на сьогодні. 2. Заплануй 15 хвилин для її виконання.\n✨ Ти вже робиш крок до успіху! Продовжуй! 💪',
@@ -187,7 +173,6 @@ ${systemPrompt}`;
 
 /**
  * Обробка callback-запитів AI-наставника
- * @param {Object} ctx - Контекст Telegraf
  */
 const handleAIMentorCallback = async (ctx) => {
   const tgId = String(ctx.from.id);
@@ -197,24 +182,18 @@ const handleAIMentorCallback = async (ctx) => {
     logger.info(`📱 [AI MENTOR CALLBACK] ${data} для ${tgId}, AI активна: ${aiMentorSession.isActive(tgId)}`);
 
     if (data === 'ai_continue') {
-      await userService.updateUserStep(tgId, ANSWER_STEPS.AI_MENTOR_ACTIVE);
       await ctx.reply('🤖 Задавай наступне питання! Я готовий допомогти 😊', keyboards.aiMentorControlKeyboard());
       await ctx.answerCbQuery('Продовжуємо діалог');
 
     } else if (data === 'ai_exit') {
-      aiMentorSession.end(tgId);
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+      aiMentorSession.end(String(tgId));
       await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
       await ctx.answerCbQuery('Вихід з AI-наставника');
       logger.info(`🚪 [AI MENTOR] Користувач ${tgId} вийшов з AI-наставника`);
     }
 
   } catch (error) {
-    logger.error('[AI MENTOR CALLBACK] Помилка:', {
-      message: error.message,
-      stack: error.stack,
-      statusCode: error.statusCode
-    });
+    logger.error('[AI MENTOR CALLBACK] Помилка:', error);
     await ctx.reply('❌ Помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
     await ctx.answerCbQuery('Помилка');
   }
@@ -222,7 +201,6 @@ const handleAIMentorCallback = async (ctx) => {
 
 /**
  * Генерація звіту AI-діалогів
- * @param {Object} ctx - Контекст Telegraf
  */
 const getAIConversationReport = async (ctx) => {
   const tgId = String(ctx.from.id);
@@ -240,11 +218,7 @@ const getAIConversationReport = async (ctx) => {
     logger.info(`✅ [AI MENTOR REPORT] Звіт надіслано для ${tgId}`);
 
   } catch (error) {
-    logger.error('[AI MENTOR REPORT] Помилка:', {
-      message: error.message,
-      stack: error.stack,
-      statusCode: error.statusCode
-    });
+    logger.error('[AI MENTOR REPORT] Помилка:', error);
     await ctx.reply('❌ Не вдалося згенерувати звіт AI діалогів', keyboards.mainMenuKeyboard());
   }
 };

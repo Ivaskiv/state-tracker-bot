@@ -1,4 +1,4 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО ЛОГІКУ AI МЕНТОРА
+// src/controllers/botController.js - ФІНАЛЬНИЙ ФІКС
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
@@ -78,20 +78,30 @@ const botController = (bot) => {
 
       const step = user.Answer_Step;
       const isActiveWheel = step === WHEEL_STEP;
-      const isActiveAI = aiMentorSession.isActive(tgId);
       const isActiveQuestions = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
 
-      // ✅ ПРІОРИТЕТ 1: AI НАСТАВНИК (блокує всі команди меню крім виходу)
+      // ✅ ПЕРЕВІРКА AI МЕНТОРА З ПРАВИЛЬНИМ ТИПОМ ДАНИХ
+      const isActiveAI = aiMentorSession.isActive(String(tgId));
+
+      console.log(`[botController] 📋 ДІАГНОСТИКА для ${tgId}:`);
+      console.log(`- Текст: "${text}"`);
+      console.log(`- Answer_Step: "${step}"`);
+      console.log(`- isActiveAI: ${isActiveAI} (через aiMentorSession)`);
+      console.log(`- isActiveWheel: ${isActiveWheel}`);
+      console.log(`- isActiveQuestions: ${isActiveQuestions}`);
+
+      // ✅ ПРІОРИТЕТ 1: AI НАСТАВНИК
       if (isActiveAI) {
         console.log(`🤖 [botController] AI ментор активний для ${tgId}, текст: "${text}"`);
         
+        // Перевіряємо чи це команда виходу
         if (text.includes('вихід') || text.includes('exit') || text === '🚪 Вийти із сесії') {
-          aiMentorSession.end(tgId);
+          aiMentorSession.end(String(tgId));
           await completeSession(tgId, ctx, '👋 Повертаємося до меню.');
           return;
         }
         
-        // ✅ БЛОКУЄМО ВСІ КОМАНДИ МЕНЮ КРІМ АФІРМАЦІЇ
+        // БЛОКУЄМО КОМАНДИ МЕНЮ КРІМ АФІРМАЦІЇ
         const menuCommands = [
           '📈 Щотижневий звіт', '📈 Щомісячний звіт', '🤖 AI наставник',
           '🎯 Колесо балансу', '💰 Підписка', '📊 Мій прогрес',
@@ -116,14 +126,14 @@ const botController = (bot) => {
         
         // ✅ ДОЗВОЛЯЄМО АФІРМАЦІЮ НАВІТЬ В AI МЕНТОРІ
         if (text === '💎 Афірмація') {
-          aiMentorSession.end(tgId);
+          aiMentorSession.end(String(tgId));
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
           logger.info(`🚪 [botController] Вихід з AI ментора для афірмації ${tgId}`);
           await handleMenuCommands(ctx, user, text, bot);
           return;
         }
         
-        // Обробляємо як питання до AI
+        // ✅ ОБРОБЛЯЄМО ЯК ПИТАННЯ ДО AI
         await aiMentorController.handleAIMentorQuestion(ctx, text);
         return;
       }
@@ -155,9 +165,6 @@ const botController = (bot) => {
     console.log(`[botController] 📱 Callback: ${data} від ${tgId}`);
 
     try {
-      // ✅ ВАЖЛИВО: НЕ ОБРОБЛЯЄМО continue_answers та skip_session тут!
-      // Вони обробляються в pendingFlow.js
-      
       // Обробка рестарту сесій
       if (data === 'restart_morning' || data === 'restart_evening' || data === 'cancel_restart') {
         await handleRestartCallback(ctx);

@@ -264,5 +264,5 @@ export default {
   getActiveWheel,
   needsWheelBalance,
   getUserWheelStats,
-  LIFE_SPHERES // ✅ ДОДАНО ЕКСПОРТ
+  LIFE_SPHERES // ✅ ЕКСПОРТУЄМО LIFE_SPHERES для використання в контролері
 };

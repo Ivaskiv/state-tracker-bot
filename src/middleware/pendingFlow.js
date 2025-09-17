@@ -88,7 +88,7 @@ const isPendingResponse = (user) => {
   
   const step = user.Answer_Step;
   
-  // ✅ ВСІХ АКТИВНИХ СТАНІВ
+  // ✅ ВСІ АКТИВНІ СТАНИ
   const activeSteps = [
     ANSWER_STEPS.MORNING_1, ANSWER_STEPS.MORNING_2, ANSWER_STEPS.MORNING_3,
     ANSWER_STEPS.MORNING_4, ANSWER_STEPS.MORNING_5, ANSWER_STEPS.MORNING_6,
@@ -177,7 +177,11 @@ export const installPendingFlow = (bot) => {
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) return next();
 
-      await updateUserActivity(tgId);
+      // ✅ НЕ ОНОВЛЮЄМО АКТИВНІСТЬ ДЛЯ AI МЕНТОРА
+      const isAIMentorActive = aiMentorSession.isActive(tgId);
+      if (!isAIMentorActive) {
+        await updateUserActivity(tgId);
+      }
 
       // ✅ ДОЗВОЛЯЄМО КОМАНДИ ПРОДОВЖЕННЯ/ПРОПУСКУ
       if (text === '🔄 Продовжити відповіді' || text === '⏭️ Пропустити' ||
@@ -290,7 +294,11 @@ export const installPendingFlow = (bot) => {
     
     try {
       if (data === 'continue_answers') {
-        await updateUserActivity(tgId);
+        // ✅ НЕ ОНОВЛЮЄМО АКТИВНІСТЬ ДЛЯ AI МЕНТОРА
+        const isAIMentorActive = aiMentorSession.isActive(tgId);
+        if (!isAIMentorActive) {
+          await updateUserActivity(tgId);
+        }
         
         const user = await userService.getUserByTelegramId(tgId);
         if (!user) {
@@ -319,9 +327,16 @@ const handleContinueAnswers = async (ctx, user) => {
   console.log(`[pendingFlow] 🔄 ПРОДОВЖЕННЯ ВІДПОВІДЕЙ для ${tgId}, крок: ${step}`);
   
   // ✅ ПЕРЕВІРКА AI МЕНТОРА
-  if (step === ANSWER_STEPS.AI_MENTOR_ACTIVE || aiMentorSession.isActive(parseInt(tgId))) {
+  if (step === ANSWER_STEPS.AI_MENTOR_ACTIVE || aiMentorSession.isActive(String(tgId))) {
     await typing(ctx);
-    await ctx.reply('🤖 AI-наставник активний. Задавай питання!');
+    await ctx.reply('🤖 AI-наставник активний. Задавай питання!', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📝 Запитати ще', callback_data: 'ai_continue' }],
+          [{ text: '🚪 Вийти з AI', callback_data: 'ai_exit' }]
+        ]
+      }
+    });
     await ctx.answerCbQuery('Продовжуємо AI діалог');
     return;
   }
