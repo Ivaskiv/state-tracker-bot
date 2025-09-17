@@ -1,4 +1,4 @@
-// src/services/wheelBalanceService.js - ВИПРАВЛЕНО ІМПОРТИ ТА ЛОГІКУ
+// src/services/wheelBalanceService.js - ВИПРАВЛЕНО
 
 import { getBase, tables } from '../config/database.js';
 import { chat } from './openaiClient.js';
@@ -7,45 +7,72 @@ import logger from '../utils/logger.js';
 
 const base = getBase();
 
-// ✅ СТАРТ НОВОГО КОЛЕСА
+// ✅ СТВОРЕННЯ КЛАВІАТУРИ З ОЦІНКАМИ 0-10
+const createScoreKeyboard = (currentStep, totalSteps) => {
+  const keyboard = [];
+  // Створюємо кнопки від 0 до 10 в рядках
+  const row1 = []; // 0, 1, 2, 3, 4, 5
+  const row2 = []; // 6, 7, 8, 9, 10
+  
+  for (let i = 0; i <= 5; i++) {
+    row1.push({ text: `${i}`, callback_data: `wheel_score_${i}` });
+  }
+  for (let i = 6; i <= 10; i++) {
+    row2.push({ text: `${i}`, callback_data: `wheel_score_${i}` });
+  }
+  
+  keyboard.push(row1, row2);
+  
+  // Додаємо кнопки управління
+  keyboard.push([
+    { text: '🚪 Вийти', callback_data: 'wheel_exit' }
+  ]);
+  
+  return {
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  };
+};
+
 const startWheelBalance = async (tgId) => {
   try {
     logger.info(`🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для ${tgId}`);
 
-    // Перевіряємо чи немає активного колеса
-    const existingWheel = await getActiveWheel(tgId);
-    if (existingWheel) {
-      const currentStep = existingWheel.fields.Step || 0;
-      const sphereName = LIFE_SPHERES[currentStep];
-      
-      return {
-        message: `🎯 У тебе вже є активне колесо!\n\n${currentStep + 1}️⃣/8 ${sphereName}\n\nОцінка (1-10):`,
-        recordId: existingWheel.id,
-        currentSphere: currentStep
-      };
-    }
+    // Завершуємо всі активні колеса перед створенням нового
+    await base(tables.WHEEL_BALANCE).select({
+      filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
+    }).eachPage(async (records) => {
+      if (records.length > 0) {
+        const updates = records.map(record => ({
+          id: record.id,
+          fields: { Status: 'Cancelled' }
+        }));
+        await base(tables.WHEEL_BALANCE).update(updates);
+      }
+    });
 
     // Створюємо нове колесо
     const wheelData = {
       fields: {
         TG_id: String(tgId),
         Status: 'Active',
-        Step: 0, // ✅ ПОЧАТКОВИЙ КРОК = 0 (перша сфера)
+        Step: 0,
         Created_Date: new Date().toISOString().split('T')[0]
       }
     };
 
     const [wheelRecord] = await base(tables.WHEEL_BALANCE).create([wheelData]);
-    logger.info(`🎯 [wheelBalance] ✅ Колесо створено, ID: ${wheelRecord.id}, Step: ${wheelRecord.fields.Step}`);
+    logger.info(`🎯 [wheelBalance] ✅ Колесо створено, ID: ${wheelRecord.id}`);
 
     const message = 
       `🎯 КОЛЕСО БАЛАНСУ\n\n` +
-      `Оціни кожну сферу життя від 1 до 10, де:\n` +
-      `1 = дуже погано, 10 = ідеально\n\n` +
-      `1️⃣/8 ${LIFE_SPHERES[0]}\n\nОцінка (1-10):`;
+      `Оціни кожну сферу життя від 0 до 10\n\n` +
+      `1️⃣/8 ${LIFE_SPHERES[0]}\n\nОбери оцінку:`;
 
     return {
       message,
+      keyboard: createScoreKeyboard(1, 8),
       recordId: wheelRecord.id,
       currentSphere: 0
     };
@@ -56,16 +83,45 @@ const startWheelBalance = async (tgId) => {
   }
 };
 
-// ✅ ВИПРАВЛЕНА ОБРОБКА ВІДПОВІДІ
-const processWheelAnswer = async (tgId, score) => {
+// ✅ ОБРОБКА CALLBACK З ОЦІНКОЮ
+const processWheelCallback = async (ctx) => {
+  const tgId = ctx.from.id;
+  const data = ctx.callbackQuery.data;
+  
   try {
-    logger.info(`🎯 [wheelBalance] Обробка відповіді ${tgId}: "${score}"`);
-
-    // Валідація оцінки
-    const scoreNum = parseInt(score, 10);
-    if (!Number.isInteger(scoreNum) || scoreNum < 1 || scoreNum > 10) {
-      return { error: true, message: 'Будь ласка, введи число від 1 до 10' };
+    // Обробка оцінок
+    if (data.startsWith('wheel_score_')) {
+      const score = parseInt(data.replace('wheel_score_', ''));
+      return await processWheelAnswer(tgId, score, ctx);
     }
+    
+    // Обробка виходу
+    if (data === 'wheel_exit') {
+      await base(tables.WHEEL_BALANCE).select({
+        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
+      }).eachPage(async (records) => {
+        if (records.length > 0) {
+          const updates = records.map(record => ({
+            id: record.id,
+            fields: { Status: 'Cancelled' }
+          }));
+          await base(tables.WHEEL_BALANCE).update(updates);
+        }
+      });
+      
+      await ctx.editMessageText('🚪 Колесо балансу скасовано');
+      return { completed: true, cancelled: true };
+    }
+    
+  } catch (error) {
+    logger.error('❌ [wheelBalance] Помилка callback:', error);
+    return { error: true, message: 'Помилка обробки. Спробуй ще раз.' };
+  }
+};
+
+const processWheelAnswer = async (tgId, score, ctx = null) => {
+  try {
+    logger.info(`🎯 [wheelBalance] Обробка відповіді ${tgId}: ${score}`);
 
     // Отримуємо активне колесо
     const activeWheel = await getActiveWheel(tgId);
@@ -74,32 +130,26 @@ const processWheelAnswer = async (tgId, score) => {
     }
 
     const currentStep = activeWheel.fields.Step || 0;
-    logger.info(`🎯 [wheelBalance] ПОТОЧНИЙ КРОК: ${currentStep} (сфера: ${LIFE_SPHERES[currentStep]})`);
-
-    // ✅ ПРАВИЛЬНА ЛОГІКА: currentStep відповідає поточній сфері
     const sphereName = LIFE_SPHERES[currentStep];
     const airtableField = SPHERE_FIELDS[currentStep];
 
-    logger.info(`🎯 [wheelBalance] Зберігаємо в поле: ${airtableField} = ${scoreNum}`);
+    logger.info(`🎯 [wheelBalance] Зберігаємо: ${airtableField} = ${score}`);
 
     // Готуємо дані для оновлення
-    const updateFields = { [airtableField]: scoreNum };
+    const updateFields = { [airtableField]: score };
     
     // Перевіряємо чи це остання сфера
     const isLastSphere = currentStep >= (LIFE_SPHERES.length - 1);
     
     if (isLastSphere) {
-      // ✅ ЗАВЕРШУЄМО КОЛЕСО
-      logger.info(`🎯 [wheelBalance] ЗАВЕРШЕННЯ КОЛЕСА (остання сфера ${currentStep})`);
-      
-      // Збираємо всі оцінки
+      // Завершуємо колесо
       const allScores = [];
       for (let i = 0; i < LIFE_SPHERES.length - 1; i++) {
         const fieldName = SPHERE_FIELDS[i];
         const score = Number(activeWheel.fields[fieldName]) || 0;
         allScores.push(score);
       }
-      allScores.push(scoreNum); // додаємо останню оцінку
+      allScores.push(score);
 
       const totalScore = Math.round((allScores.reduce((a, b) => a + b, 0) / allScores.length) * 10) / 10;
       const analysis = await generateWheelAnalysis(allScores);
@@ -112,34 +162,46 @@ const processWheelAnswer = async (tgId, score) => {
       await base(tables.WHEEL_BALANCE).update(activeWheel.id, updateFields);
 
       const message = 
-        `✅ ${sphereName}: ${scoreNum}/10\n\n` +
-        `🎯 КОЛЕСО БАЛАНСУ ЗАВЕРШЕНО!\n\n${analysis}`;
+        `✅ ${sphereName}: ${score}/10\n\n` +
+        `🎯 КОЛЕСО БАЛАНСУ ЗАВЕРШЕНО!\n\n` +
+        `📊 Загальний бал: ${totalScore}/10\n\n` +
+        `${analysis}`;
 
-      return { 
-        message, 
-        completed: true, 
-        analysis
-      };
+      if (ctx) {
+        await ctx.editMessageText(message, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 Пройти знову', callback_data: 'wheel_start_new' }],
+              [{ text: '🏠 Головне меню', callback_data: 'wheel_to_menu' }]
+            ]
+          }
+        });
+      }
+
+      return { message, completed: true, analysis };
 
     } else {
-      // ✅ ПЕРЕХОДИМО ДО НАСТУПНОЇ СФЕРИ
-      const nextStep = currentStep + 1; // ✅ ЗБІЛЬШУЄМО КРОК
+      // Переходимо до наступної сфери
+      const nextStep = currentStep + 1;
       updateFields.Step = nextStep;
-      
-      logger.info(`🎯 [wheelBalance] ПЕРЕХІД: крок ${currentStep} -> ${nextStep}`);
       
       await base(tables.WHEEL_BALANCE).update(activeWheel.id, updateFields);
       
       const nextSphereName = LIFE_SPHERES[nextStep];
       const message = 
-        `✅ ${sphereName}: ${scoreNum}/10\n\n` +
+        `✅ ${sphereName}: ${score}/10\n\n` +
         `${nextStep + 1}️⃣/8 ${nextSphereName}\n\n` +
-        `Оцінка (1-10):`;
+        `Обери оцінку:`;
 
-      logger.info(`🎯 [wheelBalance] ✅ Наступне питання: ${nextStep + 1}/8 ${nextSphereName}`);
+      const keyboard = createScoreKeyboard(nextStep + 1, 8);
+
+      if (ctx) {
+        await ctx.editMessageText(message, keyboard);
+      }
 
       return {
         message,
+        keyboard,
         currentSphere: nextStep,
         completed: false
       };
@@ -151,7 +213,6 @@ const processWheelAnswer = async (tgId, score) => {
   }
 };
 
-// ✅ ГЕНЕРАЦІЯ AI-АНАЛІЗУ
 const generateWheelAnalysis = async (scoresArr) => {
   try {
     const pairs = LIFE_SPHERES.map((name, i) => ({ 
@@ -185,7 +246,6 @@ const generateWheelAnalysis = async (scoresArr) => {
   }
 };
 
-// ✅ ОТРИМАННЯ АКТИВНОГО КОЛЕСА
 const getActiveWheel = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
@@ -211,7 +271,6 @@ const getActiveWheel = async (tgId) => {
   }
 };
 
-// ✅ ПЕРЕВІРКА ПОТРЕБИ В НОВОМУ КОЛЕСІ (раз на місяць)
 const needsWheelBalance = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
@@ -222,21 +281,20 @@ const needsWheelBalance = async (tgId) => {
       })
       .firstPage();
     
-    if (records.length === 0) return true; // перше колесо
+    if (records.length === 0) return true;
     
     const lastWheel = records[0];
     const completedDate = new Date(lastWheel.fields.Completed_Date);
     const now = new Date();
     const daysDiff = Math.floor((now - completedDate) / (1000 * 60 * 60 * 24));
     
-    return daysDiff >= 30; // раз на місяць
+    return daysDiff >= 30;
   } catch (error) {
     logger.error('❌ [wheelBalance] Помилка перевірки потреби:', error);
     return false;
   }
 };
 
-// ✅ ОТРИМАННЯ СТАТИСТИКИ
 const getUserWheelStats = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
@@ -261,8 +319,9 @@ const getUserWheelStats = async (tgId) => {
 export default {
   startWheelBalance,
   processWheelAnswer,
+  processWheelCallback, // ✅ ДОДАНО
   getActiveWheel,
   needsWheelBalance,
   getUserWheelStats,
-  LIFE_SPHERES // ✅ ЕКСПОРТУЄМО LIFE_SPHERES для використання в контролері
+  LIFE_SPHERES
 };

@@ -1,7 +1,8 @@
-// src/controllers/botController.js - ФІНАЛЬНИЙ ФІКС
+// src/controllers/botController.js - ДОДАНО WHEEL CALLBACK
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
+import subscriptionService from '../auth/services/subscriptionService.js';
 import { clearUserReminders } from '../middleware/pendingFlow.js';
 import { aiMentorSession } from '../aiMentor/session.js';
 import { globalTypingMiddleware } from '../middleware/typingMiddleware.js';
@@ -41,12 +42,15 @@ const botController = (bot) => {
         return;
       }
       
+      // ✅ ПЕРЕВІРКА СТАТУСУ ПІДПИСКИ
+      const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
+      
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
       clearUserReminders(tgId);
       
-      const welcomeMessage = isActiveSubscription(user) 
+      const welcomeMessage = subscriptionStatus.active 
         ? `Привіт знову, ${name}! 👋\n\nГотова продовжити трансформацію? ✨`
-        : `Привіт, ${name}! 👋\n\nДля користування aiMentor потрібна активна підписка.`;
+        : `Привіт, ${name}! 👋\n\n❌ Твоя підписка закінчилася.\n\nДля користування aiMentor потрібна активна підписка.\n\n📞 Зв'яжіться з підтримкою: nadyastarway@gmail.com`;
         
       await ctx.reply(welcomeMessage, keyboards.mainMenuKeyboard());
     } catch (error) {
@@ -76,32 +80,39 @@ const botController = (bot) => {
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) return ctx.reply('Натисніть /start', keyboards.mainMenuKeyboard());
 
+      // ✅ ПЕРЕВІРКА ПІДПИСКИ ДЛЯ ВСІХ ДІЙ
+      const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
+      
+      if (!subscriptionStatus.active && text !== '💰 Підписка' && text !== '📞 Зв\'язок з нами') {
+        await ctx.reply(
+          '❌ Твоя підписка закінчилася.\n\nЩоб користуватися всіма функціями бота, оформи або продовжи підписку.\n\n📞 Зв\'яжіться з підтримкою: nadyastarway@gmail.com',
+          keyboards.mainMenuKeyboard()
+        );
+        return;
+      }
+
       const step = user.Answer_Step;
       const isActiveWheel = step === WHEEL_STEP;
       const isActiveQuestions = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
-
-      // ✅ ПЕРЕВІРКА AI МЕНТОРА З ПРАВИЛЬНИМ ТИПОМ ДАНИХ
       const isActiveAI = aiMentorSession.isActive(String(tgId));
 
       console.log(`[botController] 📋 ДІАГНОСТИКА для ${tgId}:`);
       console.log(`- Текст: "${text}"`);
       console.log(`- Answer_Step: "${step}"`);
-      console.log(`- isActiveAI: ${isActiveAI} (через aiMentorSession)`);
+      console.log(`- isActiveAI: ${isActiveAI}`);
       console.log(`- isActiveWheel: ${isActiveWheel}`);
       console.log(`- isActiveQuestions: ${isActiveQuestions}`);
 
-      // ✅ ПРІОРИТЕТ 1: AI НАСТАВНИК
+      // AI наставник
       if (isActiveAI) {
-        console.log(`🤖 [botController] AI ментор активний для ${tgId}, текст: "${text}"`);
+        console.log(`🤖 [botController] AI ментор активний для ${tgId}`);
         
-        // Перевіряємо чи це команда виходу
         if (text.includes('вихід') || text.includes('exit') || text === '🚪 Вийти із сесії') {
           aiMentorSession.end(String(tgId));
           await completeSession(tgId, ctx, '👋 Повертаємося до меню.');
           return;
         }
         
-        // БЛОКУЄМО КОМАНДИ МЕНЮ КРІМ АФІРМАЦІЇ
         const menuCommands = [
           '📈 Щотижневий звіт', '📈 Щомісячний звіт', '🤖 AI наставник',
           '🎯 Колесо балансу', '💰 Підписка', '📊 Мій прогрес',
@@ -124,34 +135,31 @@ const botController = (bot) => {
           return;
         }
         
-        // ✅ ДОЗВОЛЯЄМО АФІРМАЦІЮ НАВІТЬ В AI МЕНТОРІ
         if (text === '💎 Афірмація') {
           aiMentorSession.end(String(tgId));
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          logger.info(`🚪 [botController] Вихід з AI ментора для афірмації ${tgId}`);
           await handleMenuCommands(ctx, user, text, bot);
           return;
         }
         
-        // ✅ ОБРОБЛЯЄМО ЯК ПИТАННЯ ДО AI
         await aiMentorController.handleAIMentorQuestion(ctx, text);
         return;
       }
 
-      // ✅ ПРІОРИТЕТ 2: КОЛЕСО БАЛАНСУ
+      // Колесо балансу
       if (isActiveWheel) {
         logger.info(`🎯 [botController] Обробка колеса балансу для ${tgId}: "${text}"`);
         await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
         return;
       }
 
-      // ✅ ПРІОРИТЕТ 3: РАНКОВІ/ВЕЧІРНІ ПИТАННЯ
+      // Ранкові/вечірні питання
       if (isActiveQuestions) {
         const answered = await handleQuestionAnswer(ctx, user, text);
         if (answered) return;
       }
 
-      // ✅ ПРІОРИТЕТ 4: КОМАНДИ МЕНЮ
+      // Команди меню
       await handleMenuCommands(ctx, user, text, bot);
     } catch (error) {
       await handleError(ctx, error);
@@ -165,6 +173,14 @@ const botController = (bot) => {
     console.log(`[botController] 📱 Callback: ${data} від ${tgId}`);
 
     try {
+      // ✅ ПЕРЕВІРКА ПІДПИСКИ ДЛЯ CALLBACK
+      const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
+      
+      if (!subscriptionStatus.active && !data.includes('subscription') && !data.includes('support')) {
+        await ctx.answerCbQuery('Потрібна активна підписка');
+        return;
+      }
+
       // Обробка рестарту сесій
       if (data === 'restart_morning' || data === 'restart_evening' || data === 'cancel_restart') {
         await handleRestartCallback(ctx);
@@ -176,17 +192,30 @@ const botController = (bot) => {
         return;
       }
 
-      if (data === 'wheel_retry' || data === 'wheel_exit') {
+      // ✅ КОЛЕСО БАЛАНСУ CALLBACK
+      if (data.startsWith('wheel_score_') || data === 'wheel_exit') {
+        await wheelBalanceController.handleWheelCallback(ctx);
+        return;
+      }
+
+      if (data === 'wheel_retry' || data === 'wheel_start_new' || data === 'wheel_to_menu') {
         await wheelBalanceController.handleWheelRetryCallback(ctx);
         return;
       }
 
-      if (data === 'wheel_start_new' || data === 'wheel_to_menu') {
-        await wheelBalanceController.handleWheelMenuCallback(ctx);
+      // Підписка та підтримка
+      if (data === 'subscription_info') {
+        await ctx.reply('💰 Підписка\n\nДля оформлення або продовження підписки зв\'яжіться з підтримкою:\n\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316', keyboards.mainMenuKeyboard());
+        await ctx.answerCbQuery('Інформація про підписку');
         return;
       }
 
-      // ✅ ЯКЩО CALLBACK НЕ РОЗПІЗНАНО - ВІДПОВІДАЄМО
+      if (data === 'contact_support') {
+        await ctx.reply('📞 Підтримка\n\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316\n\nОпишіть свою ситуацію, і ми допоможемо!', keyboards.mainMenuKeyboard());
+        await ctx.answerCbQuery('Контакти підтримки');
+        return;
+      }
+
       console.log(`[botController] ❓ Невідомий callback: ${data}`);
       await ctx.answerCbQuery('Команда не розпізнана');
       

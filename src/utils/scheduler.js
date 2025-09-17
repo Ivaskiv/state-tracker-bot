@@ -1,7 +1,8 @@
-// src/utils/scheduler.js - ВИПРАВЛЕНО ДУБЛЮВАННЯ
+// src/utils/scheduler.js - ДОДАНО ПЕРЕВІРКУ ПІДПИСОК
 
 import cron from 'node-cron';
 import userService from '../auth/services/userService.js';
+import subscriptionService from '../auth/services/subscriptionService.js'; // ✅ ДОДАНО
 import responseService from '../dialogue/services/responseService.js';
 import {
   CRON_SCHEDULES,
@@ -18,7 +19,7 @@ import wheelBalanceController from '../controllers/wheelBalanceController.js';
 
 const jobs = [];
 
-// ✅ ГЛОБАЛЬНІ ЛОКИ ВІД ПОВТОРНОГО ВИКЛИКУ
+// Глобальні локи від повторного виклику
 const executionLocks = new Map();
 const userSessionLocks = new Set();
 const messageCooldowns = new Map();
@@ -26,7 +27,6 @@ const messageCooldowns = new Map();
 const MESSAGE_COOLDOWN = 60 * 1000; // 1 хвилина
 const SESSION_LOCK_TTL = 5 * 60 * 1000; // 5 хвилин
 
-// ✅ ЗАХИСТ ВІД ДУБЛЮВАННЯ НА РІВНІ ХВИЛИНИ
 const getMinuteKey = (type) => {
   const now = new Date();
   const minute = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
@@ -43,7 +43,6 @@ const guardExecution = (type) => {
   
   executionLocks.set(key, Date.now());
   
-  // Очищуємо старі локи через 2 хвилини
   setTimeout(() => {
     executionLocks.delete(key);
   }, 2 * 60 * 1000);
@@ -51,7 +50,6 @@ const guardExecution = (type) => {
   return true;
 };
 
-// ✅ ЗАХИСТ ВІД ДУБЛЮВАННЯ ПОВІДОМЛЕНЬ КОРИСТУВАЧУ
 const canSendMessage = (tgId, messageType) => {
   const key = `${tgId}_${messageType}`;
   const now = Date.now();
@@ -65,7 +63,6 @@ const canSendMessage = (tgId, messageType) => {
   return true;
 };
 
-// ✅ ЗАХИСТ ВІД ДУБЛЮВАННЯ СЕСІЙ
 const canStartSession = (tgId, sessionType) => {
   const key = `${tgId}_${sessionType}_${new Date().toDateString()}`;
   
@@ -76,7 +73,6 @@ const canStartSession = (tgId, sessionType) => {
   
   userSessionLocks.add(key);
   
-  // Очищуємо лок через 5 хвилин
   setTimeout(() => {
     userSessionLocks.delete(key);
   }, SESSION_LOCK_TTL);
@@ -84,7 +80,6 @@ const canStartSession = (tgId, sessionType) => {
   return true;
 };
 
-// ✅ БЕЗПЕЧНА ВІДПРАВКА ПОВІДОМЛЕННЯ
 const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions = null) => {
   try {
     if (!canSendMessage(tgId, messageType)) {
@@ -112,7 +107,7 @@ const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions 
   }
 };
 
-// ✅ КЕШУВАННЯ КОРИСТУВАЧІВ
+// Кешування користувачів
 let usersCache = null;
 let usersCacheTime = 0;
 const USERS_CACHE_TTL = 5 * 60 * 1000;
@@ -128,18 +123,23 @@ const getActiveUsers = async () => {
   return usersCache;
 };
 
-// ✅ ВИПРАВЛЕНА ФУНКЦІЯ ВІДПРАВКИ СЕСІЇ
+// ✅ ПЕРЕВІРКА ПІДПИСКИ ПЕРЕД ВІДПРАВКОЮ
 const sendSessionMessage = async (bot, type, tgId, name) => {
   try {
-    const today = new Date().toDateString();
     const sessionType = type === QUESTION_TYPES.MORNING ? 'Morning' : 'Evening';
     
-    // ✅ ПЕРЕВІРЯЄМО ЧИ МОЖНА ЗАПУСТИТИ СЕСІЮ
     if (!canStartSession(tgId, sessionType)) {
       return false;
     }
     
     console.log(`[scheduler] 🚀 ОБРОБКА ${sessionType} сесії для ${tgId}`);
+    
+    // ✅ ПЕРЕВІРКА ПІДПИСКИ
+    const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
+    if (!subscriptionStatus.active) {
+      console.log(`[scheduler] ⏭️ ПРОПУСК ${sessionType} - підписка неактивна для ${tgId}`);
+      return false;
+    }
     
     const user = await userService.getUserByTelegramId(tgId);
     const step = user?.Answer_Step || '';
@@ -147,7 +147,6 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
     
     const completed = await responseService.isSessionCompleted(tgId, type);
     
-    // ✅ ЯКЩО ЗАВЕРШЕНО І НЕМАЄ АКТИВНОЇ СЕСІЇ - ПРОПОНУЄМО ПЕРЕЗАПУСК
     if (completed && !sessionActive) {
       const message = type === QUESTION_TYPES.MORNING
         ? `🌞 Ти вже завершила ранкові питання.\n\n🔄 Хочеш оновити відповіді?`
@@ -163,7 +162,6 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
       });
     }
     
-    // ✅ ЯКЩО СЕСІЯ НЕ АКТИВНА - ЗАПУСКАЄМО
     if (!sessionActive) {
       const startStep = type === QUESTION_TYPES.MORNING ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
       
@@ -182,7 +180,6 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
       return sent;
     }
     
-    // ✅ ЯКЩО СЕСІЯ АКТИВНА - НАГАДУВАННЯ
     const reminderMessage = type === QUESTION_TYPES.MORNING 
       ? SCHEDULER_MESSAGES.MORNING_REMINDER 
       : SCHEDULER_MESSAGES.EVENING_REMINDER;
@@ -195,7 +192,6 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
   }
 };
 
-// ✅ ГОЛОВНІ ФУНКЦІЇ SCHEDULER
 const sendMorningReminder = async (bot) => {
   if (!guardExecution('Morning')) return;
   
@@ -256,6 +252,11 @@ const sendReportsReminder = async (bot) => {
     
     for (const user of users) {
       const tgId = user['TG_id'];
+      
+      // ✅ ПЕРЕВІРКА ПІДПИСКИ
+      const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
+      if (!subscriptionStatus.active) continue;
+      
       await safeSendMessage(bot, tgId, SCHEDULER_MESSAGES.REPORTS_REMINDER, 'reports_reminder');
       await new Promise((r) => setTimeout(r, SCHEDULER_CONFIG.REPORT_DELAY_MS));
     }
@@ -264,7 +265,26 @@ const sendReportsReminder = async (bot) => {
   }
 };
 
-// ✅ ОЧИЩЕННЯ КЕШІВ
+// ✅ ЩОДЕННА ПЕРЕВІРКА ПІДПИСОК
+const checkSubscriptions = async (bot) => {
+  if (!guardExecution('SubscriptionCheck')) return;
+  
+  console.log('[scheduler] 💰 Перевірка підписок');
+  
+  try {
+    // Деактивуємо закінчені підписки
+    const deactivated = await subscriptionService.deactivateExpiredSubscriptions();
+    console.log(`[scheduler] ✅ Деактивовано ${deactivated} підписок`);
+    
+    // Надсилаємо нагадування
+    const reminders = await subscriptionService.sendSubscriptionReminders(bot);
+    console.log(`[scheduler] ✅ Надіслано ${reminders} нагадувань`);
+    
+  } catch (error) {
+    console.error('[scheduler] ❌ Помилка перевірки підписок:', error);
+  }
+};
+
 const clearDailyCache = () => {
   console.log('[scheduler] 🧹 Очищення денних кешів');
   messageCooldowns.clear();
@@ -274,7 +294,6 @@ const clearDailyCache = () => {
   executionLocks.clear();
 };
 
-// ✅ СТВОРЕННЯ ЗАВДАНЬ
 const createTask = (expression, fn, name) => {
   const task = cron.schedule(expression, fn, { 
     timezone: SCHEDULE.TIMEZONE, 
@@ -302,6 +321,7 @@ const startScheduler = (bot) => {
   createTask(CRON_SCHEDULES.MORNING_REMINDER, () => sendMorningReminder(bot), 'morning_session');
   createTask(CRON_SCHEDULES.EVENING_REMINDER, () => sendEveningReminder(bot), 'evening_session');
   createTask('0 18 * * *', () => sendReportsReminder(bot), 'reports_reminder');
+  createTask('0 10 * * *', () => checkSubscriptions(bot), 'subscription_check'); // ✅ ЩОДЕННА ПЕРЕВІРКА О 10:00
   createTask('0 10 1 * *', async () => {
     try {
       await wheelBalanceController.checkMonthlyWheelNeed(bot);
@@ -313,6 +333,7 @@ const startScheduler = (bot) => {
   console.log(`[scheduler] ✅ Планувальник запущено: ${jobs.length} задач`);
   console.log(`[scheduler] 📅 Ранок: ${CRON_SCHEDULES.MORNING_REMINDER}`);
   console.log(`[scheduler] 📅 Вечір: ${CRON_SCHEDULES.EVENING_REMINDER}`);
+  console.log(`[scheduler] 💰 Підписки: 0 10 * * * (щодня о 10:00)`);
 };
 
 const stopScheduler = () => {
