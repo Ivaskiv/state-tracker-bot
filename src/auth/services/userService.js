@@ -1,4 +1,4 @@
-// src/auth/services/userService.js - ВИПРАВЛЕНО ДЛЯ РОБОТИ З AIRTABLE
+// src/auth/services/userService.js - ВИПРАВЛЕНО СТВОРЕННЯ КОРИСТУВАЧА
 import { getBase } from '../../config/database.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 
@@ -17,18 +17,81 @@ const getActiveUsers = async () => {
   }
 };
 
+// Виправлена функція в src/auth/services/userService.js
+
 const getUserByTelegramId = async (tgId) => {
   try {
+    console.log(`[userService] 🔍 ПОШУК користувача з TG_id: ${tgId}`);
+    console.log(`[userService] Тип TG_id: ${typeof tgId}`);
+    
     const base = getBase();
-    const records = await base('Users')
-      .select({
-        filterByFormula: `{TG_id} = '${tgId}'`,
-      })
-      .firstPage();
-    return records.length > 0 ? records[0].fields : null;
-  } catch (error) {
-    console.error('[userService.getUserByTelegramId] Помилка:', error);
+    const tgIdString = String(tgId);
+    
+    console.log(`[userService] Конвертований в рядок: "${tgIdString}"`);
+    
+    // ✅ ЄДИНИЙ ПРАВИЛЬНИЙ СПОСІБ ПОШУКУ - як рядок
+    const records = await base('Users').select({
+      filterByFormula: `{TG_id} = "${tgIdString}"`,
+      maxRecords: 1
+    }).firstPage();
+    
+    console.log(`[userService] 📊 Результат пошуку: знайдено ${records.length} записів`);
+    
+    if (records.length > 0) {
+      const user = records[0].fields;
+      console.log(`[userService] ✅ КОРИСТУВАЧ ЗНАЙДЕНИЙ:`);
+      console.log(`- Запис ID: ${records[0].id}`);
+      console.log(`- TG_id з бази: ${user['TG_id']}`);
+      console.log(`- Ім'я: ${user['User Name']}`);
+      console.log(`- Email: ${user['Email'] || 'не вказано'}`);
+      console.log(`- Підписка: ${user['Active_Subscription_Status'] || 'не вказано'}`);
+      
+      return user;
+    }
+    
+    // Якщо не знайшли - діагностика
+    console.log(`[userService] ❌ КОРИСТУВАЧ НЕ ЗНАЙДЕНИЙ`);
+    console.log(`[userService] 🔍 ДІАГНОСТИКА - перевіряємо що є в базі...`);
+    
+    try {
+      const allUsers = await base('Users').select({
+        maxRecords: 5,
+        fields: ['TG_id', 'User Name'],
+        sort: [{ field: 'TG_id', direction: 'desc' }]
+      }).firstPage();
+      
+      console.log(`[userService] 📋 Останні 5 користувачів в базі:`);
+      allUsers.forEach((record, index) => {
+        console.log(`${index + 1}. TG_id: "${record.fields.TG_id}" (тип: ${typeof record.fields.TG_id}), Ім'я: "${record.fields['User Name']}"`);
+      });
+      
+      // Перевіряємо чи є подібні ID
+      const similarUsers = allUsers.filter(record => {
+        const dbTgId = String(record.fields.TG_id || '');
+        return dbTgId.includes(tgIdString) || tgIdString.includes(dbTgId);
+      });
+      
+      if (similarUsers.length > 0) {
+        console.log(`[userService] 🔍 Знайдено подібні TG_id:`);
+        similarUsers.forEach(record => {
+          console.log(`- "${record.fields.TG_id}" (шукали: "${tgIdString}")`);
+        });
+      }
+      
+    } catch (diagError) {
+      console.error(`[userService] ❌ Помилка діагностики:`, diagError);
+    }
+    
     return null;
+    
+  } catch (error) {
+    console.error('[userService.getUserByTelegramId] ❌ КРИТИЧНА ПОМИЛКА:', {
+      message: error.message,
+      stack: error.stack,
+      tgId,
+      tgIdType: typeof tgId
+    });
+    throw error; // Пробрасываем ошибку выше для обработки
   }
 };
 
@@ -59,7 +122,7 @@ const updateUserActivity = async (tgId) => {
       .firstPage();
     if (records.length > 0) {
       await base('Users').update(records[0].id, { 
-        Answer_Step: ANSWER_STEPS.COMPLETED 
+        Last_Activity: new Date().toISOString() 
       });
       console.log(`[userService] Оновлено активність для ${tgId}`);
     }
@@ -68,7 +131,7 @@ const updateUserActivity = async (tgId) => {
   }
 };
 
-// ✅ ВИПРАВЛЕНО: створюємо користувача тільки з дозволеними полями
+// ВИПРАВЛЕНО: правильні назви полів та обробка помилок
 const createUser = async ({ tgId, name, email, phone, timezone }) => {
   try {
     console.log(`[userService] 🆕 Створення користувача:`, {
@@ -81,59 +144,36 @@ const createUser = async ({ tgId, name, email, phone, timezone }) => {
     
     const base = getBase();
     
-    // ✅ Спочатку створюємо з мінімальними полями
-    const basicData = {
-      'TG_id': String(tgId),
-      'User Name': name || 'Користувач'
+    // ВИПРАВЛЕНО: правильна структура даних для Airtable
+    const userData = {
+      'TG_id': String(tgId), // ВАЖЛИВО: конвертуємо в строку
+      'User Name': name || 'Користувач',
+      'Email': email || null,
+      'Phone': phone || null,
+      'Time_Zone': timezone || 'Europe/Prague',
+      'Active_Subscription_Status': '❌ Неактивна',
+      'Active Subscription Plan': null,
+      'Subscription Status': 'Inactive',
+      'Answer_Step': ANSWER_STEPS.COMPLETED,
+      'Last_Activity': new Date().toISOString(),
+      'Created_At': new Date().toISOString() // ДОДАНО дата створення
     };
     
-    console.log(`[userService] 📝 Створення базового користувача:`, basicData);
+    console.log(`[userService] 📝 Дані для збереження:`, userData);
     
-    const record = await base('Users').create(basicData);
-    console.log(`[userService] ✅ Базовий користувач створений, ID: ${record.id}`);
+    const record = await base('Users').create(userData);
     
-    // ✅ Тепер намагаємося додати додаткові поля, але ігноруємо помилки
-    const additionalUpdates = {};
-    
-    if (email) {
-      additionalUpdates['Email'] = email;
-    }
-    
-    if (phone) {
-      additionalUpdates['Phone'] = phone;
-    }
-    
-    // ✅ ВИПРАВЛЕНО: додаємо Answer_Step для правильного стану
-    additionalUpdates['Answer_Step'] = ANSWER_STEPS.COMPLETED;
-    
-    // ✅ НЕ додаємо Time Zone - це поле викликає помилки в Airtable
-    // Залишаємо тільки безпечні поля
-    
-    if (Object.keys(additionalUpdates).length > 0) {
-      try {
-        await base('Users').update(record.id, additionalUpdates);
-        console.log(`[userService] ✅ Додаткові поля оновлено:`, additionalUpdates);
-      } catch (updateError) {
-        console.warn(`[userService] ⚠️ Деякі додаткові поля не вдалося оновити:`, updateError.message);
-        // Не кидаємо помилку - користувач уже створений
-      }
-    }
-    
-    // ✅ Отримуємо повну інформацію про користувача
-    const fullUserRecord = await base('Users').find(record.id);
-    
-    console.log(`[userService] 🎉 Користувача успішно створено:`, {
+    console.log(`[userService] ✅ Користувача створено успішно:`, {
       id: record.id,
-      tgId: fullUserRecord.fields['TG_id'],
-      name: fullUserRecord.fields['User Name'],
-      email: fullUserRecord.fields['Email'] || 'не вказано',
-      phone: fullUserRecord.fields['Phone'] || 'не вказано',
-      subscriptionStatus: fullUserRecord.fields['Active_Subscription_Status'] || 'невідомо'
+      tgId: userData['TG_id'],
+      name: userData['User Name'],
+      timezone: userData['Time_Zone']
     });
     
+    // Повертаємо дані користувача
     return {
       id: record.id,
-      ...fullUserRecord.fields
+      ...userData
     };
     
   } catch (error) {
@@ -147,6 +187,7 @@ const createUser = async ({ tgId, name, email, phone, timezone }) => {
       timezone
     });
     
+    // ВИПРАВЛЕНО: кидаємо помилку для обробки вище
     throw new Error(`Не вдалося створити користувача: ${error.message}`);
   }
 };
@@ -165,13 +206,14 @@ const updateUserSubscription = async (tgId, subscriptionData) => {
       return null;
     }
 
-    // ✅ ТІЛЬКИ поля дат - найбезпечніші для оновлення
-    const updateFields = {
+    const updatedRecord = await base('Users').update(records[0].id, {
+      'Active_Subscription_Status': subscriptionData.status,
+      'Active Subscription Plan': subscriptionData.plan,
+      'Subscription Status': subscriptionData.subscriptionStatus,
       'Start_Date': subscriptionData.startDate,
-      'End_Date': subscriptionData.endDate
-    };
-
-    const updatedRecord = await base('Users').update(records[0].id, updateFields);
+      'End_Date': subscriptionData.endDate,
+      Answer_Step: ANSWER_STEPS.COMPLETED
+    });
 
     console.log(`[userService] Оновлено підписку для ${tgId}: ${subscriptionData.plan}`);
     return updatedRecord.fields;
@@ -205,27 +247,6 @@ const getUsersWithExpiringSubscriptions = async (daysOffset) => {
   }
 };
 
-// ✅ ДОДАНО: функція для перевірки чи користувач існує
-const checkUserExists = async (tgId) => {
-  try {
-    const user = await getUserByTelegramId(tgId);
-    if (user) {
-      console.log(`[userService] ✅ Користувач ${tgId} знайдений в базі:`, {
-        name: user['User Name'],
-        email: user['Email'],
-        subscriptionStatus: user['Active_Subscription_Status']
-      });
-      return true;
-    } else {
-      console.log(`[userService] ❌ Користувача ${tgId} не знайдено в базі`);
-      return false;
-    }
-  } catch (error) {
-    console.error('[userService.checkUserExists] Помилка:', error);
-    return false;
-  }
-};
-
 export default { 
   getActiveUsers, 
   getUserByTelegramId, 
@@ -233,6 +254,5 @@ export default {
   updateUserActivity, 
   createUser,
   updateUserSubscription,
-  getUsersWithExpiringSubscriptions,
-  checkUserExists // ✅ ДОДАНО для діагностики
+  getUsersWithExpiringSubscriptions
 };

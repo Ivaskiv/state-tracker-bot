@@ -199,7 +199,173 @@ const botController = (bot) => {
       await handleError(ctx, error);
     }
   });
+// ✅ Команда для перевірки поточного користувача
+bot.command('whoami', async (ctx) => {
+  const tgId = ctx.from.id;
+  const name = ctx.from.first_name;
+  const username = ctx.from.username;
+  
+  try {
+    console.log(`[DIAGNOSTIC] 🔍 Команда /whoami від користувача ${tgId}`);
+    
+    // Перевіряємо в базі
+    const user = await userService.getUserByTelegramId(tgId);
+    
+    let message = `🔍 ТВОЯ ІНФОРМАЦІЯ\n\n`;
+    message += `📱 Telegram ID: ${tgId}\n`;
+    message += `👤 Ім'я: ${name}\n`;
+    message += `🔗 Username: @${username || 'немає'}\n\n`;
+    
+    if (user) {
+      message += `✅ СТАТУС: Зареєстрований\n`;
+      message += `📝 Ім'я в базі: ${user['User Name']}\n`;
+      message += `📧 Email: ${user['Email'] || 'не вказано'}\n`;
+      message += `📱 Телефон: ${user['Phone'] || 'не вказано'}\n`;
+      message += `💰 Підписка: ${user['Active_Subscription_Status'] || 'невідомо'}\n`;
+      message += `📋 План: ${user['Active Subscription Plan'] || 'невідомо'}\n`;
+    } else {
+      message += `❌ СТАТУС: НЕ зареєстрований\n\n`;
+      message += `💡 Натисни /start для реєстрації`;
+    }
+    
+    await ctx.reply(message);
+    
+  } catch (error) {
+    console.error('[DIAGNOSTIC] Помилка /whoami:', error);
+    await ctx.reply(`❌ Помилка діагностики: ${error.message}`);
+  }
+});
 
+// ✅ Команда для перегляду всіх користувачів (тільки для dev)
+bot.command('allusers', async (ctx) => {
+  if (process.env.NODE_ENV === 'production') {
+    return ctx.reply('❌ Команда доступна тільки в режимі розробки');
+  }
+  
+  try {
+    console.log(`[DIAGNOSTIC] 🔍 Команда /allusers від ${ctx.from.id}`);
+    
+    const base = getBase();
+    const records = await base('Users').select({
+      maxRecords: 10,
+      fields: ['TG_id', 'User Name', 'Email', 'Active_Subscription_Status'],
+      sort: [{ field: 'TG_id', direction: 'desc' }]
+    }).firstPage();
+    
+    let message = `👥 КОРИСТУВАЧІ В БАЗІ (${records.length}):\n\n`;
+    
+    records.forEach((record, i) => {
+      const fields = record.fields;
+      message += `${i + 1}. ${fields['User Name'] || 'Без імені'}\n`;
+      message += `   📱 ID: ${fields.TG_id}\n`;
+      message += `   📧 Email: ${fields.Email || 'немає'}\n`;
+      message += `   💰 Підписка: ${fields['Active_Subscription_Status'] || 'немає'}\n\n`;
+    });
+    
+    if (records.length === 0) {
+      message += `Користувачів не знайдено.\n\nПеревірте підключення до Airtable.`;
+    }
+    
+    await ctx.reply(message);
+    
+  } catch (error) {
+    console.error('[DIAGNOSTIC] Помилка /allusers:', error);
+    await ctx.reply(`❌ Помилка: ${error.message}`);
+  }
+});
+
+// ✅ Команда для тестування підключення до Airtable
+bot.command('testdb', async (ctx) => {
+  if (process.env.NODE_ENV === 'production') {
+    return ctx.reply('❌ Команда доступна тільки в режимі розробки');
+  }
+  
+  try {
+    console.log(`[DIAGNOSTIC] 🔍 Команда /testdb від ${ctx.from.id}`);
+    
+    const base = getBase();
+    
+    // Тестуємо підключення
+    const testRecord = await base('Users').select({
+      maxRecords: 1,
+      fields: ['TG_id']
+    }).firstPage();
+    
+    let message = `🔗 ТЕСТ ПІДКЛЮЧЕННЯ ДО AIRTABLE\n\n`;
+    message += `✅ Підключення: OK\n`;
+    message += `📊 Знайдено записів: ${testRecord.length}\n`;
+    
+    if (testRecord.length > 0) {
+      message += `📱 Перший TG_id: ${testRecord[0].fields.TG_id}\n`;
+    }
+    
+    // Інформація про конфігурацію
+    message += `\n🔧 КОНФІГУРАЦІЯ:\n`;
+    message += `- API Key: ${process.env.AIRTABLE_API_KEY ? 'встановлено' : '❌ НЕ встановлено'}\n`;
+    message += `- Base ID: ${process.env.AIRTABLE_BASE_ID ? 'встановлено' : '❌ НЕ встановлено'}\n`;
+    
+    await ctx.reply(message);
+    
+  } catch (error) {
+    console.error('[DIAGNOSTIC] Помилка /testdb:', error);
+    await ctx.reply(`❌ Помилка підключення до Airtable:\n${error.message}`);
+  }
+});
+
+// ✅ Команда для форсованого видалення користувача (тільки для dev)
+bot.command('deleteuser', async (ctx) => {
+  if (process.env.NODE_ENV === 'production') {
+    return ctx.reply('❌ Команда доступна тільки в режимі розробки');
+  }
+  
+  const tgId = ctx.from.id;
+  
+  try {
+    console.log(`[DIAGNOSTIC] 🗑️ Команда /deleteuser від ${tgId}`);
+    
+    const base = getBase();
+    const records = await base('Users').select({
+      filterByFormula: `{TG_id} = "${tgId}"`,
+      maxRecords: 1
+    }).firstPage();
+    
+    if (records.length === 0) {
+      await ctx.reply('❌ Твого запису не знайдено в базі');
+      return;
+    }
+    
+    await base('Users').destroy([records[0].id]);
+    await ctx.reply('✅ Твій запис видалено з бази.\n\nТепер можеш пройти реєстрацію заново командою /start');
+    
+    console.log(`[DIAGNOSTIC] ✅ Користувача ${tgId} видалено з бази`);
+    
+  } catch (error) {
+    console.error('[DIAGNOSTIC] Помилка /deleteuser:', error);
+    await ctx.reply(`❌ Помилка видалення: ${error.message}`);
+  }
+});
+bot.on('message', async (ctx) => {
+    const userId = ctx.from.id;
+    const username = ctx.from.username;
+    const firstName = ctx.from.first_name;
+    
+    // ВАЖЛИВО: Перевірити чи існує користувач
+    const existingUser = await db.query(
+        'SELECT * FROM Users WHERE telegram_id = ?', 
+        [userId]
+    );
+    
+    if (existingUser.length === 0) {
+        // Додати користувача в таблицю Users
+        await db.query(`
+            INSERT INTO Users (telegram_id, username, first_name, created_at, is_active) 
+            VALUES (?, ?, ?, NOW(), 1)
+        `, [userId, username, firstName]);
+        
+        console.log(`✅ Користувач ${userId} доданий в таблицю Users`);
+    }
+});
+console.log('[botController] ✅ Діагностичні команди додано: /whoami, /allusers, /testdb, /deleteuser');
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
     const tgId = ctx.from.id;
