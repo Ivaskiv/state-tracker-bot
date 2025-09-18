@@ -1,6 +1,5 @@
-// src/controllers/botController.js
+// src/controllers/botController.js - ПОВНИЙ ФАЙЛ З ДІАГНОСТИЧНОЮ КОМАНДОЮ
 
-import { session } from 'telegraf';
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
@@ -25,7 +24,7 @@ const isActiveAIStep = (step) => Boolean(step && (step === 'AI_ACTIVE' || step?.
 const botController = (bot) => {
   logger.info('[botController] Initializing bot controller...');
 
-  bot.use(session());
+  // ✅ ВИДАЛЕНО bot.use(session()) - вже додано в server.js
   bot.use(globalTypingMiddleware());
 
   bot.start(async (ctx) => {
@@ -71,6 +70,60 @@ const botController = (bot) => {
       await ctx.reply('✅ Меню оновлено!', keyboards.forceUpdateKeyboard());
     } catch (error) {
       await ctx.reply('❌ Помилка оновлення');
+    }
+  });
+
+  // ✅ ДІАГНОСТИЧНА КОМАНДА
+  bot.command('checkuser', async (ctx) => {
+    const tgId = ctx.from.id;
+    
+    try {
+      console.log(`[DIAGNOSTIC] 🔍 Перевірка користувача ${tgId}`);
+      
+      const user = await userService.getUserByTelegramId(tgId);
+      
+      if (user) {
+        const diagnosticInfo = {
+          'TG_id': user['TG_id'],
+          'User Name': user['User Name'],
+          'Email': user['Email'] || 'не вказано',
+          'Phone': user['Phone'] || 'не вказано',
+          'Active_Subscription_Status': user['Active_Subscription_Status'] || 'немає статусу',
+          'Active Subscription Plan': user['Active Subscription Plan'] || 'немає плану',
+          'Answer_Step': user['Answer_Step'] || 'немає кроку',
+          'Start_Date': user['Start_Date'] || 'немає дати початку',
+          'End_Date': user['End_Date'] || 'немає дати закінчення',
+          'Last Modified Time': user['Last Modified Time'] || 'невідомо'
+        };
+        
+        console.log(`[DIAGNOSTIC] ✅ Користувач знайдений:`, diagnosticInfo);
+        
+        const message = `🔍 ДІАГНОСТИКА КОРИСТУВАЧА\n\n` +
+          `👤 TG_id: ${diagnosticInfo['TG_id']}\n` +
+          `📝 Ім'я: ${diagnosticInfo['User Name']}\n` +
+          `📧 Email: ${diagnosticInfo['Email']}\n` +
+          `📱 Phone: ${diagnosticInfo['Phone']}\n` +
+          `💰 Статус підписки: ${diagnosticInfo['Active_Subscription_Status']}\n` +
+          `📋 План підписки: ${diagnosticInfo['Active Subscription Plan']}\n` +
+          `⚙️ Крок: ${diagnosticInfo['Answer_Step']}\n` +
+          `📅 Початок: ${diagnosticInfo['Start_Date']}\n` +
+          `📅 Кінець: ${diagnosticInfo['End_Date']}\n` +
+          `🕐 Останні зміни: ${diagnosticInfo['Last Modified Time']}`;
+        
+        await ctx.reply(message);
+        
+        // Перевірка активності підписки
+        const hasActive = user['Active_Subscription_Status']?.includes('✅ Активна');
+        await ctx.reply(`🔍 АКТИВНІСТЬ ПІДПИСКИ: ${hasActive ? '✅ АКТИВНА' : '❌ НЕАКТИВНА'}`);
+        
+      } else {
+        console.log(`[DIAGNOSTIC] ❌ Користувача ${tgId} НЕ ЗНАЙДЕНО в базі`);
+        await ctx.reply(`❌ КОРИСТУВАЧА НЕ ЗНАЙДЕНО\n\nTG_id: ${tgId}\nМожете пройти реєстрацію командою /start`);
+      }
+      
+    } catch (error) {
+      console.error('[DIAGNOSTIC] Помилка:', error);
+      await ctx.reply(`❌ Помилка діагностики: ${error.message}`);
     }
   });
 

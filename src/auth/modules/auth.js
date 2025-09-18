@@ -1,4 +1,4 @@
-// src/auth/modules/auth.js - ВИПРАВЛЕНО РЕЄСТРАЦІЮ
+// src/auth/modules/auth.js - ВИПРАВЛЕНО ЛОГІКУ ПЕРЕВІРКИ КОРИСТУВАЧА
 
 import userService from '../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
@@ -28,39 +28,79 @@ export async function handleStart(ctx) {
   const name = ctx.from.first_name || 'Користувач';
   
   try {
+    console.log(`[auth] 🔍 Перевірка користувача ${tgId} (${name})`);
+    
+    // ✅ ДЕТАЛЬНА ДІАГНОСТИКА
     const user = await userService.getUserByTelegramId(tgId);
+    
+    if (user) {
+      console.log(`[auth] 👤 КОРИСТУВАЧ ЗНАЙДЕНИЙ:`, {
+        tgId: user['TG_id'],
+        name: user['User Name'],
+        email: user['Email'],
+        phone: user['Phone'],
+        subscriptionStatus: user['Active_Subscription_Status'],
+        answerStep: user['Answer_Step']
+      });
+    } else {
+      console.log(`[auth] 👤 КОРИСТУВАЧ НЕ ЗНАЙДЕНИЙ для TG_id: ${tgId}`);
+    }
 
     if (!user) {
-      // Нова реєстрація - ВИПРАВЛЕНО: правильна ініціалізація сесії
+      // ✅ НОВА РЕЄСТРАЦІЯ
       if (!ctx.session) ctx.session = {};
       ctx.session.step = 'reg_name';
       ctx.session.temp = { name };
       
-      console.log(`[auth] 🆕 Нова реєстрація для ${tgId}, ім'я: ${name}`);
+      console.log(`[auth] 🆕 ПОЧАТОК нової реєстрації для ${tgId}, ім'я: ${name}`);
       
       await ctx.reply(`🌟 Вітаю в aiMentor, ${name}!\n\nПочнемо реєстрацію. Підтверди своє ім'я або введи інше:`, keyboards.skipKeyboard());
       return;
     }
 
-    // Існуючий користувач
-    const hasActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');
+    // ✅ ІСНУЮЧИЙ КОРИСТУВАЧ - детальна перевірка підписки
+    console.log(`[auth] 🔄 Аналіз підписки користувача ${tgId}:`);
+    
+    const subscriptionStatus = user['Active_Subscription_Status'];
+    const hasActiveSubscription = subscriptionStatus && subscriptionStatus.includes && subscriptionStatus.includes('✅ Активна');
+    
+    console.log(`[auth] 💰 Статус підписки:`, {
+      rawStatus: subscriptionStatus,
+      typeOfStatus: typeof subscriptionStatus,
+      hasActiveSubscription: hasActiveSubscription,
+      includesCheck: subscriptionStatus ? subscriptionStatus.includes('✅ Активна') : 'немає статусу'
+    });
     
     if (hasActiveSubscription) {
+      console.log(`[auth] ✅ Користувач ${tgId} має активну підписку`);
       await ctx.reply(`Привіт знову, ${name}! 👋\n\nГотовий продовжити трансформацію?`, keyboards.mainMenuKeyboard());
     } else {
+      console.log(`[auth] ❌ Користувач ${tgId} НЕ має активної підписки`);
+      console.log(`[auth] 📊 Детальна інформація про підписку:`, {
+        subscriptionStatus: user['Active_Subscription_Status'],
+        subscriptionPlan: user['Active Subscription Plan'],
+        startDate: user['Start_Date'],
+        endDate: user['End_Date']
+      });
+      
       await ctx.reply(
         `Привіт, ${name}! 👋\n\n❌ Твоя підписка неактивна.\n\nДля користування всіма функціями потрібна активна підписка.\n\n📞 Зв'яжіться з підтримкою: nadyastarway@gmail.com`,
         keyboards.subscriptionKeyboard()
       );
     }
   } catch (error) {
-    console.error('[handleStart] Помилка:', error);
+    console.error('[handleStart] ❌ КРИТИЧНА ПОМИЛКА:', {
+      message: error.message,
+      stack: error.stack,
+      tgId,
+      name
+    });
     await ctx.reply('❌ Помилка. Спробуйте ще раз.');
   }
 }
 
 export async function handleRegistrationStep(ctx) {
-  // ВИПРАВЛЕНО: перевіряємо сесію на кожному кроці
+  // ✅ ПЕРЕВІРЯЄМО СЕСІЮ НА КОЖНОМУ КРОЦІ
   if (!ctx.session) ctx.session = {};
   
   const step = ctx.session.step;
@@ -80,7 +120,6 @@ export async function handleRegistrationStep(ctx) {
         return true;
       }
       
-      // ВИПРАВЛЕНО: правильне збереження імені
       if (!ctx.session.temp) ctx.session.temp = {};
       ctx.session.temp.name = text || ctx.session.temp.name || ctx.from.first_name;
       ctx.session.step = 'reg_email';
@@ -130,15 +169,33 @@ export async function handleRegistrationStep(ctx) {
 
       const timezone = selectedTimezone.split(' ')[0];
       
-      console.log(`[auth] 🏁 Завершення реєстрації для ${ctx.from.id}:`, {
+      console.log(`[auth] 🏁 ЗАВЕРШЕННЯ РЕЄСТРАЦІЇ для ${ctx.from.id}:`, {
         name: ctx.session.temp.name,
         email: ctx.session.temp.email,
         phone: ctx.session.temp.phone,
         timezone
       });
       
-      // ВИПРАВЛЕНО: створюємо користувача з обробкою помилок
+      // ✅ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ УЖЕ НЕ ІСНУЄ ПЕРЕД СТВОРЕННЯМ
+      const existingUser = await userService.getUserByTelegramId(ctx.from.id);
+      if (existingUser) {
+        console.log(`[auth] ⚠️ КОРИСТУВАЧ УЖЕ ІСНУЄ під час реєстрації! ID: ${ctx.from.id}`);
+        console.log(`[auth] Існуючий користувач:`, {
+          tgId: existingUser['TG_id'],
+          name: existingUser['User Name'],
+          subscriptionStatus: existingUser['Active_Subscription_Status']
+        });
+        
+        // Очищаємо сесію та перенаправляємо
+        ctx.session = {};
+        await ctx.reply('🎉 Ти вже зареєстрований!\n\nПереходимо до головного меню.', keyboards.mainMenuKeyboard());
+        return true;
+      }
+      
+      // ✅ СТВОРЮЄМО КОРИСТУВАЧА З ОБРОБКОЮ ПОМИЛОК
       try {
+        console.log(`[auth] 🚀 СТВОРЕННЯ нового користувача...`);
+        
         const user = await userService.createUser({
           tgId: ctx.from.id,
           name: ctx.session.temp.name,
@@ -147,15 +204,26 @@ export async function handleRegistrationStep(ctx) {
           timezone
         });
 
+        // ✅ ПЕРЕВІРЯЄМО ЩО КОРИСТУВАЧ РЕАЛЬНО СТВОРИВСЯ
+        const verifyUser = await userService.getUserByTelegramId(ctx.from.id);
+        if (!verifyUser) {
+          throw new Error('Користувача створено, але він не знайдений в базі при перевірці');
+        }
+
         // Очищаємо сесію після створення користувача
         ctx.session = {};
 
-        console.log(`[auth] ✅ Користувача створено успішно:`, user);
+        console.log(`[auth] ✅ РЕЄСТРАЦІЯ УСПІШНА:`, {
+          id: user.id,
+          tgId: verifyUser['TG_id'],
+          name: verifyUser['User Name'],
+          subscriptionStatus: verifyUser['Active_Subscription_Status']
+        });
 
         const welcomeMessage = `🎉 Реєстрацію завершено!\n\nТвій часовий пояс: ${selectedTimezone}`;
         await ctx.reply(welcomeMessage, keyboards.removeKeyboard());
 
-        const hasActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');
+        const hasActiveSubscription = verifyUser['Active_Subscription_Status']?.includes('✅ Активна');
         
         if (hasActiveSubscription) {
           await ctx.reply('🎯 Почнемо з оцінки твого життєвого балансу!');
@@ -170,7 +238,12 @@ export async function handleRegistrationStep(ctx) {
         return true;
         
       } catch (createError) {
-        console.error('[auth] ❌ Помилка створення користувача:', createError);
+        console.error('[auth] ❌ КРИТИЧНА ПОМИЛКА створення користувача:', {
+          message: createError.message,
+          stack: createError.stack,
+          tgId: ctx.from.id,
+          name: ctx.session.temp.name
+        });
         
         ctx.session = {};
         
@@ -184,7 +257,12 @@ export async function handleRegistrationStep(ctx) {
     }
     
   } catch (error) {
-    console.error('[handleRegistrationStep] Помилка:', error);
+    console.error('[handleRegistrationStep] ❌ ПОМИЛКА РЕЄСТРАЦІЇ:', {
+      message: error.message,
+      stack: error.stack,
+      step,
+      tgId: ctx.from.id
+    });
     await ctx.reply('❌ Помилка реєстрації. Спробуйте /start');
     ctx.session = {}; 
   }

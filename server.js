@@ -1,4 +1,4 @@
-// server.js - ДОДАНО SESSION MIDDLEWARE
+// server.js - ВИПРАВЛЕНО ДУБЛЮВАННЯ SESSION MIDDLEWARE
 
 import express from 'express';
 import dotenv from 'dotenv';
@@ -38,7 +38,7 @@ if (!TOKEN) {
 console.log('🤖 Initializing bot...');
 const bot = new Telegraf(TOKEN);
 
-// ВИПРАВЛЕНО: додаємо session middleware ПЕРЕД усіма іншими middleware
+// ✅ ДОДАЄМО SESSION MIDDLEWARE ТІЛЬКИ ОДИН РАЗ - ТУТ
 bot.use(session());
 
 bot.catch((err) => {

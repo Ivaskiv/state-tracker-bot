@@ -1,4 +1,4 @@
-// src/controllers/subscriptionController.js
+// src/controllers/subscriptionController.js - ВИПРАВЛЕНО URL КНОПКИ
 
 import userService from '../auth/services/userService.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
@@ -120,21 +120,29 @@ const handleSubscribe = async (ctx, planKey) => {
       return;
     }
 
-    const paymentUrl = wayforpayService.generatePaymentUrl(tgId, planKey, user?.Email);
-    
     const message = 
       `💳 ОПЛАТА ПІДПИСКИ\n\n` +
       `📋 План: ${planInfo.name}\n` +
       `💰 Вартість: ${planInfo.price}€\n` +
       `⏰ Тривалість: ${planInfo.duration} днів\n\n` +
-      `🔗 Натисни кнопку для оплати:\n\n` +
-      `✅ Після успішної оплати підписка активується автоматично!\n\n` +
-      `❓ Проблеми з оплатою? Натисни "Підтримка"`;
+      `📧 Для оплати зв'яжіться з підтримкою:\n` +
+      `nadyastarway@gmail.com\n\n` +
+      `📝 Вкажіть:\n` +
+      `• Ваш Telegram ID: ${tgId}\n` +
+      `• Обраний план: ${planInfo.name}\n` +
+      `• Сума: ${planInfo.price}€\n\n` +
+      `💳 Після оплати підписка активується автоматично!\n\n` +
+      `❓ Проблеми? Натисніть "Підтримка"`;
+
+    // ✅ ВИПРАВЛЕНО: створюємо валідний mailto URL
+    const emailSubject = encodeURIComponent(`Підписка ${planInfo.name}`);
+    const emailBody = encodeURIComponent(`Telegram ID: ${tgId}\nПлан: ${planInfo.name}\nВартість: ${planInfo.price}€`);
+    const mailtoUrl = `mailto:nadyastarway@gmail.com?subject=${emailSubject}&body=${emailBody}`;
 
     const keyboard = {
       reply_markup: {
         inline_keyboard: [
-          [{ text: `💳 Оплатити ${planInfo.price}€`, url: paymentUrl }],
+          [{ text: '📧 Написати на Email', url: mailtoUrl }],
           [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
           [{ text: '📞 Підтримка', callback_data: 'contact_support' }],
           [{ text: '🔙 Назад', callback_data: 'subscription_plans' }]
@@ -157,13 +165,20 @@ const handleSyncSubscription = async (ctx) => {
   try {
     await typing(ctx);
     
-    const progressMsg = await ctx.reply('🔄 Перевіряю статус оплати...');
+    let progressMsg;
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText('🔄 Перевіряю статус оплати...');
+    } else {
+      progressMsg = await ctx.reply('🔄 Перевіряю статус оплати...');
+    }
     
     const result = await subscriptionSync.syncUserSubscription(tgId);
     
-    try {
-      await ctx.telegram.deleteMessage(ctx.chat.id, progressMsg.message_id);
-    } catch {}
+    if (progressMsg) {
+      try {
+        await ctx.telegram.deleteMessage(ctx.chat.id, progressMsg.message_id);
+      } catch {}
+    }
     
     await ctx.reply(result, keyboards.mainMenuKeyboard());
     
@@ -186,7 +201,10 @@ const handleRenewSubscription = async (ctx) => {
   await ctx.answerCbQuery('Оберіть план для продовження');
 };
 
+// ✅ ВИПРАВЛЕНО: прибрано проблемні URL кнопки
 const handleContactSupport = async (ctx) => {
+  console.log(`📞 [subscriptionController] Обробка contact_support від ${ctx.from.id}`);
+  
   const message = 
     '📞 ЗВ\'ЯЗОК З ПІДТРИМКОЮ\n\n' +
     '💬 **ПРО ПІДПИСКУ:**\n' +
@@ -202,22 +220,37 @@ const handleContactSupport = async (ctx) => {
     '💡 **ШВИДКЕ РІШЕННЯ:**\n' +
     'Натисни "🔄 Я вже оплатив" для автоматичної перевірки';
 
+  // ✅ ВИПРАВЛЕНО: тільки callback кнопки, без URL
   const keyboard = {
     reply_markup: {
       inline_keyboard: [
-        [{ text: '📧 Написати на Email', url: 'mailto:nadyastarway@gmail.com' }],
-        [{ text: '💬 Написати в Telegram', url: 'https://t.me/Nadya2316' }],
         [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
         [{ text: '🔙 Назад до підписки', callback_data: 'subscription_info' }]
       ]
     }
   };
 
-  if (ctx.callbackQuery) {
-    await ctx.editMessageText(message, keyboard);
-    await ctx.answerCbQuery('Контакти надіслано');
-  } else {
-    await ctx.reply(message, keyboard);
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(message, keyboard);
+      await ctx.answerCbQuery('Контакти надіслано');
+      console.log(`✅ [subscriptionController] Контакти надіслано через callback для ${ctx.from.id}`);
+    } else {
+      await ctx.reply(message, keyboard);
+      console.log(`✅ [subscriptionController] Контакти надіслано через звичайне повідомлення для ${ctx.from.id}`);
+    }
+  } catch (error) {
+    console.error('❌ [subscriptionController] Помилка надсилання контактів:', error);
+    
+    // Fallback - просто текст без кнопок
+    const fallbackMessage = '📞 Зв\'яжіться з підтримкою:\n\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316';
+    
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery('Контакти: nadyastarway@gmail.com');
+      await ctx.reply(fallbackMessage);
+    } else {
+      await ctx.reply(fallbackMessage);
+    }
   }
 };
 
@@ -225,7 +258,6 @@ const handleRenewalFromReminder = async (ctx, planKey) => {
   const tgId = ctx.from.id;
   
   try {
-    const user = await userService.getUserByTelegramId(tgId);
     const planInfo = SUBSCRIPTION_PLANS[planKey];
     
     if (!planInfo) {
@@ -233,19 +265,17 @@ const handleRenewalFromReminder = async (ctx, planKey) => {
       return;
     }
 
-    const paymentUrl = wayforpayService.generatePaymentUrl(tgId, planKey, user?.Email);
-    
     const message = 
       `🔄 ПРОДОВЖЕННЯ ПІДПИСКИ\n\n` +
       `📋 План: ${planInfo.name}\n` +
       `💰 Вартість: ${planInfo.price}€\n` +
       `⏰ Тривалість: ${planInfo.duration} днів\n\n` +
-      `✅ Твоя підписка буде продовжена після оплати`;
+      `✅ Твоя підписка буде продовжена після оплати\n\n` +
+      `📧 Зв'яжіться з підтримкою для оплати:\nnadyastarway@gmail.com`;
 
     const keyboard = {
       reply_markup: {
         inline_keyboard: [
-          [{ text: `💳 Продовжити за ${planInfo.price}€`, url: paymentUrl }],
           [{ text: '🔄 Перевірити оплату', callback_data: 'sync_subscription' }],
           [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
         ]
@@ -261,24 +291,86 @@ const handleRenewalFromReminder = async (ctx, planKey) => {
   }
 };
 
-const blockAccessForInactiveSubscription = async (ctx, featureName) => {
-  const message = 
-    `🚫 ${featureName} недоступний\n\n` +
-    `❌ Твоя підписка неактивна або закінчилася.\n\n` +
-    `💰 Поднови підписку зараз, щоб продовжити користування всіма функціями бота!\n\n` +
-    `📞 Питання? Зв'яжися з підтримкою: nadyastarway@gmail.com`;
-
-  const keyboard = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '💰 Подновити підписку', callback_data: 'subscription_plans' }],
-        [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
-        [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }]
-      ]
+const handleCallback = async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  const tgId = ctx.from.id;
+  
+  console.log(`📱 [subscriptionController] Otrimano callback: "${data}" від користувача ${tgId}`);
+  
+  try {
+    switch (data) {
+      case 'subscription_info':
+        console.log(`💰 [subscriptionController] Обробка subscription_info`);
+        await handleSubscriptionInfo(ctx);
+        break;
+        
+      case 'subscription_plans':
+        console.log(`💳 [subscriptionController] Обробка subscription_plans`);
+        await handleSubscriptionPlans(ctx);
+        break;
+        
+      case 'subscribe_week':
+        console.log(`📅 [subscriptionController] Обробка subscribe_week`);
+        await handleSubscribe(ctx, 'WEEK');
+        break;
+        
+      case 'subscribe_month':
+        console.log(`📅 [subscriptionController] Обробка subscribe_month`);
+        await handleSubscribe(ctx, 'MONTH');
+        break;
+        
+      case 'subscribe_year':
+        console.log(`📅 [subscriptionController] Обробка subscribe_year`);
+        await handleSubscribe(ctx, 'YEAR');
+        break;
+        
+      case 'renew_subscription':
+        console.log(`🔄 [subscriptionController] Обробка renew_subscription`);
+        await handleRenewSubscription(ctx);
+        break;
+        
+      case 'sync_subscription':
+        console.log(`🔄 [subscriptionController] Обробка sync_subscription`);
+        await handleSyncSubscription(ctx);
+        break;
+        
+      case 'contact_support':
+        console.log(`📞 [subscriptionController] Обробка contact_support`);
+        await handleContactSupport(ctx);
+        break;
+        
+      case 'renew_week':
+        console.log(`🔄 [subscriptionController] Обробка renew_week`);
+        await handleRenewalFromReminder(ctx, 'WEEK');
+        break;
+        
+      case 'renew_month':
+        console.log(`🔄 [subscriptionController] Обробка renew_month`);
+        await handleRenewalFromReminder(ctx, 'MONTH');
+        break;
+        
+      case 'renew_year':
+        console.log(`🔄 [subscriptionController] Обробка renew_year`);
+        await handleRenewalFromReminder(ctx, 'YEAR');
+        break;
+        
+      default:
+        console.log(`❓ [subscriptionController] Невідома команда: ${data}`);
+        await ctx.answerCbQuery('Невідома команда');
     }
-  };
-
-  await ctx.reply(message, keyboard);
+  } catch (error) {
+    console.error('❌ [subscriptionController] Помилка callback:', {
+      data,
+      error: error.message,
+      tgId
+    });
+    
+    try {
+      await ctx.answerCbQuery('Виникла помилка');
+    } catch (cbError) {
+      console.error('❌ [subscriptionController] Не вдалося відправити answerCbQuery:', cbError.message);
+    }
+  }
 };
 
 const sendExpirationReminders = async (bot) => {
@@ -324,53 +416,6 @@ const sendExpirationReminders = async (bot) => {
   }
 };
 
-const handleCallback = async (ctx) => {
-  const data = ctx.callbackQuery.data;
-  
-  try {
-    switch (data) {
-      case 'subscription_info':
-        await handleSubscriptionInfo(ctx);
-        break;
-      case 'subscription_plans':
-        await handleSubscriptionPlans(ctx);
-        break;
-      case 'subscribe_week':
-        await handleSubscribe(ctx, 'WEEK');
-        break;
-      case 'subscribe_month':
-        await handleSubscribe(ctx, 'MONTH');
-        break;
-      case 'subscribe_year':
-        await handleSubscribe(ctx, 'YEAR');
-        break;
-      case 'renew_subscription':
-        await handleRenewSubscription(ctx);
-        break;
-      case 'sync_subscription':
-        await handleSyncSubscription(ctx);
-        break;
-      case 'contact_support':
-        await handleContactSupport(ctx);
-        break;
-      case 'renew_week':
-        await handleRenewalFromReminder(ctx, 'WEEK');
-        break;
-      case 'renew_month':
-        await handleRenewalFromReminder(ctx, 'MONTH');
-        break;
-      case 'renew_year':
-        await handleRenewalFromReminder(ctx, 'YEAR');
-        break;
-      default:
-        await ctx.answerCbQuery('Невідома команда');
-    }
-  } catch (error) {
-    console.error('❌ [subscriptionController] Помилка callback:', error);
-    await ctx.answerCbQuery('Виникла помилка');
-  }
-};
-
 export default {
   handleSubscriptionInfo,
   handleSubscriptionPlans,
@@ -380,6 +425,5 @@ export default {
   handleContactSupport,
   handleRenewalFromReminder,
   handleCallback,
-  sendExpirationReminders,
-  blockAccessForInactiveSubscription
+  sendExpirationReminders
 };
