@@ -1,11 +1,12 @@
-// src/auth/services/subscriptionService.js - ОПТИМІЗОВАНО
+// src/auth/services/subscriptionService.js - ПОВНА ОПТИМІЗАЦІЯ З НАГАДУВАННЯМИ
 
 import { getBase, tables } from "../../config/database.js";
 import userService from "./userService.js";
+import keyboards from "../../utils/keyboards.js";
 
 const base = getBase();
 
-// ✅ ПЕРЕВІРКА СТАТУСУ ПІДПИСКИ
+// Перевірка статусу підписки
 const checkSubscriptionStatus = async (tgId) => {
   try {
     const user = await userService.getUserByTelegramId(tgId);
@@ -18,7 +19,7 @@ const checkSubscriptionStatus = async (tgId) => {
     const expiry = new Date(endDate);
     
     const isActive = now < expiry;
-    const isExpiringSoon = (expiry - now) <= (24 * 60 * 60 * 1000); // 1 день
+    const isExpiringSoon = (expiry - now) <= (24 * 60 * 60 * 1000);
 
     return {
       active: isActive,
@@ -33,7 +34,7 @@ const checkSubscriptionStatus = async (tgId) => {
   }
 };
 
-// ✅ АВТОМАТИЧНА ДЕАКТИВАЦІЯ ЗАКІНЧЕНИХ ПІДПИСОК
+// Автоматична деактивація закінчених підписок
 const deactivateExpiredSubscriptions = async () => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -67,7 +68,7 @@ const deactivateExpiredSubscriptions = async () => {
   }
 };
 
-// ✅ ОТРИМАННЯ КОРИСТУВАЧІВ З ПІДПИСКАМИ ЩО ЗАКІНЧУЮТЬСЯ
+// Отримання користувачів з підписками що закінчуються
 const getUsersWithExpiringSubscriptions = async (daysOffset = 1) => {
   try {
     const targetDate = new Date();
@@ -91,13 +92,14 @@ const getUsersWithExpiringSubscriptions = async (daysOffset = 1) => {
   }
 };
 
-// ✅ НАДСИЛАННЯ НАГАДУВАНЬ
+// Надсилання нагадувань про закінчення підписки
 const sendSubscriptionReminders = async (bot) => {
   try {
-    console.log('[subscriptionService] Перевірка нагадувань про підписку');
+    console.log('[subscriptionService] 💰 Перевірка нагадувань про підписку');
     
     // Нагадування за день до закінчення
     const expiringUsers = await getUsersWithExpiringSubscriptions(1);
+    let remindersSent = 0;
     
     for (const user of expiringUsers) {
       const tgId = user.TG_id;
@@ -106,21 +108,14 @@ const sendSubscriptionReminders = async (bot) => {
       
       const message = 
         `⚠️ Підписка закінчується завтра!\n\n` +
-        `📋 План: ${planName}\n` +
+        `📋 Plan: ${planName}\n` +
         `📅 Діє до: ${endDate}\n\n` +
         `💰 Поднови підписку, щоб продовжити користування всіма функціями бота.\n\n` +
-        `Зв'яжіться з підтримкою: nadyastarway@gmail.com`;
+        `📞 Зв'яжіться з підтримкою: nadyastarway@gmail.com`;
 
       try {
-        await bot.telegram.sendMessage(tgId, message, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '💰 Підписка', callback_data: 'subscription_info' }],
-              [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
-            ]
-          }
-        });
-        
+        await bot.telegram.sendMessage(tgId, message, keyboards.subscriptionKeyboard());
+        remindersSent++;
         console.log(`[subscriptionService] ✅ Нагадування відправлено ${tgId}`);
       } catch (sendError) {
         console.error(`[subscriptionService] Помилка відправки для ${tgId}:`, sendError);
@@ -129,15 +124,16 @@ const sendSubscriptionReminders = async (bot) => {
       await new Promise(r => setTimeout(r, 500));
     }
     
-    return expiringUsers.length;
+    console.log(`[subscriptionService] 📊 Відправлено ${remindersSent} нагадувань`);
+    return remindersSent;
   } catch (error) {
     console.error('[subscriptionService] Помилка надсилання нагадувань:', error);
     return 0;
   }
 };
 
-// ✅ АКТИВАЦІЯ ДЕМО ПІДПИСКИ
-const activateDemoSubscription = async (tgId, planName, days) => {
+// Активація демо підписки
+const activateDemoSubscription = async (tgId, planName = 'Демо', days = 7) => {
   try {
     const user = await userService.getUserByTelegramId(tgId);
     if (!user) return null;
@@ -154,16 +150,91 @@ const activateDemoSubscription = async (tgId, planName, days) => {
       End_Date: endDate.toISOString(),
     };
 
-    const updated = await base(tables.USERS).update(
-      [{ id: user.id, fields }],
-      { typecast: true }
-    );
+    const records = await base(tables.USERS)
+      .select({ filterByFormula: `{TG_id}="${tgId}"` })
+      .firstPage();
 
-    console.log(`[subscriptionService] ✅ Демо підписка активована для ${tgId}`);
-    return updated[0];
+    if (records.length > 0) {
+      const updated = await base(tables.USERS).update([
+        { id: records[0].id, fields }
+      ]);
+
+      console.log(`[subscriptionService] ✅ Демо підписка активована для ${tgId}`);
+      return updated[0];
+    }
+
+    return null;
   } catch (error) {
     console.error('[subscriptionService] Помилка активації демо:', error);
     return null;
+  }
+};
+
+// Синхронізація підписки користувача
+const syncUserSubscription = async (tgId) => {
+  try {
+    if (!tgId) return '⚠️ Не вдалося визначити користувача.';
+
+    // Шукаємо останню активну підписку в таблиці Subscriptions
+    const subs = await base(tables.SUBSCRIPTIONS)
+      .select({
+        filterByFormula: `AND({TG_id}='${tgId}', {Payment_Status}='Approved')`,
+        sort: [{ field: 'End_Date', direction: 'desc' }],
+        maxRecords: 1,
+      })
+      .firstPage();
+
+    if (!subs.length) {
+      // Скидаємо статус у Users
+      const users = await base(tables.USERS)
+        .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
+        .firstPage();
+
+      if (users.length) {
+        await base(tables.USERS).update([
+          {
+            id: users[0].id,
+            fields: {
+              Active_Subscription_Status: '❌ Неактивна',
+              'Active Subscription Plan': null,
+              Start_Date: null,
+              End_Date: null,
+            },
+          },
+        ]);
+      }
+      return '❌ Активних оплат не знайдено. Якщо ти щойно оплатила — зачекай 1–2 хв або натисни ще раз «🔄 Оновити підписку».';
+    }
+
+    const s = subs[0].fields || {};
+    const endDate = s.End_Date ? new Date(s.End_Date) : null;
+    const endDateUA = endDate ? endDate.toLocaleDateString('uk-UA') : 'не відомо';
+    const plan = s.Plan_Name || 'План';
+
+    // Оновлюємо користувача
+    const users = await base(tables.USERS)
+      .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
+      .firstPage();
+
+    if (users.length) {
+      await base(tables.USERS).update([
+        {
+          id: users[0].id,
+          fields: {
+            Active_Subscription_Status: `✅ Активна до ${endDateUA}`,
+            'Active Subscription Plan': plan,
+            'Subscription Status': 'Active',
+            Start_Date: s.Start_Date || users[0].fields.Start_Date || null,
+            End_Date: s.End_Date || users[0].fields.End_Date || null,
+          },
+        },
+      ]);
+    }
+
+    return `✅ Підписка синхронізована: ${plan}\nДіє до: ${endDateUA}`;
+  } catch (error) {
+    console.error('[subscriptionService] Помилка синхронізації:', error);
+    return '❌ Помилка синхронізації підписки.';
   }
 };
 
@@ -173,4 +244,5 @@ export default {
   getUsersWithExpiringSubscriptions,
   sendSubscriptionReminders,
   activateDemoSubscription,
+  syncUserSubscription
 };

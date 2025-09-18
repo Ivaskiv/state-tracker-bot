@@ -1,4 +1,4 @@
-// src/services/wheelBalanceService.js - ВИПРАВЛЕНО
+// src/services/wheelBalanceService.js - МІНІМАЛЬНІ ВИПРАВЛЕННЯ
 
 import { getBase, tables } from '../config/database.js';
 import { chat } from './openaiClient.js';
@@ -7,39 +7,11 @@ import logger from '../utils/logger.js';
 
 const base = getBase();
 
-// ✅ СТВОРЕННЯ КЛАВІАТУРИ З ОЦІНКАМИ 0-10
-const createScoreKeyboard = (currentStep, totalSteps) => {
-  const keyboard = [];
-  // Створюємо кнопки від 0 до 10 в рядках
-  const row1 = []; // 0, 1, 2, 3, 4, 5
-  const row2 = []; // 6, 7, 8, 9, 10
-  
-  for (let i = 0; i <= 5; i++) {
-    row1.push({ text: `${i}`, callback_data: `wheel_score_${i}` });
-  }
-  for (let i = 6; i <= 10; i++) {
-    row2.push({ text: `${i}`, callback_data: `wheel_score_${i}` });
-  }
-  
-  keyboard.push(row1, row2);
-  
-  // Додаємо кнопки управління
-  keyboard.push([
-    { text: '🚪 Вийти', callback_data: 'wheel_exit' }
-  ]);
-  
-  return {
-    reply_markup: {
-      inline_keyboard: keyboard
-    }
-  };
-};
-
+// ВИПРАВЛЕНО: використовувати keyboards замість локальної функції
 const startWheelBalance = async (tgId) => {
   try {
     logger.info(`🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для ${tgId}`);
 
-    // Завершуємо всі активні колеса перед створенням нового
     await base(tables.WHEEL_BALANCE).select({
       filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
     }).eachPage(async (records) => {
@@ -52,7 +24,6 @@ const startWheelBalance = async (tgId) => {
       }
     });
 
-    // Створюємо нове колесо
     const wheelData = {
       fields: {
         TG_id: String(tgId),
@@ -70,9 +41,11 @@ const startWheelBalance = async (tgId) => {
       `Оціни кожну сферу життя від 0 до 10\n\n` +
       `1️⃣/8 ${LIFE_SPHERES[0]}\n\nОбери оцінку:`;
 
+    // ВИПРАВЛЕНО: використовувати keyboards
+    const { default: keyboards } = await import('../utils/keyboards.js');
     return {
       message,
-      keyboard: createScoreKeyboard(1, 8),
+      keyboard: keyboards.wheelScoreInlineKeyboard(),
       recordId: wheelRecord.id,
       currentSphere: 0
     };
@@ -83,19 +56,17 @@ const startWheelBalance = async (tgId) => {
   }
 };
 
-// ✅ ОБРОБКА CALLBACK З ОЦІНКОЮ
+// ДОДАНО: обробка callback (критично важливо)
 const processWheelCallback = async (ctx) => {
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery.data;
   
   try {
-    // Обробка оцінок
     if (data.startsWith('wheel_score_')) {
       const score = parseInt(data.replace('wheel_score_', ''));
       return await processWheelAnswer(tgId, score, ctx);
     }
     
-    // Обробка виходу
     if (data === 'wheel_exit') {
       await base(tables.WHEEL_BALANCE).select({
         filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
@@ -123,7 +94,6 @@ const processWheelAnswer = async (tgId, score, ctx = null) => {
   try {
     logger.info(`🎯 [wheelBalance] Обробка відповіді ${tgId}: ${score}`);
 
-    // Отримуємо активне колесо
     const activeWheel = await getActiveWheel(tgId);
     if (!activeWheel) {
       return { error: true, message: 'Активне колесо не знайдено. Почни спочатку.' };
@@ -135,14 +105,10 @@ const processWheelAnswer = async (tgId, score, ctx = null) => {
 
     logger.info(`🎯 [wheelBalance] Зберігаємо: ${airtableField} = ${score}`);
 
-    // Готуємо дані для оновлення
     const updateFields = { [airtableField]: score };
-    
-    // Перевіряємо чи це остання сфера
     const isLastSphere = currentStep >= (LIFE_SPHERES.length - 1);
     
     if (isLastSphere) {
-      // Завершуємо колесо
       const allScores = [];
       for (let i = 0; i < LIFE_SPHERES.length - 1; i++) {
         const fieldName = SPHERE_FIELDS[i];
@@ -167,21 +133,15 @@ const processWheelAnswer = async (tgId, score, ctx = null) => {
         `📊 Загальний бал: ${totalScore}/10\n\n` +
         `${analysis}`;
 
+      // ВИПРАВЛЕНО: використовувати правильну клавіатуру
       if (ctx) {
-        await ctx.editMessageText(message, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔄 Пройти знову', callback_data: 'wheel_start_new' }],
-              [{ text: '🏠 Головне меню', callback_data: 'wheel_to_menu' }]
-            ]
-          }
-        });
+        const { default: keyboards } = await import('../utils/keyboards.js');
+        await ctx.editMessageText(message, keyboards.wheelBalanceCompleteKeyboard());
       }
 
       return { message, completed: true, analysis };
 
     } else {
-      // Переходимо до наступної сфери
       const nextStep = currentStep + 1;
       updateFields.Step = nextStep;
       
@@ -193,15 +153,14 @@ const processWheelAnswer = async (tgId, score, ctx = null) => {
         `${nextStep + 1}️⃣/8 ${nextSphereName}\n\n` +
         `Обери оцінку:`;
 
-      const keyboard = createScoreKeyboard(nextStep + 1, 8);
-
+      // ВИПРАВЛЕНО: використовувати keyboards
       if (ctx) {
-        await ctx.editMessageText(message, keyboard);
+        const { default: keyboards } = await import('../utils/keyboards.js');
+        await ctx.editMessageText(message, keyboards.wheelScoreInlineKeyboard());
       }
 
       return {
         message,
-        keyboard,
         currentSphere: nextStep,
         completed: false
       };
@@ -319,7 +278,7 @@ const getUserWheelStats = async (tgId) => {
 export default {
   startWheelBalance,
   processWheelAnswer,
-  processWheelCallback, // ✅ ДОДАНО
+  processWheelCallback, // ДОДАНО: критично важливо
   getActiveWheel,
   needsWheelBalance,
   getUserWheelStats,

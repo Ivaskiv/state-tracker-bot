@@ -1,4 +1,4 @@
-// src/controllers/botController.js - FIXED VERSION
+// src/controllers/botController.js - ПОВНА ВЕРСІЯ З УСІМА ВИПРАВЛЕННЯМИ
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
@@ -6,6 +6,7 @@ import subscriptionService from '../auth/services/subscriptionService.js';
 import { clearUserReminders } from '../middleware/pendingFlow.js';
 import { aiMentorSession } from '../aiMentor/session.js';
 import { globalTypingMiddleware } from '../middleware/typingMiddleware.js';
+import { handleStart, handleRegistrationStep } from '../auth/modules/auth.js';
 import { ANSWER_STEPS} from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 import { isActiveSubscription } from '../utils/subscriptionUtils.js';
@@ -23,40 +24,12 @@ const botController = (bot) => {
 
   bot.use(globalTypingMiddleware());
 
+  // START команда з оптимізованою реєстрацією
   bot.start(async (ctx) => {
-    const tgId = ctx.from.id;
-    const name = ctx.from.first_name || 'Користувач';
-    
-    try {
-      let user = await userService.getUserByTelegramId(tgId);
-      
-      if (!user) {
-        user = await userService.createUser({
-          tgId,
-          name,
-          email: ctx.from.username ? `${ctx.from.username}@telegram.user` : null,
-        });
-        
-        await ctx.reply(`🌟 Вітаю в aiMentor, ${name}!\n\nГотова допомогти тобі відстежувати прогрес та досягати цілей! ✨`);
-        await wheelBalanceController.handleWheelBalanceRequest(ctx);
-        return;
-      }
-      
-      const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
-      
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-      clearUserReminders(tgId);
-      
-      const welcomeMessage = subscriptionStatus.active 
-        ? `Привіт знову, ${name}! 👋\n\nГотова продовжити трансформацію? ✨`
-        : `Привіт, ${name}! 👋\n\n❌ Твоя підписка закінчилася.\n\nДля користування aiMentor потрібна активна підписка.\n\n📞 Зв'яжіться з підтримкою: nadyastarway@gmail.com`;
-        
-      await ctx.reply(welcomeMessage, keyboards.mainMenuKeyboard());
-    } catch (error) {
-      await handleError(ctx, error);
-    }
+    await handleStart(ctx);
   });
 
+  // MENU команда
   bot.command('menu', async (ctx) => {
     try {
       const user = await userService.getUserByTelegramId(ctx.from.id);
@@ -65,20 +38,17 @@ const botController = (bot) => {
       await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.COMPLETED);
       clearUserReminders(ctx.from.id);
       
-      // Спочатку видаляємо стару клавіатуру, потім надсилаємо нову
       await ctx.reply('🔄 Оновлення меню...', keyboards.removeKeyboard());
-      await new Promise(r => setTimeout(r, 500)); // Невелика затримка
+      await new Promise(r => setTimeout(r, 500));
       await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
     } catch (error) {
       await handleError(ctx, error);
     }
   });
 
-  // ✅ ДОДАНО DEV КОМАНДИ ДЛЯ ОНОВЛЕННЯ МЕНЮ
+  // DEV команди для оновлення меню
   bot.command('updatemenu', async (ctx) => {
     try {
-      console.log('🔄 [UPDATE MENU] Примусове оновлення меню');
-      
       const user = await userService.getUserByTelegramId(ctx.from.id);
       if (!user) return ctx.reply('Натисніть /start');
       
@@ -88,52 +58,32 @@ const botController = (bot) => {
       await ctx.reply('🔄 Оновлюємо меню...', keyboards.removeKeyboard());
       await new Promise(r => setTimeout(r, 1000));
       await ctx.reply('✅ Меню оновлено!', keyboards.forceUpdateKeyboard());
-      
-      console.log('✅ [UPDATE MENU] Меню оновлено для користувача', ctx.from.id);
     } catch (error) {
-      console.error('❌ [UPDATE MENU] Помилка:', error);
       await ctx.reply('❌ Помилка оновлення');
     }
   });
 
-  bot.command('showkeyboard', async (ctx) => {
-    try {
-      const keyboardStructure = `
-🔧 ПОТОЧНА СТРУКТУРА КЛАВІАТУРИ:
-
-Ряд 1: 🤖 AI наставник | 🎯 Колесо балансу
-Ряд 2: 📈 Щотижневий звіт | 📈 Щомісячний звіт  
-Ряд 3: 💎 Афірмація | 📊 Мій прогрес
-Ряд 4: 💰 Підписка | ❓ Допомога
-Ряд 5: 📝 Інструкції | 📞 Зв'язок з нами
-
-Якщо не бачите потрібну кнопку, введіть /updatemenu
-`;
-      
-      await ctx.reply(keyboardStructure);
-      await ctx.reply('🎯 Актуальне меню:', keyboards.forceUpdateKeyboard());
-      
-    } catch (error) {
-      console.error('❌ [SHOW KEYBOARD] Помилка:', error);
-      await ctx.reply('❌ Помилка показу клавіатури');
-    }
-  });
-
+  // Обробка текстових повідомлень
   bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
     const text = ctx.message.text?.trim();
     if (!text) return;
 
     try {
+      // Перевірка реєстрації
+      const isRegistrationStep = await handleRegistrationStep(ctx);
+      if (isRegistrationStep) return;
+
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) return ctx.reply('Натисніть /start', keyboards.mainMenuKeyboard());
 
+      // Перевірка підписки (блокування неактивних користувачів)
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       
-      if (!subscriptionStatus.active && text !== '💰 Підписка' && text !== '📞 Зв\'язок з нами') {
+      if (!subscriptionStatus.active && !['💰 Підписка', '📞 Зв\'язок з нами'].includes(text)) {
         await ctx.reply(
           '❌ Твоя підписка закінчилася.\n\nЩоб користуватися всіма функціями бота, оформи або продовжи підписку.\n\n📞 Зв\'яжіться з підтримкою: nadyastarway@gmail.com',
-          keyboards.mainMenuKeyboard()
+          keyboards.subscriptionKeyboard()
         );
         return;
       }
@@ -142,8 +92,6 @@ const botController = (bot) => {
       const isActiveWheel = step === WHEEL_STEP;
       const isActiveQuestions = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
       const isActiveAI = aiMentorSession.isActive(String(tgId));
-
-      console.log(`[botController] 📋 ДІАГНОСТИКА для ${tgId}: "${text}", step: "${step}", AI: ${isActiveAI}, Wheel: ${isActiveWheel}, Questions: ${isActiveQuestions}`);
 
       // AI наставник
       if (isActiveAI) {
@@ -166,8 +114,12 @@ const botController = (bot) => {
 
       // Колесо балансу
       if (isActiveWheel) {
-        logger.info(`🎯 [botController] Обробка колеса балансу для ${tgId}: "${text}"`);
-        await wheelBalanceController.handleWheelBalanceAnswer(ctx, text);
+        const score = parseInt(text);
+        if (!isNaN(score) && score >= 0 && score <= 10) {
+          await wheelBalanceController.handleWheelBalanceAnswer(ctx, score);
+        } else {
+          await ctx.reply('❌ Введи число від 0 до 10 або використай кнопки:', keyboards.wheelScoreInlineKeyboard());
+        }
         return;
       }
 
@@ -184,27 +136,26 @@ const botController = (bot) => {
     }
   });
 
+  // Обробка callback запитів
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
     const tgId = ctx.from.id;
 
-    console.log(`[botController] 📱 Callback: ${data} від ${tgId}`);
-
     try {
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       
-      if (!subscriptionStatus.active && !data.includes('subscription') && !data.includes('support')) {
+      // Дозволяємо тільки підписку та підтримку для неактивних користувачів
+      if (!subscriptionStatus.active && !['subscription_info', 'contact_support'].includes(data)) {
         await ctx.answerCbQuery('Потрібна активна підписка');
         return;
       }
 
-      // ✅ ОБРОБКА CALLBACK ДЛЯ ПРОДОВЖЕННЯ/ПРОПУСКУ СЕСІЙ
+      // Продовження/пропуск сесій
       if (data === 'continue_answers' || data === 'skip_session') {
         const user = await userService.getUserByTelegramId(tgId);
         const step = user?.Answer_Step || '';
         
         if (data === 'continue_answers') {
-          // Визначаємо тип активної сесії та продовжуємо
           if (step.startsWith('Q_m_')) {
             const questionNum = parseInt(step.split('_')[2]);
             const { MORNING_QUESTIONS } = await import('../config/constants.js');
@@ -225,7 +176,6 @@ const botController = (bot) => {
           }
           await ctx.answerCbQuery('Продовжуємо');
         } else if (data === 'skip_session') {
-          // Завершуємо всі активні сесії
           if (aiMentorSession.isActive(tgId)) {
             aiMentorSession.end(tgId);
           }
@@ -240,13 +190,14 @@ const botController = (bot) => {
         return;
       }
 
-      // Обробка рестарту сесій
-      if (data === 'restart_morning' || data === 'restart_evening' || data === 'cancel_restart') {
+      // Рестарт сесій
+      if (['restart_morning', 'restart_evening', 'cancel_restart'].includes(data)) {
         await handleRestartCallback(ctx);
         return;
       }
 
-      if (data === 'ai_continue' || data === 'ai_exit') {
+      // AI наставник
+      if (['ai_continue', 'ai_exit'].includes(data)) {
         await aiMentorController.handleAIMentorCallback(ctx);
         return;
       }
@@ -257,25 +208,39 @@ const botController = (bot) => {
         return;
       }
 
-      if (data === 'wheel_retry' || data === 'wheel_start_new' || data === 'wheel_to_menu') {
+      if (['wheel_retry', 'wheel_start_new', 'wheel_to_menu'].includes(data)) {
         await wheelBalanceController.handleWheelRetryCallback(ctx);
         return;
       }
 
       // Підписка та підтримка
       if (data === 'subscription_info') {
-        await ctx.reply('💰 Підписка\n\nДля оформлення або продовження підписки зв\'яжіться з підтримкою:\n\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316', keyboards.mainMenuKeyboard());
+        const user = await userService.getUserByTelegramId(tgId);
+        const status = user ? await subscriptionService.checkSubscriptionStatus(tgId) : { active: false };
+        
+        let message = '💰 ПІДПИСКА\n\n';
+        if (status.active) {
+          const plan = user['Active Subscription Plan'] || 'План';
+          const endDate = new Date(user['End_Date']).toLocaleDateString('uk-UA');
+          message += `✅ Активна\n📋 План: ${plan}\n📅 Діє до: ${endDate}`;
+        } else {
+          message += '❌ Неактивна\n\nДля оформлення зв\'яжіться з підтримкою:\nEmail: nadyastarway@gmail.com';
+        }
+        
+        await ctx.reply(message, keyboards.mainMenuKeyboard());
         await ctx.answerCbQuery('Інформація про підписку');
         return;
       }
 
       if (data === 'contact_support') {
-        await ctx.reply('📞 Підтримка\n\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316\n\nОпишіть свою ситуацію, і ми допоможемо!', keyboards.mainMenuKeyboard());
+        await ctx.reply(
+          '📞 ПІДТРИМКА\n\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316\n\nОпишіть свою ситуацію, і ми допоможемо!', 
+          keyboards.mainMenuKeyboard()
+        );
         await ctx.answerCbQuery('Контакти підтримки');
         return;
       }
 
-      console.log(`[botController] ❓ Невідомий callback: ${data}`);
       await ctx.answerCbQuery('Команда не розпізнана');
       
     } catch (error) {
