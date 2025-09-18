@@ -1,102 +1,189 @@
+// src/auth/services/paymentService.js - ВИПРАВЛЕНО WEBHOOK ТА АКТИВАЦІЯ
 import { getBase, tables } from "../../config/database.js";
 import { bot } from "../../../server.js"; 
+import keyboards from "../../utils/keyboards.js";
 
 const base = getBase();
 
-export const handleWayForPayWebhook = async (data) => {
-  const parsed = typeof data === "string" ? JSON.parse(data) : data;
-  const {
-    orderReference,
-    transactionStatus,
-    amount,
-    currency,
-    email,
-    phone,
-    createdDate,
-    processingDate,
-    products,
-    TG_id,
-  } = parsed;
+export const handleWayForPayWebhook = async (processedData) => {
+  try {
+    console.log('[paymentService] 🔄 Обробка webhook:', processedData);
+    
+    const {
+      tgId,
+      orderReference,
+      transactionStatus,
+      amount,
+      currency,
+      email,
+      phone,
+      planName,
+      planKey,
+      startDate,
+      endDate,
+      createdDate,
+      processingDate
+    } = processedData;
 
-  const productName = products && products.length ? products[0].name : "Без назви";
-  const startDate = createdDate ? new Date(createdDate * 1000).toISOString() : new Date().toISOString();
-  const endDate = processingDate ? new Date(processingDate * 1000).toISOString() : null;
+    // ДОДАНО: зберігаємо всі платежі в таблицю Subscriptions
+    const subscriptionRecord = await base(tables.SUBSCRIPTIONS).create({
+      TG_id: tgId || phone,
+      UserName: email || `User_${tgId}`,
+      Order_Reference: orderReference,
+      Payment_Status: transactionStatus,
+      Status: transactionStatus === "Approved" ? "Active" : transactionStatus,
+      Plan_Name: planName,
+      Amount: amount,
+      Currency: currency,
+      Start_Date: startDate,
+      End_Date: endDate,
+      Is_Active: transactionStatus === "Approved" ? "✅ Активна" : "❌ Неактивна",
+    });
 
-  await base(tables.SUBSCRIPTIONS).create([
-    {
-      fields: {
-        TG_id: TG_id || phone,
-        UserName: email,
-        Order_Reference: orderReference,
-        Payment_Status: transactionStatus,
-        Status: transactionStatus === "Approved" ? "Active" : transactionStatus,
-        Plan_Name: productName,
-        Amount: amount,
-        Currency: currency,
-        Start_Date: startDate,
-        End_Date: endDate,
-        Is_Active: transactionStatus === "Approved" ? "✅ Активна" : "❌ Неактивна",
-      },
-    },
-  ]);
+    console.log('[paymentService] ✅ Підписку збережено:', subscriptionRecord.id);
 
-if (transactionStatus === "Approved" && TG_id) {
-  const records = await base(tables.USERS)
-    .select({ filterByFormula: `{TG_id}='${TG_id}'` })
-    .firstPage();
+    // Якщо платіж успішний - активуємо підписку користувача
+    if (transactionStatus === "Approved" && tgId) {
+      await activateUserSubscription(tgId, {
+        planName,
+        planKey,
+        amount,
+        orderReference,
+        startDate,
+        endDate
+      });
+    }
 
-  if (records.length > 0) {
-    const endDateFormatted = endDate ? new Date(endDate).toLocaleDateString("uk-UA") : "не відомо";
+    return {
+      success: true,
+      message: `Webhook оброблено для ${orderReference}`,
+      subscriptionId: subscriptionRecord.id
+    };
+
+  } catch (error) {
+    console.error('[paymentService] ❌ Помилка webhook:', error);
+    throw error;
+  }
+};
+
+// ДОДАНО: активація підписки користувача
+const activateUserSubscription = async (tgId, subscriptionData) => {
+  try {
+    console.log('[paymentService] 🎯 Активація підписки для:', tgId);
+    
+    // Знаходимо користувача
+    const users = await base(tables.USERS)
+      .select({ filterByFormula: `{TG_id}='${tgId}'` })
+      .firstPage();
+
+    if (users.length === 0) {
+      console.error('[paymentService] ❌ Користувача не знайдено:', tgId);
+      return;
+    }
+
+    const user = users[0];
+    const endDate = new Date(subscriptionData.endDate);
+    const endDateFormatted = endDate.toLocaleDateString("uk-UA");
+    
+    // Оновлюємо статус користувача
     await base(tables.USERS).update([
       {
-        id: records[0].id,
+        id: user.id,
         fields: {
           Active_Subscription_Status: `✅ Активна до ${endDateFormatted}`,
-          'Active Subscription Plan': productName,
+          'Active Subscription Plan': subscriptionData.planName,
           'Subscription Status': "Active",
-          Start_Date: startDate,
-          End_Date: endDate,
+          Start_Date: subscriptionData.startDate,
+          End_Date: subscriptionData.endDate,
           Answer_Step: 'completed'
         },
       },
     ]);
     
-    // Надсилаємо оновлене меню з клавіатурою
-    await bot.telegram.sendMessage(TG_id, "🎉 Підписка активована! Тепер доступні всі функції:", {
-      reply_markup: {
-        keyboard: [
-          ["📈 Щотижневий звіт", "📈 Щомісячний звіт"],    
-          ["💎 Афірмація", "📊 Мій прогрес"],
-          ["💰 Підписка", "❓ Допомога"],
-          ["📝  Інструкції", "📞 Зв'язок з нами"]
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: false
+    console.log('[paymentService] ✅ Користувача оновлено:', tgId);
+    
+    // ДОДАНО: надсилаємо повідомлення про успішну активацію
+    try {
+      const successMessage = 
+        `🎉 Підписка успішно активована!\n\n` +
+        `📋 План: ${subscriptionData.planName}\n` +
+        `💰 Сплачено: ${subscriptionData.amount}€\n` +
+        `📅 Діє до: ${endDateFormatted}\n\n` +
+        `✅ Тепер тобі доступні всі функції бота!\n\n` +
+        `🚀 Можеш почати з колеса балансу або AI наставника.`;
+
+      await bot.telegram.sendMessage(tgId, successMessage, keyboards.mainMenuKeyboard());
+      
+      console.log('[paymentService] ✅ Повідомлення про активацію надіслано');
+    } catch (messageError) {
+      console.error('[paymentService] ⚠️ Не вдалося надіслати повідомлення:', messageError);
+    }
+
+  } catch (error) {
+    console.error('[paymentService] ❌ Помилка активації підписки:', error);
+    throw error;
+  }
+};
+
+// ДОДАНО: функція для перевірки та нагадування про закінчення підписки
+export const checkExpiringSubscriptions = async (bot) => {
+  try {
+    console.log('[paymentService] 🔍 Перевірка підписок що закінчуються');
+    
+    // Знаходимо підписки що закінчуються завтра
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    
+    const expiringUsers = await base(tables.USERS)
+      .select({
+        filterByFormula: `AND(
+          FIND('✅ Активна', {Active_Subscription_Status}) > 0,
+          DATESTR({End_Date}) = '${tomorrowStr}'
+        )`,
+        fields: ['TG_id', 'User Name', 'Active Subscription Plan', 'End_Date']
+      })
+      .all();
+
+    console.log('[paymentService] 📊 Знайдено підписок що закінчуються:', expiringUsers.length);
+
+    for (const user of expiringUsers) {
+      const tgId = user.fields.TG_id;
+      const planName = user.fields['Active Subscription Plan'] || 'План';
+      const endDate = new Date(user.fields.End_Date).toLocaleDateString('uk-UA');
+      
+      const reminderMessage = 
+        `⚠️ Підписка закінчується завтра!\n\n` +
+        `📋 План: ${planName}\n` +
+        `📅 Діє до: ${endDate}\n\n` +
+        `💰 Продовж підписку, щоб не втратити доступ до всіх функцій!\n\n` +
+        `📞 Зв'яжися з підтримкою: nadyastarway@gmail.com`;
+
+      try {
+        await bot.telegram.sendMessage(tgId, reminderMessage, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💰 Продовжити підписку', callback_data: 'subscription_plans' }],
+              [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }]
+            ]
+          }
+        });
+        
+        console.log('[paymentService] ✅ Нагадування надіслано:', tgId);
+      } catch (sendError) {
+        console.error('[paymentService] ❌ Помилка надсилання нагадування:', tgId, sendError);
       }
-    });
-  }
-}
+      
+      // Затримка між повідомленнями
+      await new Promise(r => setTimeout(r, 1000));
+    }
 
-  let statusText;
-  switch (transactionStatus) {
-    case "Approved":
-      statusText = `💰 Оплата успішна!\nПлан "${productName}" активовано до ${endDate ? new Date(endDate).toLocaleDateString("uk-UA") : "не відомо"}`;
-      break;
-    case "Declined":
-      statusText = `❌ Оплата не пройшла. Будь ласка, спробуйте ще раз.`;
-      break;
-    case "Pending":
-      statusText = `⏳ Оплата очікує підтвердження.`;
-      break;
-    default:
-      statusText = `⚠️ Статус оплати: ${transactionStatus}`;
+  } catch (error) {
+    console.error('[paymentService] ❌ Помилка перевірки підписок:', error);
   }
+};
 
-  if (TG_id) {
-    await bot.telegram.sendChatAction(TG_id, "typing");
-    await new Promise((r) => setTimeout(r, 1500));
-    await bot.telegram.sendMessage(TG_id, statusText);
-  }
-
-  return statusText;
+export default {
+  handleWayForPayWebhook,
+  checkExpiringSubscriptions
 };

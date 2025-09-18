@@ -1,8 +1,8 @@
-// server.js - ДОДАНО АВТООНОВЛЕННЯ МЕНЮ
+// server.js - ДОДАНО SESSION MIDDLEWARE
 
 import express from 'express';
 import dotenv from 'dotenv';
-import { Telegraf } from 'telegraf';
+import { Telegraf, session } from 'telegraf'; // ДОДАНО session
 import botController from './src/controllers/botController.js';
 import wayforpayService from './src/services/wayforpayService.js';
 import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
@@ -10,12 +10,12 @@ import { installPendingFlow } from './src/middleware/pendingFlow.js';
 import { startScheduler } from './src/utils/scheduler.js';
 import { SCHEDULE } from './src/config/constants.js';
 
-// ✅ ДОДАНО АВТООНОВЛЕННЯ МЕНЮ
+// ДОДАНО: автооновлення меню
 import { autoUpdateMenusOnDev, addDevMenuCommands } from './src/utils/devMenuUpdater.js';
 
 dotenv.config();
 
-// ✅ Фікс часової зони ДО запуску cron/polling
+// Фікс часової зони ДО запуску cron/polling
 process.env.TZ = process.env.TZ || SCHEDULE.TIMEZONE;
 
 const PORT = process.env.PORT || 3000;
@@ -37,6 +37,9 @@ if (!TOKEN) {
 
 console.log('🤖 Initializing bot...');
 const bot = new Telegraf(TOKEN);
+
+// ВИПРАВЛЕНО: додаємо session middleware ПЕРЕД усіма іншими middleware
+bot.use(session());
 
 bot.catch((err) => {
   console.error('❌ Bot error:', err);
@@ -63,7 +66,6 @@ try {
   process.exit(1);
 }
 
-// ✅ ДОДАЄМО DEV КОМАНДИ
 console.log('🛠️ Adding dev commands...');
 try {
   addDevMenuCommands(bot);
@@ -111,7 +113,7 @@ app.post('/api/wayforpay/webhook', async (req, res) => {
   }
 });
 
-// ✅ ДОДАНО DEV ENDPOINT ДЛЯ РУЧНОГО ОНОВЛЕННЯ МЕНЮ
+// DEV endpoint для ручного оновлення меню
 if (process.env.NODE_ENV !== 'production') {
   app.post('/dev/update-menus', async (req, res) => {
     try {
@@ -151,7 +153,7 @@ if (MODE === 'local') {
     });
     console.log('✅ Polling started');
     
-    // ✅ АВТООНОВЛЕННЯ МЕНЮ ПІСЛЯ ЗАПУСКУ БОТА
+    // Автооновлення меню після запуску бота
     console.log('🔄 Starting auto menu update...');
     await autoUpdateMenusOnDev(bot);
     

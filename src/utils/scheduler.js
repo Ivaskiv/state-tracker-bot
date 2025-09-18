@@ -1,8 +1,9 @@
-// src/utils/scheduler.js - ДОДАНО ПЕРЕВІРКУ ПІДПИСОК
+// src/utils/scheduler.js - ДОДАНО ПЕРЕВІРКУ ПІДПИСОК ТА НАГАДУВАННЯ
 
 import cron from 'node-cron';
 import userService from '../auth/services/userService.js';
-import subscriptionService from '../auth/services/subscriptionService.js'; // ✅ ДОДАНО
+import subscriptionService from '../auth/services/subscriptionService.js';
+import paymentService from '../auth/services/paymentService.js'; // ДОДАНО
 import responseService from '../dialogue/services/responseService.js';
 import {
   CRON_SCHEDULES,
@@ -19,17 +20,16 @@ import wheelBalanceController from '../controllers/wheelBalanceController.js';
 
 const jobs = [];
 
-// Глобальні локи від повторного виклику
 const executionLocks = new Map();
 const userSessionLocks = new Set();
 const messageCooldowns = new Map();
 
-const MESSAGE_COOLDOWN = 60 * 1000; // 1 хвилина
-const SESSION_LOCK_TTL = 5 * 60 * 1000; // 5 хвилин
+const MESSAGE_COOLDOWN = 60 * 1000;
+const SESSION_LOCK_TTL = 5 * 60 * 1000;
 
 const getMinuteKey = (type) => {
   const now = new Date();
-  const minute = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
+  const minute = now.toISOString().slice(0, 16);
   return `${type}_${minute}`;
 };
 
@@ -87,7 +87,6 @@ const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions 
       return false;
     }
     
-    // ✅ АВТОМАТИЧНО ДОДАЄМО КНОПКИ ДЛЯ ВСІХ НАГАДУВАНЬ
     if (!keyboardOptions) {
       keyboardOptions = {
         reply_markup: {
@@ -108,7 +107,6 @@ const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions 
   }
 };
 
-// Кешування користувачів
 let usersCache = null;
 let usersCacheTime = 0;
 const USERS_CACHE_TTL = 5 * 60 * 1000;
@@ -124,7 +122,7 @@ const getActiveUsers = async () => {
   return usersCache;
 };
 
-// ✅ ПЕРЕВІРКА ПІДПИСКИ ПЕРЕД ВІДПРАВКОЮ
+// ВИПРАВЛЕНО: перевірка підписки перед відправкою сесій
 const sendSessionMessage = async (bot, type, tgId, name) => {
   try {
     const sessionType = type === QUESTION_TYPES.MORNING ? 'Morning' : 'Evening';
@@ -135,7 +133,7 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
     
     console.log(`[scheduler] 🚀 ОБРОБКА ${sessionType} сесії для ${tgId}`);
     
-    // ✅ ПЕРЕВІРКА ПІДПИСКИ
+    // ДОДАНО: перевірка підписки перед кожною сесією
     const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
     if (!subscriptionStatus.active) {
       console.log(`[scheduler] ⏭️ ПРОПУСК ${sessionType} - підписка неактивна для ${tgId}`);
@@ -146,7 +144,6 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
     const step = user?.Answer_Step || '';
     const sessionActive = type === QUESTION_TYPES.MORNING ? step.startsWith('Q_m_') : step.startsWith('Q_e_');
     
-    // ✅ ЯКЩО СЕСІЯ ВЖЕ АКТИВНА - НЕ СТВОРЮЄМО НОВУ
     if (sessionActive) {
       console.log(`[scheduler] ⏭️ ПРОПУСК ${sessionType} - сесія вже активна для ${tgId}`);
       return false;
@@ -154,7 +151,6 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
     
     const completed = await responseService.isSessionCompleted(tgId, type);
     
-    // ✅ ЯКЩО ЗАВЕРШЕНО - ПРОПОНУЄМО РЕСТАРТ
     if (completed) {
       const message = type === QUESTION_TYPES.MORNING
         ? `🌞 Ти вже завершила ранкові питання сьогодні.\n\n🔄 Хочеш оновити відповіді?`
@@ -170,7 +166,6 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
       });
     }
     
-    // ✅ ТІЛЬКИ ЯКЩО НЕ ЗАВЕРШЕНО І НЕ АКТИВНА - СТВОРЮЄМО НОВУ СЕСІЮ
     const startStep = type === QUESTION_TYPES.MORNING ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
     
     console.log(`[scheduler] 🎯 ЗАПУСК нової ${sessionType} сесії для ${tgId}`);
@@ -243,30 +238,7 @@ const sendEveningReminder = async (bot) => {
   }
 };
 
-const sendReportsReminder = async (bot) => {
-  if (!guardExecution('Reports')) return;
-  
-  console.log(`[scheduler] 💡 Нагадування про звіти`);
-
-  try {
-    const users = await getActiveUsers();
-    
-    for (const user of users) {
-      const tgId = user['TG_id'];
-      
-      // ✅ ПЕРЕВІРКА ПІДПИСКИ
-      const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
-      if (!subscriptionStatus.active) continue;
-      
-      await safeSendMessage(bot, tgId, SCHEDULER_MESSAGES.REPORTS_REMINDER, 'reports_reminder');
-      await new Promise((r) => setTimeout(r, SCHEDULER_CONFIG.REPORT_DELAY_MS));
-    }
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка нагадування про звіти:', error);
-  }
-};
-
-// ✅ ЩОДЕННА ПЕРЕВІРКА ПІДПИСОК
+// ДОДАНО: щоденна перевірка підписок та нагадування
 const checkSubscriptions = async (bot) => {
   if (!guardExecution('SubscriptionCheck')) return;
   
@@ -277,9 +249,12 @@ const checkSubscriptions = async (bot) => {
     const deactivated = await subscriptionService.deactivateExpiredSubscriptions();
     console.log(`[scheduler] ✅ Деактивовано ${deactivated} підписок`);
     
-    // Надсилаємо нагадування
+    // Надсилаємо нагадування про підписки що закінчуються
     const reminders = await subscriptionService.sendSubscriptionReminders(bot);
     console.log(`[scheduler] ✅ Надіслано ${reminders} нагадувань`);
+    
+    // ДОДАНО: використовуємо також paymentService для перевірки
+    await paymentService.checkExpiringSubscriptions(bot);
     
   } catch (error) {
     console.error('[scheduler] ❌ Помилка перевірки підписок:', error);
@@ -318,11 +293,15 @@ const startScheduler = (bot) => {
 
   console.log('[scheduler] ✅ Запуск нового планувальника...');
 
+  // Основні задачі
   createTask('0 0 * * *', clearDailyCache, 'daily_cache_clear');
   createTask(CRON_SCHEDULES.MORNING_REMINDER, () => sendMorningReminder(bot), 'morning_session');
   createTask(CRON_SCHEDULES.EVENING_REMINDER, () => sendEveningReminder(bot), 'evening_session');
-  createTask('0 18 * * *', () => sendReportsReminder(bot), 'reports_reminder');
-  createTask('0 10 * * *', () => checkSubscriptions(bot), 'subscription_check'); // ✅ ЩОДЕННА ПЕРЕВІРКА О 10:00
+  
+  // ДОДАНО: щоденна перевірка підписок о 10:00
+  createTask('0 10 * * *', () => checkSubscriptions(bot), 'subscription_check');
+  
+  // Щомісячна перевірка колеса балансу
   createTask('0 10 1 * *', async () => {
     try {
       await wheelBalanceController.checkMonthlyWheelNeed(bot);
@@ -335,6 +314,7 @@ const startScheduler = (bot) => {
   console.log(`[scheduler] 📅 Ранок: ${CRON_SCHEDULES.MORNING_REMINDER}`);
   console.log(`[scheduler] 📅 Вечір: ${CRON_SCHEDULES.EVENING_REMINDER}`);
   console.log(`[scheduler] 💰 Підписки: 0 10 * * * (щодня о 10:00)`);
+  console.log(`[scheduler] 🎯 Колесо: 0 10 1 * * (1 числа кожного місяця)`);
 };
 
 const stopScheduler = () => {

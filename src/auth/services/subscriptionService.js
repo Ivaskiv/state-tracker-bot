@@ -1,4 +1,4 @@
-// src/auth/services/subscriptionService.js - ПОВНА ОПТИМІЗАЦІЯ З НАГАДУВАННЯМИ
+// src/auth/services/subscriptionService.js - ДОДАНО БЛОКУВАННЯ ТА НАГАДУВАННЯ
 
 import { getBase, tables } from "../../config/database.js";
 import userService from "./userService.js";
@@ -6,27 +6,35 @@ import keyboards from "../../utils/keyboards.js";
 
 const base = getBase();
 
-// Перевірка статусу підписки
+// ВИПРАВЛЕНО: перевірка статусу підписки
 const checkSubscriptionStatus = async (tgId) => {
   try {
     const user = await userService.getUserByTelegramId(tgId);
     if (!user) return { active: false, expired: true };
 
     const endDate = user['End_Date'];
-    if (!endDate) return { active: false, expired: true };
+    const subscriptionStatus = user['Active_Subscription_Status'] || '';
+    
+    // Перевіряємо за статусом і датою
+    const isActiveByStatus = subscriptionStatus.includes('✅ Активна');
+    
+    if (!endDate || !isActiveByStatus) {
+      return { active: false, expired: true };
+    }
 
     const now = new Date();
     const expiry = new Date(endDate);
     
-    const isActive = now < expiry;
-    const isExpiringSoon = (expiry - now) <= (24 * 60 * 60 * 1000);
+    const isActive = now < expiry && isActiveByStatus;
+    const isExpiringSoon = (expiry - now) <= (24 * 60 * 60 * 1000); // менше 24 годин
+    const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
 
     return {
       active: isActive,
       expired: !isActive,
-      expiringSoon: isExpiringSoon,
+      expiringSoon: isExpiringSoon && isActive,
       expiryDate: expiry,
-      daysLeft: Math.ceil((expiry - now) / (1000 * 60 * 60 * 24))
+      daysLeft: Math.max(0, daysLeft)
     };
   } catch (error) {
     console.error('[subscriptionService] Помилка перевірки статусу:', error);
@@ -34,9 +42,11 @@ const checkSubscriptionStatus = async (tgId) => {
   }
 };
 
-// Автоматична деактивація закінчених підписок
+// ДОДАНО: деактивація закінчених підписок
 const deactivateExpiredSubscriptions = async () => {
   try {
+    console.log('[subscriptionService] 🔍 Пошук закінчених підписок');
+    
     const today = new Date().toISOString().split('T')[0];
     
     const records = await base(tables.USERS)
@@ -48,13 +58,17 @@ const deactivateExpiredSubscriptions = async () => {
       })
       .all();
 
-    if (records.length === 0) return 0;
+    if (records.length === 0) {
+      console.log('[subscriptionService] ✅ Немає закінчених підписок');
+      return 0;
+    }
 
     const updates = records.map(record => ({
       id: record.id,
       fields: {
         'Active_Subscription_Status': '❌ Закінчена',
-        'Subscription Status': 'Expired'
+        'Subscription Status': 'Expired',
+        Answer_Step: 'completed' // Скидаємо стан
       }
     }));
 
@@ -68,7 +82,7 @@ const deactivateExpiredSubscriptions = async () => {
   }
 };
 
-// Отримання користувачів з підписками що закінчуються
+// ДОДАНО: отримання користувачів з підписками що закінчуються
 const getUsersWithExpiringSubscriptions = async (daysOffset = 1) => {
   try {
     const targetDate = new Date();
@@ -92,7 +106,7 @@ const getUsersWithExpiringSubscriptions = async (daysOffset = 1) => {
   }
 };
 
-// Надсилання нагадувань про закінчення підписки
+// ДОДАНО: надсилання нагадувань про закінчення підписки
 const sendSubscriptionReminders = async (bot) => {
   try {
     console.log('[subscriptionService] 💰 Перевірка нагадувань про підписку');
@@ -110,11 +124,18 @@ const sendSubscriptionReminders = async (bot) => {
         `⚠️ Підписка закінчується завтра!\n\n` +
         `📋 Plan: ${planName}\n` +
         `📅 Діє до: ${endDate}\n\n` +
-        `💰 Поднови підписку, щоб продовжити користування всіма функціями бота.\n\n` +
-        `📞 Зв'яжіться з підтримкою: nadyastarway@gmail.com`;
+        `💰 Поднови підписку, щоб продовжити користування всіма функціями бота!\n\n` +
+        `📞 Зв'яжися з підтримкою: nadyastarway@gmail.com`;
 
       try {
-        await bot.telegram.sendMessage(tgId, message, keyboards.subscriptionKeyboard());
+        await bot.telegram.sendMessage(tgId, message, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💰 Продовжити підписку', callback_data: 'subscription_plans' }],
+              [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
+            ]
+          }
+        });
         remindersSent++;
         console.log(`[subscriptionService] ✅ Нагадування відправлено ${tgId}`);
       } catch (sendError) {
@@ -132,7 +153,106 @@ const sendSubscriptionReminders = async (bot) => {
   }
 };
 
-// Активація демо підписки
+// ДОДАНО: синхронізація підписки користувача з таблиці Subscriptions
+const syncUserSubscription = async (tgId) => {
+  try {
+    if (!tgId) return '⚠️ Не вдалося визначити користувача.';
+
+    console.log(`[subscriptionService] 🔄 Синхронізація підписки для ${tgId}`);
+
+    // Шукаємо останню активну підписку в таблиці Subscriptions
+    const subs = await base(tables.SUBSCRIPTIONS)
+      .select({
+        filterByFormula: `AND({TG_id}='${tgId}', {Payment_Status}='Approved')`,
+        sort: [{ field: 'End_Date', direction: 'desc' }],
+        maxRecords: 1,
+      })
+      .firstPage();
+
+    if (!subs.length) {
+      console.log(`[subscriptionService] ❌ Активних оплат не знайдено для ${tgId}`);
+      
+      // Скидаємо статус у Users
+      const users = await base(tables.USERS)
+        .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
+        .firstPage();
+
+      if (users.length) {
+        await base(tables.USERS).update([
+          {
+            id: users[0].id,
+            fields: {
+              Active_Subscription_Status: '❌ Неактивна',
+              'Active Subscription Plan': null,
+              'Subscription Status': 'Inactive',
+              Start_Date: null,
+              End_Date: null,
+            },
+          },
+        ]);
+      }
+      return '❌ Активних оплат не знайдено. Якщо ти щойно оплатила — зачекай 1–2 хв або натисни ще раз «🔄 Оновити підписку».';
+    }
+
+    const s = subs[0].fields || {};
+    const endDate = s.End_Date ? new Date(s.End_Date) : null;
+    const endDateUA = endDate ? endDate.toLocaleDateString('uk-UA') : 'не відомо';
+    const plan = s.Plan_Name || 'План';
+
+    // Перевіряємо чи підписка ще активна
+    const now = new Date();
+    const isStillActive = endDate && now < endDate;
+
+    // Оновлюємо користувача
+    const users = await base(tables.USERS)
+      .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
+      .firstPage();
+
+    if (users.length) {
+      await base(tables.USERS).update([
+        {
+          id: users[0].id,
+          fields: {
+            Active_Subscription_Status: isStillActive ? `✅ Активна до ${endDateUA}` : '❌ Закінчена',
+            'Active Subscription Plan': plan,
+            'Subscription Status': isStillActive ? 'Active' : 'Expired',
+            Start_Date: s.Start_Date || users[0].fields.Start_Date || null,
+            End_Date: s.End_Date || users[0].fields.End_Date || null,
+          },
+        },
+      ]);
+    }
+
+    console.log(`[subscriptionService] ✅ Підписка синхронізована для ${tgId}: ${plan} (активна: ${isStillActive})`);
+
+    return isStillActive 
+      ? `✅ Підписка активна: ${plan}\nДіє до: ${endDateUA}`
+      : `⚠️ Підписка закінчилася: ${plan}\nЗакінчилася: ${endDateUA}\n\n💰 Поднови підписку для продовження роботи з ботом.`;
+  } catch (error) {
+    console.error('[subscriptionService] Помилка синхронізації:', error);
+    return '❌ Помилка синхронізації підписки.';
+  }
+};
+
+// ДОДАНО: блокування функціоналу для неактивних користувачів
+const blockInactiveUser = async (ctx, featureName) => {
+  const message = 
+    `🚫 ${featureName} недоступний\n\n` +
+    `❌ Твоя підписка неактивна або закінчилася.\n\n` +
+    `💰 Поднови підписку, щоб користуватися всіма функціями бота.\n\n` +
+    `📞 Питання? Пиши: nadyastarway@gmail.com`;
+
+  await ctx.reply(message, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '💰 Подновити підписку', callback_data: 'subscription_plans' }],
+        [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }]
+      ]
+    }
+  });
+};
+
+// ДОДАНО: активація демо підписки
 const activateDemoSubscription = async (tgId, planName = 'Демо', days = 7) => {
   try {
     const user = await userService.getUserByTelegramId(tgId);
@@ -170,79 +290,12 @@ const activateDemoSubscription = async (tgId, planName = 'Демо', days = 7) =
   }
 };
 
-// Синхронізація підписки користувача
-const syncUserSubscription = async (tgId) => {
-  try {
-    if (!tgId) return '⚠️ Не вдалося визначити користувача.';
-
-    // Шукаємо останню активну підписку в таблиці Subscriptions
-    const subs = await base(tables.SUBSCRIPTIONS)
-      .select({
-        filterByFormula: `AND({TG_id}='${tgId}', {Payment_Status}='Approved')`,
-        sort: [{ field: 'End_Date', direction: 'desc' }],
-        maxRecords: 1,
-      })
-      .firstPage();
-
-    if (!subs.length) {
-      // Скидаємо статус у Users
-      const users = await base(tables.USERS)
-        .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
-        .firstPage();
-
-      if (users.length) {
-        await base(tables.USERS).update([
-          {
-            id: users[0].id,
-            fields: {
-              Active_Subscription_Status: '❌ Неактивна',
-              'Active Subscription Plan': null,
-              Start_Date: null,
-              End_Date: null,
-            },
-          },
-        ]);
-      }
-      return '❌ Активних оплат не знайдено. Якщо ти щойно оплатила — зачекай 1–2 хв або натисни ще раз «🔄 Оновити підписку».';
-    }
-
-    const s = subs[0].fields || {};
-    const endDate = s.End_Date ? new Date(s.End_Date) : null;
-    const endDateUA = endDate ? endDate.toLocaleDateString('uk-UA') : 'не відомо';
-    const plan = s.Plan_Name || 'План';
-
-    // Оновлюємо користувача
-    const users = await base(tables.USERS)
-      .select({ filterByFormula: `{TG_id}='${tgId}'`, maxRecords: 1 })
-      .firstPage();
-
-    if (users.length) {
-      await base(tables.USERS).update([
-        {
-          id: users[0].id,
-          fields: {
-            Active_Subscription_Status: `✅ Активна до ${endDateUA}`,
-            'Active Subscription Plan': plan,
-            'Subscription Status': 'Active',
-            Start_Date: s.Start_Date || users[0].fields.Start_Date || null,
-            End_Date: s.End_Date || users[0].fields.End_Date || null,
-          },
-        },
-      ]);
-    }
-
-    return `✅ Підписка синхронізована: ${plan}\nДіє до: ${endDateUA}`;
-  } catch (error) {
-    console.error('[subscriptionService] Помилка синхронізації:', error);
-    return '❌ Помилка синхронізації підписки.';
-  }
-};
-
 export default {
   checkSubscriptionStatus,
   deactivateExpiredSubscriptions,
   getUsersWithExpiringSubscriptions,
   sendSubscriptionReminders,
-  activateDemoSubscription,
-  syncUserSubscription
+  syncUserSubscription,
+  blockInactiveUser,
+  activateDemoSubscription
 };

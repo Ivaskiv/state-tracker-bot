@@ -1,4 +1,4 @@
-// src/controllers/wheelBalanceController.js - НОВИЙ КОНТРОЛЕР ДЛЯ КОЛЕСА
+// src/controllers/wheelBalanceController.js - ВИПРАВЛЕНО CALLBACK ТА ЗБЕРЕЖЕННЯ
 
 import wheelBalanceService from '../services/wheelBalanceService.js';
 import userService from '../auth/services/userService.js';
@@ -11,7 +11,6 @@ const handleWheelBalanceRequest = async (ctx) => {
   const tgId = ctx.from.id;
   
   try {
-    // Перевіряємо підписку
     const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
     if (!subscriptionStatus.active) {
       await typing(ctx);
@@ -30,7 +29,6 @@ const handleWheelBalanceRequest = async (ctx) => {
 
     await typing(ctx);
     
-    // Перевіряємо активне колесо
     const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
     if (activeWheel) {
       const currentStep = activeWheel.fields.Step || 0;
@@ -51,9 +49,8 @@ const handleWheelBalanceRequest = async (ctx) => {
       return;
     }
 
-    // Запускаємо нове колесо
     const result = await wheelBalanceService.startWheelBalance(tgId);
-    await userService.updateUserStep(tgId, ANSWER_STEPS.WHEEL_BALANCE_ACTIVE);
+    await userService.updateUserStep(tgId, 'WheelBalance'); // ЗМІНЕНО на правильний крок
     
     await ctx.reply(result.message, result.keyboard);
     
@@ -64,12 +61,31 @@ const handleWheelBalanceRequest = async (ctx) => {
   }
 };
 
+// ДОДАНО: обробка відповідей на колесо
+const handleWheelBalanceAnswer = async (ctx, score) => {
+  const tgId = ctx.from.id;
+  
+  try {
+    const result = await wheelBalanceService.processWheelAnswer(tgId, score, ctx);
+    
+    if (result.completed) {
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+    }
+    
+  } catch (error) {
+    console.error('❌ [wheelBalanceController] Помилка відповіді:', error);
+    await ctx.reply('Виникла помилка. Спробуй ще раз.');
+  }
+};
+
 const handleWheelCallback = async (ctx) => {
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery.data;
   
   try {
-    // Продовження існуючого колеса
+    console.log(`[wheelBalanceController] 📱 Callback: ${data} від ${tgId}`);
+
+    // ДОДАНО: обробка продовження, перезапуску, скасування
     if (data === 'wheel_continue') {
       const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
       if (activeWheel) {
@@ -78,45 +94,65 @@ const handleWheelCallback = async (ctx) => {
         
         await ctx.editMessageText(
           `🎯 КОЛЕСО БАЛАНСУ\n\n${currentStep + 1}️⃣/8 ${sphereName}\n\nОбери оцінку:`,
-          wheelBalanceService.createScoreKeyboard(currentStep + 1, 8)
+          keyboards.wheelScoreInlineKeyboard()
         );
       }
       await ctx.answerCbQuery('Продовжуємо колесо балансу');
       return;
     }
 
-    // Перезапуск колеса
-    if (data === 'wheel_restart') {
+    if (data === 'wheel_restart' || data === 'wheel_start_new') {
       const result = await wheelBalanceService.startWheelBalance(tgId);
-      await userService.updateUserStep(tgId, ANSWER_STEPS.WHEEL_BALANCE_ACTIVE);
+      await userService.updateUserStep(tgId, 'WheelBalance');
       
       await ctx.editMessageText(result.message, result.keyboard);
       await ctx.answerCbQuery('Колесо балансу перезапущено');
       return;
     }
 
-    // Скасування колеса
-    if (data === 'wheel_cancel') {
+    if (data === 'wheel_cancel' || data === 'wheel_exit') {
       await wheelBalanceService.cancelActiveWheel(tgId);
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
       
       await ctx.editMessageText('🚪 Колесо балансу скасовано');
       await ctx.answerCbQuery('Колесо балансу скасовано');
+      
+      // ДОДАНО: повертаємо до меню
+      setTimeout(async () => {
+        await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+      }, 1000);
       return;
     }
 
-    // Обробка оцінок та інших дій
-    const result = await wheelBalanceService.processWheelCallback(ctx);
-    
-    if (result.completed) {
+    if (data === 'wheel_to_menu') {
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-      if (!result.cancelled) {
-        await ctx.answerCbQuery('Колесо балансу завершено!');
+      await ctx.editMessageText('🏠 Повертаємося до головного меню');
+      await ctx.answerCbQuery('Повернення до меню');
+      
+      setTimeout(async () => {
+        await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+      }, 1000);
+      return;
+    }
+
+    // ВИПРАВЛЕНО: обробка оцінок
+    if (data.startsWith('wheel_score_')) {
+      const score = parseInt(data.replace('wheel_score_', ''));
+      if (!isNaN(score) && score >= 0 && score <= 10) {
+        const result = await wheelBalanceService.processWheelAnswer(tgId, score, ctx);
+        
+        if (result.completed) {
+          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+          await ctx.answerCbQuery('Колесо балансу завершено!');
+        } else if (result.error) {
+          await ctx.answerCbQuery(result.message || 'Помилка');
+        } else {
+          await ctx.answerCbQuery('Оцінка збережена');
+        }
+      } else {
+        await ctx.answerCbQuery('Невірна оцінка');
       }
-    } else if (result.error) {
-      await ctx.answerCbQuery(result.message || 'Помилка');
-    } else {
-      await ctx.answerCbQuery('Оцінка збережена');
+      return;
     }
     
   } catch (error) {
@@ -125,7 +161,11 @@ const handleWheelCallback = async (ctx) => {
   }
 };
 
-// Щомісячна перевірка потреби в колесі балансу
+// ДОДАНО: retry callback обробка
+const handleWheelRetryCallback = async (ctx) => {
+  await handleWheelCallback(ctx);
+};
+
 const checkMonthlyWheelNeed = async (bot) => {
   try {
     const users = await userService.getActiveUsers();
@@ -156,6 +196,8 @@ const checkMonthlyWheelNeed = async (bot) => {
 
 export default {
   handleWheelBalanceRequest,
+  handleWheelBalanceAnswer, // ДОДАНО
   handleWheelCallback,
+  handleWheelRetryCallback, // ДОДАНО
   checkMonthlyWheelNeed
 };

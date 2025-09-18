@@ -1,10 +1,10 @@
-// src/auth/services/userService.js
+// src/auth/services/userService.js - ВИПРАВЛЕНО СТВОРЕННЯ КОРИСТУВАЧА
 import { getBase } from '../../config/database.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 
 const getActiveUsers = async () => {
   try {
-    const base = getBase('Users');
+    const base = getBase();
     const records = await base('Users')
       .select({
         filterByFormula: "FIND('✅ Активна', {Active_Subscription_Status}) > 0"
@@ -19,7 +19,7 @@ const getActiveUsers = async () => {
 
 const getUserByTelegramId = async (tgId) => {
   try {
-    const base = getBase('Users');
+    const base = getBase();
     const records = await base('Users')
       .select({
         filterByFormula: `{TG_id} = '${tgId}'`,
@@ -34,7 +34,7 @@ const getUserByTelegramId = async (tgId) => {
 
 const updateUserStep = async (tgId, step) => {
   try {
-    const base = getBase('Users');
+    const base = getBase();
     const records = await base('Users')
       .select({
         filterByFormula: `{TG_id} = '${tgId}'`,
@@ -49,10 +49,9 @@ const updateUserStep = async (tgId, step) => {
   }
 };
 
-// ✅ ДОДАНА функція оновлення активності користувача
 const updateUserActivity = async (tgId) => {
   try {
-    const base = getBase('Users');
+    const base = getBase();
     const records = await base('Users')
       .select({
         filterByFormula: `{TG_id} = '${tgId}'`,
@@ -69,32 +68,70 @@ const updateUserActivity = async (tgId) => {
   }
 };
 
+// ВИПРАВЛЕНО: правильні назви полів та обробка помилок
 const createUser = async ({ tgId, name, email, phone, timezone }) => {
   try {
-    const base = getBase('Users');
-    const record = await base('Users').create({
-      TG_id: tgId,
-      'User Name': name,
-      Email: email,
-      Phone: phone,
-      Time_Zone: timezone || 'Europe/Prague',
-      Active_Subscription_Status: '❌ Неактивна',
-      'Active Subscription Plan': 'Базовий',
-      'Subscription Status': 'Inactive',
-      Answer_Step: ANSWER_STEPS.PLAN_SELECTION,
-      Last_Activity: new Date().toISOString(), // ✅ ДОДАЄМО при створенні
+    console.log(`[userService] 🆕 Створення користувача:`, {
+      tgId,
+      name,
+      email,
+      phone,
+      timezone
     });
-    console.log(`[userService] Створено користувача: ${tgId}, timezone: ${timezone}, крок: ${ANSWER_STEPS.PLAN_SELECTION}`);
-    return record.fields;
+    
+    const base = getBase();
+    
+    // ВИПРАВЛЕНО: правильна структура даних для Airtable
+    const userData = {
+      'TG_id': String(tgId), // ВАЖЛИВО: конвертуємо в строку
+      'User Name': name || 'Користувач',
+      'Email': email || null,
+      'Phone': phone || null,
+      'Time_Zone': timezone || 'Europe/Prague',
+      'Active_Subscription_Status': '❌ Неактивна',
+      'Active Subscription Plan': null,
+      'Subscription Status': 'Inactive',
+      'Answer_Step': ANSWER_STEPS.COMPLETED,
+      'Last_Activity': new Date().toISOString(),
+      'Created_At': new Date().toISOString() // ДОДАНО дата створення
+    };
+    
+    console.log(`[userService] 📝 Дані для збереження:`, userData);
+    
+    const record = await base('Users').create(userData);
+    
+    console.log(`[userService] ✅ Користувача створено успішно:`, {
+      id: record.id,
+      tgId: userData['TG_id'],
+      name: userData['User Name'],
+      timezone: userData['Time_Zone']
+    });
+    
+    // Повертаємо дані користувача
+    return {
+      id: record.id,
+      ...userData
+    };
+    
   } catch (error) {
-    console.error('[userService.createUser] Помилка:', error);
-    return null;
+    console.error('[userService.createUser] ❌ КРИТИЧНА ПОМИЛКА:', {
+      message: error.message,
+      stack: error.stack,
+      tgId,
+      name,
+      email,
+      phone,
+      timezone
+    });
+    
+    // ВИПРАВЛЕНО: кидаємо помилку для обробки вище
+    throw new Error(`Не вдалося створити користувача: ${error.message}`);
   }
 };
 
 const updateUserSubscription = async (tgId, subscriptionData) => {
   try {
-    const base = getBase('Users');
+    const base = getBase();
     const records = await base('Users')
       .select({
         filterByFormula: `{TG_id} = '${tgId}'`,
@@ -125,7 +162,7 @@ const updateUserSubscription = async (tgId, subscriptionData) => {
 
 const getUsersWithExpiringSubscriptions = async (daysOffset) => {
   try {
-    const base = getBase('Users');
+    const base = getBase();
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + daysOffset);
     const targetDateStr = targetDate.toISOString().split('T')[0];
@@ -133,7 +170,7 @@ const getUsersWithExpiringSubscriptions = async (daysOffset) => {
     const records = await base('Users')
       .select({
         filterByFormula: `AND(
-          {Active_Subscription_Status} = '✅ Активна',
+          FIND('✅ Активна', {Active_Subscription_Status}) > 0,
           DATESTR({End_Date}) = '${targetDateStr}'
         )`,
         fields: ['TG_id', 'User Name', 'Active Subscription Plan', 'End_Date']

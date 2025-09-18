@@ -1,5 +1,6 @@
-// src/controllers/botController.js - ПОВНА ВЕРСІЯ З УСІМА ВИПРАВЛЕННЯМИ
+// src/controllers/botController.js - ДОДАНО SESSION MIDDLEWARE
 
+import { session } from 'telegraf'; // ДОДАНО
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
@@ -16,24 +17,28 @@ import logger from '../utils/logger.js';
 import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
 import { handleMenuCommands } from '../dialogue/handlers/menuHandlers.js';
 import { handleQuestionAnswer, handleRestartCallback } from '../dialogue/handlers/sessionHandlers.js';
+import subscriptionController from './subscriptionController.js';
 
 const WHEEL_STEP = 'WheelBalance';
 
 const botController = (bot) => {
   logger.info('[botController] Initializing bot controller...');
 
+  // ДОДАНО: session middleware для збереження стану реєстрації
+  bot.use(session());
   bot.use(globalTypingMiddleware());
 
-  // START команда з оптимізованою реєстрацією
   bot.start(async (ctx) => {
     await handleStart(ctx);
   });
 
-  // MENU команда
   bot.command('menu', async (ctx) => {
     try {
       const user = await userService.getUserByTelegramId(ctx.from.id);
       if (!user) return ctx.reply('Натисніть /start');
+      
+      // ВИПРАВЛЕНО: очищуємо сесію при переході в меню
+      ctx.session = {};
       
       await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.COMPLETED);
       clearUserReminders(ctx.from.id);
@@ -46,11 +51,12 @@ const botController = (bot) => {
     }
   });
 
-  // DEV команди для оновлення меню
   bot.command('updatemenu', async (ctx) => {
     try {
       const user = await userService.getUserByTelegramId(ctx.from.id);
       if (!user) return ctx.reply('Натисніть /start');
+      
+      ctx.session = {}; // Очищуємо сесію
       
       await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.COMPLETED);
       clearUserReminders(ctx.from.id);
@@ -63,26 +69,32 @@ const botController = (bot) => {
     }
   });
 
-  // Обробка текстових повідомлень
   bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
     const text = ctx.message.text?.trim();
     if (!text) return;
 
     try {
-      // Перевірка реєстрації
+      // ВИПРАВЛЕНО: перевіряємо реєстрацію ПЕРШОЮ
       const isRegistrationStep = await handleRegistrationStep(ctx);
-      if (isRegistrationStep) return;
+      if (isRegistrationStep) {
+        console.log(`[botController] ✅ Оброблено крок реєстрації для ${tgId}`);
+        return;
+      }
 
       const user = await userService.getUserByTelegramId(tgId);
-      if (!user) return ctx.reply('Натисніть /start', keyboards.mainMenuKeyboard());
+      if (!user) {
+        console.log(`[botController] ❌ Користувача ${tgId} не знайдено після реєстрації`);
+        return ctx.reply('Натисніть /start', keyboards.mainMenuKeyboard());
+      }
 
-      // Перевірка підписки (блокування неактивних користувачів)
+      // Перевірка підписки для всіх функцій крім підписки/підтримки
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
+      const allowedForInactive = ['💰 Підписка', '📞 Зв\'язок з нами', '❓ Допомога'];
       
-      if (!subscriptionStatus.active && !['💰 Підписка', '📞 Зв\'язок з нами'].includes(text)) {
+      if (!subscriptionStatus.active && !allowedForInactive.includes(text)) {
         await ctx.reply(
-          '❌ Твоя підписка закінчилася.\n\nЩоб користуватися всіма функціями бота, оформи або продовжи підписку.\n\n📞 Зв\'яжіться з підтримкою: nadyastarway@gmail.com',
+          '❌ Твоя підписка закінчилася.\n\nЩоб користуватися всіма функціями бота, оформи або продовжи підписку.\n\n📞 Зв\'яжіся з підтримкою: nadyastarway@gmail.com',
           keyboards.subscriptionKeyboard()
         );
         return;
@@ -93,7 +105,6 @@ const botController = (bot) => {
       const isActiveQuestions = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
       const isActiveAI = aiMentorSession.isActive(String(tgId));
 
-      // AI наставник
       if (isActiveAI) {
         if (text.includes('вихід') || text === '🚪 Вийти із сесії') {
           aiMentorSession.end(String(tgId));
@@ -112,7 +123,6 @@ const botController = (bot) => {
         return;
       }
 
-      // Колесо балансу
       if (isActiveWheel) {
         const score = parseInt(text);
         if (!isNaN(score) && score >= 0 && score <= 10) {
@@ -123,20 +133,17 @@ const botController = (bot) => {
         return;
       }
 
-      // Ранкові/вечірні питання
       if (isActiveQuestions) {
         const answered = await handleQuestionAnswer(ctx, user, text);
         if (answered) return;
       }
 
-      // Команди меню
       await handleMenuCommands(ctx, user, text, bot);
     } catch (error) {
       await handleError(ctx, error);
     }
   });
 
-  // Обробка callback запитів
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
     const tgId = ctx.from.id;
@@ -144,13 +151,14 @@ const botController = (bot) => {
     try {
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       
-      // Дозволяємо тільки підписку та підтримку для неактивних користувачів
-      if (!subscriptionStatus.active && !['subscription_info', 'contact_support'].includes(data)) {
+      const allowedForInactive = ['subscription_info', 'contact_support', 'subscription_plans', 
+        'subscribe_week', 'subscribe_month', 'subscribe_year', 'sync_subscription'];
+      
+      if (!subscriptionStatus.active && !allowedForInactive.includes(data)) {
         await ctx.answerCbQuery('Потрібна активна підписка');
         return;
       }
 
-      // Продовження/пропуск сесій
       if (data === 'continue_answers' || data === 'skip_session') {
         const user = await userService.getUserByTelegramId(tgId);
         const step = user?.Answer_Step || '';
@@ -190,54 +198,25 @@ const botController = (bot) => {
         return;
       }
 
-      // Рестарт сесій
       if (['restart_morning', 'restart_evening', 'cancel_restart'].includes(data)) {
         await handleRestartCallback(ctx);
         return;
       }
 
-      // AI наставник
       if (['ai_continue', 'ai_exit'].includes(data)) {
         await aiMentorController.handleAIMentorCallback(ctx);
         return;
       }
 
-      // Колесо балансу callback
-      if (data.startsWith('wheel_score_') || data === 'wheel_exit') {
+      if (data.startsWith('wheel_score_') || data === 'wheel_exit' || 
+          data === 'wheel_retry' || data === 'wheel_start_new' || data === 'wheel_to_menu') {
         await wheelBalanceController.handleWheelCallback(ctx);
         return;
       }
 
-      if (['wheel_retry', 'wheel_start_new', 'wheel_to_menu'].includes(data)) {
-        await wheelBalanceController.handleWheelRetryCallback(ctx);
-        return;
-      }
-
-      // Підписка та підтримка
-      if (data === 'subscription_info') {
-        const user = await userService.getUserByTelegramId(tgId);
-        const status = user ? await subscriptionService.checkSubscriptionStatus(tgId) : { active: false };
-        
-        let message = '💰 ПІДПИСКА\n\n';
-        if (status.active) {
-          const plan = user['Active Subscription Plan'] || 'План';
-          const endDate = new Date(user['End_Date']).toLocaleDateString('uk-UA');
-          message += `✅ Активна\n📋 План: ${plan}\n📅 Діє до: ${endDate}`;
-        } else {
-          message += '❌ Неактивна\n\nДля оформлення зв\'яжіться з підтримкою:\nEmail: nadyastarway@gmail.com';
-        }
-        
-        await ctx.reply(message, keyboards.mainMenuKeyboard());
-        await ctx.answerCbQuery('Інформація про підписку');
-        return;
-      }
-
-      if (data === 'contact_support') {
-        await ctx.reply(
-          '📞 ПІДТРИМКА\n\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316\n\nОпишіть свою ситуацію, і ми допоможемо!', 
-          keyboards.mainMenuKeyboard()
-        );
-        await ctx.answerCbQuery('Контакти підтримки');
+      if (['subscription_info', 'subscription_plans', 'subscribe_week', 'subscribe_month', 
+           'subscribe_year', 'renew_subscription', 'sync_subscription', 'contact_support'].includes(data)) {
+        await subscriptionController.handleCallback(ctx);
         return;
       }
 

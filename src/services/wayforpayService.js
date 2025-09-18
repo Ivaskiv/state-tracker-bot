@@ -1,35 +1,44 @@
-// src/services/wayforpayService.js
+// src/services/wayforpayService.js - ДОДАНО РЕАЛЬНА ІНТЕГРАЦІЯ
 import crypto from 'crypto';
 import { SUBSCRIPTION_PLANS } from '../config/constants.js';
 
-// Налаштування WayForPay (додати у .env)
 const WAYFORPAY_CONFIG = {
-  merchantAccount: process.env.WAYFORPAY_MERCHANT, // з особистого кабінету WayForPay
-  merchantSecretKey: process.env.WAYFORPAY_SECRET, // секретний ключ
+  merchantAccount: process.env.WAYFORPAY_MERCHANT || 'test_merch_n1',
+  merchantSecretKey: process.env.WAYFORPAY_SECRET || 'flk3409refn54t54t*FNJRET',
   merchantDomainName: process.env.WAYFORPAY_DOMAIN || 'aimentor.com',
-  serviceUrl: process.env.WAYFORPAY_SERVICE_URL || 'https://yourdomain.com/api/wayforpay/webhook',
+  serviceUrl: process.env.WAYFORPAY_SERVICE_URL || 'https://your-domain.com/api/wayforpay/webhook',
   returnUrl: process.env.WAYFORPAY_RETURN_URL || 'https://t.me/your_bot_name'
 };
 
-// Генерація підпису для WayForPay
+// ВИПРАВЛЕНО: правильна генерація підпису для WayForPay
 const generateSignature = (data, secretKey) => {
-  const signString = Object.values(data).join(';');
+  // WayForPay потребує специфічного порядку полів для підпису
+  const signString = [
+    data.merchantAccount,
+    data.merchantDomainName, 
+    data.orderReference,
+    data.orderDate,
+    data.amount,
+    data.currency,
+    data.productName,
+    data.productCount,
+    data.productPrice
+  ].join(';');
+  
   return crypto.createHmac('md5', secretKey).update(signString).digest('hex');
 };
 
-// Створення замовлення для WayForPay
 const createPaymentRequest = (tgId, planKey, userEmail = null) => {
   const planInfo = SUBSCRIPTION_PLANS[planKey];
   if (!planInfo) {
     throw new Error(`Невірний план: ${planKey}`);
   }
 
-  const orderReference = `ORDER_${planKey}_${tgId}_${Date.now()}`;
-  const orderDate = Math.floor(Date.now() / 1000); // Unix timestamp
+  const orderReference = `AIMENTOR_${planKey}_${tgId}_${Date.now()}`;
+  const orderDate = Math.floor(Date.now() / 1000);
   const amount = planInfo.price;
   const currency = 'EUR';
   
-  // Базові дані для підпису
   const signatureData = {
     merchantAccount: WAYFORPAY_CONFIG.merchantAccount,
     merchantDomainName: WAYFORPAY_CONFIG.merchantDomainName,
@@ -42,53 +51,47 @@ const createPaymentRequest = (tgId, planKey, userEmail = null) => {
     productPrice: amount
   };
 
-  // Генеруємо підпис
   const signature = generateSignature(signatureData, WAYFORPAY_CONFIG.merchantSecretKey);
 
-  // Повний запит до WayForPay
-  const paymentRequest = {
+  return {
     merchantAccount: WAYFORPAY_CONFIG.merchantAccount,
     merchantDomainName: WAYFORPAY_CONFIG.merchantDomainName,
     orderReference,
     orderDate,
     amount,
     currency,
-    orderTimeout: 3600, // 1 година
+    orderTimeout: 3600,
     productName: [planInfo.name],
     productPrice: [amount],
     productCount: [1],
     clientFirstName: 'aiMentor',
     clientLastName: 'User',
     clientEmail: userEmail || `user${tgId}@telegram.user`,
-    clientPhone: '+380000000000', // заглушка
+    clientPhone: '+380000000000',
     language: 'UA',
     serviceUrl: WAYFORPAY_CONFIG.serviceUrl,
     returnUrl: WAYFORPAY_CONFIG.returnUrl,
     merchantSignature: signature,
-    // Додаткові дані для ідентифікації
+    // ДОДАНО: передаємо додаткову інформацію
     clientAccountId: tgId.toString(),
-    socialUri: `tg://user?id=${tgId}`,
-    // Персоналізовані дані
     TG_id: tgId,
     planKey: planKey,
     planDuration: planInfo.duration
   };
-
-  return paymentRequest;
 };
 
-// Генерація URL для оплати
+// ВИПРАВЛЕНО: правильна генерація URL для WayForPay
 const generatePaymentUrl = (tgId, planKey, userEmail = null) => {
   try {
     const paymentRequest = createPaymentRequest(tgId, planKey, userEmail);
     
-    // Формуємо URL з параметрами для redirect до WayForPay
     const baseUrl = 'https://secure.wayforpay.com/pay';
     const params = new URLSearchParams();
     
+    // Додаємо всі параметри
     Object.entries(paymentRequest).forEach(([key, value]) => {
       if (Array.isArray(value)) {
-        value.forEach(v => params.append(`${key}[]`, v));
+        value.forEach((v, index) => params.append(`${key}[${index}]`, v));
       } else {
         params.append(key, value);
       }
@@ -97,18 +100,27 @@ const generatePaymentUrl = (tgId, planKey, userEmail = null) => {
     return `${baseUrl}?${params.toString()}`;
   } catch (error) {
     console.error('[wayforpayService.generatePaymentUrl] Помилка:', error);
-    // Fallback URL
-    return `https://secure.wayforpay.com/payment/fallback_${planKey}_${tgId}`;
+    return `https://secure.wayforpay.com/payment/fallback`;
   }
 };
 
-// Перевірка підпису від WayForPay webhook
+// ДОДАНО: перевірка підпису webhook
 const verifyWebhookSignature = (data) => {
   try {
     const receivedSignature = data.merchantSignature;
-    delete data.merchantSignature; // видаляємо підпис для перевірки
     
-    const calculatedSignature = generateSignature(data, WAYFORPAY_CONFIG.merchantSecretKey);
+    // Для webhook WayForPay використовує інший порядок полів
+    const signString = [
+      data.merchantAccount,
+      data.orderReference, 
+      data.amount,
+      data.currency
+    ].join(';');
+    
+    const calculatedSignature = crypto
+      .createHmac('md5', WAYFORPAY_CONFIG.merchantSecretKey)
+      .update(signString)
+      .digest('hex');
     
     return receivedSignature === calculatedSignature;
   } catch (error) {
@@ -117,11 +129,14 @@ const verifyWebhookSignature = (data) => {
   }
 };
 
-// Обробка даних від WayForPay webhook
+// ВИПРАВЛЕНО: правильна обробка webhook даних
 const processWebhookData = (webhookData) => {
   try {
+    console.log('[wayforpayService] Обробка webhook:', JSON.stringify(webhookData, null, 2));
+
     // Перевіряємо підпис
-    if (!verifyWebhookSignature({...webhookData})) {
+    if (!verifyWebhookSignature(webhookData)) {
+      console.error('[wayforpayService] Невірний підпис webhook');
       throw new Error('Невірний підпис webhook');
     }
 
@@ -133,20 +148,21 @@ const processWebhookData = (webhookData) => {
       clientEmail,
       clientPhone,
       createdDate,
-      processingDate,
-      TG_id,
-      planKey,
-      planDuration
+      processingDate
     } = webhookData;
 
-    // Визначаємо план
+    // Витягуємо TG_id та planKey з orderReference
+    const orderParts = orderReference.split('_');
+    const planKey = orderParts[1];
+    const TG_id = orderParts[2];
+
     const planInfo = planKey ? SUBSCRIPTION_PLANS[planKey] : null;
     const planName = planInfo ? planInfo.name : 'Невідомий план';
+    const planDuration = planInfo ? planInfo.duration : 7;
 
-    // Розраховуємо дати
     const startDate = new Date().toISOString();
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() + (planDuration || 7));
+    endDate.setDate(endDate.getDate() + planDuration);
 
     return {
       tgId: TG_id,
@@ -158,6 +174,7 @@ const processWebhookData = (webhookData) => {
       phone: clientPhone,
       planName,
       planKey,
+      planDuration,
       startDate,
       endDate: endDate.toISOString(),
       createdDate: createdDate ? new Date(createdDate * 1000).toISOString() : startDate,
@@ -169,7 +186,6 @@ const processWebhookData = (webhookData) => {
   }
 };
 
-// Відповідь для WayForPay webhook
 const generateWebhookResponse = (status = 'accept', time = null) => {
   return {
     orderReference: '',
