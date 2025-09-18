@@ -155,15 +155,12 @@ export async function handleRegistrationStep(ctx) {
         const welcomeMessage = `🎉 Реєстрацію завершено!\n\nТвій часовий пояс: ${selectedTimezone}`;
         await ctx.reply(welcomeMessage, keyboards.removeKeyboard());
 
-        // Перевіряємо підписку
         const hasActiveSubscription = user['Active_Subscription_Status']?.includes('✅ Активна');
         
         if (hasActiveSubscription) {
-          // Запускаємо колесо балансу для активних користувачів
           await ctx.reply('🎯 Почнемо з оцінки твого життєвого балансу!');
           await wheelBalanceController.handleWheelBalanceRequest(ctx);
         } else {
-          // Пропонуємо підписку
           await ctx.reply(
             '💰 Для початку роботи потрібна активна підписка.\n\n📞 Зв\'яжіся з підтримкою для оформлення:\nnadyastarway@gmail.com',
             keyboards.subscriptionKeyboard()
@@ -175,7 +172,6 @@ export async function handleRegistrationStep(ctx) {
       } catch (createError) {
         console.error('[auth] ❌ Помилка створення користувача:', createError);
         
-        // Очищаємо сесію при помилці
         ctx.session = {};
         
         await ctx.reply(
@@ -190,7 +186,7 @@ export async function handleRegistrationStep(ctx) {
   } catch (error) {
     console.error('[handleRegistrationStep] Помилка:', error);
     await ctx.reply('❌ Помилка реєстрації. Спробуйте /start');
-    ctx.session = {}; // Очищаємо сесію при помилці
+    ctx.session = {}; 
   }
 
   return false;
