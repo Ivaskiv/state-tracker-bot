@@ -74,6 +74,51 @@ const botController = (bot) => {
     }
   });
 
+  // ✅ ДОДАНО DEV КОМАНДИ ДЛЯ ОНОВЛЕННЯ МЕНЮ
+  bot.command('updatemenu', async (ctx) => {
+    try {
+      console.log('🔄 [UPDATE MENU] Примусове оновлення меню');
+      
+      const user = await userService.getUserByTelegramId(ctx.from.id);
+      if (!user) return ctx.reply('Натисніть /start');
+      
+      await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.COMPLETED);
+      clearUserReminders(ctx.from.id);
+      
+      await ctx.reply('🔄 Оновлюємо меню...', keyboards.removeKeyboard());
+      await new Promise(r => setTimeout(r, 1000));
+      await ctx.reply('✅ Меню оновлено!', keyboards.forceUpdateKeyboard());
+      
+      console.log('✅ [UPDATE MENU] Меню оновлено для користувача', ctx.from.id);
+    } catch (error) {
+      console.error('❌ [UPDATE MENU] Помилка:', error);
+      await ctx.reply('❌ Помилка оновлення');
+    }
+  });
+
+  bot.command('showkeyboard', async (ctx) => {
+    try {
+      const keyboardStructure = `
+🔧 ПОТОЧНА СТРУКТУРА КЛАВІАТУРИ:
+
+Ряд 1: 🤖 AI наставник | 🎯 Колесо балансу
+Ряд 2: 📈 Щотижневий звіт | 📈 Щомісячний звіт  
+Ряд 3: 💎 Афірмація | 📊 Мій прогрес
+Ряд 4: 💰 Підписка | ❓ Допомога
+Ряд 5: 📝 Інструкції | 📞 Зв'язок з нами
+
+Якщо не бачите потрібну кнопку, введіть /updatemenu
+`;
+      
+      await ctx.reply(keyboardStructure);
+      await ctx.reply('🎯 Актуальне меню:', keyboards.forceUpdateKeyboard());
+      
+    } catch (error) {
+      console.error('❌ [SHOW KEYBOARD] Помилка:', error);
+      await ctx.reply('❌ Помилка показу клавіатури');
+    }
+  });
+
   bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
     const text = ctx.message.text?.trim();

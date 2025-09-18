@@ -1,4 +1,5 @@
-// server.js  (виправлено: видалено дублікат імпорту)
+// server.js - ДОДАНО АВТООНОВЛЕННЯ МЕНЮ
+
 import express from 'express';
 import dotenv from 'dotenv';
 import { Telegraf } from 'telegraf';
@@ -7,7 +8,10 @@ import wayforpayService from './src/services/wayforpayService.js';
 import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
 import { installPendingFlow } from './src/middleware/pendingFlow.js';
 import { startScheduler } from './src/utils/scheduler.js';
-import { SCHEDULE } from './src/config/constants.js'; // ✅ ОДИН ІМПОРТ
+import { SCHEDULE } from './src/config/constants.js';
+
+// ✅ ДОДАНО АВТООНОВЛЕННЯ МЕНЮ
+import { autoUpdateMenusOnDev, addDevMenuCommands } from './src/utils/devMenuUpdater.js';
 
 dotenv.config();
 
@@ -23,6 +27,8 @@ console.log('- MODE:', MODE);
 console.log('- PORT:', PORT);
 console.log('- TOKEN:', TOKEN ? `${TOKEN.slice(0, 10)}...` : 'MISSING');
 console.log('- TZ:', process.env.TZ);
+console.log('- NODE_ENV:', process.env.NODE_ENV || 'не встановлено');
+console.log('- DEV MODE:', process.env.NODE_ENV !== 'production' ? 'УВІМКНЕНО' : 'ВИМКНЕНО');
 
 if (!TOKEN) {
   console.error('❌ TELEGRAM_BOT_TOKEN is missing');
@@ -57,6 +63,15 @@ try {
   process.exit(1);
 }
 
+// ✅ ДОДАЄМО DEV КОМАНДИ
+console.log('🛠️ Adding dev commands...');
+try {
+  addDevMenuCommands(bot);
+  console.log('✅ Dev commands added');
+} catch (error) {
+  console.error('❌ Error adding dev commands:', error);
+}
+
 console.log('⏰ Initializing scheduler...');
 try {
   startScheduler(bot);
@@ -77,6 +92,7 @@ app.get('/health', (_req, res) => {
     timestamp: new Date().toISOString(),
     bot: 'running',
     tz: process.env.TZ,
+    dev_mode: process.env.NODE_ENV !== 'production'
   });
 });
 
@@ -94,6 +110,22 @@ app.post('/api/wayforpay/webhook', async (req, res) => {
     res.status(400).json(response);
   }
 });
+
+// ✅ ДОДАНО DEV ENDPOINT ДЛЯ РУЧНОГО ОНОВЛЕННЯ МЕНЮ
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/dev/update-menus', async (req, res) => {
+    try {
+      const { quickMenuUpdate } = await import('./src/utils/devMenuUpdater.js');
+      await quickMenuUpdate(bot);
+      res.json({ status: 'success', message: 'Menus updated for all users' });
+    } catch (error) {
+      console.error('[dev-endpoint] Помилка оновлення меню:', error);
+      res.status(500).json({ status: 'error', message: error.message });
+    }
+  });
+  
+  console.log('🛠️ Dev endpoint added: POST /dev/update-menus');
+}
 
 // ==== Run bot ====
 if (MODE === 'local') {
@@ -118,6 +150,11 @@ if (MODE === 'local') {
       },
     });
     console.log('✅ Polling started');
+    
+    // ✅ АВТООНОВЛЕННЯ МЕНЮ ПІСЛЯ ЗАПУСКУ БОТА
+    console.log('🔄 Starting auto menu update...');
+    await autoUpdateMenusOnDev(bot);
+    
   } catch (error) {
     console.error('❌ STARTUP ERROR (polling):', error);
     process.exit(1);
@@ -126,6 +163,9 @@ if (MODE === 'local') {
   app.listen(PORT, () => {
     console.log(`🌐 Webhook server running on http://localhost:${PORT}`);
     console.log(`📡 WayForPay endpoint: http://localhost:${PORT}/api/wayforpay/webhook`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🛠️ Dev menu update endpoint: http://localhost:${PORT}/dev/update-menus`);
+    }
   });
 } else {
   console.log(`🚀 Production mode: webhook server (PORT=${PORT})`);

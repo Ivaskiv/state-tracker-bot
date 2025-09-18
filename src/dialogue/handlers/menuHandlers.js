@@ -1,4 +1,4 @@
-// src/dialogue/handlers/menuHandlers.js - ВИПРАВЛЕНО КОЛЕСО БАЛАНСУ
+// src/dialogue/handlers/menuHandlers.js - ВИПРАВЛЕНО ПОВНІСТЮ
 
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
@@ -14,33 +14,44 @@ import userService from '../../auth/services/userService.js';
 
 const handleMenuCommands = async (ctx, user, text, bot) => {
   logger.info(`📋 [MENU] Обробка команди: "${text}"`);
+  console.log(`[MENU] 🔍 ДЕТАЛЬНА ДІАГНОСТИКА:`);
+  console.log(`- Текст: "${text}"`);
+  console.log(`- Користувач: ${user['User Name']}`);
+  console.log(`- Підписка: ${user['Active_Subscription_Status']}`);
+  console.log(`- isActiveSubscription: ${isActiveSubscription(user)}`);
+
+  // ✅ КОЛЕСО БАЛАНСУ - ПЕРШОЧЕРГОВА ОБРОБКА
+  if (text === '🎯 Колесо балансу') {
+    console.log(`🎯 [MENU] ЗНАЙДЕНО команду колеса балансу!`);
+    
+    if (!isActiveSubscription(user)) {
+      console.log(`❌ [MENU] Немає активної підписки для колеса балансу`);
+      return await restrictAccessMessage('🎯 Колесо балансу', ctx);
+    }
+    
+    console.log(`✅ [MENU] Запускаємо колесо балансу для ${ctx.from.id}`);
+    return await wheelBalanceController.handleWheelBalanceRequest(ctx);
+  }
 
   // AI наставник
   if (text === '🤖 AI наставник') {
+    console.log(`🤖 [MENU] ЗНАЙДЕНО команду AI наставника!`);
     if (!isActiveSubscription(user)) {
       return await restrictAccessMessage('🤖 AI-наставник', ctx);
     }
     return await aiMentorController.handleAIMentorRequest(ctx);
   }
 
-  // ✅ КОЛЕСО БАЛАНСУ - ПРЯМЕ ВИКЛИКАННЯ
-  if (text === '🎯 Колесо балансу') {
-    if (!isActiveSubscription(user)) {
-      return await restrictAccessMessage('🎯 Колесо балансу', ctx);
-    }
-    
-    // Прямо запускаємо колесо балансу
-    return await wheelBalanceController.handleWheelBalanceRequest(ctx);
-  }
-
   // Афірмації
   if (text === '💎 Афірмація') {
+    console.log(`💎 [MENU] ЗНАЙДЕНО команду афірмації!`);
     const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
     return await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
   }
 
   // Звіти
   if (text === '📈 Щотижневий звіт') {
+    console.log(`📈 [MENU] ЗНАЙДЕНО команду щотижневого звіту!`);
     if (!isActiveSubscription(user)) {
       return await restrictAccessMessage('📋 Щотижневий звіт', ctx);
     }
@@ -48,6 +59,7 @@ const handleMenuCommands = async (ctx, user, text, bot) => {
   }
 
   if (text === '📈 Щомісячний звіт') {
+    console.log(`📈 [MENU] ЗНАЙДЕНО команду щомісячного звіту!`);
     if (!isActiveSubscription(user)) {
       return await restrictAccessMessage('📋 Щомісячний звіт', ctx);
     }
@@ -56,36 +68,55 @@ const handleMenuCommands = async (ctx, user, text, bot) => {
 
   // Прогрес
   if (text === '📊 Мій прогрес') {
+    console.log(`📊 [MENU] ЗНАЙДЕНО команду прогресу!`);
     return await showUserProgress(ctx, user);
   }
 
   // Підписка
   if (text === '💰 Підписка') {
+    console.log(`💰 [MENU] ЗНАЙДЕНО команду підписки!`);
     return await showSubscriptionInfo(ctx, user);
   }
 
   // Допомога
   if (text === '❓ Допомога') {
+    console.log(`❓ [MENU] ЗНАЙДЕНО команду допомоги!`);
     return await ctx.reply(MENU_TEXTS.HELP, keyboards.mainMenuKeyboard());
   }
 
   // Контакти
   if (text === '📞 Зв\'язок з нами') {
+    console.log(`📞 [MENU] ЗНАЙДЕНО команду контактів!`);
     return await ctx.reply(MENU_TEXTS.CONTACT, keyboards.supportKeyboard());
   }
 
   // Інструкції
   if (text === '📝 Інструкції') {
+    console.log(`📝 [MENU] ЗНАЙДЕНО команду інструкцій!`);
     return await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.mainMenuKeyboard());
   }
 
   // Профіль
   if (text === 'ℹ️ Профіль') {
+    console.log(`ℹ️ [MENU] ЗНАЙДЕНО команду профілю!`);
     return await showUserProfile(ctx, user);
   }
 
   // Якщо команда не знайдена
-  logger.info(`❓ [MENU] Невідома команда: "${text}"`);
+  console.log(`❓ [MENU] НЕВІДОМА команда: "${text}"`);
+  console.log(`[MENU] Доступні команди:`);
+  console.log(`- "🤖 AI наставник"`);
+  console.log(`- "🎯 Колесо балансу"`);
+  console.log(`- "💎 Афірмація"`);
+  console.log(`- "📈 Щотижневий звіт"`);
+  console.log(`- "📈 Щомісячний звіт"`);
+  console.log(`- "📊 Мій прогрес"`);
+  console.log(`- "💰 Підписка"`);
+  console.log(`- "❓ Допомога"`);
+  console.log(`- "📞 Зв'язок з нами"`);
+  console.log(`- "📝 Інструкції"`);
+  console.log(`- "ℹ️ Профіль"`);
+  
   await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
 };
 
