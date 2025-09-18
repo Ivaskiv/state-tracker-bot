@@ -50,6 +50,15 @@ export const ANSWER_STEPS = Object.freeze({
   AI_MENTOR_ACTIVE: 'ai_mentor_active',
   WHEEL_BALANCE_ACTIVE: 'wheel_balance_active',
   COMPLETED: 'completed',
+  // ДОДАНО ОНБОРДИНГ КРОКИ
+  OB_PITCH: 'ob_pitch',
+  OB_NAME: 'ob_name',
+  OB_EMAIL: 'ob_email',
+  OB_PLAN: 'ob_plan',
+  OB_PAYMENT_PENDING: 'ob_payment_pending',
+  OB_PAYMENT_SUCCESS: 'ob_payment_success',
+  OB_REMINDERS_INTRO: 'ob_reminders_intro',
+  OB_DONE: 'ob_done'
 });
 
 export const MORNING_QUESTIONS = [

@@ -1,11 +1,11 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО ДУБЛЮВАННЯ SESSION
+// src/controllers/botController.js - ВИПРАВЛЕНО ПОРЯДОК ПЕРЕВІРОК
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
 import { cancelPendingReminders } from '../middleware/pendingFlow.js';
 import { globalTypingMiddleware } from '../middleware/typingMiddleware.js';
-import { handleStart, handleRegistrationStep } from '../auth/modules/auth.js';
+import { handleStart, handleRegistrationStep, handleOnboardingCallback } from '../auth/modules/auth.js';
 import { ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 import { handleError } from '../utils/errorHandler.js';
@@ -20,6 +20,7 @@ const WHEEL_STEP = 'WheelBalance';
 
 const isActiveQuestionsStep = (step) => Boolean(step && (step.startsWith('Q_m_') || step.startsWith('Q_e_')));
 const isActiveAIStep = (step) => Boolean(step && (step === 'AI_ACTIVE' || step?.startsWith('AI_')));
+const isOnboardingStep = (step) => Boolean(step && step.startsWith('ob_'));
 
 const botController = (bot) => {
   logger.info('[botController] Initializing bot controller...');
@@ -79,9 +80,10 @@ const botController = (bot) => {
     if (!text) return;
 
     try {
+      // ✅ СПОЧАТКУ: перевіряємо онбординг
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {
-        logger.info(`[botController] ✅ Оброблено крок реєстрації для ${tgId}`);
+        logger.info(`[botController] ✅ Оброблено крок онбордингу для ${tgId}`);
         return;
       }
 
@@ -91,6 +93,15 @@ const botController = (bot) => {
         return ctx.reply('Натисніть /start', keyboards.mainMenuKeyboard());
       }
 
+      const step = user.Answer_Step;
+      
+      // ✅ ЯКЩО КОРИСТУВАЧ В ОНБОРДИНГУ - НЕ ПЕРЕВІРЯЄМО ПІДПИСКУ
+      if (isOnboardingStep(step)) {
+        logger.info(`[botController] ✅ Користувач ${tgId} в онбордингу, step: ${step}`);
+        return; // онбординг вже оброблено вище
+      }
+
+      // ✅ ТІЛЬКИ ПІСЛЯ ОНБОРДИНГУ перевіряємо підписку
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = ['💰 Підписка', '📞 Зв\'язок з нами', '❓ Допомога'];
       if (!subscriptionStatus.active && !allowedForInactive.includes(text)) {
@@ -101,7 +112,6 @@ const botController = (bot) => {
         return;
       }
 
-      const step = user.Answer_Step;
       const isActiveWheel = step === WHEEL_STEP;
       const isActiveQA = isActiveQuestionsStep(step);
       const isActiveAI = isActiveAIStep(step);
@@ -151,6 +161,24 @@ const botController = (bot) => {
     const tgId = ctx.from.id;
 
     try {
+      // ✅ СПОЧАТКУ: перевіряємо онбординг callback-и
+      const isOnboardingCallback = await handleOnboardingCallback(ctx);
+      if (isOnboardingCallback) {
+        logger.info(`[botController] ✅ Оброблено онбординг callback для ${tgId}`);
+        return;
+      }
+
+      // ✅ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ В ОНБОРДИНГУ ЗА СЕСІЄЮ
+      if (ctx.session?.step && isOnboardingStep(ctx.session.step)) {
+        logger.info(`[botController] ❌ Онбординг callback НЕ оброблено, step: ${ctx.session.step}, data: ${data}`);
+        
+        // Якщо callback не оброблено в handleOnboardingCallback, 
+        // значить це невідомий callback для онбордингу
+        await ctx.answerCbQuery('Невідома команда онбордингу');
+        return;
+      }
+
+      // ✅ ТІЛЬКИ ПІСЛЯ ПЕРЕВІРКИ ОНБОРДИНГУ - перевіряємо підписку
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = [
         'subscription_info', 'contact_support', 'subscription_plans',

@@ -19,6 +19,96 @@ const keyboards = {
     };
   },
 
+  // ========================================
+  // ОНБОРДИНГ КЛАВІАТУРИ - ДОДАНО
+  // ========================================
+
+  // ob_pitch
+  onboardingStartKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✅ Почати', callback_data: 'onboarding_start' }],
+          [{ text: 'ℹ️ Про бота', callback_data: 'onboarding_about' }]
+        ]
+      }
+    };
+  },
+
+  // ob_plan
+  onboardingPlanKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🎯 Тиждень 7€', callback_data: 'pick_plan_week_7' }],
+          [{ text: '📅 Місяць 30€', callback_data: 'pick_plan_month_30' }],
+          [{ text: '🗓️ Рік 300€', callback_data: 'pick_plan_year_300' }]
+        ]
+      }
+    };
+  },
+
+  // після вибору плану
+  onboardingPlanConfirmKeyboard(planValue) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💳 Оплатити', callback_data: `pay_${planValue}` }],
+          [{ text: '🔙 Змінити', callback_data: 'back_plan' }]
+        ]
+      }
+    };
+  },
+
+  // ob_payment_pending
+  onboardingPaymentPendingKeyboard(invoiceId) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔁 Перевірити оплату', callback_data: `pay_check_${invoiceId}` }]
+        ]
+      }
+    };
+  },
+
+  // ob_payment_success
+  onboardingPaymentSuccessKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⚙️ Налаштувати нагадування', callback_data: 'reminders' }]
+        ]
+      }
+    };
+  },
+
+  // ob_reminders_intro
+  onboardingRemindersKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✅ Ок', callback_data: 'rem_ok' }],
+          [{ text: '⏱️ Змінити пізніше', callback_data: 'rem_later' }]
+        ]
+      }
+    };
+  },
+
+  // ob_done
+  onboardingWheelStartKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🧭 Почати колесо', callback_data: 'wheel_start' }]
+        ]
+      }
+    };
+  },
+
+  // ========================================
+  // ІСНУЮЧІ КЛАВІАТУРИ
+  // ========================================
+
   // AI наставник
   aiMentorStartKeyboard() {
     return {
