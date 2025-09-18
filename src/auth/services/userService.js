@@ -1,4 +1,4 @@
-// src/auth/services/userService.js - ВИПРАВЛЕНО СТВОРЕННЯ КОРИСТУВАЧА
+// src/auth/services/userService.js - МІНІМАЛЬНА ВЕРСІЯ ТІЛЬКИ З БАЗОВИМИ ПОЛЯМИ
 import { getBase } from '../../config/database.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 
@@ -17,81 +17,18 @@ const getActiveUsers = async () => {
   }
 };
 
-// Виправлена функція в src/auth/services/userService.js
-
 const getUserByTelegramId = async (tgId) => {
   try {
-    console.log(`[userService] 🔍 ПОШУК користувача з TG_id: ${tgId}`);
-    console.log(`[userService] Тип TG_id: ${typeof tgId}`);
-    
     const base = getBase();
-    const tgIdString = String(tgId);
-    
-    console.log(`[userService] Конвертований в рядок: "${tgIdString}"`);
-    
-    // ✅ ЄДИНИЙ ПРАВИЛЬНИЙ СПОСІБ ПОШУКУ - як рядок
-    const records = await base('Users').select({
-      filterByFormula: `{TG_id} = "${tgIdString}"`,
-      maxRecords: 1
-    }).firstPage();
-    
-    console.log(`[userService] 📊 Результат пошуку: знайдено ${records.length} записів`);
-    
-    if (records.length > 0) {
-      const user = records[0].fields;
-      console.log(`[userService] ✅ КОРИСТУВАЧ ЗНАЙДЕНИЙ:`);
-      console.log(`- Запис ID: ${records[0].id}`);
-      console.log(`- TG_id з бази: ${user['TG_id']}`);
-      console.log(`- Ім'я: ${user['User Name']}`);
-      console.log(`- Email: ${user['Email'] || 'не вказано'}`);
-      console.log(`- Підписка: ${user['Active_Subscription_Status'] || 'не вказано'}`);
-      
-      return user;
-    }
-    
-    // Якщо не знайшли - діагностика
-    console.log(`[userService] ❌ КОРИСТУВАЧ НЕ ЗНАЙДЕНИЙ`);
-    console.log(`[userService] 🔍 ДІАГНОСТИКА - перевіряємо що є в базі...`);
-    
-    try {
-      const allUsers = await base('Users').select({
-        maxRecords: 5,
-        fields: ['TG_id', 'User Name'],
-        sort: [{ field: 'TG_id', direction: 'desc' }]
-      }).firstPage();
-      
-      console.log(`[userService] 📋 Останні 5 користувачів в базі:`);
-      allUsers.forEach((record, index) => {
-        console.log(`${index + 1}. TG_id: "${record.fields.TG_id}" (тип: ${typeof record.fields.TG_id}), Ім'я: "${record.fields['User Name']}"`);
-      });
-      
-      // Перевіряємо чи є подібні ID
-      const similarUsers = allUsers.filter(record => {
-        const dbTgId = String(record.fields.TG_id || '');
-        return dbTgId.includes(tgIdString) || tgIdString.includes(dbTgId);
-      });
-      
-      if (similarUsers.length > 0) {
-        console.log(`[userService] 🔍 Знайдено подібні TG_id:`);
-        similarUsers.forEach(record => {
-          console.log(`- "${record.fields.TG_id}" (шукали: "${tgIdString}")`);
-        });
-      }
-      
-    } catch (diagError) {
-      console.error(`[userService] ❌ Помилка діагностики:`, diagError);
-    }
-    
-    return null;
-    
+    const records = await base('Users')
+      .select({
+        filterByFormula: `{TG_id} = '${tgId}'`,
+      })
+      .firstPage();
+    return records.length > 0 ? records[0].fields : null;
   } catch (error) {
-    console.error('[userService.getUserByTelegramId] ❌ КРИТИЧНА ПОМИЛКА:', {
-      message: error.message,
-      stack: error.stack,
-      tgId,
-      tgIdType: typeof tgId
-    });
-    throw error; // Пробрасываем ошибку выше для обработки
+    console.error('[userService.getUserByTelegramId] Помилка:', error);
+    return null;
   }
 };
 
@@ -121,8 +58,9 @@ const updateUserActivity = async (tgId) => {
       })
       .firstPage();
     if (records.length > 0) {
+      // Спробуємо оновити тільки Answer_Step як показник активності
       await base('Users').update(records[0].id, { 
-        Last_Activity: new Date().toISOString() 
+        Answer_Step: ANSWER_STEPS.COMPLETED 
       });
       console.log(`[userService] Оновлено активність для ${tgId}`);
     }
@@ -131,7 +69,7 @@ const updateUserActivity = async (tgId) => {
   }
 };
 
-// ВИПРАВЛЕНО: правильні назви полів та обробка помилок
+// ✅ МІНІМАЛЬНА ВЕРСІЯ - тільки обов'язкові поля
 const createUser = async ({ tgId, name, email, phone, timezone }) => {
   try {
     console.log(`[userService] 🆕 Створення користувача:`, {
@@ -144,37 +82,62 @@ const createUser = async ({ tgId, name, email, phone, timezone }) => {
     
     const base = getBase();
     
-    // ВИПРАВЛЕНО: правильна структура даних для Airtable
-    const userData = {
-      'TG_id': String(tgId), // ВАЖЛИВО: конвертуємо в строку
-      'User Name': name || 'Користувач',
-      'Email': email || null,
-      'Phone': phone || null,
-      'Time_Zone': timezone || 'Europe/Prague',
-      'Active_Subscription_Status': '❌ Неактивна',
-      'Active Subscription Plan': null,
-      'Subscription Status': 'Inactive',
-      'Answer_Step': ANSWER_STEPS.COMPLETED,
-      'Last_Activity': new Date().toISOString(),
-      'Created_At': new Date().toISOString() // ДОДАНО дата створення
+    // ✅ СПОЧАТКУ спробуємо тільки обов'язкові поля
+    let userData = {
+      'TG_id': String(tgId),
+      'User Name': name || 'Користувач'
     };
     
-    console.log(`[userService] 📝 Дані для збереження:`, userData);
+    console.log(`[userService] 📝 Спроба 1 - мінімальні дані:`, userData);
     
-    const record = await base('Users').create(userData);
-    
-    console.log(`[userService] ✅ Користувача створено успішно:`, {
-      id: record.id,
-      tgId: userData['TG_id'],
-      name: userData['User Name'],
-      timezone: userData['Time_Zone']
-    });
-    
-    // Повертаємо дані користувача
-    return {
-      id: record.id,
-      ...userData
-    };
+    try {
+      const record = await base('Users').create(userData);
+      console.log(`[userService] ✅ Базовий користувач створений, ID: ${record.id}`);
+      
+      // Тепер спробуємо додати додаткові поля по одному
+      const additionalFields = {};
+      
+      // Додаємо email якщо є
+      if (email) {
+        additionalFields['Email'] = email;
+      }
+      
+      // Додаємо телефон якщо є
+      if (phone) {
+        additionalFields['Phone'] = phone;
+      }
+      
+      // Додаємо часовий пояс якщо є
+      if (timezone) {
+        additionalFields['Time Zone'] = timezone;
+      }
+      
+      // Додаємо Answer_Step
+      additionalFields['Answer_Step'] = ANSWER_STEPS.COMPLETED;
+      
+      // Оновлюємо запис з додатковими полями
+      if (Object.keys(additionalFields).length > 0) {
+        try {
+          await base('Users').update(record.id, additionalFields);
+          console.log(`[userService] ✅ Додаткові поля оновлено:`, additionalFields);
+        } catch (updateError) {
+          console.warn(`[userService] ⚠️ Не вдалося оновити додаткові поля:`, updateError.message);
+          // Продовжуємо - користувач уже створений
+        }
+      }
+      
+      // Отримуємо повну інформацію про користувача
+      const fullUserRecord = await base('Users').find(record.id);
+      
+      return {
+        id: record.id,
+        ...fullUserRecord.fields
+      };
+      
+    } catch (createError) {
+      console.error(`[userService] ❌ Помилка створення базового користувача:`, createError.message);
+      throw createError;
+    }
     
   } catch (error) {
     console.error('[userService.createUser] ❌ КРИТИЧНА ПОМИЛКА:', {
@@ -187,7 +150,6 @@ const createUser = async ({ tgId, name, email, phone, timezone }) => {
       timezone
     });
     
-    // ВИПРАВЛЕНО: кидаємо помилку для обробки вище
     throw new Error(`Не вдалося створити користувача: ${error.message}`);
   }
 };
@@ -206,14 +168,13 @@ const updateUserSubscription = async (tgId, subscriptionData) => {
       return null;
     }
 
-    const updatedRecord = await base('Users').update(records[0].id, {
-      'Active_Subscription_Status': subscriptionData.status,
-      'Active Subscription Plan': subscriptionData.plan,
-      'Subscription Status': subscriptionData.subscriptionStatus,
+    // ✅ ТІЛЬКИ поля дат - найбезпечніші для оновлення
+    const updateFields = {
       'Start_Date': subscriptionData.startDate,
-      'End_Date': subscriptionData.endDate,
-      Answer_Step: ANSWER_STEPS.COMPLETED
-    });
+      'End_Date': subscriptionData.endDate
+    };
+
+    const updatedRecord = await base('Users').update(records[0].id, updateFields);
 
     console.log(`[userService] Оновлено підписку для ${tgId}: ${subscriptionData.plan}`);
     return updatedRecord.fields;
