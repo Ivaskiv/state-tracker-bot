@@ -1,4 +1,4 @@
-// src/services/wheelBalanceService.js - МІНІМАЛЬНІ ВИПРАВЛЕННЯ
+// src/services/wheelBalanceService.js - ВИПРАВЛЕНО + ДОДАНО cancelActiveWheel
 
 import { getBase, tables } from '../config/database.js';
 import { chat } from './openaiClient.js';
@@ -7,7 +7,6 @@ import logger from '../utils/logger.js';
 
 const base = getBase();
 
-// ВИПРАВЛЕНО: використовувати keyboards замість локальної функції
 const startWheelBalance = async (tgId) => {
   try {
     logger.info(`🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для ${tgId}`);
@@ -41,11 +40,35 @@ const startWheelBalance = async (tgId) => {
       `Оціни кожну сферу життя від 0 до 10\n\n` +
       `1️⃣/8 ${LIFE_SPHERES[0]}\n\nОбери оцінку:`;
 
-    // ВИПРАВЛЕНО: використовувати keyboards
-    const { default: keyboards } = await import('../utils/keyboards.js');
+    // ✅ ВИКОРИСТОВУЄМО ІНЛАЙН КЛАВІАТУРУ
+    const keyboard = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '0', callback_data: 'wheel_score_0' },
+            { text: '1', callback_data: 'wheel_score_1' },
+            { text: '2', callback_data: 'wheel_score_2' },
+            { text: '3', callback_data: 'wheel_score_3' },
+            { text: '4', callback_data: 'wheel_score_4' },
+            { text: '5', callback_data: 'wheel_score_5' }
+          ],
+          [
+            { text: '6', callback_data: 'wheel_score_6' },
+            { text: '7', callback_data: 'wheel_score_7' },
+            { text: '8', callback_data: 'wheel_score_8' },
+            { text: '9', callback_data: 'wheel_score_9' },
+            { text: '10', callback_data: 'wheel_score_10' }
+          ],
+          [
+            { text: '🚪 Вийти', callback_data: 'wheel_exit' }
+          ]
+        ]
+      }
+    };
+
     return {
       message,
-      keyboard: keyboards.wheelScoreInlineKeyboard(),
+      keyboard,
       recordId: wheelRecord.id,
       currentSphere: 0
     };
@@ -56,7 +79,34 @@ const startWheelBalance = async (tgId) => {
   }
 };
 
-// ДОДАНО: обробка callback (критично важливо)
+// ✅ ДОДАНО: функція скасування активного колеса
+const cancelActiveWheel = async (tgId) => {
+  try {
+    logger.info(`🎯 [wheelBalance] Скасування активного колеса для ${tgId}`);
+
+    const records = await base(tables.WHEEL_BALANCE)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
+      })
+      .all();
+
+    if (records.length > 0) {
+      const updates = records.map(record => ({
+        id: record.id,
+        fields: { Status: 'Cancelled' }
+      }));
+      
+      await base(tables.WHEEL_BALANCE).update(updates);
+      logger.info(`✅ [wheelBalance] Скасовано ${records.length} активних колес для ${tgId}`);
+    }
+    
+    return true;
+  } catch (error) {
+    logger.error('❌ [wheelBalance] Помилка скасування:', error);
+    throw error;
+  }
+};
+
 const processWheelCallback = async (ctx) => {
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery.data;
@@ -68,18 +118,7 @@ const processWheelCallback = async (ctx) => {
     }
     
     if (data === 'wheel_exit') {
-      await base(tables.WHEEL_BALANCE).select({
-        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
-      }).eachPage(async (records) => {
-        if (records.length > 0) {
-          const updates = records.map(record => ({
-            id: record.id,
-            fields: { Status: 'Cancelled' }
-          }));
-          await base(tables.WHEEL_BALANCE).update(updates);
-        }
-      });
-      
+      await cancelActiveWheel(tgId);
       await ctx.editMessageText('🚪 Колесо балансу скасовано');
       return { completed: true, cancelled: true };
     }
@@ -133,10 +172,16 @@ const processWheelAnswer = async (tgId, score, ctx = null) => {
         `📊 Загальний бал: ${totalScore}/10\n\n` +
         `${analysis}`;
 
-      // ВИПРАВЛЕНО: використовувати правильну клавіатуру
       if (ctx) {
-        const { default: keyboards } = await import('../utils/keyboards.js');
-        await ctx.editMessageText(message, keyboards.wheelBalanceCompleteKeyboard());
+        const keyboard = {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 Пройти знову', callback_data: 'wheel_start_new' }],
+              [{ text: '🏠 Головне меню', callback_data: 'wheel_to_menu' }]
+            ]
+          }
+        };
+        await ctx.editMessageText(message, keyboard);
       }
 
       return { message, completed: true, analysis };
@@ -153,10 +198,32 @@ const processWheelAnswer = async (tgId, score, ctx = null) => {
         `${nextStep + 1}️⃣/8 ${nextSphereName}\n\n` +
         `Обери оцінку:`;
 
-      // ВИПРАВЛЕНО: використовувати keyboards
       if (ctx) {
-        const { default: keyboards } = await import('../utils/keyboards.js');
-        await ctx.editMessageText(message, keyboards.wheelScoreInlineKeyboard());
+        const keyboard = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '0', callback_data: 'wheel_score_0' },
+                { text: '1', callback_data: 'wheel_score_1' },
+                { text: '2', callback_data: 'wheel_score_2' },
+                { text: '3', callback_data: 'wheel_score_3' },
+                { text: '4', callback_data: 'wheel_score_4' },
+                { text: '5', callback_data: 'wheel_score_5' }
+              ],
+              [
+                { text: '6', callback_data: 'wheel_score_6' },
+                { text: '7', callback_data: 'wheel_score_7' },
+                { text: '8', callback_data: 'wheel_score_8' },
+                { text: '9', callback_data: 'wheel_score_9' },
+                { text: '10', callback_data: 'wheel_score_10' }
+              ],
+              [
+                { text: '🚪 Вийти', callback_data: 'wheel_exit' }
+              ]
+            ]
+          }
+        };
+        await ctx.editMessageText(message, keyboard);
       }
 
       return {
@@ -278,9 +345,10 @@ const getUserWheelStats = async (tgId) => {
 export default {
   startWheelBalance,
   processWheelAnswer,
-  processWheelCallback, // ДОДАНО: критично важливо
+  processWheelCallback,
   getActiveWheel,
   needsWheelBalance,
   getUserWheelStats,
+  cancelActiveWheel, // ✅ ДОДАНО
   LIFE_SPHERES
 };

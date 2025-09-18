@@ -6,12 +6,12 @@ import { Telegraf, session } from 'telegraf'; // ДОДАНО session
 import botController from './src/controllers/botController.js';
 import wayforpayService from './src/services/wayforpayService.js';
 import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
-import { installPendingFlow } from './src/middleware/pendingFlow.js';
 import { startScheduler } from './src/utils/scheduler.js';
 import { SCHEDULE } from './src/config/constants.js';
 
 // ДОДАНО: автооновлення меню
 import { autoUpdateMenusOnDev, addDevMenuCommands } from './src/utils/devMenuUpdater.js';
+import { installPendingFlow } from './src/middleware/pendingFlow.js';
 
 dotenv.config();
 

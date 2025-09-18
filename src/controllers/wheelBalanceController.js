@@ -1,4 +1,4 @@
-// src/controllers/wheelBalanceController.js - ВИПРАВЛЕНО CALLBACK ТА ЗБЕРЕЖЕННЯ
+// src/controllers/wheelBalanceController.js
 
 import wheelBalanceService from '../services/wheelBalanceService.js';
 import userService from '../auth/services/userService.js';
@@ -50,7 +50,7 @@ const handleWheelBalanceRequest = async (ctx) => {
     }
 
     const result = await wheelBalanceService.startWheelBalance(tgId);
-    await userService.updateUserStep(tgId, 'WheelBalance'); // ЗМІНЕНО на правильний крок
+    await userService.updateUserStep(tgId, 'WheelBalance');
     
     await ctx.reply(result.message, result.keyboard);
     
@@ -61,7 +61,6 @@ const handleWheelBalanceRequest = async (ctx) => {
   }
 };
 
-// ДОДАНО: обробка відповідей на колесо
 const handleWheelBalanceAnswer = async (ctx, score) => {
   const tgId = ctx.from.id;
   
@@ -78,6 +77,15 @@ const handleWheelBalanceAnswer = async (ctx, score) => {
   }
 };
 
+const cancelActiveWheel = async (tgId) => {
+  try {
+    return await wheelBalanceService.cancelActiveWheel(tgId);
+  } catch (error) {
+    console.error('❌ [wheelBalanceController] Помилка скасування:', error);
+    throw error;
+  }
+};
+
 const handleWheelCallback = async (ctx) => {
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery.data;
@@ -85,7 +93,6 @@ const handleWheelCallback = async (ctx) => {
   try {
     console.log(`[wheelBalanceController] 📱 Callback: ${data} від ${tgId}`);
 
-    // ДОДАНО: обробка продовження, перезапуску, скасування
     if (data === 'wheel_continue') {
       const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
       if (activeWheel) {
@@ -111,13 +118,12 @@ const handleWheelCallback = async (ctx) => {
     }
 
     if (data === 'wheel_cancel' || data === 'wheel_exit') {
-      await wheelBalanceService.cancelActiveWheel(tgId);
+      await cancelActiveWheel(tgId);
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
       
       await ctx.editMessageText('🚪 Колесо балансу скасовано');
       await ctx.answerCbQuery('Колесо балансу скасовано');
       
-      // ДОДАНО: повертаємо до меню
       setTimeout(async () => {
         await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
       }, 1000);
@@ -135,7 +141,6 @@ const handleWheelCallback = async (ctx) => {
       return;
     }
 
-    // ВИПРАВЛЕНО: обробка оцінок
     if (data.startsWith('wheel_score_')) {
       const score = parseInt(data.replace('wheel_score_', ''));
       if (!isNaN(score) && score >= 0 && score <= 10) {
@@ -161,7 +166,6 @@ const handleWheelCallback = async (ctx) => {
   }
 };
 
-// ДОДАНО: retry callback обробка
 const handleWheelRetryCallback = async (ctx) => {
   await handleWheelCallback(ctx);
 };
@@ -196,8 +200,9 @@ const checkMonthlyWheelNeed = async (bot) => {
 
 export default {
   handleWheelBalanceRequest,
-  handleWheelBalanceAnswer, // ДОДАНО
+  handleWheelBalanceAnswer,
   handleWheelCallback,
-  handleWheelRetryCallback, // ДОДАНО
-  checkMonthlyWheelNeed
+  handleWheelRetryCallback,
+  checkMonthlyWheelNeed,
+  cancelActiveWheel
 };

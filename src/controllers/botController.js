@@ -4,7 +4,7 @@ import { session } from 'telegraf';
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
-import { cancelPendingReminders } from '../middleware/pendingFlow.js'; // ✅ заміна clearUserReminders
+import { cancelPendingReminders } from '../middleware/pendingFlow.js';
 import { globalTypingMiddleware } from '../middleware/typingMiddleware.js';
 import { handleStart, handleRegistrationStep } from '../auth/modules/auth.js';
 import { ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../config/constants.js';
@@ -12,40 +12,35 @@ import keyboards from '../utils/keyboards.js';
 import { handleError } from '../utils/errorHandler.js';
 import { completeSession } from '../utils/sessionUtils.js';
 import logger from '../utils/logger.js';
-// import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
+import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
 import { handleMenuCommands } from '../dialogue/handlers/menuHandlers.js';
 import { handleQuestionAnswer, handleRestartCallback } from '../dialogue/handlers/sessionHandlers.js';
 import subscriptionController from './subscriptionController.js';
 
 const WHEEL_STEP = 'WheelBalance';
 
-// Хелпер: чи активне якесь питання (ранок/вечір)
 const isActiveQuestionsStep = (step) => Boolean(step && (step.startsWith('Q_m_') || step.startsWith('Q_e_')));
-
-// Хелпер: чи активний AI-наставник (погодьмося на префікс)
 const isActiveAIStep = (step) => Boolean(step && (step === 'AI_ACTIVE' || step?.startsWith('AI_')));
 
 const botController = (bot) => {
   logger.info('[botController] Initializing bot controller...');
 
-  // ✅ ЛИШЕ ОДИН РАЗ: session middleware
   bot.use(session());
   bot.use(globalTypingMiddleware());
 
-  // /start
   bot.start(async (ctx) => {
     await handleStart(ctx);
   });
 
-  // /menu — повернення в меню, скидаємо активні флоу
   bot.command('menu', async (ctx) => {
     try {
       const user = await userService.getUserByTelegramId(ctx.from.id);
       if (!user) return ctx.reply('Натисніть /start');
 
-      // Обережно чистимо локальну session (без переозначення дескриптора):
-      ctx.session.step = undefined;
-      ctx.session.temp = {};
+      if (ctx.session) {
+        ctx.session.step = undefined;
+        ctx.session.temp = {};
+      }
 
       await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.COMPLETED);
       cancelPendingReminders(ctx.from.id);
@@ -58,14 +53,15 @@ const botController = (bot) => {
     }
   });
 
-  // /updatemenu — форс-оновлення клавіатури
   bot.command('updatemenu', async (ctx) => {
     try {
       const user = await userService.getUserByTelegramId(ctx.from.id);
       if (!user) return ctx.reply('Натисніть /start');
 
-      ctx.session.step = undefined;
-      ctx.session.temp = {};
+      if (ctx.session) {
+        ctx.session.step = undefined;
+        ctx.session.temp = {};
+      }
 
       await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.COMPLETED);
       cancelPendingReminders(ctx.from.id);
@@ -78,28 +74,24 @@ const botController = (bot) => {
     }
   });
 
-  // Текстові повідомлення
   bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
-    const text = ctx.message.text?.trim();
+    const text = ctx.message?.text?.trim();
     if (!text) return;
 
     try {
-      // 1) Реєстрація — обробляємо першою
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {
         logger.info(`[botController] ✅ Оброблено крок реєстрації для ${tgId}`);
         return;
       }
 
-      // 2) Користувач
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) {
         logger.warn(`[botController] ❌ Користувача ${tgId} не знайдено після реєстрації`);
         return ctx.reply('Натисніть /start', keyboards.mainMenuKeyboard());
       }
 
-      // 3) Підписка (винятки для розділів підписки/підтримки)
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = ['💰 Підписка', '📞 Зв\'язок з нами', '❓ Допомога'];
       if (!subscriptionStatus.active && !allowedForInactive.includes(text)) {
@@ -110,13 +102,11 @@ const botController = (bot) => {
         return;
       }
 
-      // 4) Активні флоу
       const step = user.Answer_Step;
       const isActiveWheel = step === WHEEL_STEP;
       const isActiveQA = isActiveQuestionsStep(step);
       const isActiveAI = isActiveAIStep(step);
 
-      // 4.1) AI-наставник (без Map/aiMentorSession)
       if (isActiveAI) {
         if (text.includes('вихід') || text === '🚪 Вийти із сесії') {
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
@@ -132,12 +122,10 @@ const botController = (bot) => {
           return;
         }
 
-        // делегуємо контролеру AI-наставника
         await aiMentorController.handleAIMentorQuestion(ctx, text);
         return;
       }
 
-      // 4.2) Колесо балансу
       if (isActiveWheel) {
         const score = parseInt(text, 10);
         if (!Number.isNaN(score) && score >= 0 && score <= 10) {
@@ -148,26 +136,22 @@ const botController = (bot) => {
         return;
       }
 
-      // 4.3) Ранкові/Вечірні питання
       if (isActiveQA) {
         const answered = await handleQuestionAnswer(ctx, user, text);
         if (answered) return;
       }
 
-      // 5) Меню/інші команди
       await handleMenuCommands(ctx, user, text, bot);
     } catch (error) {
       await handleError(ctx, error);
     }
   });
 
-  // Callback-query
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
     const tgId = ctx.from.id;
 
     try {
-      // Перевірка підписки для кнопок
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = [
         'subscription_info', 'contact_support', 'subscription_plans',
@@ -179,7 +163,6 @@ const botController = (bot) => {
         return;
       }
 
-      // Продовжити/вийти з поточної сесії (універсально)
       if (data === 'continue_answers' || data === 'skip_session') {
         const user = await userService.getUserByTelegramId(tgId);
         const step = user?.Answer_Step || '';
@@ -205,7 +188,6 @@ const botController = (bot) => {
           return;
         }
 
-        // skip_session
         await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
         cancelPendingReminders(tgId);
 
@@ -216,19 +198,16 @@ const botController = (bot) => {
         return;
       }
 
-      // Рестарт ранку/вечора
       if (['restart_morning', 'restart_evening', 'cancel_restart'].includes(data)) {
         await handleRestartCallback(ctx);
         return;
       }
 
-      // AI-наставник (інлайн дії)
       if (['ai_continue', 'ai_exit'].includes(data)) {
         await aiMentorController.handleAIMentorCallback(ctx);
         return;
       }
 
-      // Колесо балансу — всі кнопки
       if (
         data.startsWith('wheel_score_') ||
         data === 'wheel_exit' ||
@@ -240,7 +219,6 @@ const botController = (bot) => {
         return;
       }
 
-      // Підписка
       if (
         [
           'subscription_info',
