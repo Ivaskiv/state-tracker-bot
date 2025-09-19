@@ -28,7 +28,7 @@ export const handleWayForPayWebhook = async (processedData) => {
     // ДОДАНО: зберігаємо всі платежі в таблицю Subscriptions
     const subscriptionRecord = await base(tables.SUBSCRIPTIONS).create({
       TG_id: tgId || phone,
-      UserName: email || `User_${tgId}`,
+      'User Name': email || `User_${tgId}`,
       Order_Reference: orderReference,
       Payment_Status: transactionStatus,
       Status: transactionStatus === "Approved" ? "Active" : transactionStatus,
@@ -67,11 +67,11 @@ export const handleWayForPayWebhook = async (processedData) => {
 };
 
 // ДОДАНО: активація підписки користувача
+// Замінити функцію activateUserSubscription
 const activateUserSubscription = async (tgId, subscriptionData) => {
   try {
     console.log('[paymentService] 🎯 Активація підписки для:', tgId);
     
-    // Знаходимо користувача
     const users = await base(tables.USERS)
       .select({ filterByFormula: `{TG_id}='${tgId}'` })
       .firstPage();
@@ -85,16 +85,16 @@ const activateUserSubscription = async (tgId, subscriptionData) => {
     const endDate = new Date(subscriptionData.endDate);
     const endDateFormatted = endDate.toLocaleDateString("uk-UA");
     
-    // Оновлюємо статус користувача
     await base(tables.USERS).update([
       {
         id: user.id,
         fields: {
-          Active_Subscription_Status: `✅ Активна до ${endDateFormatted}`,
-          'Active Subscription Plan': subscriptionData.planName,
           'Subscription Status': "Active",
-          Start_Date: subscriptionData.startDate,
-          End_Date: subscriptionData.endDate,
+          'Active Subscription Plan': subscriptionData.planName,
+          Active_Subscription_Status: `✅ Активна до ${endDateFormatted}`,
+          Start_Date: new Date().toISOString(),
+          End_Date: endDate.toISOString(),
+          Last_Activity: new Date().toISOString(),
           Answer_Step: 'completed'
         },
       },
@@ -102,7 +102,6 @@ const activateUserSubscription = async (tgId, subscriptionData) => {
     
     console.log('[paymentService] ✅ Користувача оновлено:', tgId);
     
-    // ДОДАНО: надсилаємо повідомлення про успішну активацію
     try {
       const successMessage = 
         `🎉 Підписка успішно активована!\n\n` +
@@ -138,7 +137,7 @@ export const checkExpiringSubscriptions = async (bot) => {
     const expiringUsers = await base(tables.USERS)
       .select({
         filterByFormula: `AND(
-          FIND('✅ Активна', {Active_Subscription_Status}) > 0,
+          {Subscription Status} = 'Active',
           DATESTR({End_Date}) = '${tomorrowStr}'
         )`,
         fields: ['TG_id', 'User Name', 'Active Subscription Plan', 'End_Date']

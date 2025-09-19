@@ -391,7 +391,7 @@ Create an Airtable base with these tables:
 - `UserRegistered` (Checkbox)
 - `DateUserRegistered` (Date)
 - `Status` (Single select: New User, Active User, Inactive User)
-- `Subscription Status` (Single select: Empty, Active, Expired, Cancelled)
+- `Active_Subscription_Status` (Single select: Empty, Active, Expired, Cancelled)
 - `Active Subscription Plan` (Single line text)
 - `Start_Date` (Date)
 - `End_Date` (Date)

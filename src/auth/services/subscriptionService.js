@@ -67,7 +67,7 @@ const deactivateExpiredSubscriptions = async () => {
       id: record.id,
       fields: {
         'Active_Subscription_Status': '❌ Закінчена',
-        'Subscription Status': 'Expired',
+        'Active_Subscription_Status': 'Expired',
         Answer_Step: 'completed' // Скидаємо стан
       }
     }));
@@ -184,7 +184,7 @@ const syncUserSubscription = async (tgId) => {
             fields: {
               Active_Subscription_Status: '❌ Неактивна',
               'Active Subscription Plan': null,
-              'Subscription Status': 'Inactive',
+              'Active_Subscription_Status': 'Inactive',
               Start_Date: null,
               End_Date: null,
             },
@@ -215,7 +215,7 @@ const syncUserSubscription = async (tgId) => {
           fields: {
             Active_Subscription_Status: isStillActive ? `✅ Активна до ${endDateUA}` : '❌ Закінчена',
             'Active Subscription Plan': plan,
-            'Subscription Status': isStillActive ? 'Active' : 'Expired',
+            'Active_Subscription_Status': isStillActive ? 'Active' : 'Expired',
             Start_Date: s.Start_Date || users[0].fields.Start_Date || null,
             End_Date: s.End_Date || users[0].fields.End_Date || null,
           },
@@ -265,7 +265,7 @@ const activateDemoSubscription = async (tgId, planName = 'Демо', days = 7) =
     const fields = {
       "Active Subscription Plan": planName,
       "Active_Subscription_Status": `✅ Активна до ${endDate.toLocaleDateString('uk-UA')}`,
-      "Subscription Status": "Active",
+      "Active_Subscription_Status": "Active",
       Start_Date: startDate,
       End_Date: endDate.toISOString(),
     };

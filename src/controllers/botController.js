@@ -1,3 +1,5 @@
+// src/controllers/botController.js - ВИПРАВЛЕНО ЛОГІКУ ОНБОРДИНГУ
+
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
@@ -77,6 +79,7 @@ const botController = (bot) => {
     if (!text) return;
 
     try {
+      // ✅ СПОЧАТКУ: перевіряємо онбординг
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {
         logger.info(`[botController] ✅ Оброблено крок онбордингу для ${tgId}`);
@@ -91,16 +94,18 @@ const botController = (bot) => {
 
       const step = user.Answer_Step;
       
+      // ✅ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ В ОНБОРДИНГУ (включаючи session step)
       const sessionStep = ctx.session?.step;
       if (isOnboardingStep(step) || isOnboardingStep(sessionStep)) {
         logger.info(`[botController] ✅ Користувач ${tgId} в онбордингу, step: ${step || sessionStep}`);
-        return;
+        return; // онбординг вже оброблено вище
       }
 
+      // ✅ ТІЛЬКИ ПІСЛЯ ЗАВЕРШЕННЯ ОНБОРДИНГУ перевіряємо підписку
       const isRegistered = user['UserRegistered'] === true && user['Status'] === 'Registered User';
       if (!isRegistered) {
         logger.info(`[botController] ⚠️ Користувач ${tgId} не завершив реєстрацію`);
-        return;
+        return; // не перевіряємо підписку для незавершених користувачів
       }
 
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
@@ -162,18 +167,21 @@ const botController = (bot) => {
     const tgId = ctx.from.id;
 
     try {
+      // ✅ СПОЧАТКУ: перевіряємо онбординг callback-и
       const isOnboardingCallback = await handleOnboardingCallback(ctx);
       if (isOnboardingCallback) {
         logger.info(`[botController] ✅ Оброблено онбординг callback для ${tgId}`);
         return;
       }
 
+      // ✅ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ В ОНБОРДИНГУ ЗА СЕСІЄЮ
       if (ctx.session?.step && isOnboardingStep(ctx.session.step)) {
         logger.info(`[botController] ❌ Онбординг callback НЕ оброблено, step: ${ctx.session.step}, data: ${data}`);
         await ctx.answerCbQuery('Невідома команда онбордингу');
         return;
       }
 
+      // ✅ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ ЗАРЕЄСТРОВАНИЙ
       const user = await userService.getUserByTelegramId(tgId);
       const isRegistered = user && user['UserRegistered'] === true && user['Status'] === 'Registered User';
       
@@ -183,6 +191,7 @@ const botController = (bot) => {
         return;
       }
 
+      // ✅ ТІЛЬКИ ПІСЛЯ ПЕРЕВІРКИ РЕЄСТРАЦІЇ - перевіряємо підписку
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = [
         'subscription_info', 'contact_support', 'subscription_plans',

@@ -118,7 +118,7 @@ const deactivateExpiredSubscriptions = async () => {
       id: record.id,
       fields: {
         'Active_Subscription_Status': '❌ Закінчена',
-        'Subscription Status': 'Expired',
+        'Active_Subscription_Status': 'Expired',
         Answer_Step: 'completed'
       }
     }));

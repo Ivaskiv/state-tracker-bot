@@ -27,14 +27,14 @@ const keyboards = {
     };
   },
 
-  onboardingPlanKeyboard() {
+ onboardingPlanKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
+          [{ text: '🧪 Спробувати 7 днів безкоштовно', callback_data: 'pick_plan_trial_7d' }],
           [{ text: '🎯 Тиждень 7€', callback_data: 'pick_plan_week_7' }],
           [{ text: '📅 Місяць 30€', callback_data: 'pick_plan_month_30' }],
-          [{ text: '🗓️ Рік 300€', callback_data: 'pick_plan_year_300' }],
-          [{ text: '🧪 Free 7 днів', callback_data: 'pick_plan_trial_7d' }]
+          [{ text: '🗓️ Рік 300€', callback_data: 'pick_plan_year_300' }]
         ]
       }
     };
@@ -45,7 +45,7 @@ const keyboards = {
       reply_markup: {
         inline_keyboard: [
           [{ text: '💳 Оплатити', callback_data: `pay_${planValue}` }],
-          [{ text: '🔙 Змінити', callback_data: 'back_plan' }]
+          [{ text: '🔙 Змінити план', callback_data: 'back_plan' }]
         ]
       }
     };
@@ -200,7 +200,7 @@ const keyboards = {
         persistent: true
       }
     };
-  }
+  },
 };
 
 export default keyboards;

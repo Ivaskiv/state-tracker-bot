@@ -58,7 +58,7 @@ export async function syncUserSubscription(tgId) {
         fields: {
           Active_Subscription_Status: `✅ Активна до ${endDateUA}`,
           'Active Subscription Plan': plan,
-          'Subscription Status': 'Active',
+          'Active_Subscription_Status': 'Active',
           Start_Date: s.Start_Date || users[0].fields.Start_Date || null,
           End_Date: s.End_Date || users[0].fields.End_Date || null,
         },

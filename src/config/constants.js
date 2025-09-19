@@ -2,28 +2,28 @@
 
 export const SUBSCRIPTION_PLANS = Object.freeze({
   WEEK: {
-    name: 'Тиждень фокусу',
+    name: 'Тиждень фокусу — 7€',
     price: 7,
     duration: 7,
     description: 'Ідеально для короткого фокусу або тесту системи',
   },
   MONTH: {
-    name: 'Місяць дії',
+    name: 'Місяць дії — 30€',
     price: 30,
     duration: 30,
     description: 'Глибинна робота з твоїми цілями та стратегією',
   },
   YEAR: {
-    name: 'Рік трансформації',
+    name: 'Рік трансформації — 300€',
     price: 300,
     duration: 365,
     description: 'Максимальна економія та підтримка протягом року',
   },
   TRIAL: {
-    name: 'Пробний період',
+    name: 'Пробний тиждень',
     price: 0,
     duration: 7,
-    description: 'Безкоштовний тест на 7 дні',
+    description: 'Безкоштовний тест на 7 днів',
   }
 });
 
@@ -40,17 +40,18 @@ export const ANSWER_STEPS = Object.freeze({
   PLAN_SELECTION: 'plan_selection',
   COMPLETED: 'completed',
   
-  // ✅ ОНБОРДИНГ КРОКИ (Flow: onboarding)
+// ✅ ОНБОРДИНГ КРОКИ (Flow: onboarding)
   OB_PITCH: 'ob_pitch',
   OB_NAME: 'ob_name', 
   OB_EMAIL: 'ob_email',
+  OB_PHONE: 'ob_phone',
+  OB_TIMEZONE: 'ob_timezone', // ДОДАНО для вибору TZ
   OB_PLAN: 'ob_plan',
   OB_PAYMENT_PENDING: 'ob_payment_pending',
   OB_PAYMENT_SUCCESS: 'ob_payment_success',
   OB_REMINDERS_INTRO: 'ob_reminders_intro',
   OB_DONE: 'ob_done',
-
-  // Ранкові питання (динамічна кількість)
+  // ✅ ДИНАМІЧНІ РАНКОВІ ПИТАННЯ
   MORNING_1: 'Q_m_1',
   MORNING_2: 'Q_m_2',
   MORNING_3: 'Q_m_3',
@@ -60,7 +61,7 @@ export const ANSWER_STEPS = Object.freeze({
   AFFIRMATION_MORNING: 'affirmation_m',
   END_MORNING: 'End_m',
   
-  // Вечірні питання (динамічна кількість)
+  // ✅ ДИНАМІЧНІ ВЕЧІРНІ ПИТАННЯ
   EVENING_1: 'Q_e_1',
   EVENING_2: 'Q_e_2',
   EVENING_3: 'Q_e_3',
@@ -93,6 +94,26 @@ export const EVENING_QUESTIONS = [
   'З якої точки я діяла сьогодні: сили чи страху?\nЧесна відповідь. Що керувало тобою?\n_Мною сьогодні керувала/керував: ___________',
   'Яка моя головна перемога сьогодні?\nДія, стан, рішення — будь-який успіх.\n_Сьогодні я: ___________',
 ];
+
+// ✅ ФУНКЦІЇ ДЛЯ ДИНАМІЧНОЇ РОБОТИ З ПИТАННЯМИ
+export const getMorningStep = (questionIndex) => `Q_m_${questionIndex}`;
+export const getEveningStep = (questionIndex) => `Q_e_${questionIndex}`;
+export const getCurrentQuestionIndex = (step) => {
+  const match = step.match(/Q_[me]_(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+};
+export const isLastQuestion = (step, questions) => {
+  const index = getCurrentQuestionIndex(step);
+  return index >= questions.length;
+};
+export const getNextQuestionStep = (currentStep, questions) => {
+  const currentIndex = getCurrentQuestionIndex(currentStep);
+  if (currentIndex < questions.length) {
+    const isEvening = currentStep.startsWith('Q_e_');
+    return isEvening ? getEveningStep(currentIndex + 1) : getMorningStep(currentIndex + 1);
+  }
+  return null;
+};
 
 // ✅ КОЛЕСО БАЛАНСУ - ДИНАМІЧНА КІЛЬКІСТЬ СФЕР
 export const WHEEL_BALANCE = Object.freeze({
@@ -177,18 +198,9 @@ const parseTime = (t) => {
   return { hour: h, minute: min };
 };
 
-const addMinutes = (hour, minute, delta) => {
-  const total = (hour * 60 + minute + delta) % 1440;
-  const norm = total < 0 ? total + 1440 : total;
-  return { hour: Math.floor(norm / 60), minute: norm % 60 };
-};
-
-const cronFrom = (hour, minute) => `${minute} ${hour} * * *`;
-
 const { hour: MH, minute: MM } = parseTime(_SCHEDULE.MORNING_TIME);
 const { hour: EH, minute: EM } = parseTime(_SCHEDULE.EVENING_TIME);
 
-// Додаємо похідні значення в SCHEDULE
 _SCHEDULE.MORNING_HOUR = MH;
 _SCHEDULE.MORNING_MINUTE = MM;
 _SCHEDULE.EVENING_HOUR = EH;
@@ -197,6 +209,8 @@ _SCHEDULE.EVENING_MINUTE = EM;
 export const SCHEDULE = Object.freeze(_SCHEDULE);
 
 // ✅ CRON-ВИРАЗИ
+const cronFrom = (hour, minute) => `${minute} ${hour} * * *`;
+
 export const CRON_SCHEDULES = Object.freeze({
   MORNING_QUESTIONS: cronFrom(MH, MM),
   EVENING_QUESTIONS: cronFrom(EH, EM),
@@ -272,6 +286,8 @@ export const AI_MENTOR_CONFIG = Object.freeze({
     GOAL_HELP: 'goal_help'
   }
 });
+
+
 
 // ✅ ЛОГУВАННЯ ІНІЦІАЛІЗАЦІЇ
 console.log('✅ [constants] Константи ініціалізовано');

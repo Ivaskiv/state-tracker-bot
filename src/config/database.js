@@ -1,35 +1,37 @@
-// src/config/database.js - ВИПРАВЛЕНО ПІДКЛЮЧЕННЯ ДО AIRTABLE
+// src/config/database.js - РОЗШИРЕНІ ЛОГИ ДЛЯ ДІАГНОСТИКИ
 
 import Airtable from "airtable";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// ✅ ПЕРЕВІРКА НАЯВНОСТІ ОБОВ'ЯЗКОВИХ ЗМІННИХ
+// ✅ ПЕРЕВІРКА ENV
 if (!process.env.AIRTABLE_API_KEY) {
   console.error('❌ КРИТИЧНА ПОМИЛКА: AIRTABLE_API_KEY не встановлено в .env файлі!');
   process.exit(1);
 }
-
 if (!process.env.AIRTABLE_BASE_ID) {
   console.error('❌ КРИТИЧНА ПОМИЛКА: AIRTABLE_BASE_ID не встановлено в .env файлі!');
   process.exit(1);
 }
 
-// ✅ ЛОГУВАННЯ КОНФІГУРАЦІЇ (БЕЗ РОЗКРИТТЯ ПОВНОГО КЛЮЧА)
+const VERBOSE = process.env.AIRTABLE_VERBOSE === '1';
+
 console.log('🔗 [database] Ініціалізація Airtable з\'єднання...');
 console.log(`📋 [database] BASE_ID: ${process.env.AIRTABLE_BASE_ID}`);
 console.log(`🔑 [database] API_KEY: ${process.env.AIRTABLE_API_KEY.substring(0, 10)}...`);
+if (VERBOSE) console.log('🕵️ [database] VERBOSE режим УВІМКНЕНО (AIRTABLE_VERBOSE=1)');
 
-// ✅ СТВОРЕННЯ БАЗОВОГО З'ЄДНАННЯ
+// БАЗОВИЙ КЛІЄНТ
 const base = new Airtable({ 
   apiKey: process.env.AIRTABLE_API_KEY,
-  endpointUrl: 'https://api.airtable.com', // явно вказуємо endpoint
-  requestTimeout: 5000 // 5 секунд timeout
+  endpointUrl: 'https://api.airtable.com',
+  requestTimeout: 5000
 }).base(process.env.AIRTABLE_BASE_ID);
 
-// ✅ ФУНКЦІЯ ДЛЯ ОТРИМАННЯ БАЗОВОГО З'ЄДНАННЯ
+// Отримати новий інстанс (для параноїків щодо конекшенів)
 export const getBase = () => {
+  if (VERBOSE) console.log('[database.getBase] Новий інстанс Airtable base створено');
   return new Airtable({ 
     apiKey: process.env.AIRTABLE_API_KEY,
     endpointUrl: 'https://api.airtable.com',
@@ -37,153 +39,180 @@ export const getBase = () => {
   }).base(process.env.AIRTABLE_BASE_ID);
 };
 
-// ✅ НАЗВИ ТАБЛИЦЬ ВІДПОВІДНО ДО AIRTABLE СХЕМИ
 export const tables = Object.freeze({
-  // Основні таблиці
   USERS: 'Users',
   SUBSCRIPTIONS: 'Subscriptions',
-  
-  // Таблиці відповідей
-  RESPONSES: 'Responses', // Загальна таблиця відповідей
+  RESPONSES: 'Responses',
   USER_REFLECTIONS: 'User Reflections',
   MORNING_RESPONSES: 'Morning_Responses',
   EVENING_RESPONSES: 'Evening_Responses',
-  
-  // Афірмації
   AFFIRMATIONS: 'Affirmations',
   USER_AFFIRMATIONS: 'User Affirmations',
-  
-  // Звіти та аналітика
   USER_REPORTS: 'User Reports',
-  
-  // AI та цілі
   USER_GOALS: 'User_Goals',
   DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions',
   AI_CONVERSATIONS: 'AI_Conversations',
-  
-  // Колесо балансу
   WHEEL_BALANCE: 'WheelBalance'
 });
 
-// ✅ ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ РОБОТИ З ТАБЛИЦЯМИ
+// Внутрішній логер помилок Airtable
+const logAirtableError = (prefix, error) => {
+  const payload = {
+    message: error?.message,
+    statusCode: error?.statusCode,
+    type: error?.error?.type,
+    requestId: error?.error?.requestId,
+    details: error?.error,
+  };
+  console.error(`${prefix} ❌`, JSON.stringify(payload, null, 2));
+};
+
 export const selectFromTable = (tableName, opts = {}) => {
+  const tableKey = tables[tableName] || tableName;
+  if (VERBOSE) {
+    console.log(`[database.selectFromTable] ▶️ Таблиця: ${tableKey}`);
+    console.log(`[database.selectFromTable] ▶️ Опції:`, JSON.stringify(opts, null, 2));
+  }
   try {
-    const tableKey = tables[tableName] || tableName;
-    console.log(`[database.selectFromTable] Запит до таблиці: ${tableKey}`);
     return base(tableKey).select(opts);
   } catch (error) {
-    console.error(`[database.selectFromTable] Помилка запиту до ${tableName}:`, error);
+    logAirtableError(`[database.selectFromTable:${tableKey}]`, error);
     throw error;
   }
 };
 
-export const createRows = (tableName, rows) => {
+export const createRows = async (tableName, rows) => {
+  const tableKey = tables[tableName] || tableName;
+  if (VERBOSE) {
+    console.log(`[database.createRows] ▶️ Таблиця: ${tableKey}`);
+    console.log(`[database.createRows] ▶️ Рядків: ${rows.length}`);
+    // покажемо перший запис для звірки
+    if (rows.length) {
+      console.log(`[database.createRows] ▶️ Перший запис fields:`, JSON.stringify(rows[0]?.fields, null, 2));
+      console.log(`[database.createRows] ▶️ Ключі:`, Object.keys(rows[0]?.fields || {}));
+      console.log(`[database.createRows] ▶️ Типи:`,
+        Object.fromEntries(Object.entries(rows[0]?.fields || {}).map(([k,v]) => [k, typeof v]))
+      );
+    }
+  }
   try {
-    const tableKey = tables[tableName] || tableName;
-    console.log(`[database.createRows] Створення ${rows.length} записів в ${tableKey}`);
-    
-    // ✅ ДОДАЄМО typecast: true для всіх операцій створення
-    return base(tableKey).create(rows, { 
-      typecast: true  // Дозволяє створювати нові опції в Single Select полях
-    });
+    const res = await base(tableKey).create(rows, { typecast: true });
+    if (VERBOSE) {
+      console.log(`[database.createRows] ✅ Створено ${res.length} запис(и). IDs:`, res.map(r => r.id));
+    }
+    return res;
   } catch (error) {
-    console.error(`[database.createRows] Помилка створення в ${tableName}:`, error);
+    logAirtableError(`[database.createRows:${tableKey}]`, error);
     throw error;
   }
 };
 
-export const updateRows = (tableName, rows) => {
+export const updateRows = async (tableName, rows) => {
+  const tableKey = tables[tableName] || tableName;
+  if (VERBOSE) {
+    console.log(`[database.updateRows] ▶️ Таблиця: ${tableKey}`);
+    console.log(`[database.updateRows] ▶️ Рядків: ${rows.length}`);
+    if (rows.length) {
+      console.log(`[database.updateRows] ▶️ Перший update:`, JSON.stringify(rows[0], null, 2));
+    }
+  }
   try {
-    const tableKey = tables[tableName] || tableName;
-    console.log(`[database.updateRows] Оновлення ${rows.length} записів в ${tableKey}`);
-    
-    return base(tableKey).update(rows, { 
-      typecast: true  // Дозволяє створювати нові опції в Single Select полях
-    });
+    const res = await base(tableKey).update(rows, { typecast: true });
+    if (VERBOSE) {
+      console.log(`[database.updateRows] ✅ Оновлено ${res.length} запис(и). IDs:`, res.map(r => r.id));
+    }
+    return res;
   } catch (error) {
-    console.error(`[database.updateRows] Помилка оновлення в ${tableName}:`, error);
+    logAirtableError(`[database.updateRows:${tableKey}]`, error);
     throw error;
   }
 };
 
-// ✅ ФУНКЦІЯ ТЕСТУВАННЯ З'ЄДНАННЯ
+// у src/config/database.js в testConnection()
+
 export const testConnection = async () => {
   try {
     console.log('[database.testConnection] 🧪 Тестування з\'єднання з Airtable...');
-    
-    // Спробуємо отримати 1 запис з таблиці Users
     const testBase = getBase();
-    const records = await testBase('Users')
+
+    // 1) Проста перевірка читання
+    const page = await testBase('Users')
+      .select({ maxRecords: 1 })  // без view, якщо можливо
+      .firstPage();
+
+    console.log('[database.testConnection] ✅ З\'єднання успішне!');
+    console.log(`[database.testConnection] 📊 Таблиця Users: ${page.length > 0 ? 'містить записи' : 'порожня'}`);
+
+    // 2) Перевірка, що поля ІСНУЮТЬ у схемі (через звернення в formula)
+    const required = ['TG_id', 'User Name'];
+
+    const assertFieldExists = async (fieldName) => {
+      try {
+        // Якщо поле не існує, Airtable поверне 422 (INVALID_FILTER_BY_FORMULA)
+        await testBase('Users')
+          .select({
+            maxRecords: 1,
+            filterByFormula: `OR({${fieldName}} = '', {${fieldName}} != '')`
+          })
+          .firstPage();
+        return { field: fieldName, ok: true };
+      } catch (err) {
+        return { field: fieldName, ok: false, error: { message: err?.message, statusCode: err?.statusCode, type: err?.error?.type } };
+      }
+    };
+
+    const checks = [];
+    for (const f of required) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await assertFieldExists(f);
+      checks.push(res);
+    }
+
+    const missing = checks.filter(c => !c.ok);
+    if (missing.length) {
+      console.error('[database.testConnection] ❌ Поля НЕ знайдено у схемі (або помилка формули):');
+      missing.forEach(m => console.error(`  - ${m.field}: ${m.error?.type || m.error?.message || 'unknown'}`));
+      return { success: false, error: 'required_fields_not_found', missing: missing.map(m => m.field) };
+    }
+
+    console.log('[database.testConnection] ✅ Поля існують у схемі: ', required);
+
+    // 3) Додатково спробуємо знайти запис, де TG_id або User Name **заповнені**
+    const withValues = await testBase('Users')
       .select({
-        maxRecords: 1
+        maxRecords: 1,
+        filterByFormula: "OR({TG_id} != '', {User Name} != '')"
       })
       .firstPage();
-    
-    console.log('[database.testConnection] ✅ З\'єднання успішне!');
-    console.log(`[database.testConnection] 📊 Таблиця Users: ${records.length > 0 ? 'містить записи' : 'порожня'}`);
-    
-    if (records.length > 0) {
-      const availableFields = Object.keys(records[0].fields);
-      console.log('[database.testConnection] 🏷️ Доступні поля в Users:', availableFields);
-      
-      // Перевіряємо обов'язкові поля
-      const requiredFields = ['TG_id', 'User Name'];
-      const missingFields = requiredFields.filter(field => !availableFields.includes(field));
-      
-      if (missingFields.length > 0) {
-        console.warn('[database.testConnection] ⚠️ Відсутні обов\'язкові поля:', missingFields);
-        return { success: false, error: 'missing_required_fields', missingFields };
-      } else {
-        console.log('[database.testConnection] ✅ Всі обов\'язкові поля присутні');
-      }
+
+    if (!withValues.length) {
+      console.warn('[database.testConnection] ⚠️ У вибірці не знайшлось записів із TG_id або User Name. Ймовірно, поля існують, але або порожні, або поточна view фільтрує їх.');
+    } else {
+      console.log('[database.testConnection] ✅ Знайдено запис з TG_id/User Name заповненим.');
     }
-    
-    return { success: true, records: records.length, message: 'З\'єднання працює' };
-    
+
+    return { success: true, records: page.length, message: 'Ок' };
   } catch (error) {
     console.error('[database.testConnection] ❌ Помилка з\'єднання:', {
       message: error.message,
       statusCode: error.statusCode,
       type: error.type
     });
-    
-    // Детальна діагностика помилок
-    if (error.statusCode === 401) {
-      console.error('[database.testConnection] 🔐 Невірний API ключ');
-      return { success: false, error: 'invalid_api_key' };
-    }
-    
-    if (error.statusCode === 404) {
-      console.error('[database.testConnection] 📋 База або таблиця не знайдена');
-      console.error('💡 Можливі причини:');
-      console.error('   - Невірний AIRTABLE_BASE_ID');
-      console.error('   - Таблиця "Users" не існує');
-      console.error('   - Немає доступу до бази');
-      return { success: false, error: 'not_found' };
-    }
-    
-    if (error.statusCode === 403) {
-      console.error('[database.testConnection] 🚫 Немає прав доступу');
-      return { success: false, error: 'access_denied' };
-    }
-    
+    if (error.statusCode === 401) return { success: false, error: 'invalid_api_key' };
+    if (error.statusCode === 404) return { success: false, error: 'not_found' };
+    if (error.statusCode === 403) return { success: false, error: 'access_denied' };
     return { success: false, error: error.message };
   }
 };
 
-// ✅ ІНІЦІАЛІЗАЦІЯ ТА ТЕСТУВАННЯ ПРИ ЗАПУСКУ
 const initializeDatabase = async () => {
   console.log('🚀 [database] Ініціалізація бази даних...');
-  
   try {
     const testResult = await testConnection();
-    
     if (testResult.success) {
       console.log('✅ [database] База даних готова до роботи');
     } else {
       console.error('❌ [database] Проблема з базою даних:', testResult.error);
-      
-      // Не виходимо з процесу, але попереджаємо
       console.warn('⚠️ [database] Продовжуємо роботу, але функції бази можуть не працювати');
     }
   } catch (error) {
@@ -192,8 +221,6 @@ const initializeDatabase = async () => {
   }
 };
 
-// Запускаємо ініціалізацію
 initializeDatabase();
 
-// ✅ ЕКСПОРТ ДЛЯ ЗВОРОТНОЇ СУМІСНОСТІ
 export default base;
