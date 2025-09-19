@@ -1,7 +1,4 @@
-// src/utils/keyboards.js - ОНОВЛЕНО З КОЛЕСОМ БАЛАНСУ ТА ВСІМА ФУНКЦІЯМИ
-
 const keyboards = {
-  // Головне меню (ДОДАНО колесо балансу)
   mainMenuKeyboard() {
     return {
       reply_markup: {
@@ -19,11 +16,6 @@ const keyboards = {
     };
   },
 
-  // ========================================
-  // ОНБОРДИНГ КЛАВІАТУРИ - ДОДАНО
-  // ========================================
-
-  // ob_pitch
   onboardingStartKeyboard() {
     return {
       reply_markup: {
@@ -35,20 +27,19 @@ const keyboards = {
     };
   },
 
-  // ob_plan
   onboardingPlanKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
           [{ text: '🎯 Тиждень 7€', callback_data: 'pick_plan_week_7' }],
           [{ text: '📅 Місяць 30€', callback_data: 'pick_plan_month_30' }],
-          [{ text: '🗓️ Рік 300€', callback_data: 'pick_plan_year_300' }]
+          [{ text: '🗓️ Рік 300€', callback_data: 'pick_plan_year_300' }],
+          [{ text: '🧪 Free 7 днів', callback_data: 'pick_plan_trial_7d' }]
         ]
       }
     };
   },
 
-  // після вибору плану
   onboardingPlanConfirmKeyboard(planValue) {
     return {
       reply_markup: {
@@ -60,18 +51,6 @@ const keyboards = {
     };
   },
 
-  // ob_payment_pending
-  onboardingPaymentPendingKeyboard(invoiceId) {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔁 Перевірити оплату', callback_data: `pay_check_${invoiceId}` }]
-        ]
-      }
-    };
-  },
-
-  // ob_payment_success
   onboardingPaymentSuccessKeyboard() {
     return {
       reply_markup: {
@@ -82,7 +61,6 @@ const keyboards = {
     };
   },
 
-  // ob_reminders_intro
   onboardingRemindersKeyboard() {
     return {
       reply_markup: {
@@ -94,7 +72,6 @@ const keyboards = {
     };
   },
 
-  // ob_done
   onboardingWheelStartKeyboard() {
     return {
       reply_markup: {
@@ -105,11 +82,6 @@ const keyboards = {
     };
   },
 
-  // ========================================
-  // ІСНУЮЧІ КЛАВІАТУРИ
-  // ========================================
-
-  // AI наставник
   aiMentorStartKeyboard() {
     return {
       reply_markup: {
@@ -132,7 +104,6 @@ const keyboards = {
     };
   },
 
-  // Колесо балансу (ВИПРАВЛЕНО: кнопки 0-10)
   wheelScoreInlineKeyboard() {
     return {
       reply_markup: {
@@ -160,7 +131,6 @@ const keyboards = {
     };
   },
 
-  // Завершення колеса
   wheelBalanceCompleteKeyboard() {
     return {
       reply_markup: {
@@ -172,11 +142,6 @@ const keyboards = {
     };
   },
 
-  wheelCompleteInlineKeyboard() {
-    return this.wheelBalanceCompleteKeyboard();
-  },
-
-  // Продовження сесій
   continueAnswersKeyboard() {
     return {
       reply_markup: {
@@ -188,13 +153,12 @@ const keyboards = {
     };
   },
 
-  // Підписка (ДОДАНО нові кнопки)
   subscriptionKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
           [{ text: '💰 Інформація про підписку', callback_data: 'subscription_info' }],
-          [{ text: '🔄 Оновити статус', callback_data: 'subscription_sync' }],
+          [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
           [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }]
         ]
       }
@@ -213,20 +177,6 @@ const keyboards = {
     };
   },
 
-  // Реєстрація
-  skipKeyboard() {
-    return {
-      reply_markup: {
-        keyboard: [
-          [{ text: '⏭️ Пропустити' }]
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: true
-      }
-    };
-  },
-
-  // Утиліти
   removeKeyboard() {
     return {
       reply_markup: {
@@ -235,7 +185,6 @@ const keyboards = {
     };
   },
 
-  // Форсоване оновлення меню
   forceUpdateKeyboard() {
     return {
       reply_markup: {

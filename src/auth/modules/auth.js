@@ -1,10 +1,7 @@
-// src/auth/modules/auth.js - ОСТАТОЧНО ВИПРАВЛЕНО СТВОРЕННЯ КОРИСТУВАЧІВ
-
 import userService from '../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { isSkip, isValidEmail, isValidUaPhone } from '../../utils/validators.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
-import wayforpayService from '../../services/wayforpayService.js';
 import { SUBSCRIPTION_PLANS, ANSWER_STEPS } from '../../config/constants.js';
 
 const TIMEZONES = [
@@ -25,47 +22,8 @@ const timezoneKeyboard = () => ({
   }
 });
 
-// ——— helpers
-const isUserIncomplete = (user) => {
-  if (!user) return true;
-  
-  // ✅ ПРАВИЛЬНА ПЕРЕВІРКА ВСІХ ПОЛІВ
-  const hasName = !!user['User Name'];
-  const hasTz = !!user['Time Zone'];
-  const regCompleted = user['UserRegistered'] === true;
-  const hasActiveStatus = user['Status'] === 'Registered User' || user['Status'] === 'Active User';
-  
-  console.log(`[isUserIncomplete] Перевірка користувача:`, {
-    hasName,
-    hasTz,
-    regCompleted,
-    hasActiveStatus,
-    status: user['Status'],
-    userRegistered: user['UserRegistered']
-  });
-  
-  return !(hasName && hasTz && regCompleted && hasActiveStatus);
-};
-
 const parseTz = (label) => (label || '').split(' ')[0];
 
-function startRegSession(ctx, name) {
-  if (!ctx.session) ctx.session = {};
-  ctx.session.step = ANSWER_STEPS.OB_PITCH;
-  ctx.session.temp = {
-    name: name || ctx.from.first_name || 'Користувач',
-    tgId: ctx.from.id,
-    username: ctx.from.username || null
-  };
-}
-
-function resetRegSession(ctx) {
-  if (!ctx.session) return;
-  ctx.session.step = undefined;
-  ctx.session.temp = {};
-}
-
-// ——— /start
 export async function handleStart(ctx) {
   const tgId = ctx.from.id;
   const name = ctx.from.first_name || 'Користувач';
@@ -76,36 +34,40 @@ export async function handleStart(ctx) {
     let user = null;
     try {
       user = await userService.getUserByTelegramId(tgId);
-      console.log(`[auth.handleStart] Користувач ${tgId} знайдений:`, user ? 'ТАК' : 'НІ');
-      
-      if (user) {
-        console.log(`[auth.handleStart] Дані користувача:`, {
-          name: user['User Name'],
-          registered: user['UserRegistered'],
-          status: user['Status'],
-          timezone: user['Time Zone']
-        });
-      }
+      console.log(`[auth.handleStart] Користувач знайдений:`, user ? 'ТАК' : 'НІ');
     } catch (e) {
       console.error('[auth.handleStart] DB error:', e);
       await ctx.reply('❌ Помилка доступу до бази. Спробуй пізніше.');
       return;
     }
 
-    // ✅ ПЕРЕВІРКА ЧИ ПОТРІБЕН ОНБОРДИНГ
-    if (!user || isUserIncomplete(user)) {
+    if (!user) {
+      console.log(`[auth.handleStart] 🆕 Створення нового користувача ${tgId}`);
+      await userService.createUser({
+        tgId: tgId,
+        name: name,
+        email: null,
+        phone: null,
+        timezone: null,
+        registrationStatus: 'in_progress'
+      });
+      console.log(`[auth.handleStart] ✅ Базового користувача створено`);
+      user = await userService.getUserByTelegramId(tgId);
+    }
+
+    const isComplete = user && user['UserRegistered'] === true && user['Status'] === 'Registered User';
+    
+    if (!isComplete) {
+      console.log(`[auth.handleStart] 🎯 Запуск онбордингу для ${tgId}`);
       
-      // ✅ ЯКЩО КОРИСТУВАЧА НЕМАЄ - НЕ СТВОРЮЄМО ЗАРАЗ, ЧЕКАЄМО ЗАВЕРШЕННЯ ОНБОРДИНГУ
-      if (!user) {
-        console.log(`[auth.handleStart] 🆕 Новий користувач ${tgId}, НЕ створюємо зараз - чекаємо онбординг`);
-      } else {
-        console.log(`[auth.handleStart] ⚠️ Користувач ${tgId} існує, але реєстрація незавершена`);
-      }
-      
-      // ✅ ЗАПУСКАЄМО ОНБОРДИНГ БЕЗ СТВОРЕННЯ КОРИСТУВАЧА
-      resetRegSession(ctx);
-      startRegSession(ctx, name);
-      
+      if (!ctx.session) ctx.session = {};
+      ctx.session.step = ANSWER_STEPS.OB_PITCH;
+      ctx.session.temp = {
+        name: name,
+        tgId: tgId,
+        username: ctx.from.username || null
+      };
+
       await ctx.reply(
         `Я твій АІ мотиватор‑коуч. Короткі щоденні питання → фокус → прогрес. Поїхали?`,
         keyboards.onboardingStartKeyboard()
@@ -113,9 +75,9 @@ export async function handleStart(ctx) {
       return;
     }
 
-    // ✅ КОРИСТУВАЧ ІСНУЄ І ЗАРЕЄСТРОВАНИЙ ПОВНІСТЮ - ПОКАЗУЄМО МЕНЮ
-    console.log(`[auth.handleStart] Користувач ${tgId} повністю зареєстрований, перевіряємо підписку`);
+    console.log(`[auth.handleStart] ✅ Користувач повністю зареєстрований`);
     const active = user['Active_Subscription_Status']?.includes('✅ Активна');
+    
     if (active) {
       await ctx.reply(
         `Привіт знову, ${name}! 👋\n\n✅ Підписка активна. Поїхали далі?`,
@@ -127,47 +89,56 @@ export async function handleStart(ctx) {
         keyboards.subscriptionKeyboard()
       );
     }
+
   } catch (error) {
-    console.error('[auth.handleStart] fatal:', error);
+    console.error('[auth.handleStart] Критична помилка:', error);
     await ctx.reply('❌ Помилка. Спробуй /start ще раз або напиши: nadyastarway@gmail.com');
   }
 }
 
-// ——— кроки онбордингу
 export async function handleRegistrationStep(ctx) {
-  if (!ctx.session) return false;
+  if (!ctx.session || !ctx.session.step) return false;
 
   const step = ctx.session.step;
   const text = (ctx.message?.text || '').trim();
 
-  if (!step || !step.startsWith('ob_')) return false;
+  if (!step.startsWith('ob_')) return false;
 
   try {
-    // ім'я
+    const tgId = ctx.session.temp?.tgId || ctx.from.id;
+
     if (step === ANSWER_STEPS.OB_NAME) {
       if (!text || text.length < 2 || text.length > 30) {
         await ctx.reply('Краще коротше/довше: 2–30 символів.');
         return true;
       }
+
+      await userService.updateUser(tgId, { 'User Name': text.trim() });
+      
       ctx.session.temp.name = text.trim();
       ctx.session.step = ANSWER_STEPS.OB_EMAIL;
       await ctx.reply('Введи e‑mail для чеків і доступів.');
       return true;
     }
 
-    // email
     if (step === ANSWER_STEPS.OB_EMAIL) {
       if (!isSkip(text) && text && !isValidEmail(text)) {
         await ctx.reply('Схоже на помилку у адресі. Введи e‑mail ще раз.');
         return true;
       }
-      ctx.session.temp.email = isSkip(text) ? null : text;
+
+      const email = isSkip(text) ? null : text;
+      
+      if (email) {
+        await userService.updateUser(tgId, { 'Email': email });
+      }
+
+      ctx.session.temp.email = email;
       ctx.session.step = 'reg_timezone';
       await ctx.reply('Обери часовий пояс для нагадувань:', timezoneKeyboard());
       return true;
     }
 
-    // ✅ TZ + СТВОРЕННЯ АБО ОНОВЛЕННЯ КОРИСТУВАЧА
     if (step === 'reg_timezone') {
       const picked = TIMEZONES.find((tz) => tz === text);
       if (!picked) {
@@ -176,68 +147,16 @@ export async function handleRegistrationStep(ctx) {
       }
 
       const tz = parseTz(picked);
-      const tgId = ctx.session.temp.tgId;
       
-      try {
-        console.log(`[auth.handleRegistrationStep] 💾 ЗБЕРЕЖЕННЯ ДАНИХ КОРИСТУВАЧА ${tgId}`);
-        
-        // ✅ СПОЧАТКУ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ УЖЕ ІСНУЄ
-        const existingUser = await userService.getUserByTelegramId(tgId);
-        
-        if (existingUser) {
-          console.log(`[auth.handleRegistrationStep] 🔄 Оновлюємо існуючого користувача ${tgId}`);
-          
-          // ✅ ОНОВЛЕННЯ ІСНУЮЧОГО КОРИСТУВАЧА
-          const { getBase } = await import('../../config/database.js');
-          const base = getBase();
-          
-          const records = await base('Users')
-            .select({
-              filterByFormula: `{TG_id} = '${tgId}'`,
-            })
-            .firstPage();
-            
-          if (records.length > 0) {
-            await base('Users').update(records[0].id, {
-              'User Name': ctx.session.temp.name,
-              'Email': ctx.session.temp.email,
-              'Time Zone': tz,
-              'UserRegistered': true, 
-              'Status': 'Registered User',
-              'DateUserRegistered': new Date().toISOString()
-            }, { typecast: true });
-            
-            console.log(`[auth.handleRegistrationStep] ✅ Користувача ${tgId} оновлено`);
-          }
-          
-        } else {
-          console.log(`[auth.handleRegistrationStep] 🆕 СТВОРЮЄМО НОВОГО КОРИСТУВАЧА ${tgId}`);
-          
-          // ✅ СТВОРЕННЯ НОВОГО КОРИСТУВАЧА З ПОВНИМИ ДАНИМИ
-          await userService.createUser({
-            tgId: tgId,
-            name: ctx.session.temp.name,
-            email: ctx.session.temp.email,
-            phone: null,
-            timezone: tz,
-            registrationStatus: 'done' // ✅ завершена реєстрація
-          });
-          
-          console.log(`[auth.handleRegistrationStep] ✅ Нового користувача ${tgId} створено`);
-        }
-        
-      } catch (updateError) {
-        console.error('[auth.handleRegistrationStep] ❌ КРИТИЧНА ПОМИЛКА збереження користувача:', {
-          error: updateError.message,
-          statusCode: updateError.statusCode,
-          tgId: tgId
-        });
-        
-        await ctx.reply('❌ Помилка збереження даних. Спробуй ще раз.');
-        return true;
-      }
+      await userService.updateUser(tgId, {
+        'Time Zone': tz,
+        'UserRegistered': true,
+        'Status': 'Registered User',
+        'DateUserRegistered': new Date().toISOString()
+      });
 
-      // ✅ ПЕРЕХОДИМО ДО ПЛАНІВ
+      console.log(`[auth.handleRegistrationStep] ✅ Реєстрація завершена для ${tgId}`);
+
       ctx.session.step = ANSWER_STEPS.OB_PLAN;
 
       await ctx.reply(
@@ -252,48 +171,40 @@ export async function handleRegistrationStep(ctx) {
       
       return true;
     }
+
   } catch (error) {
-    console.error('[auth.handleRegistrationStep] error:', error);
-    resetRegSession(ctx);
+    console.error('[auth.handleRegistrationStep] Помилка:', error);
     await ctx.reply('❌ Помилка реєстрації. Натисни /start, щоб почати заново.');
   }
 
   return false;
 }
 
-// ——— обробка callback-ів онбордингу
 export async function handleOnboardingCallback(ctx) {
   const data = ctx.callbackQuery?.data;
   if (!data || !ctx.session) return false;
 
-  console.log(`[handleOnboardingCallback] Отримано callback: ${data}, session step: ${ctx.session?.step}`);
+  console.log(`[handleOnboardingCallback] Callback: ${data}, session step: ${ctx.session?.step}`);
 
   try {
-    // ✅ ПЕРЕВІРКА ЧИ ЦЕ ДІЙСНО ОНБОРДИНГ CALLBACK
     const onboardingCallbacks = [
       'onboarding_start', 'onboarding_about', 'pick_plan_', 'back_plan', 
       'pay_', 'pay_check_', 'reminders', 'rem_ok', 'rem_later', 'wheel_start'
     ];
     
     const isOnboardingCallback = onboardingCallbacks.some(cb => data.startsWith(cb) || data === cb);
-    
-    if (!isOnboardingCallback) {
-      console.log(`[handleOnboardingCallback] ❌ Це НЕ онбординг callback: ${data}`);
-      return false; // ✅ Повертаємо false, щоб обробив subscriptionController
-    }
+    if (!isOnboardingCallback) return false;
 
-    // Початок онбордингу
+    const tgId = ctx.session.temp?.tgId || ctx.from.id;
+
     if (data === 'onboarding_start') {
-      console.log(`[handleOnboardingCallback] Обробляємо onboarding_start`);
       ctx.session.step = ANSWER_STEPS.OB_NAME;
       await ctx.editMessageText('Як звертатись до тебе? Введи ім\'я (2–30 символів).');
       await ctx.answerCbQuery();
       return true;
     }
 
-    // Про бота
     if (data === 'onboarding_about') {
-      console.log(`[handleOnboardingCallback] Обробляємо onboarding_about`);
       await ctx.editMessageText(
         'ℹ️ ПРО БОТА\n\naiMentor - твій персональний коуч для щоденної трансформації.\n\n🌅 Ранкові питання для фокусу\n🌙 Вечірні питання для аналізу\n📊 AI-звіти та інсайти\n🎯 Колесо балансу\n💎 Щоденні афірмації',
         keyboards.onboardingStartKeyboard()
@@ -302,9 +213,7 @@ export async function handleOnboardingCallback(ctx) {
       return true;
     }
 
-    // Вибір плану
     if (data.startsWith('pick_plan_')) {
-      console.log(`[handleOnboardingCallback] Обробляємо pick_plan`);
       const planValue = data.replace('pick_plan_', '');
       ctx.session.selectedPlan = planValue;
       
@@ -319,9 +228,7 @@ export async function handleOnboardingCallback(ctx) {
       return true;
     }
 
-    // Повернутись до вибору плану
     if (data === 'back_plan') {
-      console.log(`[handleOnboardingCallback] Обробляємо back_plan`);
       ctx.session.step = ANSWER_STEPS.OB_PLAN;
       await ctx.editMessageText(
         'Обери план, що підходить зараз.',
@@ -331,9 +238,7 @@ export async function handleOnboardingCallback(ctx) {
       return true;
     }
 
-    // Оплата
     if (data.startsWith('pay_')) {
-      console.log(`[handleOnboardingCallback] Обробляємо pay`);
       const planValue = data.replace('pay_', '');
       const planInfo = getPlanInfo(planValue);
       
@@ -342,8 +247,35 @@ export async function handleOnboardingCallback(ctx) {
         return true;
       }
 
+      if (planValue === 'trial_7d') {
+        try {
+          const endDate = new Date();
+          endDate.setDate(endDate.getDate() + 7);
+          
+          await userService.updateUser(tgId, {
+            'Active_Subscription_Status': `✅ Активна до ${endDate.toLocaleDateString('uk-UA')}`,
+            'Active Subscription Plan': planInfo.name,
+            'Subscription Status': 'Active',
+            'Start_Date': new Date().toISOString(),
+            'End_Date': endDate.toISOString()
+          });
+
+          ctx.session.step = ANSWER_STEPS.OB_PAYMENT_SUCCESS;
+          
+          await ctx.editMessageText(
+            `✅ Пробний період активовано! Підписка активна до ${endDate.toLocaleDateString('uk-UA')}.`,
+            keyboards.onboardingPaymentSuccessKeyboard()
+          );
+          await ctx.answerCbQuery('Пробний період активовано!');
+          return true;
+        } catch (error) {
+          console.error('[handleOnboardingCallback] Помилка активації пробного періоду:', error);
+          await ctx.answerCbQuery('Помилка активації');
+          return true;
+        }
+      }
+
       try {
-        const tgId = ctx.from.id;
         const orderReference = `ONBOARD_${planValue.toUpperCase()}_${tgId}_${Date.now()}`;
         
         const WAYFORPAY_LINKS = {
@@ -357,15 +289,15 @@ export async function handleOnboardingCallback(ctx) {
         ctx.session.invoiceId = orderReference;
         ctx.session.step = ANSWER_STEPS.OB_PAYMENT_PENDING;
 
-        console.log(`[handleOnboardingCallback] Створено посилання WayForPay: ${paymentLink}`);
+        console.log(`[handleOnboardingCallback] ✅ Створено WayForPay посилання: ${paymentLink}`);
 
         await ctx.editMessageText(
-          `💳 ОПЛАТА ПІДПИСКИ\n\n📋 План: ${planInfo.name}\n💰 Вартість: ${planInfo.price}€\n⏰ Тривалість: ${planInfo.duration} днів\n\n🔗 Посилання для оплати:\n${paymentLink}\n\n💳 Після оплати підписка активується автоматично!`,
+          `Тримай рахунок. Оплата через WayForPay. Я зачекаю вебхук 😉\n\n💳 ОПЛАТА ПІДПИСКИ\n\n📋 План: ${planInfo.name}\n💰 Вартість: ${planInfo.price}€\n⏰ Тривалість: ${planInfo.duration} днів\n\n🔗 Посилання для оплати:\n${paymentLink}\n\n💳 Після оплати підписка активується автоматично!`,
           {
             reply_markup: {
               inline_keyboard: [
                 [{ text: '🔗 Перейти до оплати', url: paymentLink }],
-                [{ text: '🔄 Я вже оплатив', callback_data: `pay_check_${orderReference}` }]
+                [{ text: '🔁 Перевірити оплату', callback_data: `pay_check_${orderReference}` }]
               ]
             }
           }
@@ -381,9 +313,7 @@ export async function handleOnboardingCallback(ctx) {
       }
     }
 
-    // Перевірка оплати
     if (data.startsWith('pay_check_')) {
-      console.log(`[handleOnboardingCallback] Обробляємо pay_check`);
       const invoiceId = data.replace('pay_check_', '');
       
       const endDate = new Date();
@@ -398,9 +328,7 @@ export async function handleOnboardingCallback(ctx) {
       return true;
     }
 
-    // Налаштування нагадувань
     if (data === 'reminders') {
-      console.log(`[handleOnboardingCallback] Обробляємо reminders`);
       ctx.session.step = ANSWER_STEPS.OB_REMINDERS_INTRO;
       await ctx.editMessageText(
         'Ставлю фіксований графік: ранок 08:00, вечір 21:30 (за твоєю TZ). Ок?',
@@ -410,9 +338,7 @@ export async function handleOnboardingCallback(ctx) {
       return true;
     }
 
-    // Підтвердження нагадувань
     if (data === 'rem_ok' || data === 'rem_later') {
-      console.log(`[handleOnboardingCallback] Обробляємо reminders confirm`);
       ctx.session.step = ANSWER_STEPS.OB_DONE;
       await ctx.editMessageText(
         'Готово. Запускаю перше Колесо балансу — займе ~3 хвилини.',
@@ -422,31 +348,32 @@ export async function handleOnboardingCallback(ctx) {
       return true;
     }
 
-    // Запуск колеса
     if (data === 'wheel_start') {
-      console.log(`[handleOnboardingCallback] Обробляємо wheel_start`);
-      resetRegSession(ctx);
+      ctx.session.step = undefined;
+      ctx.session.temp = {};
+      ctx.session.selectedPlan = undefined;
+      ctx.session.invoiceId = undefined;
+      
       await ctx.answerCbQuery();
       await wheelBalanceController.handleWheelBalanceRequest(ctx);
       return true;
     }
 
-    console.log(`[handleOnboardingCallback] Невідомий callback: ${data}`);
     return false;
 
   } catch (error) {
-    console.error('[auth.handleOnboardingCallback] error:', error);
+    console.error('[auth.handleOnboardingCallback] Помилка:', error);
     await ctx.answerCbQuery('Помилка');
     return false;
   }
 }
 
-// ——— допоміжні функції
 function getPlanInfo(planValue) {
   const planMap = {
     'week_7': SUBSCRIPTION_PLANS.WEEK,
     'month_30': SUBSCRIPTION_PLANS.MONTH, 
-    'year_300': SUBSCRIPTION_PLANS.YEAR
+    'year_300': SUBSCRIPTION_PLANS.YEAR,
+    'trial_7d': SUBSCRIPTION_PLANS.TRIAL
   };
   return planMap[planValue] || null;
 }

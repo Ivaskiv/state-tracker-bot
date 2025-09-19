@@ -1,5 +1,3 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО ПОРЯДОК ПЕРЕВІРОК
-
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
@@ -25,7 +23,6 @@ const isOnboardingStep = (step) => Boolean(step && step.startsWith('ob_'));
 const botController = (bot) => {
   logger.info('[botController] Initializing bot controller...');
 
-  // ✅ ВИДАЛЕНО bot.use(session()) - вже додано в server.js
   bot.use(globalTypingMiddleware());
 
   bot.start(async (ctx) => {
@@ -80,7 +77,6 @@ const botController = (bot) => {
     if (!text) return;
 
     try {
-      // ✅ СПОЧАТКУ: перевіряємо онбординг
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {
         logger.info(`[botController] ✅ Оброблено крок онбордингу для ${tgId}`);
@@ -95,13 +91,18 @@ const botController = (bot) => {
 
       const step = user.Answer_Step;
       
-      // ✅ ЯКЩО КОРИСТУВАЧ В ОНБОРДИНГУ - НЕ ПЕРЕВІРЯЄМО ПІДПИСКУ
-      if (isOnboardingStep(step)) {
-        logger.info(`[botController] ✅ Користувач ${tgId} в онбордингу, step: ${step}`);
-        return; // онбординг вже оброблено вище
+      const sessionStep = ctx.session?.step;
+      if (isOnboardingStep(step) || isOnboardingStep(sessionStep)) {
+        logger.info(`[botController] ✅ Користувач ${tgId} в онбордингу, step: ${step || sessionStep}`);
+        return;
       }
 
-      // ✅ ТІЛЬКИ ПІСЛЯ ОНБОРДИНГУ перевіряємо підписку
+      const isRegistered = user['UserRegistered'] === true && user['Status'] === 'Registered User';
+      if (!isRegistered) {
+        logger.info(`[botController] ⚠️ Користувач ${tgId} не завершив реєстрацію`);
+        return;
+      }
+
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = ['💰 Підписка', '📞 Зв\'язок з нами', '❓ Допомога'];
       if (!subscriptionStatus.active && !allowedForInactive.includes(text)) {
@@ -161,24 +162,27 @@ const botController = (bot) => {
     const tgId = ctx.from.id;
 
     try {
-      // ✅ СПОЧАТКУ: перевіряємо онбординг callback-и
       const isOnboardingCallback = await handleOnboardingCallback(ctx);
       if (isOnboardingCallback) {
         logger.info(`[botController] ✅ Оброблено онбординг callback для ${tgId}`);
         return;
       }
 
-      // ✅ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ В ОНБОРДИНГУ ЗА СЕСІЄЮ
       if (ctx.session?.step && isOnboardingStep(ctx.session.step)) {
         logger.info(`[botController] ❌ Онбординг callback НЕ оброблено, step: ${ctx.session.step}, data: ${data}`);
-        
-        // Якщо callback не оброблено в handleOnboardingCallback, 
-        // значить це невідомий callback для онбордингу
         await ctx.answerCbQuery('Невідома команда онбордингу');
         return;
       }
 
-      // ✅ ТІЛЬКИ ПІСЛЯ ПЕРЕВІРКИ ОНБОРДИНГУ - перевіряємо підписку
+      const user = await userService.getUserByTelegramId(tgId);
+      const isRegistered = user && user['UserRegistered'] === true && user['Status'] === 'Registered User';
+      
+      if (!isRegistered) {
+        logger.info(`[botController] ⚠️ Користувач ${tgId} не завершив реєстрацію для callback ${data}`);
+        await ctx.answerCbQuery('Завершіть реєстрацію спочатку');
+        return;
+      }
+
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = [
         'subscription_info', 'contact_support', 'subscription_plans',
@@ -191,17 +195,16 @@ const botController = (bot) => {
       }
 
       if (data === 'continue_answers' || data === 'skip_session') {
-        const user = await userService.getUserByTelegramId(tgId);
         const step = user?.Answer_Step || '';
 
         if (data === 'continue_answers') {
           if (step.startsWith('Q_m_')) {
             const questionNum = parseInt(step.split('_')[2], 10);
-            const currentQuestion = `${questionNum}️⃣/6 ${MORNING_QUESTIONS[questionNum - 1]}`;
+            const currentQuestion = `${questionNum}️⃣/${MORNING_QUESTIONS.length} ${MORNING_QUESTIONS[questionNum - 1]}`;
             await ctx.editMessageText(`🌞 РАНКОВІ ПИТАННЯ\n\n${currentQuestion}`);
           } else if (step.startsWith('Q_e_')) {
             const questionNum = parseInt(step.split('_')[2], 10);
-            const currentQuestion = `${questionNum}️⃣/5 ${EVENING_QUESTIONS[questionNum - 1]}`;
+            const currentQuestion = `${questionNum}️⃣/${EVENING_QUESTIONS.length} ${EVENING_QUESTIONS[questionNum - 1]}`;
             await ctx.editMessageText(`🌙 ВЕЧІРНІ ПИТАННЯ\n\n${currentQuestion}`);
           } else if (step === WHEEL_STEP) {
             await ctx.editMessageText('🎯 Продовжуємо колесо балансу...');
