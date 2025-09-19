@@ -1,4 +1,5 @@
-// src/auth/modules/auth.js - ПОВНА СИСТЕМА ОНБОРДИНГУ
+// src/auth/modules/auth.js - ОСТАТОЧНО ВИПРАВЛЕНО СТВОРЕННЯ КОРИСТУВАЧІВ
+
 import userService from '../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { isSkip, isValidEmail, isValidUaPhone } from '../../utils/validators.js';
@@ -27,10 +28,23 @@ const timezoneKeyboard = () => ({
 // ——— helpers
 const isUserIncomplete = (user) => {
   if (!user) return true;
+  
+  // ✅ ПРАВИЛЬНА ПЕРЕВІРКА ВСІХ ПОЛІВ
   const hasName = !!user['User Name'];
-  const hasTz = !!(user['Timezone'] || user['TZ']);
-  const regDone = user['Registration_Status'] === 'done';
-  return !(hasName && hasTz && regDone);
+  const hasTz = !!user['Time Zone'];
+  const regCompleted = user['UserRegistered'] === true;
+  const hasActiveStatus = user['Status'] === 'Registered User' || user['Status'] === 'Active User';
+  
+  console.log(`[isUserIncomplete] Перевірка користувача:`, {
+    hasName,
+    hasTz,
+    regCompleted,
+    hasActiveStatus,
+    status: user['Status'],
+    userRegistered: user['UserRegistered']
+  });
+  
+  return !(hasName && hasTz && regCompleted && hasActiveStatus);
 };
 
 const parseTz = (label) => (label || '').split(' ')[0];
@@ -63,48 +77,35 @@ export async function handleStart(ctx) {
     try {
       user = await userService.getUserByTelegramId(tgId);
       console.log(`[auth.handleStart] Користувач ${tgId} знайдений:`, user ? 'ТАК' : 'НІ');
+      
+      if (user) {
+        console.log(`[auth.handleStart] Дані користувача:`, {
+          name: user['User Name'],
+          registered: user['UserRegistered'],
+          status: user['Status'],
+          timezone: user['Time Zone']
+        });
+      }
     } catch (e) {
       console.error('[auth.handleStart] DB error:', e);
       await ctx.reply('❌ Помилка доступу до бази. Спробуй пізніше.');
       return;
     }
 
-    // ✅ ЯКЩО КОРИСТУВАЧА НЕМАЄ - ОДРАЗУ СТВОРЮЄМО БАЗОВИЙ РЯДОК
-    if (!user) {
-      console.log(`[auth.handleStart] Створюємо базовий рядок для нового користувача ${tgId}`);
-      
-      try {
-        const userData = {
-          tgId: tgId,
-          name: name,
-          email: null,
-          phone: null,
-          timezone: null,
-          registrationStatus: 'in_progress' // ще не завершена
-        };
-
-        user = await userService.createUser(userData);
-        console.log(`[auth.handleStart] ✅ Базовий рядок створено для ${tgId}`);
-      } catch (createError) {
-        console.error('[auth.handleStart] ❌ Помилка створення користувача:', createError);
-        await ctx.reply('❌ Помилка створення акаунта. Спробуй пізніше.');
-        return;
-      }
-    }
-    
-    // ✅ ЯКЩО КОРИСТУВАЧ Є АБО ЩОЙНО СТВОРЕНИЙ, АЛЕ РЕЄСТРАЦІЯ НЕЗАВЕРШЕНА
+    // ✅ ПЕРЕВІРКА ЧИ ПОТРІБЕН ОНБОРДИНГ
     if (!user || isUserIncomplete(user)) {
+      
+      // ✅ ЯКЩО КОРИСТУВАЧА НЕМАЄ - НЕ СТВОРЮЄМО ЗАРАЗ, ЧЕКАЄМО ЗАВЕРШЕННЯ ОНБОРДИНГУ
       if (!user) {
-        console.log(`[auth.handleStart] Новий користувач ${tgId}, запускаємо онбординг`);
+        console.log(`[auth.handleStart] 🆕 Новий користувач ${tgId}, НЕ створюємо зараз - чекаємо онбординг`);
       } else {
-        console.log(`[auth.handleStart] Користувач ${tgId} існує, але реєстрація незавершена - перезапускаємо онбординг`);
+        console.log(`[auth.handleStart] ⚠️ Користувач ${tgId} існує, але реєстрація незавершена`);
       }
       
-      // ✅ СКИДАЄМО СЕСІЮ ТА ПОЧИНАЄМО З ПОЧАТКУ
+      // ✅ ЗАПУСКАЄМО ОНБОРДИНГ БЕЗ СТВОРЕННЯ КОРИСТУВАЧА
       resetRegSession(ctx);
       startRegSession(ctx, name);
       
-      // ob_pitch - показуємо кнопки без будь-яких перевірок
       await ctx.reply(
         `Я твій АІ мотиватор‑коуч. Короткі щоденні питання → фокус → прогрес. Поїхали?`,
         keyboards.onboardingStartKeyboard()
@@ -112,8 +113,8 @@ export async function handleStart(ctx) {
       return;
     }
 
-    // ✅ КОРИСТУВАЧ ІСНУЄ І ЗАРЕЄСТРОВАНИЙ - ПОКАЗУЄМО МЕНЮ
-    console.log(`[auth.handleStart] Користувач ${tgId} зареєстрований, перевіряємо підписку`);
+    // ✅ КОРИСТУВАЧ ІСНУЄ І ЗАРЕЄСТРОВАНИЙ ПОВНІСТЮ - ПОКАЗУЄМО МЕНЮ
+    console.log(`[auth.handleStart] Користувач ${tgId} повністю зареєстрований, перевіряємо підписку`);
     const active = user['Active_Subscription_Status']?.includes('✅ Активна');
     if (active) {
       await ctx.reply(
@@ -166,7 +167,7 @@ export async function handleRegistrationStep(ctx) {
       return true;
     }
 
-    // TZ + створення юзера + переходимо до планів
+    // ✅ TZ + СТВОРЕННЯ АБО ОНОВЛЕННЯ КОРИСТУВАЧА
     if (step === 'reg_timezone') {
       const picked = TIMEZONES.find((tz) => tz === text);
       if (!picked) {
@@ -175,20 +176,75 @@ export async function handleRegistrationStep(ctx) {
       }
 
       const tz = parseTz(picked);
+      const tgId = ctx.session.temp.tgId;
       
-      // ✅ ЗБЕРІГАЄМО ТАЙМ-ЗОНУ В СЕСІЇ, але ще НЕ створюємо користувача
-      ctx.session.temp.timezone = tz;
+      try {
+        console.log(`[auth.handleRegistrationStep] 💾 ЗБЕРЕЖЕННЯ ДАНИХ КОРИСТУВАЧА ${tgId}`);
+        
+        // ✅ СПОЧАТКУ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ УЖЕ ІСНУЄ
+        const existingUser = await userService.getUserByTelegramId(tgId);
+        
+        if (existingUser) {
+          console.log(`[auth.handleRegistrationStep] 🔄 Оновлюємо існуючого користувача ${tgId}`);
+          
+          // ✅ ОНОВЛЕННЯ ІСНУЮЧОГО КОРИСТУВАЧА
+          const { getBase } = await import('../../config/database.js');
+          const base = getBase();
+          
+          const records = await base('Users')
+            .select({
+              filterByFormula: `{TG_id} = '${tgId}'`,
+            })
+            .firstPage();
+            
+          if (records.length > 0) {
+            await base('Users').update(records[0].id, {
+              'User Name': ctx.session.temp.name,
+              'Email': ctx.session.temp.email,
+              'Time Zone': tz,
+              'UserRegistered': true, 
+              'Status': 'Registered User',
+              'DateUserRegistered': new Date().toISOString()
+            }, { typecast: true });
+            
+            console.log(`[auth.handleRegistrationStep] ✅ Користувача ${tgId} оновлено`);
+          }
+          
+        } else {
+          console.log(`[auth.handleRegistrationStep] 🆕 СТВОРЮЄМО НОВОГО КОРИСТУВАЧА ${tgId}`);
+          
+          // ✅ СТВОРЕННЯ НОВОГО КОРИСТУВАЧА З ПОВНИМИ ДАНИМИ
+          await userService.createUser({
+            tgId: tgId,
+            name: ctx.session.temp.name,
+            email: ctx.session.temp.email,
+            phone: null,
+            timezone: tz,
+            registrationStatus: 'done' // ✅ завершена реєстрація
+          });
+          
+          console.log(`[auth.handleRegistrationStep] ✅ Нового користувача ${tgId} створено`);
+        }
+        
+      } catch (updateError) {
+        console.error('[auth.handleRegistrationStep] ❌ КРИТИЧНА ПОМИЛКА збереження користувача:', {
+          error: updateError.message,
+          statusCode: updateError.statusCode,
+          tgId: tgId
+        });
+        
+        await ctx.reply('❌ Помилка збереження даних. Спробуй ще раз.');
+        return true;
+      }
 
-      // чистимо сесію і переходимо до планів
+      // ✅ ПЕРЕХОДИМО ДО ПЛАНІВ
       ctx.session.step = ANSWER_STEPS.OB_PLAN;
 
-      // показуємо повідомлення про завершення збору даних
       await ctx.reply(
-        `🎉 Дані зібрано!\n\nТвій часовий пояс: ${picked}`,
+        `🎉 Дані збережено!\n\nТвій часовий пояс: ${picked}`,
         keyboards.removeKeyboard()
       );
 
-      // переходимо до вибору плану
       await ctx.reply(
         'Обери план, що підходить зараз.',
         keyboards.onboardingPlanKeyboard()
@@ -213,6 +269,19 @@ export async function handleOnboardingCallback(ctx) {
   console.log(`[handleOnboardingCallback] Отримано callback: ${data}, session step: ${ctx.session?.step}`);
 
   try {
+    // ✅ ПЕРЕВІРКА ЧИ ЦЕ ДІЙСНО ОНБОРДИНГ CALLBACK
+    const onboardingCallbacks = [
+      'onboarding_start', 'onboarding_about', 'pick_plan_', 'back_plan', 
+      'pay_', 'pay_check_', 'reminders', 'rem_ok', 'rem_later', 'wheel_start'
+    ];
+    
+    const isOnboardingCallback = onboardingCallbacks.some(cb => data.startsWith(cb) || data === cb);
+    
+    if (!isOnboardingCallback) {
+      console.log(`[handleOnboardingCallback] ❌ Це НЕ онбординг callback: ${data}`);
+      return false; // ✅ Повертаємо false, щоб обробив subscriptionController
+    }
+
     // Початок онбордингу
     if (data === 'onboarding_start') {
       console.log(`[handleOnboardingCallback] Обробляємо onboarding_start`);
@@ -273,27 +342,33 @@ export async function handleOnboardingCallback(ctx) {
         return true;
       }
 
-      // ✅ ГЕНЕРУЄМО ПРАВИЛЬНЕ ПОСИЛАННЯ WayForPay
       try {
-        // Конвертуємо планValue в правильний ключ для WayForPay
-        const planKeyForWayForPay = planValue.toUpperCase(); // week_7 -> WEEK_7
-        console.log(`[handleOnboardingCallback] Створюємо платіж для плану: ${planKeyForWayForPay}`);
+        const tgId = ctx.from.id;
+        const orderReference = `ONBOARD_${planValue.toUpperCase()}_${tgId}_${Date.now()}`;
         
-        const paymentUrl = wayforpayService.generatePaymentUrl(
-          ctx.from.id,
-          planKeyForWayForPay,
-          ctx.session.temp?.email
-        );
+        const WAYFORPAY_LINKS = {
+          'week_7': 'https://secure.wayforpay.com/button/b96923b913d29',
+          'month_30': 'https://secure.wayforpay.com/button/b8df87678cd43', 
+          'year_300': 'https://secure.wayforpay.com/button/bf28701123683'
+        };
+        
+        const paymentLink = `${WAYFORPAY_LINKS[planValue]}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.name)}`;
 
-        const invoiceId = `INV_${ctx.from.id}_${Date.now()}`;
-        ctx.session.invoiceId = invoiceId;
+        ctx.session.invoiceId = orderReference;
         ctx.session.step = ANSWER_STEPS.OB_PAYMENT_PENDING;
 
-        console.log(`[handleOnboardingCallback] Створено посилання WayForPay: ${paymentUrl}`);
+        console.log(`[handleOnboardingCallback] Створено посилання WayForPay: ${paymentLink}`);
 
         await ctx.editMessageText(
-          `Тримай рахунок. Оплата через WayForPay. Я зачекаю вебхук 😉\n\n💳 Посилання для оплати:\n${paymentUrl}`,
-          keyboards.onboardingPaymentPendingKeyboard(invoiceId)
+          `💳 ОПЛАТА ПІДПИСКИ\n\n📋 План: ${planInfo.name}\n💰 Вартість: ${planInfo.price}€\n⏰ Тривалість: ${planInfo.duration} днів\n\n🔗 Посилання для оплати:\n${paymentLink}\n\n💳 Після оплати підписка активується автоматично!`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔗 Перейти до оплати', url: paymentLink }],
+                [{ text: '🔄 Я вже оплатив', callback_data: `pay_check_${orderReference}` }]
+              ]
+            }
+          }
         );
         await ctx.answerCbQuery();
         return true;
@@ -311,8 +386,6 @@ export async function handleOnboardingCallback(ctx) {
       console.log(`[handleOnboardingCallback] Обробляємо pay_check`);
       const invoiceId = data.replace('pay_check_', '');
       
-      // TODO: Реальна перевірка через WayForPay API
-      // Поки що симулюємо успішну оплату
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
       

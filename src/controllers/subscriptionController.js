@@ -1,4 +1,4 @@
-// src/controllers/subscriptionController.js - ВИПРАВЛЕНО URL КНОПКИ
+// src/controllers/subscriptionController.js - ВИПРАВЛЕНО З ПРАВИЛЬНИМИ WAYFORPAY ПОСИЛАННЯМИ
 
 import userService from '../auth/services/userService.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
@@ -7,6 +7,13 @@ import wayforpayService from '../services/wayforpayService.js';
 import keyboards from '../utils/keyboards.js';
 import typing from '../utils/typing.js';
 import { SUBSCRIPTION_PLANS } from '../config/constants.js';
+
+// ✅ WAYFORPAY ПОСИЛАННЯ З ВАШОГО MAKE.COM
+const WAYFORPAY_LINKS = {
+  WEEK: 'https://secure.wayforpay.com/button/b96923b913d29',
+  MONTH: 'https://secure.wayforpay.com/button/b8df87678cd43', 
+  YEAR: 'https://secure.wayforpay.com/button/bf28701123683'
+};
 
 const handleSubscriptionInfo = async (ctx) => {
   const tgId = ctx.from.id;
@@ -120,29 +127,43 @@ const handleSubscribe = async (ctx, planKey) => {
       return;
     }
 
+    // ✅ ГЕНЕРУЄМО УНІКАЛЬНИЙ orderReference
+    const orderReference = `AIMENTOR_${planKey}_${tgId}_${Date.now()}`;
+    
+    // ✅ ВИБИРАЄМО ПРАВИЛЬНЕ WAYFORPAY ПОСИЛАННЯ
+    let paymentLink = '';
+    let wayforpayButtonId = '';
+    
+    switch(planKey) {
+      case 'WEEK':
+        wayforpayButtonId = WAYFORPAY_LINKS.WEEK;
+        break;
+      case 'MONTH':
+        wayforpayButtonId = WAYFORPAY_LINKS.MONTH;
+        break;
+      case 'YEAR':
+        wayforpayButtonId = WAYFORPAY_LINKS.YEAR;
+        break;
+      default:
+        throw new Error('Невірний план');
+    }
+    
+    // ✅ ФОРМУЄМО ПОВНЕ ПОСИЛАННЯ З ПАРАМЕТРАМИ
+    paymentLink = `${wayforpayButtonId}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.name)}`;
+
     const message = 
       `💳 ОПЛАТА ПІДПИСКИ\n\n` +
       `📋 План: ${planInfo.name}\n` +
       `💰 Вартість: ${planInfo.price}€\n` +
       `⏰ Тривалість: ${planInfo.duration} днів\n\n` +
-      `📧 Для оплати зв'яжіться з підтримкою:\n` +
-      `nadyastarway@gmail.com\n\n` +
-      `📝 Вкажіть:\n` +
-      `• Ваш Telegram ID: ${tgId}\n` +
-      `• Обраний план: ${planInfo.name}\n` +
-      `• Сума: ${planInfo.price}€\n\n` +
+      `🔗 Посилання для оплати:\n${paymentLink}\n\n` +
       `💳 Після оплати підписка активується автоматично!\n\n` +
       `❓ Проблеми? Натисніть "Підтримка"`;
-
-    // ✅ ВИПРАВЛЕНО: створюємо валідний mailto URL
-    const emailSubject = encodeURIComponent(`Підписка ${planInfo.name}`);
-    const emailBody = encodeURIComponent(`Telegram ID: ${tgId}\nПлан: ${planInfo.name}\nВартість: ${planInfo.price}€`);
-    const mailtoUrl = `mailto:nadyastarway@gmail.com?subject=${emailSubject}&body=${emailBody}`;
 
     const keyboard = {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📧 Написати на Email', url: mailtoUrl }],
+          [{ text: '🔗 Перейти до оплати', url: paymentLink }],
           [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
           [{ text: '📞 Підтримка', callback_data: 'contact_support' }],
           [{ text: '🔙 Назад', callback_data: 'subscription_plans' }]
@@ -201,7 +222,6 @@ const handleRenewSubscription = async (ctx) => {
   await ctx.answerCbQuery('Оберіть план для продовження');
 };
 
-// ✅ ВИПРАВЛЕНО: прибрано проблемні URL кнопки
 const handleContactSupport = async (ctx) => {
   console.log(`📞 [subscriptionController] Обробка contact_support від ${ctx.from.id}`);
   
@@ -220,7 +240,6 @@ const handleContactSupport = async (ctx) => {
     '💡 **ШВИДКЕ РІШЕННЯ:**\n' +
     'Натисни "🔄 Я вже оплатив" для автоматичної перевірки';
 
-  // ✅ ВИПРАВЛЕНО: тільки callback кнопки, без URL
   const keyboard = {
     reply_markup: {
       inline_keyboard: [
@@ -242,7 +261,6 @@ const handleContactSupport = async (ctx) => {
   } catch (error) {
     console.error('❌ [subscriptionController] Помилка надсилання контактів:', error);
     
-    // Fallback - просто текст без кнопок
     const fallbackMessage = '📞 Зв\'яжіться з підтримкою:\n\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316';
     
     if (ctx.callbackQuery) {
@@ -265,17 +283,38 @@ const handleRenewalFromReminder = async (ctx, planKey) => {
       return;
     }
 
+    // ✅ ГЕНЕРУЄМО УНІКАЛЬНИЙ orderReference для renewal
+    const orderReference = `RENEWAL_${planKey}_${tgId}_${Date.now()}`;
+    
+    // ✅ ВИБИРАЄМО ПРАВИЛЬНЕ WAYFORPAY ПОСИЛАННЯ
+    let paymentLink = '';
+    
+    switch(planKey) {
+      case 'WEEK':
+        paymentLink = `${WAYFORPAY_LINKS.WEEK}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.name)}`;
+        break;
+      case 'MONTH':
+        paymentLink = `${WAYFORPAY_LINKS.MONTH}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.name)}`;
+        break;
+      case 'YEAR':
+        paymentLink = `${WAYFORPAY_LINKS.YEAR}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.name)}`;
+        break;
+      default:
+        throw new Error('Невірний план');
+    }
+
     const message = 
       `🔄 ПРОДОВЖЕННЯ ПІДПИСКИ\n\n` +
       `📋 План: ${planInfo.name}\n` +
       `💰 Вартість: ${planInfo.price}€\n` +
       `⏰ Тривалість: ${planInfo.duration} днів\n\n` +
       `✅ Твоя підписка буде продовжена після оплати\n\n` +
-      `📧 Зв'яжіться з підтримкою для оплати:\nnadyastarway@gmail.com`;
+      `🔗 Посилання для оплати:\n${paymentLink}`;
 
     const keyboard = {
       reply_markup: {
         inline_keyboard: [
+          [{ text: '🔗 Перейти до оплати', url: paymentLink }],
           [{ text: '🔄 Перевірити оплату', callback_data: 'sync_subscription' }],
           [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
         ]
@@ -295,7 +334,7 @@ const handleCallback = async (ctx) => {
   const data = ctx.callbackQuery.data;
   const tgId = ctx.from.id;
   
-  console.log(`📱 [subscriptionController] Otrimano callback: "${data}" від користувача ${tgId}`);
+  console.log(`📱 [subscriptionController] Отримано callback: "${data}" від користувача ${tgId}`);
   
   try {
     switch (data) {
