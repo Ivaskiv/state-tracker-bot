@@ -1,5 +1,4 @@
-// src/utils/keyboards.js
-// ДОДАНО: новий текст кнопок, прибрані ОК/Змінити пізніше для нагадувань
+// src/utils/keyboards.js - ДОДАНО КНОПКИ ДЛЯ КОЛЕСА
 
 import { TIMEZONES, parseTz } from '../config/constants.js';
 
@@ -10,11 +9,11 @@ const keyboards = {
       reply_markup: {
         keyboard: [
           [{ text: '🤖 AI наставник' }, { text: '🎯 Колесо балансу' }],
-        [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
-        [{ text: '💎 Афірмація' }, { text: '📊 Мій прогрес' }],
-        [{ text: '💰 Підписка' }, { text: '❓ Допомога' }],
-        [{ text: '📝 Інструкції' }, { text: '📞 Зв\'язок з нами' }]
-      ],
+          [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
+          [{ text: '💎 Афірмація' }, { text: '📊 Мій прогрес' }],
+          [{ text: '💰 Підписка' }, { text: '❓ Допомога' }],
+          [{ text: '📝 Інструкції' }, { text: '📞 Зв\'язок з нами' }]
+        ],
         resize_keyboard: true,
         one_time_keyboard: false,
         persistent: true
@@ -39,7 +38,9 @@ const keyboards = {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '⏭️ Пропустити e-mail', callback_data: 'skip_email' }]
+          [{ text: '⏭️ Пропустити e-mail', callback_data: 'skip_email' }],
+                  [{ text: '🔙 Назад', callback_data: 'back_email' }]
+
         ]
       }
     };
@@ -50,7 +51,9 @@ const keyboards = {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '⏭️ Пропустити телефон', callback_data: 'skip_phone' }]
+          [{ text: '⏭️ Пропустити телефон', callback_data: 'skip_phone' }],
+                  [{ text: '🔙 Назад', callback_data: 'back_phone' }]
+
         ]
       }
     };
@@ -142,13 +145,15 @@ const keyboards = {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🧭 Почати колесо', callback_data: 'wheel_start' }]
+          [{ text: '🎯 Почати колесо', callback_data: 'wheel_start' }]
         ]
       }
     };
   },
 
-  // Колесо оцінки
+  // ====== КОЛЕСО БАЛАНСУ ======
+
+  // ✅ ОЦІНКИ 0-10 (використовується під час колеса)
   wheelScoreInlineKeyboard() {
     return {
       reply_markup: {
@@ -168,12 +173,25 @@ const keyboards = {
             { text: '9',  callback_data: 'wheel_score_9'  },
             { text: '10', callback_data: 'wheel_score_10' }
           ],
-          [{ text: '🚪 Вийти', callback_data: 'wheel_exit' }]
+          [{ text: '🚪 Вийти із сесії', callback_data: 'wheel_exit' }]
         ]
       }
     };
   },
 
+  // ✅ ПРОДОВЖИТИ/ВИЙТИ (коли є незавершене колесо)
+  wheelContinueKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '▶️ Продовжити колесо', callback_data: 'wheel_continue' }],
+          [{ text: '🚪 Вийти із сесії', callback_data: 'wheel_exit' }]
+        ]
+      }
+    };
+  },
+
+  // ✅ ЗАВЕРШЕННЯ КОЛЕСА
   wheelBalanceCompleteKeyboard() {
     return {
       reply_markup: {
@@ -185,7 +203,42 @@ const keyboards = {
     };
   },
 
-  // Інші
+  // ✅ AI НАСТАВНИК
+  aiMentorStartKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💬 Задати питання', callback_data: 'ai_start_question' }],
+          [{ text: '🚪 Вийти', callback_data: 'ai_exit' }]
+        ]
+      }
+    };
+  },
+
+  aiMentorControlKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💬 Продовжити діалог', callback_data: 'ai_continue' }],
+          [{ text: '🚪 Вийти', callback_data: 'ai_exit' }]
+        ]
+      }
+    };
+  },
+
+  // ====== ПИТАННЯ-ВІДПОВІДІ ======
+  continueAnswersKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📝 Продовжити відповідати', callback_data: 'continue_answers' }],
+          [{ text: '🚪 Пропустити сесію', callback_data: 'skip_session' }]
+        ]
+      }
+    };
+  },
+
+  // ====== ПІДПИСКА ======
   subscriptionKeyboard() {
     return {
       reply_markup: {
@@ -210,6 +263,7 @@ const keyboards = {
     };
   },
 
+  // ====== УТИЛІТАРНІ ======
   removeKeyboard() {
     return {
       reply_markup: { remove_keyboard: true }

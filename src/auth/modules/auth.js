@@ -1,5 +1,4 @@
-// src/auth/modules/auth.js
-// Гарантія створення Users; TZ; skip/Назад/Змінити TZ; trial=повний доступ; автозапуск Колеса; тексти плану/нагадувань оновлені
+// src/auth/modules/auth.js - ВИПРАВЛЕНО КЛАВІАТУРИ
 
 import userService, { ensureNewUserStub, finalizeRegistration } from '../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
@@ -136,8 +135,7 @@ export async function handleRegistrationStep(ctx) {
       ctx.session.temp.name = text.trim();
 
       ctx.session.step = OB_STEPS.EMAIL;
-      await ctx.reply('📧 Введи e-mail для чеків і доступів.', keyboards.emailInputKeyboard());
-      await ctx.reply('Можеш повернутися назад:', keyboards.backFromEmailKeyboard());
+await ctx.reply('📧 Введи e-mail для чеків і доступів.', keyboards.emailInputKeyboard());
       return true;
     }
 
@@ -155,8 +153,7 @@ export async function handleRegistrationStep(ctx) {
       ctx.session.temp.email = text.trim();
 
       ctx.session.step = OB_STEPS.PHONE;
-      await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());
-      await ctx.reply('Можеш повернутися назад:', keyboards.backFromPhoneKeyboard());
+await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());      // ✅ ВИПРАВЛЕНО: замість двох повідомлень - одне з текстом
       return true;
     }
 
@@ -264,7 +261,7 @@ export async function handleOnboardingCallback(ctx) {
       ctx.session.step = OB_STEPS.EMAIL;
       await ctx.answerCbQuery('Назад');
       await ctx.reply('📧 Введи e-mail для чеків і доступів.', keyboards.emailInputKeyboard());
-      await ctx.reply('Можеш повернутися назад:', keyboards.backFromEmailKeyboard());
+      await ctx.reply(' ', keyboards.backFromEmailKeyboard());
       return true;
     }
 
@@ -272,7 +269,23 @@ export async function handleOnboardingCallback(ctx) {
       ctx.session.step = OB_STEPS.PHONE;
       await ctx.answerCbQuery('Назад');
       await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());
-      await ctx.reply('Можеш повернутися назад:', keyboards.backFromPhoneKeyboard());
+      await ctx.reply(' ', keyboards.backFromPhoneKeyboard());
+      return true;
+    }
+
+    // ——— Пропуск полів
+    if (data === 'skip_email' && ctx.session.step === OB_STEPS.EMAIL) {
+      ctx.session.step = OB_STEPS.PHONE;
+      await ctx.answerCbQuery('Email пропущено');
+      await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());
+      await ctx.reply(' ', keyboards.backFromPhoneKeyboard());
+      return true;
+    }
+
+    if (data === 'skip_phone' && ctx.session.step === OB_STEPS.PHONE) {
+      ctx.session.step = OB_STEPS.TIMEZONE;
+      await ctx.answerCbQuery('Телефон пропущено');
+      await ctx.reply('🕒 Обери часовий пояс для нагадувань:', keyboards.timezoneKeyboard());
       return true;
     }
 
@@ -462,7 +475,6 @@ export async function handleOnboardingCallback(ctx) {
 }
 
 // ——— helper: активація trial і запис полів (повний доступ) + правильні назви полів/значень
-// ——— helper: активація trial і запис усіх потрібних полів (повний доступ)
 async function activateTrial(ctx, tgId, days) {
   ctx.session.step = OB_STEPS.PAYMENT_SUCCESS;
   ctx.session.trialJustActivated = true; // дає доступ одразу в поточній сесії

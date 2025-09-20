@@ -2305,3 +2305,50 @@
 {"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T11:40:50.885Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:47:08.727Z"}
 {"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T11:47:26.119Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T12:33:07.116Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T12:33:49.176Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T12:33:50.139Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T12:34:59.317Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T12:35:01.350Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T12:35:07.439Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T12:35:10.166Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T12:35:17.100Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T12:35:19.484Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T12:35:23.665Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T12:35:49.390Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T12:35:50.739Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T12:35:56.296Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:05:44.592Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T14:06:02.608Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T14:06:03.833Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T14:06:10.796Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:09:49.791Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T14:10:00.563Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T14:10:01.740Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T14:10:08.185Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T14:10:30.262Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T14:10:31.410Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T14:10:39.061Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:12:54.394Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:13:24.653Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:13:55.663Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:14:09.869Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:14:13.081Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:14:19.941Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:14:20.985Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T14:14:41.673Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T14:14:42.731Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T14:14:56.999Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T14:15:12.839Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T14:15:26.665Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-20T14:15:29.431Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T14:15:30.983Z"}
+{"level":"info","message":"[botController] 📱 Callback: go_plan від 630111093","timestamp":"2025-09-20T14:15:39.330Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T14:15:39.424Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-20T14:15:45.139Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T14:15:45.245Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-20T14:15:50.420Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T14:15:52.274Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T14:15:56.679Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T14:15:57.929Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T14:15:57.931Z"}
