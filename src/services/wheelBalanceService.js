@@ -1,16 +1,77 @@
-// src/services/wheelBalanceService.js - ВИПРАВЛЕНО + ДОДАНО cancelActiveWheel
+// src/services/wheelBalanceService.js - ВИПРАВЛЕНО + НОТАТКИ + ДОДАНО cancelActiveWheel
 
 import { getBase, tables } from '../config/database.js';
 import { chat } from './openaiClient.js';
-import { LIFE_SPHERES, SPHERE_FIELDS } from '../config/constants.js';
+import { LIFE_SPHERES, SPHERE_FIELDS, NOTE_FIELDS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
 const base = getBase();
 
-const startWheelBalance = async (tgId) => {
+// ———————————————————————————————————————————————
+// УТИЛІТИ
+// ———————————————————————————————————————————————
+
+const buildScoreKeyboard = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [
+        { text: '0',  callback_data: 'wheel_score_0' },
+        { text: '1',  callback_data: 'wheel_score_1' },
+        { text: '2',  callback_data: 'wheel_score_2' },
+        { text: '3',  callback_data: 'wheel_score_3' },
+        { text: '4',  callback_data: 'wheel_score_4' },
+        { text: '5',  callback_data: 'wheel_score_5' }
+      ],
+      [
+        { text: '6',  callback_data: 'wheel_score_6' },
+        { text: '7',  callback_data: 'wheel_score_7' },
+        { text: '8',  callback_data: 'wheel_score_8' },
+        { text: '9',  callback_data: 'wheel_score_9' },
+        { text: '10', callback_data: 'wheel_score_10' }
+      ],
+      [
+        { text: '🚪 Вийти', callback_data: 'wheel_exit' }
+      ]
+    ]
+  }
+});
+
+const todayISO = () => new Date().toISOString().split('T')[0];
+
+// ———————————————————————————————————————————————
+// ОСНОВНІ ОПЕРАЦІЇ
+// ———————————————————————————————————————————————
+
+const getActiveWheel = async (tgId) => {
+  try {
+    const records = await base(tables.WHEEL_BALANCE)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`,
+        maxRecords: 1,
+        sort: [{ field: 'Created_Date', direction: 'desc' }]
+      })
+      .firstPage();
+
+    if (records.length > 0) {
+      const wheel = records[0];
+      logger.info(`🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=${wheel.id}, Step=${wheel.fields.Step}`);
+      return wheel;
+    }
+    
+    logger.info(`🎯 [wheelBalance] ❌ Активне колесо не знайдено для ${tgId}`);
+    return null;
+
+  } catch (error) {
+    logger.error('❌ [wheelBalance] Помилка отримання активного колеса:', error);
+    throw error;
+  }
+};
+
+const startWheelBalance = async (tgId, userName) => {
   try {
     logger.info(`🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для ${tgId}`);
 
+    // На старті — скасовуємо всі активні (страховка від дубляжу)
     await base(tables.WHEEL_BALANCE).select({
       filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
     }).eachPage(async (records) => {
@@ -23,16 +84,19 @@ const startWheelBalance = async (tgId) => {
       }
     });
 
+    // Створюємо новий запис
     const wheelData = {
       fields: {
         TG_id: String(tgId),
+        'User Name': userName || 'Користувач',
         Status: 'Active',
-        Step: 0,
-        Created_Date: new Date().toISOString().split('T')[0]
+        Step: 0,                                // 0 — старт
+        Created_Date: todayISO()
+        // Поля оцінок і нотаток можна не ініціалізувати — збережемо по мірі заповнення
       }
     };
 
-    const [wheelRecord] = await base(tables.WHEEL_BALANCE).create([wheelData]);
+    const [wheelRecord] = await base(tables.WHEEL_BALANCE).create([wheelData], { typecast: true });
     logger.info(`🎯 [wheelBalance] ✅ Колесо створено, ID: ${wheelRecord.id}`);
 
     const message = 
@@ -40,35 +104,9 @@ const startWheelBalance = async (tgId) => {
       `Оціни кожну сферу життя від 0 до 10\n\n` +
       `1️⃣/8 ${LIFE_SPHERES[0]}\n\nОбери оцінку:`;
 
-    // ✅ ВИКОРИСТОВУЄМО ІНЛАЙН КЛАВІАТУРУ
-    const keyboard = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '0', callback_data: 'wheel_score_0' },
-            { text: '1', callback_data: 'wheel_score_1' },
-            { text: '2', callback_data: 'wheel_score_2' },
-            { text: '3', callback_data: 'wheel_score_3' },
-            { text: '4', callback_data: 'wheel_score_4' },
-            { text: '5', callback_data: 'wheel_score_5' }
-          ],
-          [
-            { text: '6', callback_data: 'wheel_score_6' },
-            { text: '7', callback_data: 'wheel_score_7' },
-            { text: '8', callback_data: 'wheel_score_8' },
-            { text: '9', callback_data: 'wheel_score_9' },
-            { text: '10', callback_data: 'wheel_score_10' }
-          ],
-          [
-            { text: '🚪 Вийти', callback_data: 'wheel_exit' }
-          ]
-        ]
-      }
-    };
-
     return {
       message,
-      keyboard,
+      keyboard: buildScoreKeyboard(),
       recordId: wheelRecord.id,
       currentSphere: 0
     };
@@ -79,33 +117,9 @@ const startWheelBalance = async (tgId) => {
   }
 };
 
-// ✅ ДОДАНО: функція скасування активного колеса
-const cancelActiveWheel = async (tgId) => {
-  try {
-    logger.info(`🎯 [wheelBalance] Скасування активного колеса для ${tgId}`);
-
-    const records = await base(tables.WHEEL_BALANCE)
-      .select({
-        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
-      })
-      .all();
-
-    if (records.length > 0) {
-      const updates = records.map(record => ({
-        id: record.id,
-        fields: { Status: 'Cancelled' }
-      }));
-      
-      await base(tables.WHEEL_BALANCE).update(updates);
-      logger.info(`✅ [wheelBalance] Скасовано ${records.length} активних колес для ${tgId}`);
-    }
-    
-    return true;
-  } catch (error) {
-    logger.error('❌ [wheelBalance] Помилка скасування:', error);
-    throw error;
-  }
-};
+// ———————————————————————————————————————————————
+// CALLBACK-И
+// ———————————————————————————————————————————————
 
 const processWheelCallback = async (ctx) => {
   const tgId = ctx.from.id;
@@ -113,13 +127,14 @@ const processWheelCallback = async (ctx) => {
   
   try {
     if (data.startsWith('wheel_score_')) {
-      const score = parseInt(data.replace('wheel_score_', ''));
+      const score = parseInt(data.replace('wheel_score_', ''), 10);
       return await processWheelAnswer(tgId, score, ctx);
     }
     
     if (data === 'wheel_exit') {
       await cancelActiveWheel(tgId);
-      await ctx.editMessageText('🚪 Колесо балансу скасовано');
+      try { await ctx.editMessageText('🚪 Колесо балансу скасовано'); }
+      catch { await ctx.reply('🚪 Колесо балансу скасовано'); }
       return { completed: true, cancelled: true };
     }
     
@@ -129,115 +144,132 @@ const processWheelCallback = async (ctx) => {
   }
 };
 
+// ———————————————————————————————————————————————
+// ЛОГІКА ОЦІНКИ (КРОК 1): Зберегти бал і попросити нотатку
+// ———————————————————————————————————————————————
+
 const processWheelAnswer = async (tgId, score, ctx = null) => {
   try {
     logger.info(`🎯 [wheelBalance] Обробка відповіді ${tgId}: ${score}`);
 
-    const activeWheel = await getActiveWheel(tgId);
+    let activeWheel = await getActiveWheel(tgId);
     if (!activeWheel) {
-      return { error: true, message: 'Активне колесо не знайдено. Почни спочатку.' };
+      // Якщо щось пішло не так — створимо нове і витягнемо знову
+      const started = await startWheelBalance(tgId, ctx?.from?.first_name);
+      activeWheel = await getActiveWheel(tgId);
+      if (!activeWheel) {
+        return { error: true, message: 'Не вдалося створити активне колесо. Спробуй ще раз.' };
+      }
     }
 
-    const currentStep = activeWheel.fields.Step || 0;
+    const currentStep = Number(activeWheel.fields.Step || 0);
     const sphereName = LIFE_SPHERES[currentStep];
     const airtableField = SPHERE_FIELDS[currentStep];
 
     logger.info(`🎯 [wheelBalance] Зберігаємо: ${airtableField} = ${score}`);
 
-    const updateFields = { [airtableField]: score };
-    const isLastSphere = currentStep >= (LIFE_SPHERES.length - 1);
-    
-    if (isLastSphere) {
-      const allScores = [];
-      for (let i = 0; i < LIFE_SPHERES.length - 1; i++) {
-        const fieldName = SPHERE_FIELDS[i];
-        const score = Number(activeWheel.fields[fieldName]) || 0;
-        allScores.push(score);
-      }
-      allScores.push(score);
+    // 1) Зберігаємо оцінку для поточної сфери (Step НЕ підвищуємо тут)
+    await base(tables.WHEEL_BALANCE).update(activeWheel.id, { [airtableField]: score }, { typecast: true });
 
+    // 2) Питаємо нотатку по сфері
+    if (ctx) {
+      await ctx.reply(
+        `✍️ Коротко опиши (2–5 речень), чому поставила таку оцінку для «${sphereName}». Це допоможе точніше у звітах.`
+      );
+
+      // позначимо в сесії, що чекаємо нотатку
+      ctx.session = ctx.session || {};
+      ctx.session.wheel = {
+        awaitingNoteFor: currentStep,
+        recordId: activeWheel.id
+      };
+    }
+
+    return { completed: false, awaitingNoteFor: currentStep };
+
+  } catch (error) {
+    logger.error('❌ [wheelBalance] Помилка обробки оцінки:', error);
+    return { error: true, message: 'Виникла помилка. Спробуй ще раз.' };
+  }
+};
+
+// ———————————————————————————————————————————————
+// ЛОГІКА НОТАТКИ (КРОК 2): Зберегти нотатку, перейти далі або завершити
+// ———————————————————————————————————————————————
+
+const saveWheelNoteAndGoNext = async (ctx, noteText) => {
+  try {
+    const s = ctx.session?.wheel;
+    if (!s || s.awaitingNoteFor == null || !s.recordId) {
+      return { error: true, message: 'Немає активної сфери для нотатки.' };
+    }
+
+    const { awaitingNoteFor, recordId } = s;
+
+    // 1) Зберегти нотатку у відповідне *_Notes поле
+    const noteField = NOTE_FIELDS[awaitingNoteFor];
+    await base(tables.WHEEL_BALANCE).update(recordId, { [noteField]: noteText }, { typecast: true });
+
+    // 2) Дістаємо поточний запис щоб знати Step та бали
+    const rec = await base(tables.WHEEL_BALANCE).find(recordId);
+    const prevStep = Number(rec.fields.Step || 0);
+
+    // Перевірка: якщо Step рухається разом із оцінкою, то prevStep == awaitingNoteFor
+    // Наш флоу: Step ще prev, і ми зараз його підвищимо
+    const nextStep = prevStep + 1;
+
+    // Чи це була остання (8-ма) сфера — індекси 0..7
+    const wasLast = awaitingNoteFor >= (LIFE_SPHERES.length - 1);
+
+    if (wasLast) {
+      // Рахуємо Total_Score по всіх 8 оцінках
+      const allScores = SPHERE_FIELDS.map(f => Number(rec.fields[f]) || 0);
       const totalScore = Math.round((allScores.reduce((a, b) => a + b, 0) / allScores.length) * 10) / 10;
+
+      // Короткий AI аналіз
       const analysis = await generateWheelAnalysis(allScores);
 
-      updateFields.Status = 'Completed';
-      updateFields.Completed_Date = new Date().toISOString().split('T')[0];
-      updateFields.Total_Score = totalScore;
-      updateFields.AI_Analysis = analysis;
+      await base(tables.WHEEL_BALANCE).update(recordId, {
+        Status: 'Completed',
+        Completed_Date: todayISO(),
+        Total_Score: totalScore,
+        AI_Analysis: analysis,
+        Step: LIFE_SPHERES.length // 8
+      }, { typecast: true });
 
-      await base(tables.WHEEL_BALANCE).update(activeWheel.id, updateFields);
+      // очищаємо прапор в сесії
+      ctx.session.wheel = undefined;
 
-      const message = 
-        `✅ ${sphereName}: ${score}/10\n\n` +
+      const message =
+        `✅ Нотатку збережено.\n\n` +
         `🎯 КОЛЕСО БАЛАНСУ ЗАВЕРШЕНО!\n\n` +
         `📊 Загальний бал: ${totalScore}/10\n\n` +
         `${analysis}`;
 
-      if (ctx) {
-        const keyboard = {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔄 Пройти знову', callback_data: 'wheel_start_new' }],
-              [{ text: '🏠 Головне меню', callback_data: 'wheel_to_menu' }]
-            ]
-          }
-        };
-        await ctx.editMessageText(message, keyboard);
-      }
-
-      return { message, completed: true, analysis };
-
-    } else {
-      const nextStep = currentStep + 1;
-      updateFields.Step = nextStep;
-      
-      await base(tables.WHEEL_BALANCE).update(activeWheel.id, updateFields);
-      
-      const nextSphereName = LIFE_SPHERES[nextStep];
-      const message = 
-        `✅ ${sphereName}: ${score}/10\n\n` +
-        `${nextStep + 1}️⃣/8 ${nextSphereName}\n\n` +
-        `Обери оцінку:`;
-
-      if (ctx) {
-        const keyboard = {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '0', callback_data: 'wheel_score_0' },
-                { text: '1', callback_data: 'wheel_score_1' },
-                { text: '2', callback_data: 'wheel_score_2' },
-                { text: '3', callback_data: 'wheel_score_3' },
-                { text: '4', callback_data: 'wheel_score_4' },
-                { text: '5', callback_data: 'wheel_score_5' }
-              ],
-              [
-                { text: '6', callback_data: 'wheel_score_6' },
-                { text: '7', callback_data: 'wheel_score_7' },
-                { text: '8', callback_data: 'wheel_score_8' },
-                { text: '9', callback_data: 'wheel_score_9' },
-                { text: '10', callback_data: 'wheel_score_10' }
-              ],
-              [
-                { text: '🚪 Вийти', callback_data: 'wheel_exit' }
-              ]
-            ]
-          }
-        };
-        await ctx.editMessageText(message, keyboard);
-      }
-
-      return {
-        message,
-        currentSphere: nextStep,
-        completed: false
-      };
+      return { completed: true, message };
     }
 
+    // Якщо НЕ остання — підвищуємо крок і показуємо наступну сферу
+    await base(tables.WHEEL_BALANCE).update(recordId, { Step: nextStep }, { typecast: true });
+    ctx.session.wheel = undefined;
+
+    const nextSphereName = LIFE_SPHERES[nextStep];
+    const message =
+      `✅ Нотатку збережено.\n\n` +
+      `${nextStep + 1}️⃣/8 ${nextSphereName}\n\n` +
+      `Обери оцінку:`;
+
+    return { completed: false, message, keyboard: buildScoreKeyboard() };
+
   } catch (error) {
-    logger.error('❌ [wheelBalance] Помилка обробки:', error);
-    return { error: true, message: 'Виникла помилка. Спробуй ще раз.' };
+    logger.error('❌ [wheelBalance] Помилка збереження нотатки:', error);
+    return { error: true, message: 'Не вдалося зберегти нотатку. Спробуй ще раз.' };
   }
 };
+
+// ———————————————————————————————————————————————
+// АНАЛІТИКА
+// ———————————————————————————————————————————————
 
 const generateWheelAnalysis = async (scoresArr) => {
   try {
@@ -272,27 +304,33 @@ const generateWheelAnalysis = async (scoresArr) => {
   }
 };
 
-const getActiveWheel = async (tgId) => {
+// ———————————————————————————————————————————————
+// ДОДАТКОВІ ОПЕРАЦІЇ
+// ———————————————————————————————————————————————
+
+const cancelActiveWheel = async (tgId) => {
   try {
+    logger.info(`🎯 [wheelBalance] Скасування активного колеса для ${tgId}`);
+
     const records = await base(tables.WHEEL_BALANCE)
       .select({
-        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`,
-        maxRecords: 1,
-        sort: [{ field: 'Created_Date', direction: 'desc' }]
+        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`
       })
-      .firstPage();
+      .all();
 
     if (records.length > 0) {
-      const wheel = records[0];
-      logger.info(`🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=${wheel.id}, Step=${wheel.fields.Step}`);
-      return wheel;
+      const updates = records.map(record => ({
+        id: record.id,
+        fields: { Status: 'Cancelled' }
+      }));
+      
+      await base(tables.WHEEL_BALANCE).update(updates);
+      logger.info(`✅ [wheelBalance] Скасовано ${records.length} активних колес для ${tgId}`);
     }
     
-    logger.info(`🎯 [wheelBalance] ❌ Активне колесо не знайдено для ${tgId}`);
-    return null;
-
+    return true;
   } catch (error) {
-    logger.error('❌ [wheelBalance] Помилка отримання активного колеса:', error);
+    logger.error('❌ [wheelBalance] Помилка скасування:', error);
     throw error;
   }
 };
@@ -342,13 +380,47 @@ const getUserWheelStats = async (tgId) => {
   }
 };
 
+// ———————————————————————————————————————————————
+// ЕКСПОРТИ
+// ———————————————————————————————————————————————
+
 export default {
   startWheelBalance,
-  processWheelAnswer,
+  processWheelAnswer,         // Крок 1: оцінка → питаємо нотатку
+  saveWheelNoteAndGoNext,     // Крок 2: зберегти нотатку → наступна сфера/фініш
   processWheelCallback,
   getActiveWheel,
   needsWheelBalance,
   getUserWheelStats,
-  cancelActiveWheel, // ✅ ДОДАНО
+  cancelActiveWheel,
   LIFE_SPHERES
 };
+
+/*
+🔧 ДОДАЙ У ХЕНДЛЕР ТЕКСТУ (bot.on('text', ...)):
+
+// 1) Якщо чекаємо нотатку — зберегти її і рухатись далі
+if (ctx.session?.wheel?.awaitingNoteFor != null && ctx.session?.wheel?.recordId) {
+  const note = (ctx.message?.text || '').trim();
+  if (note.length < 5) {
+    await ctx.reply('Додай, будь ласка, ще трішки деталей (2–5 речень).');
+    return;
+  }
+  const res = await wheelBalanceService.saveWheelNoteAndGoNext(ctx, note);
+  if (res.completed) {
+    await userService.updateUserStep(ctx.from.id, 'completed');
+    await ctx.reply(res.message);
+    // показати меню або наступні кроки
+  } else {
+    await ctx.reply(res.message, res.keyboard || {});
+  }
+  return;
+}
+
+// 2) Якщо активне колесо — парсимо число 0–10 і викликаємо processWheelAnswer
+const maybeScore = parseInt((ctx.message?.text || '').trim(), 10);
+if (!Number.isNaN(maybeScore) && maybeScore >= 0 && maybeScore <= 10) {
+  await wheelBalanceController.handleWheelBalanceAnswer(ctx, maybeScore);
+  return;
+}
+*/

@@ -83,6 +83,10 @@ const botController = (bot) => {
     if (!text) return;
 
     try {
+      // 0) Якщо чекаємо «нотатку після оцінки» — обробляємо її першою.
+    const noteHandled = await wheelBalanceController.handleWheelNoteText(ctx);
+    if (noteHandled) return;
+
       // ✅ 1. ПЕРША ПРІОРИТЕТ: онбординг
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {

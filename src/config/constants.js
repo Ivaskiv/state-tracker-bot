@@ -3,10 +3,10 @@
 // --- Плани підписки ---
 export const SUBSCRIPTION_PLANS = Object.freeze({
   TRIAL: {
-    name: '🧪 Пробний період',
+    name: '🧪 Пробний 7 днів — 0€',
     price: 0,
-    duration: 3,
-    description: 'Безкоштовний тест на 3 дні',
+    duration: 7,
+    description: 'Повний доступ на 7 днів',
   },
   WEEK: {
     name: 'Тиждень фокусу — 7€',
@@ -79,7 +79,6 @@ export const ANSWER_STEPS = Object.freeze({
   AI_MENTOR_ACTIVE: 'ai_mentor_active',
   WHEEL_BALANCE_ACTIVE: 'wheel_balance_active'
 });
-
 
 // --- Тексти питань ---
 export const MORNING_QUESTIONS = [
@@ -163,14 +162,25 @@ export const SPHERE_FIELDS = [
   WHEEL_BALANCE.FIELDS.HOUSING
 ];
 
-if (LIFE_SPHERES.length !== SPHERE_FIELDS.length) {
-  console.error('❌ КРИТИЧНА ПОМИЛКА: Невідповідність довжини LIFE_SPHERES та SPHERE_FIELDS!');
-  throw new Error('LIFE_SPHERES and SPHERE_FIELDS arrays must have the same length');
+export const NOTE_FIELDS = [
+  'Health_Notes',
+  'Self_Growth_Notes',
+  'Relationships_Notes',
+  'Career_Notes',
+  'Finance_Notes',
+  'Leisure_Notes',
+  'Spirituality_Notes',
+  'Housing_Notes',
+];
+
+// узгодженість списків сфер/полів
+if (LIFE_SPHERES.length !== SPHERE_FIELDS.length || SPHERE_FIELDS.length !== NOTE_FIELDS.length) {
+  console.warn('⚠️ LIFE_SPHERES, SPHERE_FIELDS та NOTE_FIELDS мають різну довжину!');
 }
 
 // --- Часові налаштування ---
 export const TIMEZONE_CONFIG = Object.freeze({
-  DEFAULT: 'Europe/Kiev',
+  DEFAULT: 'Europe/Kyiv',   // виправлено з Kiev → Kyiv
   FALLBACK: 'Europe/Prague',
   USER_TIMEZONES: {},
 });
@@ -243,7 +253,7 @@ export const SCHEDULER_CONFIG = Object.freeze({
 export const MENU_TEXTS = Object.freeze({
   HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
   CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
-  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n• "🤖 AI наставник" — персональна підтримка\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (${MORNING_QUESTIONS.length} запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (${EVENING_QUESTIONS.length} запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
+  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n• "🤖 AI наставник" — персональна підтримка\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (${MORNING_QUESTIONS.length} запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (${EVENING_QUESTIONS.length} запитань)\n\n💡 **ПОРАДИ:**\н• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
   PROGRESS: (totalDays, morningCompleted, eveningCompleted) =>
     `📊 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`,
   SUBSCRIPTION_ACTIVE: (plan, start, end) =>
@@ -276,8 +286,8 @@ export const OB_STEPS = Object.freeze({
   PITCH: ANSWER_STEPS.OB_PITCH,
   NAME: ANSWER_STEPS.OB_NAME,
   EMAIL: ANSWER_STEPS.OB_EMAIL,
-    PHONE: ANSWER_STEPS.OB_PHONE,
-      TIMEZONE: ANSWER_STEPS.OB_TIMEZONE,
+  PHONE: ANSWER_STEPS.OB_PHONE,
+  TIMEZONE: ANSWER_STEPS.OB_TIMEZONE,
   PLAN: ANSWER_STEPS.OB_PLAN,
   PAYMENT_PENDING: ANSWER_STEPS.OB_PAYMENT_PENDING,
   PAYMENT_SUCCESS: ANSWER_STEPS.OB_PAYMENT_SUCCESS,

@@ -2239,3 +2239,69 @@
 {"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T10:28:19.075Z"}
 {"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T10:28:19.652Z"}
 {"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T10:28:19.654Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:31:05.015Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T10:31:09.141Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T10:31:09.770Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T10:31:09.772Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:39:53.333Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T10:40:02.148Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T10:40:03.001Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:54:28.748Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T10:54:35.633Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T10:54:36.669Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_5 від 630111093","timestamp":"2025-09-20T10:54:48.418Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-09-20T10:54:49.367Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T10:54:49.560Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T10:54:49.746Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:01:02.835Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:02:05.793Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:02:06.521Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:03:45.127Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:04:18.167Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:04:51.798Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:04:56.449Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:05:14.343Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:05:18.676Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:05:20.451Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:05:38.217Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:05:40.317Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:05:41.972Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:06:09.509Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:06:18.717Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:06:36.517Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:06:52.910Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:06:55.502Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:06:57.360Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:07:47.398Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:07:48.697Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T11:08:05.820Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T11:08:07.264Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_5 від 630111093","timestamp":"2025-09-20T11:08:14.907Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-09-20T11:08:15.712Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T11:08:15.933Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T11:08:16.118Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T11:09:01.417Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:30:27.791Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:32:49.451Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:32:51.471Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T11:33:11.886Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T11:33:13.415Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_5 від 630111093","timestamp":"2025-09-20T11:33:24.050Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-09-20T11:33:24.809Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T11:33:25.018Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T11:33:25.269Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:35:53.435Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:35:54.651Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:38:05.487Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:38:20.574Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:38:21.426Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T11:38:41.410Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T11:38:42.755Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:39:31.839Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T11:39:40.328Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T11:39:41.740Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:40:37.986Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T11:40:49.295Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T11:40:50.885Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T11:47:08.727Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T11:47:26.119Z"}
