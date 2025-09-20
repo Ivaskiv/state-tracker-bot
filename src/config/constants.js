@@ -1,6 +1,13 @@
-// src/config/constants.js - ДОДАНО ОНБОРДИНГ КРОКИ ВІДПОВІДНО ДО ТЗ
+// src/config/constants.js
 
+// --- Плани підписки ---
 export const SUBSCRIPTION_PLANS = Object.freeze({
+  TRIAL: {
+    name: '🧪 Пробний період',
+    price: 0,
+    duration: 3,
+    description: 'Безкоштовний тест на 3 дні',
+  },
   WEEK: {
     name: 'Тиждень фокусу — 7€',
     price: 7,
@@ -18,40 +25,36 @@ export const SUBSCRIPTION_PLANS = Object.freeze({
     price: 300,
     duration: 365,
     description: 'Максимальна економія та підтримка протягом року',
-  },
-  TRIAL: {
-    name: 'Пробний тиждень',
-    price: 0,
-    duration: 7,
-    description: 'Безкоштовний тест на 7 днів',
   }
 });
 
+// --- Типи питань ---
 export const QUESTION_TYPES = Object.freeze({
   MORNING: 'Morning',
   EVENING: 'Evening',
   AI_MESSAGE: 'Just a message',
 });
 
-// ✅ ДОДАНО ВСІ ОНБОРДИНГ КРОКИ ВІДПОВІДНО ДО ТЗ
+// --- Кроки відповідей / онбордингу ---
 export const ANSWER_STEPS = Object.freeze({
   // Основні кроки
   BEGIN: 'Begin_answer',
   PLAN_SELECTION: 'plan_selection',
   COMPLETED: 'completed',
-  
-// ✅ ОНБОРДИНГ КРОКИ (Flow: onboarding)
+
+  // Онбординг (Flow: onboarding)
   OB_PITCH: 'ob_pitch',
-  OB_NAME: 'ob_name', 
+  OB_NAME: 'ob_name',
   OB_EMAIL: 'ob_email',
   OB_PHONE: 'ob_phone',
-  OB_TIMEZONE: 'ob_timezone', // ДОДАНО для вибору TZ
+  OB_TIMEZONE: 'ob_timezone',
   OB_PLAN: 'ob_plan',
   OB_PAYMENT_PENDING: 'ob_payment_pending',
   OB_PAYMENT_SUCCESS: 'ob_payment_success',
   OB_REMINDERS_INTRO: 'ob_reminders_intro',
   OB_DONE: 'ob_done',
-  // ✅ ДИНАМІЧНІ РАНКОВІ ПИТАННЯ
+
+  // Динамічні ранкові питання
   MORNING_1: 'Q_m_1',
   MORNING_2: 'Q_m_2',
   MORNING_3: 'Q_m_3',
@@ -60,8 +63,8 @@ export const ANSWER_STEPS = Object.freeze({
   MORNING_6: 'Q_m_6',
   AFFIRMATION_MORNING: 'affirmation_m',
   END_MORNING: 'End_m',
-  
-  // ✅ ДИНАМІЧНІ ВЕЧІРНІ ПИТАННЯ
+
+  // Динамічні вечірні питання
   EVENING_1: 'Q_e_1',
   EVENING_2: 'Q_e_2',
   EVENING_3: 'Q_e_3',
@@ -69,7 +72,7 @@ export const ANSWER_STEPS = Object.freeze({
   EVENING_5: 'Q_e_5',
   AFFIRMATION_EVENING: 'affirmation_e',
   END_EVENING: 'End_e',
-  
+
   // Спеціальні стани
   MORNING_PENDING: 'morning_pending',
   EVENING_PENDING: 'evening_pending',
@@ -77,7 +80,8 @@ export const ANSWER_STEPS = Object.freeze({
   WHEEL_BALANCE_ACTIVE: 'wheel_balance_active'
 });
 
-// ✅ ДИНАМІЧНІ ПИТАННЯ - МОЖНА ЛЕГКО ЗМІНЮВАТИ КІЛЬКІСТЬ
+
+// --- Тексти питань ---
 export const MORNING_QUESTIONS = [
   'Хто я сьогодні?\nОпиши себе як нову версію — з позиції сили.\n(Наприклад: я топ експерт, я власниця відомого бренду, я мільйонерка, я відома співачка...)\n_Я — ___________',
   'Яка я?\nДай відповідь на питання.\n(Наприклад: сильна, смілива, любляча, щира, рішуча...)\n_Я — ___________',
@@ -95,7 +99,7 @@ export const EVENING_QUESTIONS = [
   'Яка моя головна перемога сьогодні?\nДія, стан, рішення — будь-який успіх.\n_Сьогодні я: ___________',
 ];
 
-// ✅ ФУНКЦІЇ ДЛЯ ДИНАМІЧНОЇ РОБОТИ З ПИТАННЯМИ
+// --- Хелпери для динамічних питань ---
 export const getMorningStep = (questionIndex) => `Q_m_${questionIndex}`;
 export const getEveningStep = (questionIndex) => `Q_e_${questionIndex}`;
 export const getCurrentQuestionIndex = (step) => {
@@ -115,13 +119,10 @@ export const getNextQuestionStep = (currentStep, questions) => {
   return null;
 };
 
-// ✅ КОЛЕСО БАЛАНСУ - ДИНАМІЧНА КІЛЬКІСТЬ СФЕР
+// --- Колесо балансу ---
 export const WHEEL_BALANCE = Object.freeze({
   TABLE: 'WheelBalance',
-  STATUS: {
-    ACTIVE: 'Active',
-    COMPLETED: 'Completed'
-  },
+  STATUS: { ACTIVE: 'Active', COMPLETED: 'Completed' },
   FIELDS: {
     TG_ID: 'TG_id',
     STATUS: 'Status',
@@ -140,7 +141,6 @@ export const WHEEL_BALANCE = Object.freeze({
   }
 });
 
-// ✅ СФЕРИ ЖИТТЯ (можна легко змінювати кількість)
 export const LIFE_SPHERES = [
   'Здоров\'я та енергія',
   'Особистісний розвиток',
@@ -152,7 +152,6 @@ export const LIFE_SPHERES = [
   'Побут та оточення'
 ];
 
-// ✅ ПОЛЯ AIRTABLE (точно збігаються з таблицею WheelBalance)
 export const SPHERE_FIELDS = [
   WHEEL_BALANCE.FIELDS.HEALTH,
   WHEEL_BALANCE.FIELDS.SELF_GROWTH,
@@ -164,20 +163,19 @@ export const SPHERE_FIELDS = [
   WHEEL_BALANCE.FIELDS.HOUSING
 ];
 
-// Перевірка відповідності кількості сфер та полів
 if (LIFE_SPHERES.length !== SPHERE_FIELDS.length) {
   console.error('❌ КРИТИЧНА ПОМИЛКА: Невідповідність довжини LIFE_SPHERES та SPHERE_FIELDS!');
   throw new Error('LIFE_SPHERES and SPHERE_FIELDS arrays must have the same length');
 }
 
-// ✅ ЧАСОВІ НАЛАШТУВАННЯ
+// --- Часові налаштування ---
 export const TIMEZONE_CONFIG = Object.freeze({
   DEFAULT: 'Europe/Kiev',
   FALLBACK: 'Europe/Prague',
   USER_TIMEZONES: {},
 });
 
-// ✅ ГОЛОВНИЙ РОЗДІЛ РОЗКЛАДУ
+// --- Розклад ---
 const _SCHEDULE = {
   MORNING_TIME: '08:00',
   EVENING_TIME: '21:30',
@@ -188,7 +186,6 @@ const _SCHEDULE = {
   TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
 };
 
-// Парсинг часу
 const parseTime = (t) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
   let h = m ? parseInt(m[1], 10) : 9;
@@ -208,19 +205,19 @@ _SCHEDULE.EVENING_MINUTE = EM;
 
 export const SCHEDULE = Object.freeze(_SCHEDULE);
 
-// ✅ CRON-ВИРАЗИ
+// --- CRON ---
 const cronFrom = (hour, minute) => `${minute} ${hour} * * *`;
 
 export const CRON_SCHEDULES = Object.freeze({
   MORNING_QUESTIONS: cronFrom(MH, MM),
   EVENING_QUESTIONS: cronFrom(EH, EM),
-  MORNING_REMINDER: cronFrom(MH, MM),    
-  EVENING_REMINDER: cronFrom(EH, EM),    
+  MORNING_REMINDER: cronFrom(MH, MM),
+  EVENING_REMINDER: cronFrom(EH, EM),
   REPORTS_REMINDER: '0 18 * * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
 });
 
-// ✅ ПОВІДОМЛЕННЯ ПЛАНУВАЛЬНИКА
+// --- Повідомлення планувальника ---
 export const SCHEDULER_MESSAGES = Object.freeze({
   MORNING_SESSION_START: (name) => `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨\n\n1️⃣/${MORNING_QUESTIONS.length} ${MORNING_QUESTIONS[0]}`,
   EVENING_SESSION_START: (name) => `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆\n\n1️⃣/${EVENING_QUESTIONS.length} ${EVENING_QUESTIONS[0]}`,
@@ -242,7 +239,7 @@ export const SCHEDULER_CONFIG = Object.freeze({
   REMINDER_DELAY_2: 60 * 60 * 1000,
 });
 
-// ✅ МЕНЮ ТЕКСТИ
+// --- Меню тексти та матчери ---
 export const MENU_TEXTS = Object.freeze({
   HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
   CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
@@ -258,7 +255,6 @@ export const MENU_TEXTS = Object.freeze({
   SUBSCRIPTION_UNAVAILABLE: 'Підписка тимчасово недоступна. Спробуй пізніше.',
 });
 
-// ✅ MATCHER-И ДЛЯ КОМАНД МЕНЮ
 export const MENU_MATCHERS = Object.freeze({
   WEEKLY: (t) => t === '📈 Щотижневий звіт',
   MONTHLY: (t) => t === '📈 Щомісячний звіт',
@@ -275,21 +271,34 @@ export const MENU_MATCHERS = Object.freeze({
   QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase()),
 });
 
-// ✅ AI НАСТАВНИК КОНФІГУРАЦІЯ
-export const AI_MENTOR_CONFIG = Object.freeze({
-  MAX_MICRO_ACTIONS: 7,
-  MIN_MICRO_ACTIONS: 1,
-  FALLBACK_FEEDBACK: "Продовжуй свій шлях! Кожен день — це новий крок до мети. Завтра зроби щось одне, але конкретне. 💪",
-  QUESTION_MODES: {
-    MICRO_ACTIONS: 'micro_actions',
-    GENERAL_ADVICE: 'general_advice',
-    GOAL_HELP: 'goal_help'
-  }
+// === Onboarding steps alias (щоб не дублювати строки у модулях) ===
+export const OB_STEPS = Object.freeze({
+  PITCH: ANSWER_STEPS.OB_PITCH,
+  NAME: ANSWER_STEPS.OB_NAME,
+  EMAIL: ANSWER_STEPS.OB_EMAIL,
+    PHONE: ANSWER_STEPS.OB_PHONE,
+      TIMEZONE: ANSWER_STEPS.OB_TIMEZONE,
+  PLAN: ANSWER_STEPS.OB_PLAN,
+  PAYMENT_PENDING: ANSWER_STEPS.OB_PAYMENT_PENDING,
+  PAYMENT_SUCCESS: ANSWER_STEPS.OB_PAYMENT_SUCCESS,
+  REMINDERS_INTRO: ANSWER_STEPS.OB_REMINDERS_INTRO,
+  DONE: ANSWER_STEPS.OB_DONE,
 });
 
+// === Таймзони для UI та парсер лейблу ===
+export const TIMEZONES = Object.freeze([
+  'Europe/Kyiv (UTC+2/UTC+3)',
+  'Europe/Prague (UTC+1/UTC+2)',
+  'Europe/Berlin (UTC+1/UTC+2)',
+  'Europe/Paris (UTC+1/UTC+2)',
+  'Europe/London (UTC+0/UTC+1)',
+  'America/New_York (UTC-5/UTC-4)',
+  'Asia/Dubai (UTC+4)'
+]);
 
+export const parseTz = (label) => (label || '').split(' ')[0];
 
-// ✅ ЛОГУВАННЯ ІНІЦІАЛІЗАЦІЇ
+// --- Лог ініціалізації ---
 console.log('✅ [constants] Константи ініціалізовано');
 console.log(`✅ [constants] Ранкових питань: ${MORNING_QUESTIONS.length}`);
 console.log(`✅ [constants] Вечірніх питань: ${EVENING_QUESTIONS.length}`);

@@ -1,281 +1,535 @@
-// src/auth/modules/auth.js - ВИПРАВЛЕНО ПІД VIEW: Subscribers (New Users / Form Submited)
+// src/auth/modules/auth.js
+// Гарантія створення Users; TZ; skip/Назад/Змінити TZ; trial=повний доступ; автозапуск Колеса; тексти плану/нагадувань оновлені
 
 import userService, { ensureNewUserStub, finalizeRegistration } from '../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
-import { isSkip, isValidEmail, isValidUaPhone } from '../../utils/validators.js';
+import { isValidEmail, isValidUaPhone } from '../../utils/validators.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
-import { SUBSCRIPTION_PLANS, ANSWER_STEPS } from '../../config/constants.js';
+import wayforpayService from '../../services/wayforpayService.js';
 
-// ✅ Фолбеки, якщо в constants нема потрібних OB_* ключів
-const OB = {
-  NAME: ANSWER_STEPS?.OB_NAME || 'ob_name',
-  EMAIL: ANSWER_STEPS?.OB_EMAIL || 'ob_email',
-  PHONE: ANSWER_STEPS?.OB_PHONE || 'ob_phone',
-  TZ: ANSWER_STEPS?.OB_TZ || 'ob_timezone',
-  PLAN: ANSWER_STEPS?.OB_PLAN || 'ob_plan',
-  PAYMENT_PENDING: ANSWER_STEPS?.OB_PAYMENT_PENDING || 'ob_payment_pending',
-  PAYMENT_SUCCESS: ANSWER_STEPS?.OB_PAYMENT_SUCCESS || 'ob_payment_success',
-  REMINDERS_INTRO: ANSWER_STEPS?.OB_REMINDERS_INTRO || 'ob_reminders_intro',
-  DONE: ANSWER_STEPS?.OB_DONE || 'ob_done',
-};
+import { SUBSCRIPTION_PLANS, OB_STEPS, ANSWER_STEPS } from '../../config/constants.js';
 
-const TIMEZONES = [
-  // Київ: у Airtable збережемо тільки ідентифікатор (до пробілу)
-  'Europe/Kyiv (UTC+2/UTC+3)',
-  'Europe/Prague (UTC+1/UTC+2)',
-  'Europe/Berlin (UTC+1/UTC+2)',
-  'Europe/Paris (UTC+1/UTC+2)',
-  'Europe/London (UTC+0/UTC+1)',
-  'America/New_York (UTC-5/UTC-4)',
-  'Asia/Dubai (UTC+4)'
-];
-
-const timezoneKeyboard = () => ({
-  reply_markup: {
-    keyboard: TIMEZONES.map(tz => [tz]),
-    resize_keyboard: true,
-    one_time_keyboard: true
-  }
-});
-
-const parseTz = (label) => (label || '').split(' ')[0]; // "Europe/Prague (..)" -> "Europe/Prague"
-
+// ——— утиліта: профіль незавершений?
 const isProfileIncomplete = (user) => {
   if (!user) return true;
-  const hasName = !!user['User Name'];
-  const hasTz = !!user['Time Zone'];
+  const hasBasicData = !!user['User Name'] && !!user['Email'];
   const isRegistered = user.Status === 'Registered User' || user.UserRegistered === true;
-  return !(hasName && hasTz && isRegistered);
+  return !(hasBasicData && isRegistered);
 };
 
-// ───────────────────────────────────────────────────────────
-// /start — створюємо New User у відповідній view і запускаємо онбординг
-// ───────────────────────────────────────────────────────────
-export async function handleStart(ctx) {
-  const tgId = ctx.from.id;
-  const name = ctx.from.first_name || 'Користувач';
-
+// ——— апсерт
+async function safeUpsert(tgId, fields) {
   try {
-    let user = await userService.getUserByTelegramId(tgId);
-
-    // якщо юзера нема — створюємо “болванку” (Status="New User") → попаде у Subscribers - New Users
-    if (!user) {
-      console.log(`[auth.handleStart] 🔰 Не знайдено юзера ${tgId} — створюю New User stub`);
-      await ensureNewUserStub(tgId);
-      user = await userService.getUserByTelegramId(tgId);
-    }
-
-    // якщо профіль неповний → онбординг
-    if (isProfileIncomplete(user)) {
-      if (!ctx.session) {
-        await ctx.reply('⚠️ Не знайдено session(). Перевір, що bot.use(session()) підключено у server.js');
-        return;
-      }
-
-      // стартуємо з імені
-      ctx.session.step = OB.NAME;
-      ctx.session.temp = { name, tgId, username: ctx.from.username || null };
-
-      await ctx.reply(
-        `🌟 Вітаю в aiMentor, ${name}!\n\nПочнемо реєстрацію. Підтверди своє ім'я або введи інше (2–30 символів):`,
-        keyboards.skipKeyboard()
-      );
-      return;
-    }
-
-    // якщо юзер вже зареєстрований — далі за статусом підписки
-    const active = (user['Active_Subscription_Status'] || '').includes('✅ Активна');
-    if (active) {
-      await ctx.reply(`Привіт знову, ${name}! 👋`, keyboards.mainMenuKeyboard());
-    } else {
-      await ctx.reply(
-        `❌ Твоя підписка неактивна.\n\n📞 Підтримка: nadyastarway@gmail.com`,
-        keyboards.subscriptionKeyboard()
-      );
+    if (typeof userService.upsertUser === 'function') {
+      return await userService.upsertUser({ tgId, ...fields });
     }
   } catch (e) {
-    console.error('[auth.handleStart] ❌ error:', e);
-    await ctx.reply('❌ Помилка. Спробуй ще раз.');
+    console.warn('[safeUpsert] upsertUser failed → fallback:', e?.message);
+  }
+
+  try {
+    const updated = await userService.updateUser(tgId, fields);
+    if (updated) return updated;
+  } catch {}
+
+  if (typeof userService.createUser === 'function') {
+    const payload = {
+      tgId,
+      name: fields['User Name'],
+      email: fields.Email,
+      phone: fields.Phone,
+      timezone: fields['Time Zone'],
+      registrationStatus: fields['Subscription Status'] || 'New'
+    };
+    return await userService.createUser(payload);
+  }
+
+  throw new Error('safeUpsert: no viable path');
+}
+
+// ——— гарантія існування юзера
+async function ensureUserExists(tgId) {
+  let u = await userService.getUserByTelegramId(tgId);
+  if (u) return u;
+
+  try {
+    await ensureNewUserStub(tgId);
+  } catch (e) {
+    console.warn('[ensureUserExists] ensureNewUserStub warn:', e?.message);
+  }
+
+  u = await userService.getUserByTelegramId(tgId);
+  if (u) return u;
+
+  try {
+    const created = await userService.createUser({ tgId, registrationStatus: 'New' });
+    return created || (await userService.getUserByTelegramId(tgId));
+  } catch (e) {
+    console.error('[ensureUserExists] createUser fail:', e);
+    throw e;
   }
 }
 
-// ───────────────────────────────────────────────────────────
-// обробка кроків онбордингу: Name → Email → Phone → Timezone → finalize
-// ───────────────────────────────────────────────────────────
+// ——— /start
+export async function handleStart(ctx) {
+  const tgId = ctx.from.id;
+  const name = ctx.from.first_name || 'Користувач';
+  if (!ctx.session) ctx.session = { step: undefined, temp: {} };
+
+  try {
+    let user = null;
+    try {
+      user = await userService.getUserByTelegramId(tgId);
+      if (!user) user = await ensureUserExists(tgId);
+    } catch (dbErr) {
+      console.warn('[auth.handleStart] ⚠️ DB issue, continue onboarding:', dbErr?.message);
+    }
+
+    if (user && !isProfileIncomplete(user)) {
+      const active = (user['Active_Subscription_Status'] || '').includes('✅ Активна') || (user['Subscription Status'] === 'Active');
+      if (active) {
+        await ctx.reply(`Привіт знову, ${name}! 👋`, keyboards.mainMenuKeyboard());
+      } else {
+        await ctx.reply(
+          `❌ Твоя підписка неактивна.\n\n📞 Підтримка: nadyastarway@gmail.com`,
+          keyboards.subscriptionKeyboard()
+        );
+      }
+      return;
+    }
+
+    ctx.session.step = OB_STEPS.PITCH;
+    ctx.session.temp = { tgId, username: ctx.from.username || null };
+
+    await ctx.reply(
+      '🌟 Я твій АІ мотиватор-коуч. Короткі щоденні питання → фокус → прогрес. Поїхали?',
+      keyboards.onboardingStartKeyboard()
+    );
+  } catch (e) {
+    const errId = `H1-${Date.now()}`;
+    console.error(`[auth.handleStart] ❌ error ${errId}:`, e);
+    await ctx.reply(`❌ Помилка. Спробуй ще раз.\n\n(код: ${errId})`);
+  }
+}
+
+// ——— ТЕКСТОВІ КРОКИ
 export async function handleRegistrationStep(ctx) {
-  // якщо немає активної сесії/кроку — не перехоплюємо текст
-  if (!ctx.session || !ctx.session.step) return false;
+  if (!ctx.session) ctx.session = { step: undefined, temp: {} };
+  if (!ctx.session.step) return false;
 
   const step = ctx.session.step;
   const text = (ctx.message?.text || '').trim();
   const tgId = ctx.session.temp?.tgId || ctx.from.id;
 
-  // приймаємо тільки наші кроки OB_* або сумісний 'reg_timezone'
-  const isOurStep =
-    step === OB.NAME ||
-    step === OB.EMAIL ||
-    step === OB.PHONE ||
-    step === OB.TZ ||
-    step === 'reg_timezone';
-
+  const isOurStep = Object.values(OB_STEPS).includes(step);
   if (!isOurStep) return false;
 
   try {
-    // 1) ІМ'Я
-    if (step === OB.NAME) {
-      const inputName = text || ctx.session.temp?.name || '';
-      if (inputName.length < 2 || inputName.length > 30) {
-        await ctx.reply('⚠️ Ім’я має бути 2–30 символів. Спробуй ще раз.');
+    // NAME
+    if (step === OB_STEPS.NAME && text) {
+      if (text.length < 2 || text.length > 30) {
+        await ctx.reply('⚠️ Краще коротше/довше: 2–30 символів.');
         return true;
       }
+      await ensureUserExists(tgId);
+      await safeUpsert(tgId, { 'User Name': text.trim() });
+      ctx.session.temp.name = text.trim();
 
-      await userService.updateUser(tgId, {
-        'User Name': inputName.trim(),
-      });
-
-      ctx.session.temp.name = inputName.trim();
-      ctx.session.step = OB.EMAIL;
-
-      await ctx.reply('📧 Введи e-mail для чеків і доступів (або натисни "Пропустити"):', keyboards.skipKeyboard());
+      ctx.session.step = OB_STEPS.EMAIL;
+      await ctx.reply('📧 Введи e-mail для чеків і доступів.', keyboards.emailInputKeyboard());
+      await ctx.reply('Можеш повернутися назад:', keyboards.backFromEmailKeyboard());
       return true;
     }
 
-    // 2) EMAIL
-    if (step === OB.EMAIL) {
-      if (!isSkip(text) && text && !isValidEmail(text)) {
-        await ctx.reply('⚠️ Схоже на помилку в e-mail. Введи ще раз або "Пропустити":', keyboards.skipKeyboard());
+    // EMAIL
+    if (step === OB_STEPS.EMAIL && text) {
+      if (!isValidEmail(text)) {
+        await ctx.reply(
+          '⚠️ Схоже на помилку в адресі. Введи e-mail ще раз або натисни "Пропустити".',
+          keyboards.emailInputKeyboard()
+        );
         return true;
       }
+      await ensureUserExists(tgId);
+      await safeUpsert(tgId, { Email: text.trim() });
+      ctx.session.temp.email = text.trim();
 
-      const email = isSkip(text) ? null : text.trim();
-      if (email) {
-        await userService.updateUser(tgId, { Email: email });
-      }
-
-      ctx.session.temp.email = email;
-      ctx.session.step = OB.PHONE;
-
-      await ctx.reply('📱 Введи номер телефону у форматі +380XXXXXXXXX (або натисни "Пропустити"):', keyboards.skipKeyboard());
+      ctx.session.step = OB_STEPS.PHONE;
+      await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());
+      await ctx.reply('Можеш повернутися назад:', keyboards.backFromPhoneKeyboard());
       return true;
     }
 
-    // 3) PHONE
-    if (step === OB.PHONE) {
-      if (!isSkip(text) && text && !isValidUaPhone(text)) {
-        await ctx.reply('⚠️ Номер має бути у форматі +380XXXXXXXXX або натисни "Пропустити":', keyboards.skipKeyboard());
+    // PHONE
+    if (step === OB_STEPS.PHONE && text) {
+      if (!isValidUaPhone(text)) {
+        await ctx.reply(
+          '⚠️ Формат не схожий на телефон. Спробуй ще раз або натисни "Пропустити".',
+          keyboards.phoneInputKeyboard()
+        );
         return true;
       }
+      await ensureUserExists(tgId);
+      await safeUpsert(tgId, { Phone: text.trim() });
+      ctx.session.temp.phone = text.trim();
 
-      const phone = isSkip(text) ? null : text.trim();
-      if (phone) {
-        await userService.updateUser(tgId, { Phone: phone });
-      }
-
-      ctx.session.temp.phone = phone;
-      ctx.session.step = OB.TZ;
-
-      await ctx.reply('🌍 Обери часовий пояс для нагадувань:', timezoneKeyboard());
+      ctx.session.step = OB_STEPS.TIMEZONE;
+      await ctx.reply('🕒 Обери часовий пояс для нагадувань:', keyboards.timezoneKeyboard());
       return true;
     }
 
-    // 4) TIMEZONE (підтримка і OB.TZ, і старого 'reg_timezone')
-    if (step === OB.TZ || step === 'reg_timezone') {
-      const picked = TIMEZONES.find((tz) => tz === text);
-      if (!picked) {
-        await ctx.reply('Обери часовий пояс зі списку нижче:', timezoneKeyboard());
-        return true;
-      }
-
-      const tz = parseTz(picked);
-      const finalName = ctx.session.temp?.name || 'Користувач';
-      const email = ctx.session.temp?.email || null;
-      const phone = ctx.session.temp?.phone || null;
-
-      console.log('[auth.handleRegistrationStep] ✅ Finalize registration payload:', {
-        tgId, finalName, email, phone, tz
-      });
-
-      try {
-        // ► Переведемо запис у "Registered User" → попадеш у view: Subscribers - Form Submited
-        const updated = await finalizeRegistration(tgId, {
-          name: finalName,
-          email,
-          phone,
-          timezone: tz
-        });
-
-        // чистимо мікродані сесії (НЕ перетираємо весь ctx.session!)
-        ctx.session.step = undefined;
-        ctx.session.temp = {};
-
-        await ctx.reply(`🎉 Реєстрацію завершено!\n\nТвій часовий пояс: ${picked}`, keyboards.removeKeyboard());
-
-        // далі — підписка або колесо
-        const active = (updated['Active_Subscription_Status'] || '').includes('✅ Активна');
-        if (!active) {
-          await ctx.reply(
-            '💰 Для початку роботи потрібна активна підписка.\n\n📞 Звʼяжись із підтримкою: nadyastarway@gmail.com',
-            keyboards.subscriptionKeyboard()
-          );
-        } else {
-          await ctx.reply('🎯 Почнемо з колеса балансу!');
-          await wheelBalanceController.handleWheelBalanceRequest(ctx);
-        }
-
-        return true;
-      } catch (error) {
-        console.error('[auth.handleRegistrationStep] ❌ finalizeRegistration error:', error);
-        await ctx.reply('❌ Помилка збереження. Спробуй ще раз або напиши в підтримку.');
-        return true;
-      }
-    }
-
+    return false;
   } catch (error) {
     console.error('[auth.handleRegistrationStep] ❌ error:', error);
-    // soft-reset
-    if (ctx.session) {
-      ctx.session.step = undefined;
-      ctx.session.temp = {};
-    }
     await ctx.reply('❌ Помилка реєстрації. Натисни /start, щоб почати заново.');
+    ctx.session = { step: undefined, temp: {} };
+    return true;
   }
-
-  return false;
 }
 
-// ───────────────────────────────────────────────────────────
-// Опціонально: обробка онбординг callback'ів (плани/оплата/нагадування/колесо)
-// (залишив без змін, якщо використовуєш)
-// ───────────────────────────────────────────────────────────
+// ——— CALLBACK КРОКИ
 export async function handleOnboardingCallback(ctx) {
   const data = ctx.callbackQuery?.data;
-  if (!data || !ctx.session) return false;
+  if (!data) return false;
+  if (!ctx.session) ctx.session = { step: undefined, temp: {} };
 
-  console.log(`[handleOnboardingCallback] Callback: ${data}, session step: ${ctx.session?.step}`);
+  const tgId = ctx.session.temp?.tgId || ctx.from.id;
 
   try {
-    const onboardingCallbacks = [
-      'onboarding_start', 'onboarding_about', 'pick_plan_', 'back_plan',
-      'pay_', 'pay_check_', 'reminders', 'rem_ok', 'rem_later', 'wheel_start'
-    ];
-    const isOnboardingCallback = onboardingCallbacks.some(cb => data.startsWith(cb) || data === cb);
-    if (!isOnboardingCallback) return false;
+    // PITCH → NAME + СТВОРЕННЯ ЗАПИСУ "New User"
+    if (data === 'onboarding_start' && ctx.session.step === OB_STEPS.PITCH) {
+      let user = null;
+      try {
+        user = await ensureUserExists(tgId);
+      } catch (e) {
+        console.error('[onboarding_start] ensureUserExists fail:', e);
+      }
 
-    const tgId = ctx.session.temp?.tgId || ctx.from.id;
+      try {
+        await safeUpsert(tgId, {
+          'TG_id': String(tgId),
+          Status: 'New User',
+          UserRegistered: false,
+          'Subscription Status': user?.['Subscription Status'] || 'New'
+        });
+      } catch (e) {
+        console.error('[onboarding_start] upsert fail:', e);
+      }
 
-    if (data === 'onboarding_start') {
-      ctx.session.step = OB.NAME;
-      await ctx.editMessageText('Як звертатись до тебе? Введи ім\'я (2–30 символів).');
+      ctx.session.step = OB_STEPS.NAME;
+      await ctx.answerCbQuery();
+      await ctx.reply('Як звертатись до тебе? Введи імʼя (2–30 символів).');
+      return true;
+    }
+
+    if (data === 'onboarding_about' && ctx.session.step === OB_STEPS.PITCH) {
+      const aboutText =
+        `ℹ️ ПРО БОТА\n\n` +
+        `🎯 Щоденна рефлексія:\n• Ранкові питання (08:00)\n• Вечірні питання (21:30)\n\n` +
+        `📊 AI-аналіз:\n• Щотижневі звіти\n• Щомісячні рекомендації\n\n` +
+        `🎯 Інструменти:\n• Колесо балансу\n• Персональний коуч\n• Афірмації\n\n` +
+        `Готова почати?`;
+
+      await ctx.reply(aboutText, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '✅ Почати реєстрацію', callback_data: 'onboarding_start' }],
+            [{ text: '🔙 Назад', callback_data: 'back_to_pitch' }]
+          ]
+        }
+      });
       await ctx.answerCbQuery();
       return true;
     }
 
-    // ... (твоя існуюча логіка для оплат / нагадувань / колеса — без змін)
+    if (data === 'back_to_pitch') {
+      ctx.session.step = OB_STEPS.PITCH;
+      await ctx.answerCbQuery();
+      await ctx.reply(
+        '🌟 Я твій АІ мотиватор-коуч. Короткі щоденні питання → фокус → прогрес. Поїхали?',
+        keyboards.onboardingStartKeyboard()
+      );
+      return true;
+    }
+
+    // ——— Back/Skip навігація
+    if (data === 'back_email' && ctx.session.step === OB_STEPS.EMAIL) {
+      ctx.session.step = OB_STEPS.NAME;
+      await ctx.answerCbQuery('Назад');
+      await ctx.reply('Як звертатись до тебе? Введи імʼя (2–30 символів).');
+      return true;
+    }
+
+    if (data === 'back_phone' && ctx.session.step === OB_STEPS.PHONE) {
+      ctx.session.step = OB_STEPS.EMAIL;
+      await ctx.answerCbQuery('Назад');
+      await ctx.reply('📧 Введи e-mail для чеків і доступів.', keyboards.emailInputKeyboard());
+      await ctx.reply('Можеш повернутися назад:', keyboards.backFromEmailKeyboard());
+      return true;
+    }
+
+    if (data === 'back_timezone' && ctx.session.step === OB_STEPS.TIMEZONE) {
+      ctx.session.step = OB_STEPS.PHONE;
+      await ctx.answerCbQuery('Назад');
+      await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());
+      await ctx.reply('Можеш повернутися назад:', keyboards.backFromPhoneKeyboard());
+      return true;
+    }
+
+    // ——— Глобальна зміна TZ
+    if (data === 'change_tz') {
+      ctx.session.step = OB_STEPS.TIMEZONE;
+      await ctx.answerCbQuery('Змінюємо TZ');
+      await ctx.reply('🕒 Обери новий часовий пояс:', keyboards.timezoneKeyboard());
+      return true;
+    }
+
+    // ——— ВИБІР TZ → finalizeRegistration → апсерт → Registered User → підтвердження
+    if (data.startsWith('tz_') && ctx.session.step === OB_STEPS.TIMEZONE) {
+      const tz = data.replace('tz_', '');
+      ctx.session.temp.timezone = tz;
+
+      try {
+        const res = await finalizeRegistration(tgId, {
+          name: ctx.session.temp.name || ctx.from.first_name || 'Користувач',
+          email: ctx.session.temp.email,
+          phone: ctx.session.temp.phone,
+          timezone: tz
+        });
+
+        const fresh = await userService.getUserByTelegramId(tgId);
+        const atId = res?.id || fresh?.id || fresh?.AT_id;
+
+        await safeUpsert(tgId, {
+          'AT_id': atId,
+          'TG_id': String(tgId),
+          'User Name': ctx.session.temp.name || fresh?.['User Name'],
+          'Email': ctx.session.temp.email || fresh?.Email,
+          'Time Zone': tz,
+          'Phone': ctx.session.temp?.phone || fresh?.Phone,
+          Status: 'Registered User',         // ✅ Single select
+          UserRegistered: true,
+          Answer_Step: ANSWER_STEPS.COMPLETED
+        });
+      } catch (e) {
+        const errId = `FR-${Date.now()}`;
+        console.error(`[finalizeRegistration] ❌ ${errId}:`, e);
+      }
+
+      ctx.session.step = OB_STEPS.PLAN;
+      await ctx.answerCbQuery(`Часовий пояс: ${tz}`);
+      await ctx.reply(`⏰ Часовий пояс: ${tz}`);
+      await ctx.reply('Часовий пояс збережено. Можеш змінити або йти далі:', keyboards.timezoneConfirmedKeyboard());
+      return true;
+    }
+
+    // ——— «Далі» після підтвердження TZ
+    if (data === 'go_plan' && (ctx.session.step === OB_STEPS.TIMEZONE || ctx.session.step === OB_STEPS.PLAN)) {
+      ctx.session.step = OB_STEPS.PLAN;
+      await ctx.answerCbQuery();
+      await ctx.reply('💰 Обери план, що підходить зараз.', keyboards.onboardingPlanKeyboard());
+      return true;
+    }
+
+    // PLAN → CONFIRM
+    if (data.startsWith('pick_plan_') && ctx.session.step === OB_STEPS.PLAN) {
+      const planValue = data.replace('pick_plan_', '');
+      let planInfo;
+
+      switch (planValue) {
+        case 'trial_7d':
+          planInfo = { name: '🧪 Пробний 7 днів — 0€', price: 0, duration: 7, key: 'TRIAL_7D' };
+          break;
+        case 'week_7':   planInfo = { ...SUBSCRIPTION_PLANS.WEEK,  key: 'WEEK'  }; break;
+        case 'month_30': planInfo = { ...SUBSCRIPTION_PLANS.MONTH, key: 'MONTH' }; break;
+        case 'year_300': planInfo = { ...SUBSCRIPTION_PLANS.YEAR,  key: 'YEAR'  }; break;
+        default:
+          await ctx.answerCbQuery('Невірний план');
+          return true;
+      }
+
+      ctx.session.temp.selectedPlan = planInfo;
+
+      const detailsText =
+        `📋 ОБРАНИЙ ПЛАН: ${planInfo.name}\n\n` +
+        `✨ У плані:\n• Ранкові питання (08:00)\n• Вечірні питання (21:30)\n• Тижневий AI-звіт\n• Колесо балансу (перше)\n• PDF-звіти\n\n` +
+        `💰 Вартість: ${planInfo.price}€\n⏰ Тривалість: ${planInfo.duration} днів`;
+
+      await ctx.reply(detailsText, keyboards.onboardingPlanConfirmKeyboard(planValue));
+      await ctx.answerCbQuery(`Обрано: ${planInfo.name}`);
+      return true;
+    }
+
+    if (data === 'back_plan' && ctx.session.step === OB_STEPS.PLAN) {
+      await ctx.answerCbQuery('Змінюємо план');
+      await ctx.reply('💰 Обери план, що підходить зараз.', keyboards.onboardingPlanKeyboard());
+      return true;
+    }
+
+    // PAY / ACTIVATE
+    if (data.startsWith('pay_') && ctx.session.step === OB_STEPS.PLAN) {
+      const planValue = data.replace('pay_', '');
+      const planInfo = ctx.session.temp.selectedPlan;
+
+      if (!planInfo) {
+        await ctx.answerCbQuery('Помилка: план не обраний');
+        return true;
+      }
+
+      // Trial 7 днів — миттєво, повний доступ
+      if (planValue === 'trial_7d') {
+        await activateTrial(ctx, tgId, 7);
+        return true;
+      }
+
+      // Платні — WayForPay
+      try {
+        ctx.session.step = OB_STEPS.PAYMENT_PENDING;
+        ctx.session.temp.paymentPlan = planInfo;
+
+        const user = await userService.getUserByTelegramId(tgId);
+        const email = user?.Email || ctx.session.temp.email;
+        const paymentUrl = wayforpayService.generatePaymentUrl(tgId, planInfo.key, email);
+        const orderReference = `AIMENTOR_${planInfo.key}_${tgId}_${Date.now()}`;
+        ctx.session.temp.orderReference = orderReference;
+
+        const paymentText =
+          `💳 ОПЛАТА\n\n📋 План: ${planInfo.name}\n💰 Сума: ${planInfo.price}€\n\n` +
+          `🔗 Посилання для оплати:\n${paymentUrl}\n\n` +
+          `⏰ Тримай рахунок. Оплата через WayForPay. Я зачекаю вебхук 😉`;
+
+        await ctx.reply(paymentText, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔗 Перейти до оплати', url: paymentUrl }],
+              [{ text: '🔁 Перевірити оплату', callback_data: `pay_check_${orderReference}` }],
+              [{ text: '🔙 Змінити план', callback_data: 'back_plan' }]
+            ]
+          }
+        });
+
+        await ctx.answerCbQuery('Посилання для оплати створено');
+        return true;
+
+      } catch (paymentError) {
+        console.error('[onboarding] Помилка створення платежу:', paymentError);
+        await ctx.reply('❌ Помилка створення платежу. Спробуй пізніше або звернись у підтримку.');
+        await ctx.answerCbQuery('Помилка платежу');
+        return true;
+      }
+    }
+
+    // CHECK PAYMENT (плейсхолдер)
+    if (data.startsWith('pay_check_') && ctx.session.step === OB_STEPS.PAYMENT_PENDING) {
+      await ctx.answerCbQuery('Перевіряємо оплату...');
+      return true;
+    }
+
+    // Нагадування: без ОК і «змінити пізніше» → одразу показуємо час і запускаємо колесо
+    if (data === 'reminders' && (ctx.session.step === OB_STEPS.PAYMENT_SUCCESS || ctx.session.trialJustActivated)) {
+      ctx.session.step = OB_STEPS.DONE;
+
+      // Повідомлення про фіксований графік
+      const user = await userService.getUserByTelegramId(tgId);
+      const tz = user?.['Time Zone'] || ctx.session.temp?.timezone || 'Europe/Kyiv';
+      await ctx.reply(`Фіксований графік: ранок 08:00, вечір 21:30 (за твоєю TZ: ${tz}).`);
+
+      // Старт колеса (без «— займе ~3 хвилини.»)
+      await ctx.reply('Готово. Запускаю перше Колесо балансу.', keyboards.onboardingWheelStartKeyboard());
+      // одразу ж запускаємо його програмно
+      ctx.session.trialJustActivated = true;
+      await wheelBalanceController.handleWheelBalanceRequest(ctx);
+
+      await ctx.answerCbQuery();
+      return true;
+    }
+
+    // WHEEL ручний старт (кнопка)
+    if (data === 'wheel_start' && (ctx.session.step === OB_STEPS.DONE || ctx.session.trialJustActivated)) {
+      ctx.session.step = undefined;
+      ctx.session.temp = {};
+      await ctx.answerCbQuery('Запускаємо колесо балансу!');
+      await wheelBalanceController.handleWheelBalanceRequest(ctx);
+      return true;
+    }
 
     return false;
   } catch (error) {
     console.error('[auth.handleOnboardingCallback] Помилка:', error);
-    try { await ctx.answerCbQuery('Помилка'); } catch {}
+    try { await ctx.answerCbQuery('Помилка обробки'); } catch {}
     return false;
   }
+}
+
+// ——— helper: активація trial і запис полів (повний доступ) + правильні назви полів/значень
+// ——— helper: активація trial і запис усіх потрібних полів (повний доступ)
+async function activateTrial(ctx, tgId, days) {
+  ctx.session.step = OB_STEPS.PAYMENT_SUCCESS;
+  ctx.session.trialJustActivated = true; // дає доступ одразу в поточній сесії
+
+  const now = new Date();
+  const endDate = new Date(now);
+  endDate.setDate(endDate.getDate() + days);
+
+  // підтягнемо поточного юзера (може вже є частина полів)
+  const user = await userService.getUserByTelegramId(tgId);
+
+  // TZ гарантуємо
+  const tz = ctx.session.temp?.timezone || user?.['Time Zone'] || 'Europe/Kyiv';
+  const atId = user?.id || user?.AT_id; // Airtable record id (якщо вже є)
+
+  // формуємо підписку
+  const planName = '🧪 Пробний 7 днів — 0€';
+  const activeLine = `✅ Активна (TRIAL ${days} дн.) до ${endDate.toLocaleDateString('uk-UA')}`;
+
+  // ⬇️ ВАЖЛИВО: саме ЦЕЙ апдейт записує 'Active Subscription Plan', Start_Date, End_Date тощо
+  await ensureUserExists(tgId); // на випадок, якщо запис ще не створений
+  await safeUpsert(tgId, {
+    // ідентифікатори/профіль
+    'AT_id': atId,                      // якщо порожньо — не страшно: upsertUser потім оновить
+    'TG_id': String(tgId),
+    'User Name': user?.['User Name'] || ctx.session.temp?.name || ctx.from.first_name || 'Користувач',
+    'Email': user?.Email || ctx.session.temp?.email || null,
+    'Phone': ctx.session.temp?.phone || user?.Phone || null,
+    'Time Zone': tz,
+
+    // статус реєстрації
+    Status: 'Registered User',
+    UserRegistered: true,
+
+    // ПІДПИСКА (trial = повний доступ)
+    'Active Subscription Plan': planName,
+    'Active_Subscription_Status': activeLine,
+    'Subscription Status': 'Active',
+    'Start_Date': now.toISOString(),
+    'End_Date': endDate.toISOString(),
+
+    // одразу переведемо користувача в колесо
+    Answer_Step: 'WheelBalance'
+  });
+
+  // повідомлення після активації
+  await ctx.reply(
+    `📋 ОБРАНИЙ ПЛАН: ${planName}\n\n` +
+    `✨ У плані:\n` +
+    `• Ранкові питання (08:00)\n` +
+    `• Вечірні питання (21:30)\n` +
+    `• Тижневий AI-звіт\n` +
+    `• Колесо балансу (перше)\n` +
+    `• PDF-звіти\n\n` +
+    `💰 Вартість: 0€\n` +
+    `⏰ Тривалість: ${days} днів`
+  );
+
+  await ctx.reply(
+    `✅ Пробний період активовано!\n` +
+    `Діє до: ${endDate.toLocaleDateString('uk-UA')}\n\n` +
+    `🎯 Тепер доступні всі функції бота.`,
+  );
+
+  // без "Ок", без "Змінити пізніше" — фіксований графік
+  await ctx.reply(`Фіксований графік: ранок 08:00, вечір 21:30 (за твоєю TZ).`);
+
+  // одразу запропонуємо старт колеса (без тексту "— займе ~3 хвилини")
+  await ctx.reply('Готово. Запускаю перше Колесо балансу.', keyboards.onboardingWheelStartKeyboard());
 }

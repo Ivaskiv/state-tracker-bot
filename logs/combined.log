@@ -1928,3 +1928,314 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:24:11.843Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:25:21.377Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:29:55.544Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:32:13.967Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:41:05.664Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:42:01.344Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:45:26.746Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:47:50.721Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:49:34.016Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:50:12.095Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:56:18.367Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T14:58:54.228Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:02:13.848Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:02:19.866Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:02:32.182Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:02:34.361Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:02:37.487Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:04:42.629Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:04:45.916Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:11:52.136Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:12:19.084Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T15:18:31.175Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_about від 630111093","timestamp":"2025-09-19T15:18:47.853Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T15:18:48.007Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-19T15:18:51.539Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T15:18:51.626Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T15:18:59.237Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T15:19:21.195Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_3d від 630111093","timestamp":"2025-09-19T15:19:29.188Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T15:19:29.273Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_3d від 630111093","timestamp":"2025-09-19T15:19:40.172Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T15:19:44.527Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-19T15:19:52.619Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T15:19:52.949Z"}
+{"level":"info","message":"[botController] 📱 Callback: rem_ok від 630111093","timestamp":"2025-09-19T15:19:57.793Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T15:19:58.008Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-19T15:20:21.951Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T15:20:23.601Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:35:54.627Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:37:19.739Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:37:20.070Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:38:03.271Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:38:28.131Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:38:29.380Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:38:36.140Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:38:37.264Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:39:22.131Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:39:43.256Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:39:44.352Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:41:10.627Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:41:29.423Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:42:30.447Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:45:07.112Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:45:08.016Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:46:41.414Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:47:06.803Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:48:37.271Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-19T16:49:00.705Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T16:49:00.791Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T16:49:06.741Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T16:49:22.195Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T16:49:43.155Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-19T16:49:46.153Z"}
+{"level":"info","message":"[botController] ❌ Онбординг callback НЕ оброблено, step: ob_timezone, data: tz_Europe/Prague","timestamp":"2025-09-19T16:49:46.246Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Kyiv від 630111093","timestamp":"2025-09-19T16:50:10.387Z"}
+{"level":"info","message":"[botController] ❌ Онбординг callback НЕ оброблено, step: ob_timezone, data: tz_Europe/Kyiv","timestamp":"2025-09-19T16:50:10.428Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:56:04.436Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:56:06.016Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T16:58:58.923Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:03:13.209Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-19T17:03:31.066Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:03:31.652Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:03:40.359Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:03:45.079Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:03:55.879Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-19T17:03:59.360Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:04:00.125Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-19T17:04:04.755Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:04:04.839Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-19T17:04:17.736Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:04:18.696Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-19T17:04:26.427Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:04:26.510Z"}
+{"level":"info","message":"[botController] 📱 Callback: rem_ok від 630111093","timestamp":"2025-09-19T17:04:31.790Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:04:31.872Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-19T17:04:36.532Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:04:38.176Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:14:46.871Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-19T17:15:05.456Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:15:05.889Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:15:17.977Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:15:22.413Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:15:34.208Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Kyiv від 630111093","timestamp":"2025-09-19T17:15:37.806Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:15:38.685Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-19T17:16:23.173Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:16:23.460Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-19T17:16:31.836Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:16:32.846Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-19T17:16:37.297Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:16:37.458Z"}
+{"level":"info","message":"[botController] 📱 Callback: rem_ok від 630111093","timestamp":"2025-09-19T17:16:40.010Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:16:40.128Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-19T17:16:43.165Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:16:44.868Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:19:06.740Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:19:13.973Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:19:57.753Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:20:14.917Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:20:30.072Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:20:45.840Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:21:55.094Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:22:31.502Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:23:19.639Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:30:21.916Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:31:07.074Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-19T17:31:19.963Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:31:20.290Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:31:28.066Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:31:38.537Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:31:46.851Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-19T17:31:49.598Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:31:50.618Z"}
+{"level":"info","message":"[botController] 📱 Callback: go_plan від 630111093","timestamp":"2025-09-19T17:31:57.802Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:31:58.689Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-19T17:32:01.604Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:32:01.816Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-19T17:32:04.850Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:32:06.102Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-19T17:32:10.684Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:32:10.808Z"}
+{"level":"info","message":"[botController] 📱 Callback: rem_ok від 630111093","timestamp":"2025-09-19T17:32:13.543Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:32:13.942Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-19T17:32:16.260Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:32:18.788Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-19T17:35:51.272Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-19T17:36:07.445Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:36:18.162Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-19T17:36:19.038Z"}
+{"level":"info","message":"[botController] ❌ Онбординг callback НЕ оброблено, step: ob_name, data: onboarding_start","timestamp":"2025-09-19T17:36:19.039Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:36:36.983Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:37:25.917Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-19T17:37:45.152Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-19T17:37:48.249Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:37:49.223Z"}
+{"level":"info","message":"[botController] 📱 Callback: go_plan від 630111093","timestamp":"2025-09-19T17:37:52.527Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:37:53.138Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-19T17:37:56.039Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:37:56.121Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-19T17:37:58.640Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:38:09.813Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-19T17:38:17.730Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:38:17.809Z"}
+{"level":"info","message":"[botController] 📱 Callback: rem_ok від 630111093","timestamp":"2025-09-19T17:38:19.705Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:38:19.787Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-19T17:38:22.724Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-19T17:38:24.370Z"}
+{"level":"warn","message":"[botController] ❌ Користувача 630111093 не знайдено","timestamp":"2025-09-20T06:37:09.664Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:38:55.684Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:39:18.226Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:39:59.716Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:40:04.937Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:40:06.691Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:41:03.090Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:46:05.268Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T08:51:09.235Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:51:20.005Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T08:52:59.502Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:53:10.416Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T08:53:11.288Z"}
+{"level":"info","message":"[botController] ❌ Онбординг callback НЕ оброблено, step: ob_name, data: onboarding_start","timestamp":"2025-09-20T08:53:11.289Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T08:53:11.398Z"}
+{"level":"info","message":"[botController] ❌ Онбординг callback НЕ оброблено, step: ob_name, data: onboarding_start","timestamp":"2025-09-20T08:53:11.400Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T08:53:25.652Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T08:53:48.321Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T08:54:02.627Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-20T08:54:05.786Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:54:06.585Z"}
+{"level":"info","message":"[botController] 📱 Callback: go_plan від 630111093","timestamp":"2025-09-20T08:54:11.455Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:54:11.597Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-20T08:54:21.218Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:54:21.300Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-20T08:54:39.235Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:54:49.776Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-20T08:55:03.903Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:55:04.171Z"}
+{"level":"info","message":"[botController] 📱 Callback: rem_ok від 630111093","timestamp":"2025-09-20T08:55:06.380Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:55:06.454Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T08:55:55.356Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T08:55:56.897Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:56:39.418Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:56:51.012Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:57:04.862Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:57:10.124Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:57:15.799Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:57:21.796Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:57:26.259Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:57:49.431Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:58:42.844Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T08:59:06.373Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:02:25.260Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:02:25.582Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T09:03:00.569Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:03:11.794Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:03:30.234Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:03:55.750Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:05:04.978Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-20T09:05:11.888Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:05:13.582Z"}
+{"level":"info","message":"[botController] 📱 Callback: go_plan від 630111093","timestamp":"2025-09-20T09:05:19.486Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:05:19.653Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-20T09:05:23.900Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:05:23.977Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-20T09:05:29.882Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:05:40.447Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-20T09:05:48.993Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:05:49.124Z"}
+{"level":"info","message":"[botController] 📱 Callback: rem_ok від 630111093","timestamp":"2025-09-20T09:05:53.838Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:05:53.922Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T09:05:58.253Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:05:59.989Z"}
+{"level":"info","message":"[botController] 📱 Callback: subscription_info від 630111093","timestamp":"2025-09-20T09:06:08.509Z"}
+{"level":"info","message":"[botController] ⚠️ Користувач 630111093 не завершив реєстрацію для callback subscription_info","timestamp":"2025-09-20T09:06:09.021Z"}
+{"level":"info","message":"[botController] 📱 Callback: subscription_info від 630111093","timestamp":"2025-09-20T09:06:22.071Z"}
+{"level":"info","message":"[botController] ⚠️ Користувач 630111093 не завершив реєстрацію для callback subscription_info","timestamp":"2025-09-20T09:06:22.660Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:10:55.311Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:10:56.896Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:12:49.164Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:18:03.144Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:18:41.164Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:22:52.768Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T09:23:22.446Z"}
+{"level":"info","message":"[botController] ❌ Онбординг callback НЕ оброблено, step: ob_name, data: onboarding_start","timestamp":"2025-09-20T09:23:52.333Z"}
+{"level":"error","message":"[botController] ❌ Помилка callback onboarding_start: 400: Bad Request: query is too old and response timeout expired or query ID is invalid","on":{"method":"answerCallbackQuery","payload":{"callback_query_id":"2706306537884814565","text":"Невідома команда онбордингу"}},"response":{"description":"Bad Request: query is too old and response timeout expired or query ID is invalid","error_code":400,"ok":false},"stack":"Error: 400: Bad Request: query is too old and response timeout expired or query ID is invalid\n    at Telegram.callApi (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/core/network/client.js:315:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/botController.js:196:9\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)","timestamp":"2025-09-20T09:23:52.375Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T09:23:53.240Z"}
+{"level":"info","message":"[botController] ❌ Онбординг callback НЕ оброблено, step: ob_name, data: onboarding_start","timestamp":"2025-09-20T09:23:53.241Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:28:51.797Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:29:11.298Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T09:29:49.508Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:30:19.660Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:33:27.542Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:34:54.469Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:37:00.862Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T09:37:12.531Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:37:13.727Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:37:25.620Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:37:50.761Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:38:04.294Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-20T09:38:07.946Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:38:09.825Z"}
+{"level":"info","message":"[botController] 📱 Callback: go_plan від 630111093","timestamp":"2025-09-20T09:38:14.088Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:38:14.240Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-20T09:38:17.710Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:38:17.794Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-20T09:38:24.432Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:38:26.046Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-20T09:38:34.384Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:38:34.509Z"}
+{"level":"info","message":"[botController] 📱 Callback: rem_ok від 630111093","timestamp":"2025-09-20T09:38:50.850Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:38:50.942Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T09:38:53.931Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T09:38:55.668Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T09:38:55.669Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:53:04.291Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:53:49.895Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T09:53:57.926Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T09:55:11.607Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:55:12.708Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:55:24.471Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:55:44.721Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T09:55:59.680Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-20T09:56:03.164Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:56:04.847Z"}
+{"level":"info","message":"[botController] 📱 Callback: go_plan від 630111093","timestamp":"2025-09-20T09:56:23.760Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:56:23.847Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-20T09:56:27.150Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:56:27.245Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-20T09:56:36.271Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T09:56:37.936Z"}
+{"level":"info","message":"[botController] 📱 Callback: reminders від 630111093","timestamp":"2025-09-20T09:56:47.352Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T09:56:49.216Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T09:56:49.217Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T09:58:17.388Z"}
+{"level":"error","message":"[botController] ❌ Помилка callback wheel_start: 400: Bad Request: query is too old and response timeout expired or query ID is invalid","on":{"method":"answerCallbackQuery","payload":{"callback_query_id":"2706306539053063708","text":"Потрібна активна підписка"}},"response":{"description":"Bad Request: query is too old and response timeout expired or query ID is invalid","error_code":400,"ok":false},"stack":"Error: 400: Bad Request: query is too old and response timeout expired or query ID is invalid\n    at Telegram.callApi (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/core/network/client.js:315:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/botController.js:218:9\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)\n    at async /Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:519:21\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)","timestamp":"2025-09-20T09:58:18.395Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:04:26.873Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:06:34.480Z"}
+{"level":"info","message":"[botController] 📱 Callback: onboarding_start від 630111093","timestamp":"2025-09-20T10:07:52.936Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T10:07:54.724Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T10:08:00.983Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T10:08:16.451Z"}
+{"level":"info","message":"[botController] ✅ Оброблено крок онбордингу для 630111093","timestamp":"2025-09-20T10:08:28.964Z"}
+{"level":"info","message":"[botController] 📱 Callback: tz_Europe/Prague від 630111093","timestamp":"2025-09-20T10:08:31.470Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T10:08:33.151Z"}
+{"level":"info","message":"[botController] 📱 Callback: go_plan від 630111093","timestamp":"2025-09-20T10:08:35.836Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T10:08:35.922Z"}
+{"level":"info","message":"[botController] 📱 Callback: pick_plan_trial_7d від 630111093","timestamp":"2025-09-20T10:08:38.799Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T10:08:38.885Z"}
+{"level":"info","message":"[botController] 📱 Callback: pay_trial_7d від 630111093","timestamp":"2025-09-20T10:08:43.745Z"}
+{"level":"info","message":"[botController] ✅ Оброблено онбординг callback для 630111093","timestamp":"2025-09-20T10:08:45.597Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T10:08:58.533Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T10:09:00.197Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T10:09:00.198Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:10:09.490Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:23:50.603Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:24:48.121Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:25:05.390Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:25:12.802Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T10:25:28.871Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T10:25:29.809Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T10:25:29.810Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T10:28:14.073Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T10:28:19.075Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T10:28:19.652Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T10:28:19.654Z"}

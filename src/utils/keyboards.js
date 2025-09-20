@@ -1,14 +1,20 @@
+// src/utils/keyboards.js
+// ДОДАНО: новий текст кнопок, прибрані ОК/Змінити пізніше для нагадувань
+
+import { TIMEZONES, parseTz } from '../config/constants.js';
+
 const keyboards = {
+  // ====== ГОЛОВНЕ МЕНЮ
   mainMenuKeyboard() {
     return {
       reply_markup: {
         keyboard: [
           [{ text: '🤖 AI наставник' }, { text: '🎯 Колесо балансу' }],
-          [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
-          [{ text: '💎 Афірмація' }, { text: '📊 Мій прогрес' }],
-          [{ text: '💰 Підписка' }, { text: '❓ Допомога' }],
-          [{ text: '📝 Інструкції' }, { text: '📞 Зв\'язок з нами' }]
-        ],
+        [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
+        [{ text: '💎 Афірмація' }, { text: '📊 Мій прогрес' }],
+        [{ text: '💰 Підписка' }, { text: '❓ Допомога' }],
+        [{ text: '📝 Інструкції' }, { text: '📞 Зв\'язок з нами' }]
+      ],
         resize_keyboard: true,
         one_time_keyboard: false,
         persistent: true
@@ -16,6 +22,7 @@ const keyboards = {
     };
   },
 
+  // ====== ОНБОРДИНГ
   onboardingStartKeyboard() {
     return {
       reply_markup: {
@@ -27,11 +34,79 @@ const keyboards = {
     };
   },
 
- onboardingPlanKeyboard() {
+  // Кнопка "Пропустити e-mail"
+  emailInputKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🧪 Спробувати 7 днів безкоштовно', callback_data: 'pick_plan_trial_7d' }],
+          [{ text: '⏭️ Пропустити e-mail', callback_data: 'skip_email' }]
+        ]
+      }
+    };
+  },
+
+  // Кнопка "Пропустити телефон"
+  phoneInputKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⏭️ Пропустити телефон', callback_data: 'skip_phone' }]
+        ]
+      }
+    };
+  },
+
+  // Вибір часового пояса
+  timezoneKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          ...TIMEZONES.map(tz => ([{ text: tz, callback_data: `tz_${parseTz(tz)}` }])),
+          [{ text: '🔙 Назад', callback_data: 'back_timezone' }]
+        ]
+      }
+    };
+  },
+
+  // показуємо після вибору TZ
+  timezoneConfirmedKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🌍 Змінити TZ', callback_data: 'change_tz' }],
+          [{ text: '🔙 Назад', callback_data: 'back_timezone' }],
+          [{ text: '➡️ Далі', callback_data: 'go_plan' }]
+        ]
+      }
+    };
+  },
+
+  // «Назад» для кроків
+  backFromEmailKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔙 Назад', callback_data: 'back_email' }]
+        ]
+      }
+    };
+  },
+
+  backFromPhoneKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔙 Назад', callback_data: 'back_phone' }]
+        ]
+      }
+    };
+  },
+
+  onboardingPlanKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🧪 Пробний 7 днів — 0€', callback_data: 'pick_plan_trial_7d' }],
           [{ text: '🎯 Тиждень 7€', callback_data: 'pick_plan_week_7' }],
           [{ text: '📅 Місяць 30€', callback_data: 'pick_plan_month_30' }],
           [{ text: '🗓️ Рік 300€', callback_data: 'pick_plan_year_300' }]
@@ -44,34 +119,25 @@ const keyboards = {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '💳 Оплатити', callback_data: `pay_${planValue}` }],
-          [{ text: '🔙 Змінити план', callback_data: 'back_plan' }]
+          [{ text: '✅ Підтвердити', callback_data: `pay_${planValue}` }],
+          [{ text: '🔙 Назад', callback_data: 'back_plan' }],
         ]
       }
     };
   },
 
+  // Кнопка після активації trial / успішної оплати
   onboardingPaymentSuccessKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '⚙️ Налаштувати нагадування', callback_data: 'reminders' }]
+          [{ text: '⚙️ Налаштування нагадувань', callback_data: 'reminders' }]
         ]
       }
     };
   },
 
-  onboardingRemindersKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✅ Ок', callback_data: 'rem_ok' }],
-          [{ text: '⏱️ Змінити пізніше', callback_data: 'rem_later' }]
-        ]
-      }
-    };
-  },
-
+  // старт Колеса (залишаємо на випадок ручного запуску)
   onboardingWheelStartKeyboard() {
     return {
       reply_markup: {
@@ -82,50 +148,27 @@ const keyboards = {
     };
   },
 
-  aiMentorStartKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '📝 Задати питання', callback_data: 'ai_continue' }],
-          [{ text: '🚪 Вийти', callback_data: 'ai_exit' }]
-        ]
-      }
-    };
-  },
-
-  aiMentorControlKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '📝 Продовжити діалог', callback_data: 'ai_continue' }],
-          [{ text: '🚪 Завершити', callback_data: 'ai_exit' }]
-        ]
-      }
-    };
-  },
-
+  // Колесо оцінки
   wheelScoreInlineKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '0', callback_data: 'wheel_score_0' },
-            { text: '1', callback_data: 'wheel_score_1' },
-            { text: '2', callback_data: 'wheel_score_2' },
-            { text: '3', callback_data: 'wheel_score_3' },
-            { text: '4', callback_data: 'wheel_score_4' },
-            { text: '5', callback_data: 'wheel_score_5' }
+            { text: '0',  callback_data: 'wheel_score_0'  },
+            { text: '1',  callback_data: 'wheel_score_1'  },
+            { text: '2',  callback_data: 'wheel_score_2'  },
+            { text: '3',  callback_data: 'wheel_score_3'  },
+            { text: '4',  callback_data: 'wheel_score_4'  },
+            { text: '5',  callback_data: 'wheel_score_5'  }
           ],
           [
-            { text: '6', callback_data: 'wheel_score_6' },
-            { text: '7', callback_data: 'wheel_score_7' },
-            { text: '8', callback_data: 'wheel_score_8' },
-            { text: '9', callback_data: 'wheel_score_9' },
+            { text: '6',  callback_data: 'wheel_score_6'  },
+            { text: '7',  callback_data: 'wheel_score_7'  },
+            { text: '8',  callback_data: 'wheel_score_8'  },
+            { text: '9',  callback_data: 'wheel_score_9'  },
             { text: '10', callback_data: 'wheel_score_10' }
           ],
-          [
-            { text: '🚪 Вийти', callback_data: 'wheel_exit' }
-          ]
+          [{ text: '🚪 Вийти', callback_data: 'wheel_exit' }]
         ]
       }
     };
@@ -142,17 +185,7 @@ const keyboards = {
     };
   },
 
-  continueAnswersKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 Продовжити відповіді', callback_data: 'continue_answers' }],
-          [{ text: '⏭️ Пропустити сесію', callback_data: 'skip_session' }]
-        ]
-      }
-    };
-  },
-
+  // Інші
   subscriptionKeyboard() {
     return {
       reply_markup: {
@@ -179,9 +212,7 @@ const keyboards = {
 
   removeKeyboard() {
     return {
-      reply_markup: {
-        remove_keyboard: true
-      }
+      reply_markup: { remove_keyboard: true }
     };
   },
 
@@ -198,6 +229,16 @@ const keyboards = {
         resize_keyboard: true,
         one_time_keyboard: false,
         persistent: true
+      }
+    };
+  },
+
+  changeTimezoneEntryKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🌍 Змінити TZ', callback_data: 'change_tz' }]
+        ]
       }
     };
   },
