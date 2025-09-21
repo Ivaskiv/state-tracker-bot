@@ -287,7 +287,15 @@ const startScheduler = (bot) => {
   jobs.length = 0;
 
   console.log('[scheduler] ✅ Запуск нового планувальника...');
-
+createTask('0 10 1 * *', async () => {
+  try {
+    console.log('[scheduler] 🎯 Щомісячна перевірка потреби в колесі балансу');
+    const { default: wheelBalanceController } = await import('../controllers/wheelBalanceController.js');
+    await wheelBalanceController.checkMonthlyWheelNeed(bot);
+  } catch (error) {
+    console.error('[scheduler] ❌ Помилка щомісячної перевірки колеса:', error);
+  }
+}, 'monthly_wheel_check');
   createTask('0 0 * * *', clearDailyCache, 'daily_cache_clear');
   createTask(CRON_SCHEDULES.MORNING_REMINDER, () => sendMorningReminder(bot), 'morning_session');
   createTask(CRON_SCHEDULES.EVENING_REMINDER, () => sendEveningReminder(bot), 'evening_session');

@@ -1,6 +1,7 @@
-// src/controllers/botController.js 
+// src/controllers/botController.js - ВИПРАВЛЕНО + ДОДАНО wheelBalanceService
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
+import wheelBalanceService from '../services/wheelBalanceService.js'; // ✅ ДОДАНО
 import subscriptionService from '../auth/services/subscriptionService.js';
 import { cancelPendingReminders } from '../middleware/pendingFlow.js';
 import { globalTypingMiddleware } from '../middleware/typingMiddleware.js';
@@ -21,6 +22,18 @@ const isActiveQuestionsStep = (step) => Boolean(step && (step.startsWith('Q_m_')
 const isActiveAIStep = (step) => Boolean(step && (step === 'AI_ACTIVE' || step?.startsWith('AI_')));
 const isOnboardingStep = (step) => Boolean(step && step.startsWith('ob_'));
 
+// ✅ ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ МЕНЮ
+const showMainMenu = async (ctx) => {
+  try {
+    await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
+  } catch (error) {
+    console.error('❌ Помилка показу головного меню:', error);
+    await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+  }
+};
+
+const showMenuKeyboard = () => keyboards.mainMenuKeyboard();
+
 const botController = (bot) => {
   logger.info('[botController] Initializing bot controller...');
 
@@ -36,6 +49,9 @@ const botController = (bot) => {
     try {
       const user = await userService.getUserByTelegramId(ctx.from.id);
       if (!user) return ctx.reply('Натисніть /start');
+
+      // ✅ СКАСУВАННЯ АКТИВНОГО КОЛЕСА
+      await wheelBalanceService.cancelActiveWheel(ctx.from.id);
 
       if (ctx.session) {
         ctx.session.step = undefined;
@@ -59,6 +75,9 @@ const botController = (bot) => {
     try {
       const user = await userService.getUserByTelegramId(ctx.from.id);
       if (!user) return ctx.reply('Натисніть /start');
+
+      // ✅ СКАСУВАННЯ АКТИВНОГО КОЛЕСА
+      await wheelBalanceService.cancelActiveWheel(ctx.from.id);
 
       if (ctx.session) {
         ctx.session.step = undefined;
@@ -84,14 +103,78 @@ const botController = (bot) => {
     if (!text) return;
 
     try {
-      // 0) ✅ ПЕРША ПРІОРИТЕТ: Обробка нотаток колеса балансу
-      const noteHandled = await wheelBalanceController.handleWheelNoteText(ctx);
-      if (noteHandled) {
-        logger.info(`[botController] ✅ Оброблено нотатку колеса для ${tgId}`);
+      // ✅ ПЕРШОЧЕРГОВА ПЕРЕВІРКА: якщо колесо активне - блокуємо всі команди меню
+      const wheelActive = await wheelBalanceService.isWheelActive(tgId);
+      const awaitingNote = wheelBalanceService.isAwaitingNote(ctx);
+      
+      if (wheelActive || awaitingNote) {
+        console.log(`🎯 [bot] Колесо активне для ${tgId}, текст: "${text}"`);
+        
+        // 1) ПРІОРИТЕТ: Якщо чекаємо нотатку - зберегти її
+        if (awaitingNote) {
+          if (text.length < 10) {
+            await ctx.reply(
+              'Додай, будь ласка, ще трішки деталей (2–5 речень).', 
+              wheelBalanceService.buildExitKeyboard()
+            );
+            return;
+          }
+          
+          const res = await wheelBalanceService.saveWheelNoteAndGoNext(ctx, text);
+          
+          if (res.error) {
+            await ctx.reply(res.message, wheelBalanceService.buildExitKeyboard());
+            return;
+          }
+          
+          if (res.completed) {
+            await userService.updateUserStep(tgId, 'completed');
+            await ctx.reply(res.message);
+            // Показати головне меню після завершення
+            await showMainMenu(ctx);
+            return;
+          } else {
+            await ctx.reply(res.message, res.keyboard || {});
+            return;
+          }
+        }
+        
+        // 2) Якщо активне колесо, але НЕ чекаємо нотатку - парсимо оцінку 0-10
+        const maybeScore = parseInt(text, 10);
+        if (!Number.isNaN(maybeScore) && maybeScore >= 0 && maybeScore <= 10) {
+          console.log(`🎯 [bot] Оцінка від користувача: ${maybeScore}`);
+          const res = await wheelBalanceService.processWheelAnswer(tgId, maybeScore, ctx);
+          
+          if (res.error) {
+            await ctx.reply(res.message);
+          }
+          return;
+        }
+        
+        // 3) Команди виходу з колеса
+        if (text.includes('вихід') || text === '🚪 Вийти із сесії' || text === '/menu') {
+          await wheelBalanceService.cancelActiveWheel(tgId);
+          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+          cancelPendingReminders(tgId);
+          await ctx.reply('🚪 Колесо балансу скасовано. Повертаємося до меню.');
+          await showMainMenu(ctx);
+          return;
+        }
+        
+        // 4) Якщо колесо активне, але введено не оцінку і не нотатку
+        await ctx.reply(
+          '🎯 Колесо балансу активне!\n\n' +
+          '• Введи оцінку від 0 до 10\n' +
+          '• Або натисни кнопки нижче\n' +
+          '• Для виходу натисни кнопку "🚪 Вийти з колеса"',
+          wheelBalanceService.buildExitKeyboard()
+        );
         return;
       }
 
-      // 1) ✅ ДРУГА ПРІОРИТЕТ: онбординг
+      // ✅ ЯКЩО КОЛЕСО НЕ АКТИВНЕ - продовжуємо звичайну логіку
+
+      // 1) ✅ ОНБОРДИНГ
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {
         logger.info(`[botController] ✅ Оброблено крок онбордингу для ${tgId}`);
@@ -134,39 +217,8 @@ const botController = (bot) => {
       }
 
       // 6) ✅ ОБРОБКА АКТИВНИХ СЕСІЙ
-      const isActiveWheel = step === WHEEL_STEP;
       const isActiveQA = isActiveQuestionsStep(step);
       const isActiveAI = isActiveAIStep(step);
-
-      // ✅ КОЛЕСО БАЛАНСУ активне - блокуємо всі інші дії
-      if (isActiveWheel) {
-        logger.info(`[botController] 🎯 Активне колесо для ${tgId}, текст: "${text}"`);
-        
-        // Перевіряємо чи це числова оцінка (0-10)
-        const score = parseInt(text, 10);
-        if (!Number.isNaN(score) && score >= 0 && score <= 10) {
-          await wheelBalanceController.handleWheelBalanceAnswer(ctx, score);
-          return;
-        }
-
-        // Команди виходу з колеса
-        if (text.includes('вихід') || text === '🚪 Вийти із сесії' || text === '/menu') {
-          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          cancelPendingReminders(tgId);
-          await completeSession(tgId, ctx, '👋 Колесо балансу скасовано. Повертаємося до меню.');
-          return;
-        }
-
-        // Для всіх інших текстів під час колеса - показуємо подсказку
-        await ctx.reply(
-          '🎯 Колесо балансу активне!\n\n' +
-          '• Введи оцінку від 0 до 10\n' +
-          '• Або натисни кнопки нижче\n' +
-          '• Для виходу: /menu',
-          keyboards.wheelScoreInlineKeyboard()
-        );
-        return;
-      }
 
       // AI MENTOR активний
       if (isActiveAI) {
@@ -194,14 +246,64 @@ const botController = (bot) => {
         if (answered) return;
       }
 
-      // 7) ✅ СТАНДАРТНІ КОМАНДИ МЕНЮ
+      // 7) ✅ ОБРОБКА КОМАНД МЕНЮ
+      
+      // Перевірка команд меню
+      if (text === '🎯 Колесо балансу') {
+        await wheelBalanceController.handleWheelBalance(ctx);
+        return;
+      }
+      
+      if (text === '📊 Меню') {
+        await showMainMenu(ctx);
+        return;
+      }
+
+      // ✅ СТАНДАРТНІ КОМАНДИ МЕНЮ
       await handleMenuCommands(ctx, user, text, bot);
 
     } catch (error) {
+      console.error('❌ [bot] Помилка в text хендлері:', error);
+      await ctx.reply('Виникла помилка. Спробуй ще раз або скористайся меню 📊');
       await handleError(ctx, error);
     }
   });
+// ✅ /wheel КОМАНДА (для відновлення завислого колеса)
+bot.command('wheel', async (ctx) => {
+  try {
+    const tgId = ctx.from.id;
+    const user = await userService.getUserByTelegramId(tgId);
+    
+    if (!user) {
+      return ctx.reply('Натисніть /start для реєстрації');
+    }
 
+    // Перевіряємо чи є активне колесо
+    const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
+    
+    if (activeWheel) {
+      // Відновлюємо зависле колесо
+      const result = await wheelBalanceService.recoverStuckWheel(tgId, ctx);
+      
+      if (result.error) {
+        await ctx.reply(result.message);
+        return;
+      }
+      
+      await ctx.reply(
+        '🔧 Відновлюємо колесо балансу...\n\n' + result.message, 
+        result.keyboard
+      );
+    } else {
+      // Починаємо нове колесо
+      await wheelBalanceController.handleWheelBalance(ctx);
+    }
+    
+  } catch (error) {
+    console.error('❌ [bot] Помилка команди /wheel:', error);
+    await ctx.reply('Помилка відновлення колеса. Спробуй ще раз.');
+  }
+});
   // ✅ ОБРОБКА CALLBACK ЗАПИТІВ
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
@@ -272,6 +374,7 @@ const botController = (bot) => {
         }
 
         if (data === 'skip_session') {
+          await wheelBalanceService.cancelActiveWheel(tgId); // ✅ ДОДАНО
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
           cancelPendingReminders(tgId);
 
@@ -333,6 +436,7 @@ const botController = (bot) => {
 
       // 10) ✅ ГОЛОВНЕ МЕНЮ CALLBACK-И
       if (data === 'main_menu') {
+        await wheelBalanceService.cancelActiveWheel(tgId); // ✅ ДОДАНО
         await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
         await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
         await ctx.answerCbQuery('Повернення до меню');

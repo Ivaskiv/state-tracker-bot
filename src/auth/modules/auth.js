@@ -543,5 +543,17 @@ async function activateTrial(ctx, tgId, days) {
   await ctx.reply(`Фіксований графік: ранок 08:00, вечір 21:30 (за твоєю TZ).`);
 
   // одразу запропонуємо старт колеса (без тексту "— займе ~3 хвилини")
-  await ctx.reply('Готово. Запускаю перше Колесо балансу.', keyboards.onboardingWheelStartKeyboard());
+await ctx.reply('Готово. Запускаю перше Колесо балансу.', keyboards.onboardingWheelStartKeyboard());
+setTimeout(async () => {
+  try {
+    // Імпорт тут щоб уникнути циклічних залежностей
+    const wheelBalanceController = await import('../../controllers/wheelBalanceController.js');
+    await wheelBalanceController.default.handleWheelBalanceRequest(ctx);
+    console.log(`[auth] ✅ Колесо автоматично запущено для ${tgId}`);
+  } catch (wheelError) {
+    console.error('[auth] ❌ Помилка автозапуску колеса:', wheelError);
+    // Fallback - показуємо кнопку
+    await ctx.reply('🎯 Натисни кнопку нижче щоб почати колесо балансу:', keyboards.onboardingWheelStartKeyboard());
+  }
+}, 1000); // запуск через 1 секунду
 }

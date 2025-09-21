@@ -2352,3 +2352,107 @@
 {"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-20T14:15:56.679Z"}
 {"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T14:15:57.929Z"}
 {"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T14:15:57.931Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:17:38.308Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:24:08.255Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:24:38.036Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T14:24:49.286Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T14:26:09.761Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T15:06:37.582Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T15:09:24.088Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T15:11:15.435Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T15:13:05.379Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T15:27:47.673Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T19:50:27.041Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T19:50:37.054Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T19:59:16.430Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T19:59:39.432Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T19:59:41.817Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T19:59:53.010Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T19:59:54.896Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:02:12.311Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:02:14.920Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:02:25.159Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:04:47.848Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:05:43.231Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:05:44.714Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:05:47.768Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:08:00.928Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:08:02.986Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-20T20:09:10.006Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Колесо створено, ID: recBHYN8LduLmlggw","timestamp":"2025-09-20T20:09:10.684Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-09-20T20:09:36.488Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recBHYN8LduLmlggw, Step=0","timestamp":"2025-09-20T20:09:36.693Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо: Health = 5","timestamp":"2025-09-20T20:09:36.694Z"}
+{"level":"error","message":"❌ [wheelBalance] Помилка збереження нотатки: The user aborted a request.","stack":"AbortError: The user aborted a request.\n    at abort (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/airtable/node_modules/node-fetch/lib/index.js:1458:16)\n    at AbortSignal.abortAndFinalize (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/airtable/node_modules/node-fetch/lib/index.js:1473:4)\n    at AbortSignal.dispatchEvent (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/event-target-shim/dist/event-target-shim.js:818:35)\n    at abortSignal (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/abort-controller/dist/abort-controller.js:52:12)\n    at AbortController.abort (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/abort-controller/dist/abort-controller.js:91:9)\n    at Timeout.<anonymous> (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/airtable/lib/run_action.js:44:20)\n    at listOnTimeout (node:internal/timers:614:17)\n    at process.processTimers (node:internal/timers:549:7)","timestamp":"2025-09-20T20:16:26.376Z","type":"aborted"}
+{"level":"info","message":"[botController] ✅ Оброблено нотатку колеса для 630111093","timestamp":"2025-09-20T20:16:26.483Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:18:11.923Z"}
+{"level":"info","message":"[botController] 🎯 Активне колесо для 630111093, текст: \"Я поставила 5, бо відчуваю, що сил вистачає на буденні справи, але бракує стабільності у режимі сну та харчуванні.\nІноді енергії багато, але різкі спади швидко виснажують.\nРозумію, що потрібно додати більше руху й дисципліни, щоб мати стабільний ресурс.\nЗагалом стан нормальний, але точно є куди рости.\"","timestamp":"2025-09-20T20:20:22.769Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-09-20T20:20:33.039Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recBHYN8LduLmlggw, Step=0","timestamp":"2025-09-20T20:20:33.233Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо: Health = 5","timestamp":"2025-09-20T20:20:33.233Z"}
+{"level":"info","message":"[botController] ✅ Оброблено нотатку колеса для 630111093","timestamp":"2025-09-20T20:20:43.036Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 8","timestamp":"2025-09-20T20:20:57.877Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recBHYN8LduLmlggw, Step=1","timestamp":"2025-09-20T20:20:58.063Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо: Self_Growth = 8","timestamp":"2025-09-20T20:20:58.063Z"}
+{"level":"info","message":"[botController] ✅ Оброблено нотатку колеса для 630111093","timestamp":"2025-09-20T20:21:33.235Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 6","timestamp":"2025-09-20T20:21:45.127Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recBHYN8LduLmlggw, Step=2","timestamp":"2025-09-20T20:21:45.305Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо: Relationships = 6","timestamp":"2025-09-20T20:21:45.306Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:27:31.145Z"}
+{"level":"info","message":"[botController] 🎯 Активне колесо для 630111093, текст: \"Я поставила 6, бо в стосунках із близькими є як підтримка, так і напружені моменти.\nЯ відчуваю любов і турботу, але іноді бракує гармонії та глибшого порозуміння.\nХотілося б більше відвертості й часу разом.\nЗараз це стабільний рівень, але є куди рости.\"","timestamp":"2025-09-20T20:27:56.518Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-09-20T20:28:12.363Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recBHYN8LduLmlggw, Step=2","timestamp":"2025-09-20T20:28:12.550Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо: Relationships = 5","timestamp":"2025-09-20T20:28:12.550Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-09-20T20:28:14.571Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Знайдено активне колесо: ID=recBHYN8LduLmlggw, Step=2","timestamp":"2025-09-20T20:28:14.763Z"}
+{"level":"info","message":"🎯 [wheelBalance] Зберігаємо: Relationships = 5","timestamp":"2025-09-20T20:28:14.764Z"}
+{"error":"NOT_AUTHORIZED","level":"error","message":"❌ [wheelBalance] Помилка збереження нотатки: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-09-20T20:28:59.235Z"}
+{"level":"info","message":"[botController] ✅ Оброблено нотатку колеса для 630111093","timestamp":"2025-09-20T20:28:59.279Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:36:17.962Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:36:39.318Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:37:27.010Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:37:57.363Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:38:14.728Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:38:16.178Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:38:17.442Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:38:57.590Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:39:14.685Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:41:10.003Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:43:22.935Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:43:25.272Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:43:29.301Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:43:36.456Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:46:00.922Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:46:18.393Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T20:46:39.873Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:48:32.321Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:48:50.014Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:48:55.583Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:49:03.088Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:49:41.358Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:50:42.330Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T20:51:02.901Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T20:51:30.409Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"аипиапти\"","timestamp":"2025-09-20T20:51:30.771Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T20:52:03.742Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T20:52:08.157Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-20T20:52:08.508Z"}
+{"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-20T20:52:08.510Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена для 630111093, isActive: true","timestamp":"2025-09-20T20:52:08.704Z"}
+{"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-20T20:52:08.757Z"}
+{"level":"info","message":"[botController] 📱 Callback: ai_exit від 630111093","timestamp":"2025-09-20T20:52:11.034Z"}
+{"level":"info","message":"📱 [AI MENTOR CALLBACK] ai_exit для 630111093, AI активна: true","timestamp":"2025-09-20T20:52:11.452Z"}
+{"level":"info","message":"🚪 [AI MENTOR] Користувач 630111093 вийшов з AI-наставника","timestamp":"2025-09-20T20:52:11.525Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T20:52:13.829Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-20T20:52:14.195Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T20:52:17.619Z"}
+{"level":"info","message":"🎯 [wheelBalance] ❌ Активне колесо не знайдено для 630111093","timestamp":"2025-09-20T20:52:38.465Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"/wheel\"","timestamp":"2025-09-20T20:52:38.815Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T21:00:53.735Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T21:00:57.277Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T21:01:20.406Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-20T21:01:27.230Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:06:56.386Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:08:21.195Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:15:48.245Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:15:56.755Z"}
