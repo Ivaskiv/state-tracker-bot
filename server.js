@@ -164,18 +164,13 @@ if (MODE === 'local') {
   }
 
   // запуск polling (ВАЖЛИВО: allowedUpdates — camelCase)
-  try {
-    await bot.launch({
-      polling: {
-        timeout: 30,
-        limit: 100,
-        allowedUpdates: ['message', 'callback_query']
-      }
-    });
-    console.log('📡 Polling started');
+ try {
+    console.log('🔍 Запускаємо scheduler...');
+    await startScheduler(bot);
+    console.log('⏱️ Scheduler started');
   } catch (e) {
-    console.error('❌ Polling start error:', e);
-    process.exit(1);
+    console.error('❌ Scheduler start error:', e);
+    console.log('🔄 Продовжуємо без scheduler...');
   }
 
   // Express
@@ -184,7 +179,6 @@ if (MODE === 'local') {
     console.log(`📡 WayForPay:  POST http://localhost:${PORT}/api/wayforpay/webhook`);
     console.log(`🏥 Health:     GET  http://localhost:${PORT}/health`);
   });
-
   // scheduler після старту бота
   try {
     await startScheduler(bot);

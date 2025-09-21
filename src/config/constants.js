@@ -180,22 +180,30 @@ if (LIFE_SPHERES.length !== SPHERE_FIELDS.length || SPHERE_FIELDS.length !== NOT
 
 // --- Часові налаштування ---
 export const TIMEZONE_CONFIG = Object.freeze({
-  DEFAULT: 'Europe/Kyiv',   // виправлено з Kiev → Kyiv
+  DEFAULT: 'Europe/Kiev',   // виправлено з Kiev → Kyiv
   FALLBACK: 'Europe/Prague',
   USER_TIMEZONES: {},
 });
 
 // --- Розклад ---
+// const _SCHEDULE = {
+//   MORNING_TIME: '20:47',
+//   EVENING_TIME: '21:30',
+//   MORNING_START: 7,
+//   MORNING_END: 20,
+//   EVENING_START: 20,
+//   EVENING_END: 23,
+//   TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
+// };
 const _SCHEDULE = {
-  MORNING_TIME: '20:47',
+  MORNING_TIME: '20:24',  // ваш тестовий час
   EVENING_TIME: '21:30',
-  MORNING_START: 7,
-  MORNING_END: 20,
-  EVENING_START: 20,
-  EVENING_END: 23,
-  TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
+  MORNING_START: 0,       // ✅ РОЗШИРЕНО (0-23)
+  MORNING_END: 23,        // ✅ РОЗШИРЕНО
+  EVENING_START: 0,       // ✅ РОЗШИРЕНО (0-23)  
+  EVENING_END: 23,        // ✅ РОЗШИРЕНО
+  TIMEZONE: 'Europe/Kiev', // ✅ ФІКСОВАНО
 };
-
 const parseTime = (t) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
   let h = m ? parseInt(m[1], 10) : 9;
@@ -212,7 +220,9 @@ _SCHEDULE.MORNING_HOUR = MH;
 _SCHEDULE.MORNING_MINUTE = MM;
 _SCHEDULE.EVENING_HOUR = EH;
 _SCHEDULE.EVENING_MINUTE = EM;
-
+console.log(`[constants] 🕐 Парсинг часу:`);
+console.log(`- MORNING_TIME: "${_SCHEDULE.MORNING_TIME}" → ${MH}:${MM}`);
+console.log(`- EVENING_TIME: "${_SCHEDULE.EVENING_TIME}" → ${EH}:${EM}`);
 export const SCHEDULE = Object.freeze(_SCHEDULE);
 
 // --- CRON ---
@@ -227,6 +237,10 @@ export const CRON_SCHEDULES = Object.freeze({
   SUBSCRIPTION_CHECK: '0 10 * * *',
 });
 
+// ✅ ДОДАТИ ЛОГИ CRON:
+console.log(`[constants] 📅 CRON розклад:`);
+console.log(`- Ранок: ${CRON_SCHEDULES.MORNING_QUESTIONS} (${_SCHEDULE.MORNING_TIME})`);
+console.log(`- Вечір: ${CRON_SCHEDULES.EVENING_QUESTIONS} (${_SCHEDULE.EVENING_TIME})`);
 // --- Повідомлення планувальника ---
 export const SCHEDULER_MESSAGES = Object.freeze({
   MORNING_SESSION_START: (name) => `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨\n\n1️⃣/${MORNING_QUESTIONS.length} ${MORNING_QUESTIONS[0]}`,

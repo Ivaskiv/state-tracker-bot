@@ -301,7 +301,11 @@ const startScheduler = (bot) => {
   });
   jobs.length = 0;
 
-  console.log('[scheduler] ✅ Запуск нового планувальника...');
+ console.log('[scheduler] ✅ Запуск нового планувальника...');
+  console.log(`[scheduler] 🕐 Поточний час сервера: ${new Date().toLocaleString('uk-UA')}`);
+  console.log(`[scheduler] 🌍 Timezone: ${SCHEDULE.TIMEZONE}`);
+  console.log(`[scheduler] ⏰ Ранок буде о: ${SCHEDULE.MORNING_TIME} (${CRON_SCHEDULES.MORNING_QUESTIONS})`);
+  console.log(`[scheduler] 🌙 Вечір буде о: ${SCHEDULE.EVENING_TIME} (${CRON_SCHEDULES.EVENING_QUESTIONS})`);
 
   // ✅ ОСНОВНІ ЗАДАЧІ
   createTask('0 0 * * *', clearDailyCache, 'daily_cache_clear');
@@ -346,4 +350,5 @@ const stopScheduler = () => {
   console.log('[scheduler] ✅ Планувальник зупинено');
 };
 
-export { startScheduler, stopScheduler };
+export { startScheduler, stopScheduler,  sendMorningReminder, 
+  sendEveningReminder    };
