@@ -1,4 +1,4 @@
-// src/services/wheelBalanceService.js
+// src/services/wheelBalanceService.js - ДОДАНО ЛОГІКУ ЩОМІСЯЧНИХ ПЕРЕВІРОК
 import { getBase, tables } from '../config/database.js';
 import { chat } from './openaiClient.js';
 import { LIFE_SPHERES, SPHERE_FIELDS, NOTE_FIELDS } from '../config/constants.js';
@@ -113,11 +113,13 @@ const getUserWheelStats = async (tgId) => {
 };
 
 // ———————————————————————————————————————————————
-// ЛОГІКА ПЕРЕВІРОК І НАГАДУВАНЬ
+// ✅ ЛОГІКА ПЕРЕВІРОК І НАГАДУВАНЬ (ВИПРАВЛЕНО)
 // ———————————————————————————————————————————————
 
 const shouldShowWheelReminder = async (tgId, userRegistrationDate) => {
   try {
+    console.log(`🎯 [wheelBalance] Перевірка потреби в колесі для ${tgId}`);
+    
     const records = await base(tables.WHEEL_BALANCE)
       .select({
         filterByFormula: `AND({TG_id}="${tgId}", OR({Status}="Completed", {Status}="Active"))`,
@@ -128,21 +130,27 @@ const shouldShowWheelReminder = async (tgId, userRegistrationDate) => {
     const now = new Date();
     const regDate = new Date(userRegistrationDate);
     
-    // Якщо немає жодного колеса - треба перше
+    console.log(`🎯 [wheelBalance] Знайдено ${records.length} записів колеса для ${tgId}`);
+    
+    // 1. Якщо немає жодного колеса - треба перше
     if (records.length === 0) {
       const daysSinceReg = Math.floor((now - regDate) / (1000 * 60 * 60 * 24));
+      console.log(`🎯 [wheelBalance] Немає жодного колеса, днів з реєстрації: ${daysSinceReg}`);
+      
       return {
         needed: true,
         type: 'first',
-        message: daysSinceReg === 0 ? 'Вітаю з реєстрацією!' : 'Час заповнити перше колесо балансу!'
+        message: daysSinceReg === 0 ? 'Вітаю з реєстрацією! Час заповнити перше колесо балансу!' : 'Час заповнити перше колесо балансу!'
       };
     }
     
-    // Перевіряємо чи є активне колесо
+    // 2. Перевіряємо чи є активне колесо
     const activeWheel = records.find(r => r.fields.Status === 'Active');
     if (activeWheel) {
       const createdDate = new Date(activeWheel.fields.Created_Date);
       const hoursSinceCreated = (now - createdDate) / (1000 * 60 * 60);
+      
+      console.log(`🎯 [wheelBalance] Є активне колесо, години з створення: ${hoursSinceCreated}`);
       
       return {
         needed: true,
@@ -154,11 +162,13 @@ const shouldShowWheelReminder = async (tgId, userRegistrationDate) => {
       };
     }
     
-    // Перевіряємо останнє завершене колесо
+    // 3. Перевіряємо останнє завершене колесо
     const lastCompleted = records.find(r => r.fields.Status === 'Completed');
     if (lastCompleted) {
       const completedDate = new Date(lastCompleted.fields.Completed_Date);
       const daysSinceCompleted = Math.floor((now - completedDate) / (1000 * 60 * 60 * 24));
+      
+      console.log(`🎯 [wheelBalance] Останнє колесо завершено ${daysSinceCompleted} днів тому`);
       
       if (daysSinceCompleted >= 30) {
         return {
@@ -168,6 +178,8 @@ const shouldShowWheelReminder = async (tgId, userRegistrationDate) => {
         };
       }
       
+      console.log(`🎯 [wheelBalance] Колесо ще свіже (${daysSinceCompleted} днів), наступне через ${30 - daysSinceCompleted} днів`);
+      
       return {
         needed: false,
         type: 'recent',
@@ -176,11 +188,149 @@ const shouldShowWheelReminder = async (tgId, userRegistrationDate) => {
       };
     }
     
+    // 4. Fallback - щось пішло не так
+    console.log(`🎯 [wheelBalance] Fallback - пропонуємо перше колесо`);
     return { needed: true, type: 'first', message: 'Час заповнити перше колесо балансу!' };
     
   } catch (error) {
     logger.error('❌ [wheelBalance] Помилка перевірки потреби:', error);
     return { needed: true, type: 'error', message: 'Заповни колесо балансу для аналізу свого стану.' };
+  }
+};
+
+// ✅ НОВА ФУНКЦІЯ: отримання користувачів, яким потрібно щомісячне нагадування
+const getUsersNeedingMonthlyWheel = async () => {
+  try {
+    console.log('🎯 [wheelBalance] Пошук користувачів для щомісячного нагадування');
+    
+    // Отримуємо всіх активних користувачів
+    const { getBase, tables } = await import('../config/database.js');
+    const base = getBase();
+    
+    const activeUsers = await base(tables.USERS)
+      .select({
+        filterByFormula: `FIND('✅ Активна', {Active_Subscription_Status}) > 0`,
+        fields: ['TG_id', 'User Name', 'Created_Date']
+      })
+      .all();
+    
+    console.log(`🎯 [wheelBalance] Знайдено ${activeUsers.length} активних користувачів`);
+    
+    const usersNeedingReminder = [];
+    
+    for (const user of activeUsers) {
+      const tgId = user.fields.TG_id;
+      const userName = user.fields['User Name'] || 'Користувач';
+      const createdDate = user.fields.Created_Date || user.fields['Registration Date'] || new Date().toISOString();
+      
+      try {
+        const wheelCheck = await shouldShowWheelReminder(tgId, createdDate);
+        
+        if (wheelCheck.needed && (wheelCheck.type === 'monthly' || wheelCheck.type === 'first')) {
+          usersNeedingReminder.push({
+            tgId,
+            userName,
+            wheelType: wheelCheck.type,
+            message: wheelCheck.message
+          });
+          
+          console.log(`🎯 [wheelBalance] Користувач ${tgId} (${userName}) потребує ${wheelCheck.type} колесо`);
+        }
+      } catch (error) {
+        console.error(`❌ [wheelBalance] Помилка перевірки для користувача ${tgId}:`, error);
+      }
+    }
+    
+    console.log(`🎯 [wheelBalance] ✅ Знайдено ${usersNeedingReminder.length} користувачів для нагадування`);
+    return usersNeedingReminder;
+    
+  } catch (error) {
+    logger.error('❌ [wheelBalance] Помилка пошуку користувачів для щомісячного нагадування:', error);
+    return [];
+  }
+};
+
+// ✅ НОВА ФУНКЦІЯ: надсилання щомісячних нагадувань
+const sendMonthlyWheelReminders = async (bot) => {
+  try {
+    console.log('🎯 [wheelBalance] 📅 ЩОМІСЯЧНА ПЕРЕВІРКА КОЛІС БАЛАНСУ');
+    
+    const users = await getUsersNeedingMonthlyWheel();
+    
+    if (users.length === 0) {
+      console.log('🎯 [wheelBalance] ℹ️ Немає користувачів для щомісячного нагадування');
+      return 0;
+    }
+    
+    let sent = 0;
+    
+    for (const user of users) {
+      try {
+        let message = '';
+        let keyboard = null;
+        
+        if (user.wheelType === 'first') {
+          message = 
+            `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
+            `Привіт, ${user.userName}! 👋\n\n` +
+            `${user.message}\n\n` +
+            `Колесо балансу допоможе:\n` +
+            `• Оцінити 8 ключових сфер життя\n` +
+            `• Зрозуміти сильні та слабкі сторони\n` +
+            `• Отримати персональні рекомендації\n\n` +
+            `⏱ Займає 5-10 хвилин`;
+            
+          keyboard = {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🎯 Заповнити колесо балансу', callback_data: 'wheel_start' }],
+                [{ text: '❓ Дізнатися більше', callback_data: 'wheel_info' }],
+                [{ text: '⏭ Пізніше', callback_data: 'dismiss_reminder' }]
+              ]
+            }
+          };
+        } else if (user.wheelType === 'monthly') {
+          message = 
+            `📅 ЧАС ДЛЯ НОВОГО КОЛЕСА БАЛАНСУ\n\n` +
+            `Привіт, ${user.userName}! 👋\n\n` +
+            `${user.message}\n\n` +
+            `Регулярне заповнення колеса допомагає:\n` +
+            `• Відслідковувати прогрес у розвитку\n` +
+            `• Підтримувати баланс у всіх сферах\n` +
+            `• Отримувати актуальні рекомендації\n\n` +
+            `⏱ Оновимо твій профіль балансу?`;
+            
+          keyboard = {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🎯 Заповнити нове колесо', callback_data: 'wheel_start' }],
+                [{ text: '📊 Переглянути прогрес', callback_data: 'wheel_stats' }],
+                [{ text: '⏭ Пізніше', callback_data: 'dismiss_reminder' }]
+              ]
+            }
+          };
+        }
+        
+        if (message) {
+          await bot.telegram.sendMessage(user.tgId, message, keyboard);
+          sent++;
+          console.log(`🎯 [wheelBalance] ✅ Нагадування надіслано ${user.userName} (${user.tgId})`);
+          
+          // Затримка між повідомленнями
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        
+      } catch (sendError) {
+        console.error(`❌ [wheelBalance] Помилка надсилання нагадування ${user.tgId}:`, sendError);
+      }
+    }
+    
+    console.log(`🎯 [wheelBalance] 📊 Надіслано ${sent}/${users.length} щомісячних нагадувань про колесо`);
+    return sent;
+    
+  } catch (error) {
+    logger.error('❌ [wheelBalance] Помилка щомісячних нагадувань:', error);
+    return 0;
   }
 };
 
@@ -584,6 +734,56 @@ const needsWheelBalance = async (tgId) => {
   }
 };
 
+// ✅ ФУНКЦІЯ ДЛЯ ВІДНОВЛЕННЯ ЗАВИСЛОГО КОЛЕСА
+const recoverStuckWheel = async (tgId, ctx) => {
+  try {
+    const activeWheel = await getActiveWheel(tgId);
+    
+    if (!activeWheel) {
+      return { 
+        error: true, 
+        message: 'Активне колесо не знайдено.' 
+      };
+    }
+
+    const currentStep = Number(activeWheel.fields.Step || 0);
+    const sphereName = LIFE_SPHERES[currentStep];
+    const scoreField = SPHERE_FIELDS[currentStep];
+    const currentScore = activeWheel.fields[scoreField];
+    
+    if (currentScore != null) {
+      // Є оцінка, чекаємо нотатку
+      ctx.session = ctx.session || {};
+      ctx.session.wheel = {
+        awaitingNoteFor: currentStep,
+        recordId: activeWheel.id,
+        lastScore: currentScore,
+        sphereName: sphereName
+      };
+      
+      return {
+        error: false,
+        message: `Продовжуємо з нотатки для «${sphereName}» (оцінка ${currentScore}/10).\n\nОпиши коротко (2-5 речень), чому така оцінка:`,
+        keyboard: buildExitKeyboard()
+      };
+    } else {
+      // Немає оцінки, питаємо оцінку
+      return {
+        error: false,
+        message: `Продовжуємо з оцінки.\n\n${currentStep + 1}️⃣/8 ${sphereName}\n\nОбери оцінку:`,
+        keyboard: buildScoreKeyboard()
+      };
+    }
+    
+  } catch (error) {
+    logger.error('❌ [wheelBalance] Помилка відновлення:', error);
+    return { 
+      error: true, 
+      message: 'Помилка відновлення колеса. Почни заново.' 
+    };
+  }
+};
+
 // ———————————————————————————————————————————————
 // ЕКСПОРТИ
 // ———————————————————————————————————————————————
@@ -598,11 +798,16 @@ export default {
   shouldShowWheelReminder,
   handleWheelBalanceRequest,
   
+  // ✅ НОВІ ФУНКЦІЇ ДЛЯ ЩОМІСЯЧНИХ НАГАДУВАНЬ
+  getUsersNeedingMonthlyWheel,
+  sendMonthlyWheelReminders,
+  
   // Операції з колесом
   startWheelBalance,
   continueActiveWheel,
   processWheelAnswer,
   saveWheelNoteAndGoNext,
+  recoverStuckWheel,
   
   // Допоміжні функції
   getWheelInfo,

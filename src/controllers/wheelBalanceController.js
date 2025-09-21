@@ -1,4 +1,4 @@
-// src/controllers/wheelBalanceController.js
+// src/controllers/wheelBalanceController.js - ДОДАНО ЩОМІСЯЧНУ ПЕРЕВІРКУ
 import wheelBalanceService from '../services/wheelBalanceService.js';
 import userService from '../auth/services/userService.js';
 import keyboards from '../utils/keyboards.js';
@@ -367,32 +367,21 @@ const handleWheelCallback = async (ctx) => {
 };
 
 // ———————————————————————————————————————————————
-// ДОДАТКОВІ ФУНКЦІЇ
+// ✅ ЩОМІСЯЧНА ПЕРЕВІРКА ПОТРЕБИ В КОЛЕСІ
 // ———————————————————————————————————————————————
 
 const checkMonthlyWheelNeed = async (bot) => {
   try {
-    const users = await userService.getActiveUsers();
-    for (const user of users) {
-      const tgId = user['TG_id'];
-      const needs = await wheelBalanceService.needsWheelBalance(tgId);
-      if (needs) {
-        await bot.telegram.sendMessage(
-          tgId,
-          '🎯 Час оновити колесо балансу!\n\nМинув місяць з останньої оцінки. Поки триває сесія, інші дії будуть заблоковані до завершення.',
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🎯 Пройти колесо балансу', callback_data: 'wheel_start' }],
-                [{ text: '🚪 Пізніше', callback_data: 'wheel_exit' }]
-              ]
-            }
-          }
-        );
-      }
-    }
+    console.log('🎯 [wheelBalanceController] 📅 ПОЧАТОК щомісячної перевірки коліс балансу');
+    
+    const remindersSent = await wheelBalanceService.sendMonthlyWheelReminders(bot);
+    
+    console.log(`🎯 [wheelBalanceController] ✅ Щомісячна перевірка завершена, надіслано ${remindersSent} нагадувань`);
+    return remindersSent;
+    
   } catch (error) {
     console.error('❌ [wheelBalanceController] Помилка щомісячної перевірки:', error);
+    return 0;
   }
 };
 
@@ -406,5 +395,5 @@ export default {
   handleWheelBalanceAnswer,
   handleWheelNoteText,
   handleWheelCallback,
-  checkMonthlyWheelNeed
+  checkMonthlyWheelNeed  // ✅ ДОДАНО ЕКСПОРТ
 };

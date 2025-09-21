@@ -1,9 +1,10 @@
-// src/auth/modules/auth.js - ВИПРАВЛЕНО КЛАВІАТУРИ
+// src/auth/modules/auth.js - ВИПРАВЛЕНО З ПЕРЕВІРКОЮ КОЛЕСА
 
 import userService, { ensureNewUserStub, finalizeRegistration } from '../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { isValidEmail, isValidUaPhone } from '../../utils/validators.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
+import wheelBalanceService from '../../services/wheelBalanceService.js';
 import wayforpayService from '../../services/wayforpayService.js';
 
 import { SUBSCRIPTION_PLANS, OB_STEPS, ANSWER_STEPS } from '../../config/constants.js';
@@ -69,7 +70,96 @@ async function ensureUserExists(tgId) {
   }
 }
 
-// ——— /start
+// ✅ ДОДАНО: перевірка та показ нагадування про колесо
+const checkAndShowWheelReminder = async (ctx, user) => {
+  try {
+    const tgId = ctx.from.id;
+    const registrationDate = user?.['Registration Date'] || user?.Created_Date || new Date().toISOString();
+    
+    console.log(`🎯 [auth] Перевірка потреби в колесі для ${tgId}, реєстрація: ${registrationDate}`);
+    
+    // Перевіряємо чи потрібно колесо
+    const wheelCheck = await wheelBalanceService.shouldShowWheelReminder(tgId, registrationDate);
+    
+    if (wheelCheck.needed) {
+      console.log(`🎯 [auth] Потрібне колесо: ${wheelCheck.type}, повідомлення: ${wheelCheck.message}`);
+      
+      // Затримка перед показом нагадування
+      await new Promise(r => setTimeout(r, 1500));
+      
+      let reminderMessage = '';
+      let reminderKeyboard = null;
+      
+      if (wheelCheck.type === 'first') {
+        reminderMessage = 
+          `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
+          `${wheelCheck.message}\n\n` +
+          `Колесо балансу - це інструмент самоаналізу, який допоможе:\n` +
+          `• Оцінити 8 ключових сфер життя\n` +
+          `• Зрозуміти свої сильні та слабкі сторони\n` +
+          `• Отримати персональні рекомендації від AI\n\n` +
+          `⏱ Займає всього 5-10 хвилин\n` +
+          `📊 Результат: детальний аналіз твого стану`;
+          
+        reminderKeyboard = {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎯 Заповнити колесо балансу', callback_data: 'wheel_start' }],
+              [{ text: '❓ Дізнатися більше', callback_data: 'wheel_info' }],
+              [{ text: '⏭ Пізніше', callback_data: 'dismiss_reminder' }]
+            ]
+          }
+        };
+      } else if (wheelCheck.type === 'continue') {
+        reminderMessage = 
+          `⏰ НЕЗАВЕРШЕНЕ КОЛЕСО\n\n` +
+          `${wheelCheck.message}\n\n` +
+          `Твій прогрес збережено, можеш продовжити з того місця, де зупинилась.`;
+          
+        reminderKeyboard = {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '✅ Продовжити колесо', callback_data: 'wheel_continue' }],
+              [{ text: '🔄 Почати заново', callback_data: 'wheel_restart' }],
+              [{ text: '🚪 Скасувати', callback_data: 'wheel_cancel' }]
+            ]
+          }
+        };
+      } else if (wheelCheck.type === 'monthly') {
+        reminderMessage = 
+          `📅 ЧАС ДЛЯ НОВОГО КОЛЕСА\n\n` +
+          `${wheelCheck.message}\n\n` +
+          `Регулярне заповнення колеса допомагає відслідковувати прогрес у розвитку та підтримувати баланс у всіх сферах життя.`;
+          
+        reminderKeyboard = {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎯 Заповнити нове колесо', callback_data: 'wheel_start' }],
+              [{ text: '📊 Переглянути прогрес', callback_data: 'wheel_stats' }],
+              [{ text: '⏭ Пізніше', callback_data: 'dismiss_reminder' }]
+            ]
+          }
+        };
+      }
+      
+      if (reminderMessage) {
+        await ctx.reply(reminderMessage, reminderKeyboard);
+        console.log(`🎯 [auth] ✅ Показано нагадування про колесо для ${tgId}, тип: ${wheelCheck.type}`);
+        return true; // Показали нагадування
+      }
+    } else {
+      console.log(`🎯 [auth] Нагадування не потрібне для ${tgId}: ${wheelCheck.message || 'без повідомлення'}`);
+    }
+    
+    return false; // Нагадування не потрібне
+    
+  } catch (error) {
+    console.error('❌ [auth] Помилка перевірки колеса при /start:', error);
+    return false;
+  }
+};
+
+// ——— /start - ВИПРАВЛЕНО З ПЕРЕВІРКОЮ КОЛЕСА
 export async function handleStart(ctx) {
   const tgId = ctx.from.id;
   const name = ctx.from.first_name || 'Користувач';
@@ -86,8 +176,31 @@ export async function handleStart(ctx) {
 
     if (user && !isProfileIncomplete(user)) {
       const active = (user['Active_Subscription_Status'] || '').includes('✅ Активна') || (user['Subscription Status'] === 'Active');
+      
       if (active) {
+        console.log(`✅ [auth] Зареєстрований користувач ${tgId} з активною підпискою повернувся`);
+        
+        // Очищаємо стан
+        if (ctx.session) {
+          ctx.session.step = undefined;
+          ctx.session.temp = {};
+          ctx.session.wheel = undefined;
+        }
+        
+        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+        
+        // Вітальне повідомлення
         await ctx.reply(`Привіт знову, ${name}! 👋`, keyboards.mainMenuKeyboard());
+        
+        // ✅ ПЕРЕВІРЯЄМО ЧИ ПОТРІБНО НАГАДУВАННЯ ПРО КОЛЕСО
+        const wheelReminderShown = await checkAndShowWheelReminder(ctx, user);
+        
+        if (wheelReminderShown) {
+          console.log(`🎯 [auth] ✅ Показано нагадування про колесо для ${tgId}`);
+        } else {
+          console.log(`🎯 [auth] Нагадування про колесо не потрібне для ${tgId}`);
+        }
+        
       } else {
         await ctx.reply(
           `❌ Твоя підписка неактивна.\n\n📞 Підтримка: nadyastarway@gmail.com`,
@@ -97,6 +210,7 @@ export async function handleStart(ctx) {
       return;
     }
 
+    // Новий користувач або незавершена реєстрація
     ctx.session.step = OB_STEPS.PITCH;
     ctx.session.temp = { tgId, username: ctx.from.username || null };
 
@@ -104,6 +218,7 @@ export async function handleStart(ctx) {
       '🌟 Я твій АІ мотиватор-коуч. Короткі щоденні питання → фокус → прогрес. Поїхали?',
       keyboards.onboardingStartKeyboard()
     );
+    
   } catch (e) {
     const errId = `H1-${Date.now()}`;
     console.error(`[auth.handleStart] ❌ error ${errId}:`, e);
@@ -135,7 +250,7 @@ export async function handleRegistrationStep(ctx) {
       ctx.session.temp.name = text.trim();
 
       ctx.session.step = OB_STEPS.EMAIL;
-await ctx.reply('📧 Введи e-mail для чеків і доступів.', keyboards.emailInputKeyboard());
+      await ctx.reply('📧 Введи e-mail для чеків і доступів.', keyboards.emailInputKeyboard());
       return true;
     }
 
@@ -153,7 +268,7 @@ await ctx.reply('📧 Введи e-mail для чеків і доступів.',
       ctx.session.temp.email = text.trim();
 
       ctx.session.step = OB_STEPS.PHONE;
-await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());      // ✅ ВИПРАВЛЕНО: замість двох повідомлень - одне з текстом
+      await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());
       return true;
     }
 
@@ -249,6 +364,17 @@ export async function handleOnboardingCallback(ctx) {
       return true;
     }
 
+    // ✅ ДОДАНО: callback для відхилення нагадування про колесо
+    if (data === 'dismiss_reminder') {
+      await ctx.answerCbQuery('Нагадування відхилено');
+      try {
+        await ctx.deleteMessage();
+      } catch {
+        // Якщо не вдалося видалити, просто ігноруємо
+      }
+      return true;
+    }
+
     // ——— Back/Skip навігація
     if (data === 'back_email' && ctx.session.step === OB_STEPS.EMAIL) {
       ctx.session.step = OB_STEPS.NAME;
@@ -261,7 +387,6 @@ export async function handleOnboardingCallback(ctx) {
       ctx.session.step = OB_STEPS.EMAIL;
       await ctx.answerCbQuery('Назад');
       await ctx.reply('📧 Введи e-mail для чеків і доступів.', keyboards.emailInputKeyboard());
-      await ctx.reply(' ', keyboards.backFromEmailKeyboard());
       return true;
     }
 
@@ -269,7 +394,6 @@ export async function handleOnboardingCallback(ctx) {
       ctx.session.step = OB_STEPS.PHONE;
       await ctx.answerCbQuery('Назад');
       await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());
-      await ctx.reply(' ', keyboards.backFromPhoneKeyboard());
       return true;
     }
 
@@ -278,7 +402,6 @@ export async function handleOnboardingCallback(ctx) {
       ctx.session.step = OB_STEPS.PHONE;
       await ctx.answerCbQuery('Email пропущено');
       await ctx.reply('📱 Введи телефон у форматі +380…', keyboards.phoneInputKeyboard());
-      await ctx.reply(' ', keyboards.backFromPhoneKeyboard());
       return true;
     }
 
@@ -320,7 +443,7 @@ export async function handleOnboardingCallback(ctx) {
           'Email': ctx.session.temp.email || fresh?.Email,
           'Time Zone': tz,
           'Phone': ctx.session.temp?.phone || fresh?.Phone,
-          Status: 'Registered User',         // ✅ Single select
+          Status: 'Registered User',
           UserRegistered: true,
           Answer_Step: ANSWER_STEPS.COMPLETED
         });
@@ -473,7 +596,6 @@ export async function handleOnboardingCallback(ctx) {
     return false;
   }
 }
-
 // ——— helper: активація trial і запис полів (повний доступ) + правильні назви полів/значень
 async function activateTrial(ctx, tgId, days) {
   ctx.session.step = OB_STEPS.PAYMENT_SUCCESS;
@@ -555,5 +677,5 @@ setTimeout(async () => {
     // Fallback - показуємо кнопку
     await ctx.reply('🎯 Натисни кнопку нижче щоб почати колесо балансу:', keyboards.onboardingWheelStartKeyboard());
   }
-}, 1000); // запуск через 1 секунду
+}, 1000); 
 }

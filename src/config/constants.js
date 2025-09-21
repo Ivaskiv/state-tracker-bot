@@ -135,7 +135,7 @@ export const WHEEL_BALANCE = Object.freeze({
     CAREER_BUSINESS: 'Career_Business',
     FINANCE: 'Finance',
     REST_LEISURE: 'Rest_Leisure',
-    SPIRITUALITY: 'Spirituality_Values',
+    SPIRITUALITY: 'Spirituality',
     HOUSING: 'Housing'
   }
 });

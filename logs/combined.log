@@ -2456,3 +2456,50 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:08:21.195Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:15:48.245Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:15:56.755Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:18:32.053Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:27:37.562Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:27:42.994Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:27:43.266Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-21T16:28:33.429Z"}
+{"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-21T16:28:33.430Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена для 630111093, isActive: true","timestamp":"2025-09-21T16:28:33.622Z"}
+{"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-21T16:28:33.675Z"}
+{"level":"info","message":"[botController] 📱 Callback: ai_exit від 630111093","timestamp":"2025-09-21T16:28:37.600Z"}
+{"level":"info","message":"📱 [AI MENTOR CALLBACK] ai_exit для 630111093, AI активна: true","timestamp":"2025-09-21T16:28:37.999Z"}
+{"level":"info","message":"🚪 [AI MENTOR] Користувач 630111093 вийшов з AI-наставника","timestamp":"2025-09-21T16:28:38.090Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-21T16:28:41.368Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"❓ Допомога\"","timestamp":"2025-09-21T16:28:45.182Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"💰 Підписка\"","timestamp":"2025-09-21T16:28:49.774Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📝 Інструкції\"","timestamp":"2025-09-21T16:28:58.728Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"📞 Зв'язок з нами\"","timestamp":"2025-09-21T16:29:02.283Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:31:04.226Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:34:18.850Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:43:31.984Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:43:32.680Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T16:43:55.346Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_start від 630111093","timestamp":"2025-09-21T16:48:03.856Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-09-21T16:48:04.832Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Колесо створено, ID: recEqOKseoiwCHuV7","timestamp":"2025-09-21T16:48:05.459Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_5 від 630111093","timestamp":"2025-09-21T16:48:15.155Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-09-21T16:48:16.059Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_6 від 630111093","timestamp":"2025-09-21T16:49:08.397Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 6","timestamp":"2025-09-21T16:49:08.940Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_9 від 630111093","timestamp":"2025-09-21T16:49:54.341Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 9","timestamp":"2025-09-21T16:49:55.312Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_10 від 630111093","timestamp":"2025-09-21T16:52:43.976Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 10","timestamp":"2025-09-21T16:52:44.837Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_8 від 630111093","timestamp":"2025-09-21T16:54:09.638Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 8","timestamp":"2025-09-21T16:54:10.598Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_6 від 630111093","timestamp":"2025-09-21T16:54:46.789Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 6","timestamp":"2025-09-21T16:54:47.758Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_9 від 630111093","timestamp":"2025-09-21T16:55:13.900Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 9","timestamp":"2025-09-21T16:55:14.441Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] Помилка обробки оцінки: Unknown field name: \"Spirituality_Values\"","statusCode":422,"timestamp":"2025-09-21T16:55:14.924Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_10 від 630111093","timestamp":"2025-09-21T16:55:51.589Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 10","timestamp":"2025-09-21T16:55:52.594Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] Помилка обробки оцінки: Unknown field name: \"Spirituality_Values\"","statusCode":422,"timestamp":"2025-09-21T16:55:53.017Z"}
+{"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-21T17:00:54.768Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_9 від 630111093","timestamp":"2025-09-21T17:01:04.279Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 9","timestamp":"2025-09-21T17:01:05.304Z"}
+{"level":"info","message":"[botController] 📱 Callback: wheel_score_10 від 630111093","timestamp":"2025-09-21T17:01:40.318Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 10","timestamp":"2025-09-21T17:01:41.323Z"}

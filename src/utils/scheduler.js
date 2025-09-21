@@ -1,4 +1,4 @@
-// src/utils/scheduler.js
+// src/utils/scheduler.js - ДОДАНО ЩОМІСЯЧНУ ПЕРЕВІРКУ КОЛІС
 
 import cron from 'node-cron';
 import userService from '../auth/services/userService.js';
@@ -6,6 +6,7 @@ import subscriptionService from '../auth/services/subscriptionService.js';
 import subscriptionController from '../controllers/subscriptionController.js';
 import paymentService from '../auth/services/paymentService.js';
 import responseService from '../dialogue/services/responseService.js';
+import wheelBalanceController from '../controllers/wheelBalanceController.js'; // ✅ ДОДАНО
 import {
   CRON_SCHEDULES,
   SCHEDULER_MESSAGES,
@@ -17,7 +18,6 @@ import {
   EVENING_QUESTIONS,
 } from '../config/constants.js';
 import { schedulePendingReminders } from '../middleware/pendingFlow.js';
-import wheelBalanceController from '../controllers/wheelBalanceController.js';
 
 const jobs = [];
 
@@ -256,6 +256,21 @@ const checkSubscriptions = async (bot) => {
   }
 };
 
+// ✅ НОВА ФУНКЦІЯ: щомісячна перевірка коліс балансу
+const checkMonthlyWheelBalance = async (bot) => {
+  if (!guardExecution('MonthlyWheelCheck')) return;
+  
+  console.log('[scheduler] 🎯 ЩОМІСЯЧНА ПЕРЕВІРКА КОЛІС БАЛАНСУ');
+  
+  try {
+    const remindersSent = await wheelBalanceController.checkMonthlyWheelNeed(bot);
+    console.log(`[scheduler] ✅ Надіслано ${remindersSent} нагадувань про колесо балансу`);
+    
+  } catch (error) {
+    console.error('[scheduler] ❌ Помилка щомісячної перевірки коліс:', error);
+  }
+};
+
 const clearDailyCache = () => {
   console.log('[scheduler] 🧹 Очищення денних кешів');
   messageCooldowns.clear();
@@ -287,18 +302,13 @@ const startScheduler = (bot) => {
   jobs.length = 0;
 
   console.log('[scheduler] ✅ Запуск нового планувальника...');
-createTask('0 10 1 * *', async () => {
-  try {
-    console.log('[scheduler] 🎯 Щомісячна перевірка потреби в колесі балансу');
-    const { default: wheelBalanceController } = await import('../controllers/wheelBalanceController.js');
-    await wheelBalanceController.checkMonthlyWheelNeed(bot);
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка щомісячної перевірки колеса:', error);
-  }
-}, 'monthly_wheel_check');
+
+  // ✅ ОСНОВНІ ЗАДАЧІ
   createTask('0 0 * * *', clearDailyCache, 'daily_cache_clear');
   createTask(CRON_SCHEDULES.MORNING_REMINDER, () => sendMorningReminder(bot), 'morning_session');
   createTask(CRON_SCHEDULES.EVENING_REMINDER, () => sendEveningReminder(bot), 'evening_session');
+  
+  // ✅ ПІДПИСКИ
   createTask('0 10 * * *', () => checkSubscriptions(bot), 'subscription_check');
   createTask('0 9 * * *', () => subscriptionController.sendExpirationReminders(bot), 'subscription_reminders');
   createTask('0 1 * * *', async () => {
@@ -309,20 +319,15 @@ createTask('0 10 1 * *', async () => {
     }
   }, 'subscription_deactivation');
   
-  createTask('0 10 1 * *', async () => {
-    try {
-      await wheelBalanceController.checkMonthlyWheelNeed(bot);
-    } catch (error) {
-      console.error('[scheduler] ❌ Помилка щомісячної перевірки:', error);
-    }
-  }, 'monthly_wheel_check');
+  // ✅ КОЛЕСО БАЛАНСУ - ЩОМІСЯЧНА ПЕРЕВІРКА (1 ЧИСЛА О 10:00)
+  createTask('0 10 1 * *', () => checkMonthlyWheelBalance(bot), 'monthly_wheel_check');
 
   console.log(`[scheduler] ✅ Планувальник запущено: ${jobs.length} задач`);
   console.log(`[scheduler] 📅 Ранок: ${CRON_SCHEDULES.MORNING_REMINDER}`);
   console.log(`[scheduler] 📅 Вечір: ${CRON_SCHEDULES.EVENING_REMINDER}`);
   console.log(`[scheduler] 💰 Підписки: 0 10 * * * (щодня о 10:00)`);
   console.log(`[scheduler] 📅 Нагадування: 0 9 * * * (щодня о 09:00)`);
-  console.log(`[scheduler] 🎯 Колесо: 0 10 1 * * (1 числа кожного місяця)`);
+  console.log(`[scheduler] 🎯 Колесо: 0 10 1 * * (1 числа кожного місяця о 10:00)`); // ✅ ДОДАНО
 };
 
 const stopScheduler = () => {
