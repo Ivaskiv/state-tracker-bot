@@ -193,15 +193,17 @@ const keyboards = {
 
   // ✅ ЗАВЕРШЕННЯ КОЛЕСА
   wheelBalanceCompleteKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 Пройти знову', callback_data: 'wheel_start_new' }],
-          [{ text: '🏠 Головне меню', callback_data: 'wheel_to_menu' }]
-        ]
-      }
-    };
-  },
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '📊 Мій прогрес', callback_data: 'wheel_stats' }],
+        [{ text: '🔄 Пройти знову за місяць', callback_data: 'wheel_info' }],
+        [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
+      ]
+    }
+  };
+},
+
 
   // ✅ AI НАСТАВНИК
   aiMentorStartKeyboard() {

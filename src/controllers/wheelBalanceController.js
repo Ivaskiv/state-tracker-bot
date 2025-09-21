@@ -1,4 +1,4 @@
-// src/controllers/wheelBalanceController.js - ДОДАНО ЩОМІСЯЧНУ ПЕРЕВІРКУ
+// src/controllers/wheelBalanceController.js - ВИПРАВЛЕНО З ЛОГІЧНИМИ ПОВІДОМЛЕННЯМИ
 import wheelBalanceService from '../services/wheelBalanceService.js';
 import userService from '../auth/services/userService.js';
 import keyboards from '../utils/keyboards.js';
@@ -49,10 +49,11 @@ const handleWheelBalance = async (ctx) => {
   } catch (error) {
     console.error('❌ [wheelController] Помилка:', error);
     await ctx.reply(
-      '❌ Виникла помилка при запуску колеса балансу.\n\nСпробуй пізніше або зверніться до підтримки.',
+      '❌ Виникла помилка при запуску колеса балансу.\n\n💡 Спробуй пізніше або зверніся до підтримки для вирішення технічних питань.',
       {
         reply_markup: {
           inline_keyboard: [
+            [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }],
             [{ text: '🏠 До меню', callback_data: 'main_menu' }]
           ]
         }
@@ -73,11 +74,12 @@ const handleWheelBalanceRequest = async (ctx) => {
       console.log(`🎯 [wheelBalanceController] ❌ Немає доступу для ${tgId}`);
       await typing(ctx);
       await ctx.reply(
-        '🎯 Колесо балансу доступне тільки з активною підпискою.\n\nАктивуй підписку в меню «💰 Підписка».',
+        '🎯 Колесо балансу — преміум інструмент!\n\n📊 Отримай детальний аналіз 8 сфер життя з персональними рекомендаціями.\n\n💰 Активуй підписку для доступу до всіх функцій.',
         {
           reply_markup: {
             inline_keyboard: [
-              [{ text: '💰 Підписка', callback_data: 'subscription_info' }]
+              [{ text: '💰 Переглянути плани', callback_data: 'subscription_info' }],
+              [{ text: '🏠 До меню', callback_data: 'main_menu' }]
             ]
           }
         }
@@ -97,11 +99,12 @@ const handleWheelBalanceRequest = async (ctx) => {
       const sphereName = wheelBalanceService.LIFE_SPHERES[currentStep];
 
       await ctx.reply(
-        `🎯 У тебе є незавершене колесо балансу.\n\n${currentStep + 1}️⃣/8 ${sphereName}\n\n⚠️ Поки триває сесія колеса, інші дії та меню заблоковані.\n\nЩо робимо?`,
+        `🎯 У тебе є незавершене колесо балансу!\n\n📍 Поточна сфера: ${currentStep + 1}️⃣/8 «${sphereName}»\n\n⚠️ Під час заповнення колеса інші дії заблоковані для точного результату.\n\n🎯 Продовжимо або почнемо заново?`,
         {
           reply_markup: {
             inline_keyboard: [
               [{ text: '▶️ Продовжити колесо', callback_data: 'wheel_continue' }],
+              [{ text: '🔄 Почати заново', callback_data: 'wheel_restart' }],
               [{ text: '🚪 Вийти із сесії', callback_data: 'wheel_exit' }]
             ]
           }
@@ -137,7 +140,10 @@ const handleWheelBalanceRequest = async (ctx) => {
   } catch (error) {
     console.error('❌ [wheelBalanceController] Помилка запуску колеса:', error);
     await typing(ctx);
-    await ctx.reply('Виникла помилка. Спробуй пізніше.', keyboards.mainMenuKeyboard());
+    await ctx.reply(
+      '❌ Технічна помилка запуску колеса.\n\n🔧 Спробуй через хвилину або зверніся до підтримки.',
+      keyboards.mainMenuKeyboard()
+    );
   }
 };
 
@@ -149,8 +155,11 @@ const handleWheelNoteText = async (ctx) => {
     return false;
   }
   
-  if (!text || text.length < 5) {
-    await ctx.reply('Додай, будь ласка, ще трішки деталей (2–5 речень) про цю сферу життя.');
+  if (!text || text.length < 10) {
+    await ctx.reply(
+      '✍️ Додай трохи більше деталей (2–5 речень).\n\n💡 Опиши, чому поставила саме таку оцінку - це допоможе AI створити точніший аналіз.',
+      wheelBalanceService.buildExitKeyboard()
+    );
     return true;
   }
 
@@ -160,7 +169,10 @@ const handleWheelNoteText = async (ctx) => {
     const res = await wheelBalanceService.saveWheelNoteAndGoNext(ctx, text);
     
     if (res.error) {
-      await ctx.reply(res.message || 'Помилка збереження нотатки. Спробуй ще раз.');
+      await ctx.reply(
+        res.message || '❌ Помилка збереження нотатки.\n\n🔄 Спробуй ще раз або натисни "🚪 Вийти" для завершення.',
+        wheelBalanceService.buildExitKeyboard()
+      );
       return true;
     }
     
@@ -176,7 +188,10 @@ const handleWheelNoteText = async (ctx) => {
     return true;
   } catch (error) {
     console.error('❌ [wheelBalanceController] Помилка обробки нотатки:', error);
-    await ctx.reply('Виникла помилка. Спробуй ще раз.');
+    await ctx.reply(
+      '❌ Технічна помилка збереження.\n\n🔄 Спробуй ще раз через хвилину.',
+      wheelBalanceService.buildExitKeyboard()
+    );
     return true;
   }
 };
@@ -192,14 +207,20 @@ const handleWheelBalanceAnswer = async (ctx, score) => {
     
     if (step !== 'WheelBalance') {
       console.log(`🎯 [wheelBalanceController] ❌ Колесо неактивне для ${tgId}, step: ${step}`);
-      await ctx.reply('Колесо балансу неактивне. Натисни "🎯 Колесо балансу" в меню.', keyboards.mainMenuKeyboard());
+      await ctx.reply(
+        '⚠️ Сесія колеса балансу неактивна.\n\n🎯 Запусти нове колесо балансу через головне меню для отримання актуального аналізу.',
+        keyboards.mainMenuKeyboard()
+      );
       return;
     }
 
     const res = await wheelBalanceService.processWheelAnswer(tgId, score, ctx);
     
     if (res.error) {
-      await ctx.reply(res.message || 'Помилка збереження оцінки');
+      await ctx.reply(
+        res.message || '❌ Помилка збереження оцінки.\n\n🔄 Спробуй обрати оцінку ще раз.',
+        wheelBalanceService.buildExitKeyboard()
+      );
       return;
     }
 
@@ -207,7 +228,10 @@ const handleWheelBalanceAnswer = async (ctx, score) => {
 
   } catch (error) {
     console.error('❌ [wheelBalanceController] Помилка обробки оцінки:', error);
-    await ctx.reply('Виникла помилка. Спробуй ще раз.');
+    await ctx.reply(
+      '❌ Технічна помилка обробки оцінки.\n\n🔄 Спробуй ще раз або зверніся до підтримки.',
+      wheelBalanceService.buildExitKeyboard()
+    );
   }
 };
 
@@ -240,7 +264,7 @@ const handleWheelCallback = async (ctx) => {
       } catch {
         await ctx.reply(start.message, start.keyboard);
       }
-      await ctx.answerCbQuery('Колесо запущено');
+      await ctx.answerCbQuery('🎯 Колесо запущено');
       return;
     }
 
@@ -258,14 +282,14 @@ const handleWheelCallback = async (ctx) => {
         } catch {
           await ctx.reply(start.message, start.keyboard);
         }
-        await ctx.answerCbQuery('Починаємо спочатку');
+        await ctx.answerCbQuery('🆕 Починаємо нове колесо');
         return;
       }
 
       const step = Number(activeWheel.fields.Step || 0);
       const sphereName = wheelBalanceService.LIFE_SPHERES[step];
 
-      const message = `🎯 КОЛЕСО БАЛАНСУ\n\n${step + 1}️⃣/8 ${sphereName}\n\nОбери оцінку від 0 до 10:`;
+      const message = `🎯 КОЛЕСО БАЛАНСУ\n\n${step + 1}️⃣/8 ${sphereName}\n\n📊 Оціни цю сферу від 0 до 10:`;
 
       try {
         await ctx.editMessageText(message, keyboards.wheelScoreInlineKeyboard());
@@ -274,7 +298,7 @@ const handleWheelCallback = async (ctx) => {
       }
 
       await userService.updateUserStep(tgId, 'WheelBalance');
-      await ctx.answerCbQuery('Продовжуємо колесо');
+      await ctx.answerCbQuery('▶️ Продовжуємо колесо');
       return;
     }
 
@@ -283,40 +307,64 @@ const handleWheelCallback = async (ctx) => {
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
 
       try {
-        await ctx.editMessageText('🚪 Колесо балансу скасовано. Повертаємося до меню.');
+        await ctx.editMessageText(
+          '🚪 Сесію колеса завершено.\n\n💡 Регулярне заповнення колеса (раз на місяць) допомагає відслідковувати прогрес у розвитку та підтримувати баланс у всіх сферах життя.'
+        );
       } catch {
-        await ctx.reply('🚪 Колесо балансу скасовано. Повертаємося до меню.');
+        await ctx.reply(
+          '🚪 Сесію колеса завершено.\n\n💡 Регулярне заповнення колеса (раз на місяць) допомагає відслідковувати прогрес у розвитку та підтримувати баланс у всіх сферах життя.'
+        );
       }
-      await ctx.answerCbQuery('Сесію завершено');
+      await ctx.answerCbQuery('✅ Сесію завершено');
 
       setTimeout(async () => {
         await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
-      }, 700);
+      }, 1000);
       return;
     }
 
     if (data === 'wheel_info') {
       const info = wheelBalanceService.getWheelInfo();
       await ctx.editMessageText(info.message, info.keyboard);
+      await ctx.answerCbQuery('ℹ️ Інформація про колесо');
       return;
     }
 
     if (data === 'wheel_stats') {
       const stats = await wheelBalanceService.getUserWheelStats(tgId);
-      let message = '📊 ТВОЯ СТАТИСТИКА КОЛІС БАЛАНСУ\n\n';
+      let message = '📊 СТАТИСТИКА КОЛІС БАЛАНСУ\n\n';
       
       if (stats.total === 0) {
-        message += 'Ти ще не заповнила жодного колеса балансу.\nЧас почати! 🎯';
+        message += 'Ти ще не заповнила жодного колеса балансу.\n\n';
+        message += '🎯 Перше колесо дасть:\n';
+        message += '• Чітке розуміння поточного стану\n';
+        message += '• Персональні рекомендації від AI\n';
+        message += '• План розвитку на місяць\n\n';
+        message += '⏰ Час почати!';
       } else {
         message += `📈 Всього заповнено: ${stats.total}\n`;
+        
         if (stats.lastScore) {
-          message += `⭐ Останній бал: ${stats.lastScore}/10\n`;
+          message += `⭐ Останній середній бал: ${stats.lastScore}/10\n`;
         }
+        
         if (stats.lastDate) {
           const daysSince = Math.floor((new Date() - new Date(stats.lastDate)) / (1000 * 60 * 60 * 24));
-          message += `📅 Останнє колесо: ${daysSince} днів тому\n`;
+          message += `📅 Останнє колесо: ${daysSince} днів тому\n\n`;
+          
+          if (daysSince >= 30) {
+            message += '⏰ Час для нового колеса!\n';
+            message += '📈 Регулярний моніторинг допомагає:\n';
+            message += '• Бачити прогрес у розвитку\n';
+            message += '• Підтримувати баланс\n';
+            message += '• Вчасно коригувати пріоритети';
+          } else {
+            message += `📅 Наступне рекомендоване: через ${30 - daysSince} днів\n\n`;
+            message += '💪 Відмінна регулярність! Продовжуй відслідковувати прогрес.';
+          }
+        } else {
+          message += '\n💡 Продовжуй заповнювати колесо регулярно для кращого аналізу прогресу.';
         }
-        message += '\nПродовжуй відслідковувати свій прогрес! 💪';
       }
       
       await ctx.editMessageText(message, {
@@ -327,41 +375,44 @@ const handleWheelCallback = async (ctx) => {
           ]
         }
       });
+      await ctx.answerCbQuery('📊 Статистика завантажена');
       return;
     }
 
     if (data.startsWith('wheel_score_')) {
       const score = parseInt(data.replace('wheel_score_', ''), 10);
       if (Number.isNaN(score) || score < 0 || score > 10) {
-        await ctx.answerCbQuery('Невірна оцінка');
+        await ctx.answerCbQuery('❌ Невірна оцінка');
         return;
       }
 
       await handleWheelBalanceAnswer(ctx, score);
-      await ctx.answerCbQuery('Оцінка збережена');
+      await ctx.answerCbQuery(`✅ Оцінка ${score} збережена`);
       return;
     }
 
     if (data === 'wheel_to_menu') {
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
       try { 
-        await ctx.editMessageText('🏠 Повертаємося до головного меню'); 
+        await ctx.editMessageText(
+          '🏠 Повертаємося до головного меню.\n\n📈 Твій прогрес збережено. Переглянути результати можна в розділі "📊 Мій прогрес".'
+        ); 
       } catch {}
-      await ctx.answerCbQuery('Меню');
+      await ctx.answerCbQuery('🏠 До меню');
 
       setTimeout(async () => {
         await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
-      }, 700);
+      }, 1000);
       return;
     }
 
     console.log(`🎯 [wheelBalanceController] ❓ Невідомий callback: ${data}`);
-    await ctx.answerCbQuery('Невідома команда');
+    await ctx.answerCbQuery('❓ Команда не розпізнана');
 
   } catch (error) {
     console.error('❌ [wheelBalanceController] Помилка callback:', error);
     try { 
-      await ctx.answerCbQuery('Виникла помилка'); 
+      await ctx.answerCbQuery('❌ Технічна помилка'); 
     } catch {}
   }
 };
@@ -395,5 +446,5 @@ export default {
   handleWheelBalanceAnswer,
   handleWheelNoteText,
   handleWheelCallback,
-  checkMonthlyWheelNeed  // ✅ ДОДАНО ЕКСПОРТ
+  checkMonthlyWheelNeed
 };

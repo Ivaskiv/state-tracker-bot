@@ -187,7 +187,7 @@ export const TIMEZONE_CONFIG = Object.freeze({
 
 // --- Розклад ---
 const _SCHEDULE = {
-  MORNING_TIME: '08:00',
+  MORNING_TIME: '20:47',
   EVENING_TIME: '21:30',
   MORNING_START: 7,
   MORNING_END: 20,

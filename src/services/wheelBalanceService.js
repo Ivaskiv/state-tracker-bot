@@ -644,29 +644,68 @@ const generateWheelAnalysis = async (scoresArr) => {
       score: scoresArr[i] || 0 
     }));
     
+    // Розрахунок середнього балу
+    const avgScore = (scoresArr.reduce((a, b) => a + b, 0) / scoresArr.length).toFixed(1);
+    
+    // Визначення сфер що потребують уваги
+    const weakSpheres = pairs.filter(s => s.score <= 5);
+    const strongSpheres = pairs.filter(s => s.score >= 8);
+    
     const prompt =
       `Проаналізуй результати колеса балансу:\n\n` +
       `${pairs.map(s => `${s.name}: ${s.score}/10`).join('\n')}\n\n` +
-      `Дай короткий аналіз (до 120 слів):\n` +
-      `🌟 Сильні сторони: [2-3 найвищі сфери]\n` +
-      `⚡ Точки росту: [1-2 найнижчі сфери]\n` +
-      `🎯 Наступні кроки: [2-3 конкретні дії]\n\n` +
-      `Тон: підтримуючий, українською мовою.`;
+      `Середній бал: ${avgScore}/10\n\n` +
+      `Створи аналіз у форматі:\n` +
+      `✅ Колесо балансу завершено! Середній бал: ${avgScore}/10\n\n` +
+      `🌟 Сильні сфери: [2-3 найвищі сфери з конкретними балами]\n` +
+      `⚡ Потребують уваги: [сфери з оцінкою ≤5]\n` +
+      `🎯 Рекомендації:\n` +
+      `• [конкретна дія для найслабшої сфери]\n` +
+      `• [порада для балансу]\n` +
+      `• [як використати сильні сфери]\n\n` +
+      `📈 Відстежуй прогрес щомісяця в розділі "Мій прогрес".\n\n` +
+      `До 120 слів, українською мовою, практичний тон.`;
 
     const analysis = await chat(
       [
-        { role: 'system', content: 'Ти експертний коуч. Аналізуй колесо балансу підтримуюче, конкретно.' },
+        { role: 'system', content: 'Ти коуч-аналітик колеса балансу. Даєш конкретні рекомендації на основі оцінок.' },
         { role: 'user', content: prompt }
       ],
       'gpt-4o-mini',
       300
     );
 
-    return analysis || '📊 Твоє колесо показує унікальний баланс. Продовжуй розвивати сильні сторони!';
+    // Якщо AI не відповів, створюємо fallback з логікою
+    if (!analysis) {
+      const weakSpheresText = weakSpheres.length > 0 
+        ? weakSpheres.map(s => `${s.name} (${s.score})`).join(', ')
+        : 'всі сфери збалансовані';
+        
+      const strongSpheresText = strongSpheres.length > 0
+        ? strongSpheres.map(s => `${s.name} (${s.score})`).join(', ')
+        : 'потребують підтримки';
+
+      return `✅ Колесо балансу завершено! Середній бал: ${avgScore}/10\n\n` +
+             `🌟 Сильні сфери: ${strongSpheresText}\n` +
+             `⚡ Потребують уваги: ${weakSpheresText}\n\n` +
+             `🎯 Рекомендація: зосередься на сферах з оцінкою ≤5 - це твої точки росту.\n\n` +
+             `📈 Відстежуй прогрес щомісяця в розділі "Мій прогрес".`;
+    }
+
+    return analysis;
 
   } catch (error) {
     logger.error('❌ [wheelBalance] Помилка аналізу:', error);
-    return '📊 Дякуємо за заповнення колеса балансу! Продовжуй працювати над своїм розвитком.';
+    
+    // Fallback з базовою логікою
+    const avgScore = (scoresArr.reduce((a, b) => a + b, 0) / scoresArr.length).toFixed(1);
+    const lowScores = scoresArr.filter(score => score <= 5).length;
+    
+    return `✅ Колесо балансу завершено! Середній бал: ${avgScore}/10\n\n` +
+           `🎯 ${lowScores > 0 
+             ? `Рекомендую зосередитися на ${lowScores} сферах з оцінкою ≤5.` 
+             : 'Чудовий баланс! Підтримуй досягнутий рівень.'}\n\n` +
+           `📈 Відстежуй прогрес щомісяця в розділі "Мій прогрес".`;
   }
 };
 

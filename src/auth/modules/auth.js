@@ -571,7 +571,7 @@ export async function handleOnboardingCallback(ctx) {
       await ctx.reply(`Фіксований графік: ранок 08:00, вечір 21:30 (за твоєю TZ: ${tz}).`);
 
       // Старт колеса (без «— займе ~3 хвилини.»)
-      await ctx.reply('Готово. Запускаю перше Колесо балансу.', keyboards.onboardingWheelStartKeyboard());
+      await ctx.reply('🎯 Готово! Час для першого колеса балансу.\n\n📊 Це займе 5-10 хвилин і дасть чіткий план розвитку на наступний місяць.', keyboards.onboardingWheelStartKeyboard());
       // одразу ж запускаємо його програмно
       ctx.session.trialJustActivated = true;
       await wheelBalanceController.handleWheelBalanceRequest(ctx);

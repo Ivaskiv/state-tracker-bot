@@ -127,6 +127,8 @@ const showUserProgress = async (ctx, user) => {
 
   try {
     const tgId = ctx.from.id;
+    
+    // Отримуємо статистику відповідей
     const records = await responseService.getUserRecords(tgId, 30);
     const totalDays = records.length;
     let morningCompleted = 0;
@@ -139,8 +141,51 @@ const showUserProgress = async (ctx, user) => {
       if (evening) eveningCompleted++;
     });
 
-    const progressText = MENU_TEXTS.PROGRESS(totalDays, morningCompleted, eveningCompleted);
+    // Отримуємо статистику коліс
+    const wheelStats = await wheelBalanceService.getUserWheelStats(tgId);
+    
+    let progressText = `📊 ТВІЙ ПРОГРЕС (за 30 днів)\n\n`;
+    
+    // Статистика питань-відповідей
+    progressText += `📝 Щоденні рефлексії:\n`;
+    progressText += `• Всього активних днів: ${totalDays}\n`;
+    progressText += `• Ранкові завершено: ${morningCompleted}\n`;
+    progressText += `• Вечірні завершено: ${eveningCompleted}\n\n`;
+    
+    // Статистика коліс балансу
+    progressText += `🎯 Колеса балансу:\n`;
+    if (wheelStats.total === 0) {
+      progressText += `• Поки що не заповнено\n`;
+      progressText += `• Рекомендую почати з першого!\n\n`;
+    } else {
+      progressText += `• Заповнено коліс: ${wheelStats.total}\n`;
+      if (wheelStats.lastScore) {
+        progressText += `• Останній середній бал: ${wheelStats.lastScore}/10\n`;
+      }
+      if (wheelStats.lastDate) {
+        const daysSince = Math.floor((new Date() - new Date(wheelStats.lastDate)) / (1000 * 60 * 60 * 24));
+        progressText += `• Останнє колесо: ${daysSince} днів тому\n`;
+      }
+      progressText += '\n';
+    }
+    
+    // Загальна оцінка активності
+    const activityPercent = totalDays > 0 ? Math.round(((morningCompleted + eveningCompleted) / (totalDays * 2)) * 100) : 0;
+    
+    if (activityPercent >= 80) {
+      progressText += `🏆 Відмінна активність (${activityPercent}%)! Ти на правильному шляху.`;
+    } else if (activityPercent >= 60) {
+      progressText += `👍 Хороша активність (${activityPercent}%). Продовжуй у тому ж дусі!`;
+    } else if (activityPercent >= 40) {
+      progressText += `📈 Помірна активність (${activityPercent}%). Є простір для покращення.`;
+    } else {
+      progressText += `🎯 Активність ${activityPercent}%. Час активізуватися для кращих результатів!`;
+    }
+    
+    progressText += `\n\n💡 Детальні AI-аналізи в розділах "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`;
+
     await ctx.reply(progressText, keyboards.mainMenuKeyboard());
+    
   } catch (error) {
     await handleError(ctx, error, MENU_TEXTS.PROGRESS_UNAVAILABLE);
   }

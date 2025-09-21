@@ -246,11 +246,35 @@ export const getUserStats = async (tgId, days = 30) => {
     };
   }
 };
+export const getUserProgressWithWheels = async (tgId, days = 30) => {
+  try {
+    // Отримуємо статистику відповідей
+    const responseStats = await getUserStats(tgId, days);
+    
+    // Отримуємо статистику коліс
+    const wheelStats = await wheelBalanceService.getUserWheelStats(tgId);
+    
+    return {
+      responses: responseStats,
+      wheels: wheelStats,
+      totalActivity: responseStats.totalDays,
+      lastActivity: new Date().toISOString() // можна покращити
+    };
+    
+  } catch (error) {
+    console.error(`[responseService] ❌ Помилка отримання прогресу з колесами для ${tgId}:`, error);
+    return {
+      responses: { totalDays: 0, morningCompleted: 0, eveningCompleted: 0 },
+      wheels: { total: 0, lastScore: null, lastDate: null }
+    };
+  }
+};
 
 export default { 
   createOrUpdateResponse, 
   isSessionCompleted, 
   getDayRecord, 
   getUserRecords,
-  getUserStats 
+  getUserStats,
+  getUserProgressWithWheels
 };
