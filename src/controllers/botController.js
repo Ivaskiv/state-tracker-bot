@@ -1,38 +1,84 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО + ДОДАНО wheelBalanceService
+// src/controllers/botController.js - ВИПРАВЛЕНО КОНФЛІКТИ ЛОГІКИ
+
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
-import wheelBalanceService from '../services/wheelBalanceService.js'; // ✅ ДОДАНО
+import wheelBalanceService from '../services/wheelBalanceService.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
 import { cancelPendingReminders } from '../middleware/pendingFlow.js';
 import { globalTypingMiddleware } from '../middleware/typingMiddleware.js';
 import { handleStart, handleRegistrationStep, handleOnboardingCallback } from '../auth/modules/auth.js';
-import { ANSWER_STEPS, MORNING_QUESTIONS, EVENING_QUESTIONS } from '../config/constants.js';
+import { ANSWER_STEPS} from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 import { handleError } from '../utils/errorHandler.js';
-import { completeSession } from '../utils/sessionUtils.js';
 import logger from '../utils/logger.js';
 import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
 import { handleMenuCommands } from '../dialogue/handlers/menuHandlers.js';
 import { handleQuestionAnswer, handleRestartCallback } from '../dialogue/handlers/sessionHandlers.js';
 import subscriptionController from './subscriptionController.js';
 
-const WHEEL_STEP = 'WheelBalance';
-
-const isActiveQuestionsStep = (step) => Boolean(step && (step.startsWith('Q_m_') || step.startsWith('Q_e_')));
-const isActiveAIStep = (step) => Boolean(step && (step === 'AI_ACTIVE' || step?.startsWith('AI_')));
-const isOnboardingStep = (step) => Boolean(step && step.startsWith('ob_'));
-
-// ✅ ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ МЕНЮ
-const showMainMenu = async (ctx) => {
+// ✅ ЦЕНТРАЛІЗОВАНА ФУНКЦІЯ ПЕРЕВІРКИ АКТИВНОЇ СЕСІЇ
+const getActiveSessionInfo = async (tgId, ctx) => {
   try {
-    await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
+    const user = await userService.getUserByTelegramId(tgId);
+    const step = user?.Answer_Step;
+    
+    // Перевірка активного колеса
+    const wheelActive = await wheelBalanceService.isWheelActive(tgId);
+    if (wheelActive) {
+      return {
+        type: 'wheel',
+        active: true,
+        message: '🎯 Колесо балансу в процесі! Завершіть спочатку або вийдіть із сесії.',
+        action: () => wheelBalanceService.processWheelAction(tgId, ctx)
+      };
+    }
+    
+    // Перевірка активних питань-відповідей
+    const isActiveQA = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
+    if (isActiveQA) {
+      const sessionType = step.startsWith('Q_m_') ? 'ранкові' : 'вечірні';
+      return {
+        type: 'questions',
+        active: true,
+        sessionType,
+        message: `📝 ${sessionType} питання в процесі! Завершіть спочатку або вийдіть із сесії.`,
+        action: () => handleQuestionAnswer(ctx, user, null)
+      };
+    }
+    
+    // Перевірка AI ментора
+    const isActiveAI = step && (step === 'AI_ACTIVE' || step?.startsWith('AI_'));
+    if (isActiveAI) {
+      return {
+        type: 'ai',
+        active: true,
+        message: '🤖 AI-наставник активний! Завершіть діалог або вийдіть із сесії.',
+        action: () => aiMentorController.handleAIMentorCallback(ctx)
+      };
+    }
+    
+    return { active: false, type: null };
+    
   } catch (error) {
-    console.error('❌ Помилка показу головного меню:', error);
-    await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+    console.error('❌ [bot] Помилка перевірки активної сесії:', error);
+    return { active: false, type: null };
   }
 };
 
-const showMenuKeyboard = () => keyboards.mainMenuKeyboard();
+// ✅ БЛОКУВАННЯ МЕНЮ ПІД ЧАС АКТИВНИХ СЕСІЙ
+const blockMenuDuringSession = async (ctx, sessionInfo) => {
+  await ctx.reply(
+    `⚠️ ${sessionInfo.message}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔁 Продовжити', callback_data: 'continue_answers' }],
+          [{ text: '🚪 Вийти із сесії', callback_data: 'skip_session' }]
+        ]
+      }
+    }
+  );
+};
 
 const botController = (bot) => {
   logger.info('[botController] Initializing bot controller...');
@@ -44,55 +90,30 @@ const botController = (bot) => {
     await handleStart(ctx);
   });
 
-  // ✅ /menu КОМАНДА
+  // ✅ /menu КОМАНДА - ЗАВЖДИ СКАСОВУЄ ВСІ АКТИВНІ СЕСІЇ
   bot.command('menu', async (ctx) => {
     try {
-      const user = await userService.getUserByTelegramId(ctx.from.id);
+      const tgId = ctx.from.id;
+      const user = await userService.getUserByTelegramId(tgId);
       if (!user) return ctx.reply('Натисніть /start');
 
-      // ✅ СКАСУВАННЯ АКТИВНОГО КОЛЕСА
-      await wheelBalanceService.cancelActiveWheel(ctx.from.id);
+      // ✅ СКАСУВАННЯ ВСІХ АКТИВНИХ СЕСІЙ
+      await wheelBalanceService.cancelActiveWheel(tgId);
+      cancelPendingReminders(tgId);
 
       if (ctx.session) {
         ctx.session.step = undefined;
         ctx.session.temp = {};
-        ctx.session.wheel = undefined; // ✅ ОЧИЩАЄМО WHEEL СЕСІЮ
+        ctx.session.wheel = undefined;
       }
 
-      await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.COMPLETED);
-      cancelPendingReminders(ctx.from.id);
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
 
-      await ctx.reply('🔄 Оновлення меню...', keyboards.removeKeyboard());
-      await new Promise((r) => setTimeout(r, 500));
+      await ctx.reply('🔄 Скасовано всі активні сесії...', keyboards.removeKeyboard());
+      await new Promise(r => setTimeout(r, 500));
       await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
     } catch (error) {
       await handleError(ctx, error);
-    }
-  });
-
-  // ✅ /updatemenu КОМАНДА
-  bot.command('updatemenu', async (ctx) => {
-    try {
-      const user = await userService.getUserByTelegramId(ctx.from.id);
-      if (!user) return ctx.reply('Натисніть /start');
-
-      // ✅ СКАСУВАННЯ АКТИВНОГО КОЛЕСА
-      await wheelBalanceService.cancelActiveWheel(ctx.from.id);
-
-      if (ctx.session) {
-        ctx.session.step = undefined;
-        ctx.session.temp = {};
-        ctx.session.wheel = undefined; // ✅ ОЧИЩАЄМО WHEEL СЕСІЮ
-      }
-
-      await userService.updateUserStep(ctx.from.id, ANSWER_STEPS.COMPLETED);
-      cancelPendingReminders(ctx.from.id);
-
-      await ctx.reply('🔄 Оновлюємо меню...', keyboards.removeKeyboard());
-      await new Promise((r) => setTimeout(r, 1000));
-      await ctx.reply('✅ Меню оновлено!', keyboards.forceUpdateKeyboard());
-    } catch (error) {
-      await ctx.reply('❌ Помилка оновлення');
     }
   });
 
@@ -103,157 +124,114 @@ const botController = (bot) => {
     if (!text) return;
 
     try {
-      // ✅ ПЕРШОЧЕРГОВА ПЕРЕВІРКА: якщо колесо активне - блокуємо всі команди меню
-      const wheelActive = await wheelBalanceService.isWheelActive(tgId);
-      const awaitingNote = wheelBalanceService.isAwaitingNote(ctx);
-      
-      if (wheelActive || awaitingNote) {
-        console.log(`🎯 [bot] Колесо активне для ${tgId}, текст: "${text}"`);
-        
-        // 1) ПРІОРИТЕТ: Якщо чекаємо нотатку - зберегти її
-        if (awaitingNote) {
-          if (text.length < 10) {
-            await ctx.reply(
-              'Додай, будь ласка, ще трішки деталей (2–5 речень).', 
-              wheelBalanceService.buildExitKeyboard()
-            );
-            return;
-          }
-          
-          const res = await wheelBalanceService.saveWheelNoteAndGoNext(ctx, text);
-          
-          if (res.error) {
-            await ctx.reply(res.message, wheelBalanceService.buildExitKeyboard());
-            return;
-          }
-          
-          if (res.completed) {
-            await userService.updateUserStep(tgId, 'completed');
-            await ctx.reply(res.message);
-            // Показати головне меню після завершення
-            await showMainMenu(ctx);
-            return;
-          } else {
-            await ctx.reply(res.message, res.keyboard || {});
-            return;
-          }
-        }
-        
-        // 2) Якщо активне колесо, але НЕ чекаємо нотатку - парсимо оцінку 0-10
-        const maybeScore = parseInt(text, 10);
-        if (!Number.isNaN(maybeScore) && maybeScore >= 0 && maybeScore <= 10) {
-          console.log(`🎯 [bot] Оцінка від користувача: ${maybeScore}`);
-          const res = await wheelBalanceService.processWheelAnswer(tgId, maybeScore, ctx);
-          
-          if (res.error) {
-            await ctx.reply(res.message);
-          }
-          return;
-        }
-        
-        // 3) Команди виходу з колеса
-        if (text.includes('вихід') || text === '🚪 Вийти із сесії' || text === '/menu') {
-          await wheelBalanceService.cancelActiveWheel(tgId);
-          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          cancelPendingReminders(tgId);
-          await ctx.reply('🚪 Колесо балансу скасовано. Повертаємося до меню.');
-          await showMainMenu(ctx);
-          return;
-        }
-        
-        // 4) Якщо колесо активне, але введено не оцінку і не нотатку
-        await ctx.reply(
-          '🎯 Колесо балансу в процесі!\n\n✅ Поточний етап: оцінювання сфер життя\n• Введи оцінку від 0 до 10\n• Або використай кнопки\n\n💡 Після завершення отримаєш персональний аналіз балансу'
-,
-          wheelBalanceService.buildExitKeyboard()
-        );
-        return;
-      }
-
-      // ✅ ЯКЩО КОЛЕСО НЕ АКТИВНЕ - продовжуємо звичайну логіку
-
-      // 1) ✅ ОНБОРДИНГ
+      // ✅ ПЕРША ПРІОРИТЕТ: онбординг
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {
         logger.info(`[botController] ✅ Оброблено крок онбордингу для ${tgId}`);
         return;
       }
 
-      // 2) ✅ ОТРИМУЄМО КОРИСТУВАЧА
+      // ✅ ДРУГА ПРІОРИТЕТ: отримуємо користувача
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) {
         logger.warn(`[botController] ❌ Користувача ${tgId} не знайдено`);
         return ctx.reply('Натисніть /start для реєстрації', keyboards.mainMenuKeyboard());
       }
 
-      const step = user.Answer_Step;
-      const sessionStep = ctx.session?.step;
+      // ✅ ТРЕТЯ ПРІОРИТЕТ: перевірка активної сесії
+      const sessionInfo = await getActiveSessionInfo(tgId, ctx);
 
-      // 3) ✅ ПЕРЕВІРЯЄМО ЧИ В ОНБОРДИНГУ
-      if (isOnboardingStep(step) || isOnboardingStep(sessionStep)) {
-        logger.info(`[botController] 🔄 Користувач ${tgId} в онбордингу, step: ${step || sessionStep}`);
-        return; // онбординг вже оброблено вище
+      if (sessionInfo.active) {
+        console.log(`🔒 [bot] Активна сесія ${sessionInfo.type} для ${tgId}`);
+        
+        // Обробка специфічних команд виходу
+        if (text.includes('вихід') || text === '🚪 Вийти із сесії' || text === '/menu') {
+          await wheelBalanceService.cancelActiveWheel(tgId);
+          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+          cancelPendingReminders(tgId);
+          
+          if (ctx.session) {
+            ctx.session.wheel = undefined;
+            ctx.session.step = undefined;
+          }
+          
+          await ctx.reply('🚪 Сесію скасовано. Повертаємося до меню.');
+          await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+          return;
+        }
+
+        // Обробка відповідей відповідно до типу сесії
+        if (sessionInfo.type === 'wheel') {
+          const maybeScore = parseInt(text, 10);
+          if (!isNaN(maybeScore) && maybeScore >= 0 && maybeScore <= 10) {
+            await wheelBalanceService.processWheelAnswer(tgId, maybeScore, ctx);
+            return;
+          }
+          
+          // Перевірка чи чекаємо нотатку
+          if (wheelBalanceService.isAwaitingNote(ctx)) {
+            if (text.length < 10) {
+              await ctx.reply('Додай, будь ласка, ще трішки деталей (2–5 речень).', wheelBalanceService.buildExitKeyboard());
+              return;
+            }
+            await wheelBalanceService.saveWheelNoteAndGoNext(ctx, text);
+            return;
+          }
+          
+          // Якщо введено щось інше під час колеса
+          await ctx.reply('🎯 Введи оцінку від 0 до 10 або натисни кнопки.', wheelBalanceService.buildExitKeyboard());
+          return;
+        }
+
+        if (sessionInfo.type === 'questions') {
+          // Обробка відповідей на питання
+          const answered = await handleQuestionAnswer(ctx, user, text);
+          if (answered) return;
+        }
+
+        if (sessionInfo.type === 'ai') {
+          if (text === '💎 Афірмація') {
+            await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+            cancelPendingReminders(tgId);
+            await handleMenuCommands(ctx, user, text, bot);
+            return;
+          }
+          await aiMentorController.handleAIMentorQuestion(ctx, text);
+          return;
+        }
+
+        // Якщо нічого не спрацювало - блокуємо меню
+        await blockMenuDuringSession(ctx, sessionInfo);
+        return;
       }
 
-      // 4) ✅ ТІЛЬКИ ПІСЛЯ ОНБОРДИНГУ перевіряємо підписку
+      // ✅ ЧЕТВЕРТА ПРІОРИТЕТ: перевірка реєстрації
       const isRegistered = user['UserRegistered'] === true && user['Status'] === 'Registered User';
       if (!isRegistered) {
         logger.info(`[botController] ⚠️ Користувач ${tgId} не завершив реєстрацію`);
         return ctx.reply('Завершіть реєстрацію спочатку /start');
       }
 
-      // 5) ✅ ПЕРЕВІРКА ПІДПИСКИ (з винятками)
+      // ✅ П'ЯТА ПРІОРИТЕТ: перевірка підписки (з винятками)
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = ['💰 Підписка', '📞 Зв\'язок з нами', '❓ Допомога', '📝 Інструкції'];
       
       if (!subscriptionStatus.active && !allowedForInactive.includes(text)) {
         await ctx.reply(
-          '❌ Твоя підписка закінчилася або неактивна.\n\nЩоб користуватися всіма функціями бота, активуй підписку.\n\n📞 Зв\'яжіся з підтримкою: nadyastarway@gmail.com',
+          '❌ Твоя підписка закінчилася або неактивна.\n\n💰 Активуй підписку для доступу до всіх функцій.',
           keyboards.subscriptionKeyboard()
         );
         return;
       }
 
-      // 6) ✅ ОБРОБКА АКТИВНИХ СЕСІЙ
-      const isActiveQA = isActiveQuestionsStep(step);
-      const isActiveAI = isActiveAIStep(step);
-
-      // AI MENTOR активний
-      if (isActiveAI) {
-        if (text.includes('вихід') || text === '🚪 Вийти із сесії') {
-          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          cancelPendingReminders(tgId);
-          await completeSession(tgId, ctx, '👋 Повертаємося до меню.');
-          return;
-        }
-
-        if (text === '💎 Афірмація') {
-          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          cancelPendingReminders(tgId);
-          await handleMenuCommands(ctx, user, text, bot);
-          return;
-        }
-
-        await aiMentorController.handleAIMentorQuestion(ctx, text);
-        return;
-      }
-
-      // ПИТАННЯ-ВІДПОВІДІ активні
-      if (isActiveQA) {
-        const answered = await handleQuestionAnswer(ctx, user, text);
-        if (answered) return;
-      }
-
-      // 7) ✅ ОБРОБКА КОМАНД МЕНЮ
-      
-      // Перевірка команд меню
+      // ✅ ШОСТА ПРІОРИТЕТ: обробка команд меню
       if (text === '🎯 Колесо балансу') {
         await wheelBalanceController.handleWheelBalance(ctx);
         return;
       }
       
       if (text === '📊 Меню') {
-        await showMainMenu(ctx);
+        await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
         return;
       }
 
@@ -266,42 +244,7 @@ const botController = (bot) => {
       await handleError(ctx, error);
     }
   });
-// ✅ /wheel КОМАНДА (для відновлення завислого колеса)
-bot.command('wheel', async (ctx) => {
-  try {
-    const tgId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(tgId);
-    
-    if (!user) {
-      return ctx.reply('Натисніть /start для реєстрації');
-    }
 
-    // Перевіряємо чи є активне колесо
-    const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
-    
-    if (activeWheel) {
-      // Відновлюємо зависле колесо
-      const result = await wheelBalanceService.recoverStuckWheel(tgId, ctx);
-      
-      if (result.error) {
-        await ctx.reply(result.message);
-        return;
-      }
-      
-      await ctx.reply(
-        '🔧 Відновлюємо колесо балансу...\n\n' + result.message, 
-        result.keyboard
-      );
-    } else {
-      // Починаємо нове колесо
-      await wheelBalanceController.handleWheelBalance(ctx);
-    }
-    
-  } catch (error) {
-    console.error('❌ [bot] Помилка команди /wheel:', error);
-    await ctx.reply('Помилка відновлення колеса. Спробуй ще раз.');
-  }
-});
   // ✅ ОБРОБКА CALLBACK ЗАПИТІВ
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data;
@@ -310,21 +253,14 @@ bot.command('wheel', async (ctx) => {
     try {
       logger.info(`[botController] 📱 Callback: ${data} від ${tgId}`);
 
-      // 1) ✅ ПЕРША ПРІОРИТЕТ: онбординг callback-и
+      // ✅ ПЕРША ПРІОРИТЕТ: онбординг callback-и
       const isOnboardingCallback = await handleOnboardingCallback(ctx);
       if (isOnboardingCallback) {
         logger.info(`[botController] ✅ Оброблено онбординг callback для ${tgId}`);
         return;
       }
 
-      // 2) ✅ ПЕРЕВІРЯЄМО ЧИ В ОНБОРДИНГУ ЗА СЕСІЄЮ
-      if (ctx.session?.step && isOnboardingStep(ctx.session.step)) {
-        logger.info(`[botController] ❌ Онбординг callback НЕ оброблено, step: ${ctx.session.step}, data: ${data}`);
-        await ctx.answerCbQuery('Невідома команда онбордингу');
-        return;
-      }
-
-      // 3) ✅ ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ ЗАРЕЄСТРОВАНИЙ
+      // ✅ ДРУГА ПРІОРИТЕТ: перевірка реєстрації
       const user = await userService.getUserByTelegramId(tgId);
       const isRegistered = user && user['UserRegistered'] === true && user['Status'] === 'Registered User';
       
@@ -334,7 +270,7 @@ bot.command('wheel', async (ctx) => {
         return;
       }
 
-      // 4) ✅ ТІЛЬКИ ПІСЛЯ ПЕРЕВІРКИ РЕЄСТРАЦІЇ - перевіряємо підписку
+      // ✅ ТРЕТЯ ПРІОРИТЕТ: перевірка підписки
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = [
         'subscription_info', 'contact_support', 'subscription_plans',
@@ -346,57 +282,53 @@ bot.command('wheel', async (ctx) => {
         return;
       }
 
-      // 5) ✅ ОБРОБКА СИСТЕМНИХ CALLBACK-ІВ
+      // ✅ ЧЕТВЕРТА ПРІОРИТЕТ: системні callback-и (завжди працюють)
       if (data === 'continue_answers' || data === 'skip_session') {
-        const step = user?.Answer_Step || '';
-
         if (data === 'continue_answers') {
-          if (step.startsWith('Q_m_')) {
-            const questionNum = parseInt(step.split('_')[2], 10);
-            const currentQuestion = `${questionNum}️⃣/${MORNING_QUESTIONS.length} ${MORNING_QUESTIONS[questionNum - 1]}`;
-            await ctx.editMessageText(`🌞 РАНКОВІ ПИТАННЯ\n\n${currentQuestion}`);
-          } else if (step.startsWith('Q_e_')) {
-            const questionNum = parseInt(step.split('_')[2], 10);
-            const currentQuestion = `${questionNum}️⃣/${EVENING_QUESTIONS.length} ${EVENING_QUESTIONS[questionNum - 1]}`;
-            await ctx.editMessageText(`🌙 ВЕЧІРНІ ПИТАННЯ\n\n${currentQuestion}`);
-          } else if (step === WHEEL_STEP) {
-            await ctx.editMessageText('🎯 Продовжуємо колесо балансу...');
-            await wheelBalanceController.handleWheelBalanceRequest(ctx);
-          } else if (isActiveAIStep(step)) {
-            await ctx.editMessageText('🤖 AI-наставник активний. Задавай питання!');
+          const sessionInfo = await getActiveSessionInfo(tgId, ctx);
+          if (sessionInfo.active) {
+            await ctx.answerCbQuery('Продовжуємо');
+            if (sessionInfo.action) {
+              await sessionInfo.action();
+            }
           } else {
             await ctx.editMessageText('Немає активних сесій');
+            await ctx.answerCbQuery('Немає активних сесій');
           }
-          await ctx.answerCbQuery('Продовжуємо');
           return;
         }
 
         if (data === 'skip_session') {
-          await wheelBalanceService.cancelActiveWheel(tgId); // ✅ ДОДАНО
+          await wheelBalanceService.cancelActiveWheel(tgId);
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
           cancelPendingReminders(tgId);
 
+          if (ctx.session) {
+            ctx.session.wheel = undefined;
+            ctx.session.step = undefined;
+          }
+
           await ctx.editMessageText('🚪 Сесію завершено. Повертаємося до меню.');
           await ctx.answerCbQuery('Сесію завершено');
-          await new Promise((r) => setTimeout(r, 800));
-          await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
+          
+          setTimeout(async () => {
+            await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
+          }, 800);
           return;
         }
       }
 
-      // 6) ✅ ОБРОБКА РЕСТАРТУ СЕСІЙ
+      // ✅ РЕШТА CALLBACK-ІВ
       if (['restart_morning', 'restart_evening', 'cancel_restart'].includes(data)) {
         await handleRestartCallback(ctx);
         return;
       }
 
-      // 7) ✅ AI НАСТАВНИК CALLBACK-И
       if (['ai_continue', 'ai_exit'].includes(data)) {
         await aiMentorController.handleAIMentorCallback(ctx);
         return;
       }
 
-      // 8) ✅ КОЛЕСО БАЛАНСУ CALLBACK-И (РОЗШИРЕНИЙ СПИСОК)
       if (
         data.startsWith('wheel_score_') ||
         data === 'wheel_exit' ||
@@ -406,13 +338,14 @@ bot.command('wheel', async (ctx) => {
         data === 'wheel_continue' ||
         data === 'wheel_restart' ||
         data === 'wheel_cancel' ||
-        data === 'wheel_start'
+        data === 'wheel_start' ||
+        data === 'wheel_info' ||
+        data === 'wheel_stats'
       ) {
         await wheelBalanceController.handleWheelCallback(ctx);
         return;
       }
 
-      // 9) ✅ ПІДПИСКА CALLBACK-И
       if (
         [
           'subscription_info',
@@ -432,16 +365,30 @@ bot.command('wheel', async (ctx) => {
         return;
       }
 
-      // 10) ✅ ГОЛОВНЕ МЕНЮ CALLBACK-И
       if (data === 'main_menu') {
-        await wheelBalanceService.cancelActiveWheel(tgId); // ✅ ДОДАНО
+        await wheelBalanceService.cancelActiveWheel(tgId);
         await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+        cancelPendingReminders(tgId);
+        
+        if (ctx.session) {
+          ctx.session.wheel = undefined;
+          ctx.session.step = undefined;
+        }
+        
         await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
         await ctx.answerCbQuery('Повернення до меню');
         return;
       }
 
-      // 11) ✅ НЕВІДОМІ CALLBACK-И
+      if (data === 'dismiss_reminder') {
+        await ctx.answerCbQuery('Нагадування відхилено');
+        try {
+          await ctx.deleteMessage();
+        } catch {}
+        return;
+      }
+
+      // ✅ НЕВІДОМІ CALLBACK-И
       logger.warn(`[botController] ❓ Невідомий callback: ${data}`);
       await ctx.answerCbQuery('Команда не розпізнана');
 
