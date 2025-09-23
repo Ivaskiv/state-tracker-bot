@@ -30,8 +30,8 @@ export const SUBSCRIPTION_PLANS = Object.freeze({
 
 // --- Типи питань ---
 export const QUESTION_TYPES = Object.freeze({
-  MORNING: 'Morning',
-  EVENING: 'Evening',
+  MORNING: 'morning',
+  EVENING: 'evening',
   AI_MESSAGE: 'Just a message',
 });
 
@@ -41,6 +41,15 @@ export const ANSWER_STEPS = Object.freeze({
   BEGIN: 'Begin_answer',
   PLAN_SELECTION: 'plan_selection',
   COMPLETED: 'completed',
+
+  // Спрощені alias (якщо десь використовувались)
+  START: 'start',
+  NAME: 'name',
+  EMAIL: 'email',
+  PLAN: 'plan',
+  PAYMENT: 'payment',
+  SETUP: 'setup',
+  REGISTERED: 'registered',
 
   // Онбординг (Flow: onboarding)
   OB_PITCH: 'ob_pitch',
@@ -77,32 +86,98 @@ export const ANSWER_STEPS = Object.freeze({
   MORNING_PENDING: 'morning_pending',
   EVENING_PENDING: 'evening_pending',
   AI_MENTOR_ACTIVE: 'ai_mentor_active',
-  WHEEL_BALANCE_ACTIVE: 'wheel_balance_active'
+  WHEEL_BALANCE_ACTIVE: 'wheel_balance_active',
+
+  // Колесо балансу (якщо десь у логіці згадуються)
+  WHEEL_START: 'wheel_start',
+  WHEEL_SPHERE_1: 'wheel_sphere_1',
+  WHEEL_SPHERE_2: 'wheel_sphere_2',
+  WHEEL_SPHERE_3: 'wheel_sphere_3',
+  WHEEL_SPHERE_4: 'wheel_sphere_4',
+  WHEEL_SPHERE_5: 'wheel_sphere_5',
+  WHEEL_SPHERE_6: 'wheel_sphere_6',
+  WHEEL_SPHERE_7: 'wheel_sphere_7',
+  WHEEL_SPHERE_8: 'wheel_sphere_8',
+  WHEEL_NOTE: 'wheel_note',
+  WHEEL_COMPLETE: 'wheel_complete',
+
+  // AI наставник
+  AI_ACTIVE: 'ai_active'
 });
 
-// --- Тексти питань ---
-export const MORNING_QUESTIONS = [
-  'Хто я сьогодні?\nОпиши себе як нову версію — з позиції сили.\n(Наприклад: я топ експерт, я власниця відомого бренду, я мільйонерка, я відома співачка...)\n_Я — ___________',
-  'Яка я?\nДай відповідь на питання.\n(Наприклад: сильна, смілива, любляча, щира, рішуча...)\n_Я — ___________',
-  'Мої 10 цілей на рік\nПропиши щодня наново — ніби вони вже реальність.\nНе дивись, що писала вчора.\n1. Я маю...\n2. Я живу...\n3. Я отримую...\n... до 10',
-  'На яку одну ціль я фокусуюсь сьогодні?\nТе, що хочеш просунути зараз.\n_Я — ___________',
-  'Який мій стан сьогодні?\nОпиши свій стан прямо зараз.\n_Я відчуваю: ___________\nЯкщо стан не ресурсний — обери новий: впевненість, рішучість, легкість, сила — і налаштуйся на нього.',
-  'Чому я гідна мати все це прямо зараз?\nОдна сильна відповідь із позиції самоцінності.\n(Наприклад: бо я вже достатня / цінна / варта.)\n_Я — ___________',
-];
+// --- Запитання (узгоджено з планувальником) ---
+export const QUESTIONS = {
+  morning: [
+    {
+      text: 'Хто я сьогодні?\nОпиши себе як нову версію — з позиції сили. (1 речення)',
+      hint: 'Опиши себе з позиції сили — яка ти сьогодні? (1 речення)',
+      field: 'Q_m_1'
+    },
+    {
+      text: 'Які мої сильні якості сьогодні?',
+      hint: 'Обери 3–5 якостей, які відчуваєш в собі прямо зараз',
+      field: 'Q_m_2'
+    },
+    {
+      text: 'Мої мікро-цілі на сьогодні?',
+      hint: 'Введи 1–3 конкретні дії, які хочеш зробити сьогодні',
+      field: 'Q_m_3'
+    },
+    {
+      text: 'На що зосереджуюся сьогодні?',
+      hint: 'Головний фокус дня — одна найважливіша справа',
+      field: 'Q_m_4'
+    },
+    {
+      text: 'Мій стан прямо зараз?',
+      hint: 'Опиши своє відчуття, настрій, енергію (1–2 речення)',
+      field: 'Q_m_5'
+    },
+    {
+      text: 'Чому я гідна цього вже зараз?',
+      hint: 'Одне сильне речення про те, що ти заслуговуєш на свої цілі',
+      field: 'Q_m_6'
+    }
+  ],
 
-export const EVENING_QUESTIONS = [
-  'Що мене сьогодні наповнило енергією?\nЛюди, дії, ситуації, стани.\n_Мене сьогодні наповнило енергією: ___________',
-  'Де я сьогодні злила енергію чи втратила стан?\nТригер, сумнів, ситуація, реакція.\n_Я сьогодні злила енергією в: ___________',
-  'Яка програма або переконання активувалась сьогодні?\n(Наприклад: страх, "мені не вийде", "я не заслуговую"...)\n_У мене сьогодні активувалась програма: ___________',
-  'З якої точки я діяла сьогодні: сили чи страху?\nЧесна відповідь. Що керувало тобою?\n_Мною сьогодні керувала/керував: ___________',
-  'Яка моя головна перемога сьогодні?\nДія, стан, рішення — будь-який успіх.\n_Сьогодні я: ___________',
-];
+  evening: [
+    {
+      text: 'Що наповнило мене енергією сьогодні?',
+      hint: 'Що давало сили та радість протягом дня?',
+      field: 'Q_e_1'
+    },
+    {
+      text: 'Де я втратила енергію?',
+      hint: 'Які ситуації або думки забирали сили?',
+      field: 'Q_e_2'
+    },
+    {
+      text: 'Яка ментальна програма спрацювала?',
+      hint: 'Які автоматичні думки чи реакції ти помітила? (страх, сумніви, критика...)',
+      field: 'Q_e_3'
+    },
+    {
+      text: 'Я діяла зі сили чи страху?',
+      hint: 'Коротко — що більше керувало твоїми рішеннями сьогодні?',
+      field: 'Q_e_4'
+    },
+    {
+      text: 'Моя головна перемога сьогодні?',
+      hint: 'Що тебе найбільше тішить із того, що зробила або відчула сьогодні?',
+      field: 'Q_e_5'
+    }
+  ]
+};
+
+// Для сумісності зі старими місцями коду:
+export const MORNING_QUESTIONS = QUESTIONS.morning.map(q => q.text);
+export const EVENING_QUESTIONS = QUESTIONS.evening.map(q => q.text);
 
 // --- Хелпери для динамічних питань ---
 export const getMorningStep = (questionIndex) => `Q_m_${questionIndex}`;
 export const getEveningStep = (questionIndex) => `Q_e_${questionIndex}`;
 export const getCurrentQuestionIndex = (step) => {
-  const match = step.match(/Q_[me]_(\d+)/);
+  const match = step?.match?.(/Q_[me]_(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
 };
 export const isLastQuestion = (step, questions) => {
@@ -112,7 +187,7 @@ export const isLastQuestion = (step, questions) => {
 export const getNextQuestionStep = (currentStep, questions) => {
   const currentIndex = getCurrentQuestionIndex(currentStep);
   if (currentIndex < questions.length) {
-    const isEvening = currentStep.startsWith('Q_e_');
+    const isEvening = currentStep?.startsWith?.('Q_e_');
     return isEvening ? getEveningStep(currentIndex + 1) : getMorningStep(currentIndex + 1);
   }
   return null;
@@ -135,7 +210,7 @@ export const WHEEL_BALANCE = Object.freeze({
     CAREER_BUSINESS: 'Career_Business',
     FINANCE: 'Finance',
     REST_LEISURE: 'Rest_Leisure',
-    SPIRITUALITY: 'Spirituality',
+    SPIRITUALITY: 'Spirituality',        // ← вирівняно з твоєю версією
     HOUSING: 'Housing'
   }
 });
@@ -180,30 +255,22 @@ if (LIFE_SPHERES.length !== SPHERE_FIELDS.length || SPHERE_FIELDS.length !== NOT
 
 // --- Часові налаштування ---
 export const TIMEZONE_CONFIG = Object.freeze({
-  DEFAULT: 'Europe/Kiev',   // виправлено з Kiev → Kyiv
+  DEFAULT: 'Europe/Kyiv',
   FALLBACK: 'Europe/Prague',
   USER_TIMEZONES: {},
 });
 
 // --- Розклад ---
-// const _SCHEDULE = {
-//   MORNING_TIME: '20:47',
-//   EVENING_TIME: '21:30',
-//   MORNING_START: 7,
-//   MORNING_END: 20,
-//   EVENING_START: 20,
-//   EVENING_END: 23,
-//   TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
-// };
 const _SCHEDULE = {
-  MORNING_TIME: '16:25',  // ваш тестовий час
+  MORNING_TIME: '08:00',
   EVENING_TIME: '21:30',
-  MORNING_START: 0,       // ✅ РОЗШИРЕНО (0-23)
-  MORNING_END: 23,        // ✅ РОЗШИРЕНО
-  EVENING_START: 0,       // ✅ РОЗШИРЕНО (0-23)  
-  EVENING_END: 23,        // ✅ РОЗШИРЕНО
-  TIMEZONE: 'Europe/Kiev', // ✅ ФІКСОВАНО
+  MORNING_START: 0,
+  MORNING_END: 23,
+  EVENING_START: 0,
+  EVENING_END: 23,
+  TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
 };
+
 const parseTime = (t) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
   let h = m ? parseInt(m[1], 10) : 9;
@@ -220,9 +287,11 @@ _SCHEDULE.MORNING_HOUR = MH;
 _SCHEDULE.MORNING_MINUTE = MM;
 _SCHEDULE.EVENING_HOUR = EH;
 _SCHEDULE.EVENING_MINUTE = EM;
+
 console.log(`[constants] 🕐 Парсинг часу:`);
 console.log(`- MORNING_TIME: "${_SCHEDULE.MORNING_TIME}" → ${MH}:${MM}`);
 console.log(`- EVENING_TIME: "${_SCHEDULE.EVENING_TIME}" → ${EH}:${EM}`);
+
 export const SCHEDULE = Object.freeze(_SCHEDULE);
 
 // --- CRON ---
@@ -237,14 +306,17 @@ export const CRON_SCHEDULES = Object.freeze({
   SUBSCRIPTION_CHECK: '0 10 * * *',
 });
 
-// ✅ ДОДАТИ ЛОГИ CRON:
+// ✅ Логи CRON:
 console.log(`[constants] 📅 CRON розклад:`);
 console.log(`- Ранок: ${CRON_SCHEDULES.MORNING_QUESTIONS} (${_SCHEDULE.MORNING_TIME})`);
 console.log(`- Вечір: ${CRON_SCHEDULES.EVENING_QUESTIONS} (${_SCHEDULE.EVENING_TIME})`);
+
 // --- Повідомлення планувальника ---
 export const SCHEDULER_MESSAGES = Object.freeze({
-  MORNING_SESSION_START: (name) => `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨\n\n1️⃣/${MORNING_QUESTIONS.length} ${MORNING_QUESTIONS[0]}`,
-  EVENING_SESSION_START: (name) => `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆\n\n1️⃣/${EVENING_QUESTIONS.length} ${EVENING_QUESTIONS[0]}`,
+  MORNING_SESSION_START: (name) =>
+    `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨\n\n1️⃣/${MORNING_QUESTIONS.length} ${MORNING_QUESTIONS[0]}`,
+  EVENING_SESSION_START: (name) =>
+    `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆\n\n1️⃣/${EVENING_QUESTIONS.length} ${EVENING_QUESTIONS[0]}`,
   MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!\n\n🔄 Натисни "🔄 Продовжити відповіді"',
   EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!\n\n🔄 Натисни "🔄 Продовжити відповіді"',
   MORNING_REMINDER_SECOND: '🔔 Останнє нагадування про ранкові питання!',
@@ -267,7 +339,7 @@ export const SCHEDULER_CONFIG = Object.freeze({
 export const MENU_TEXTS = Object.freeze({
   HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
   CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
-  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n• "🤖 AI наставник" — персональна підтримка\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (${MORNING_QUESTIONS.length} запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (${EVENING_QUESTIONS.length} запитань)\n\n💡 **ПОРАДИ:**\н• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
+  INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n• "🤖 AI наставник" — персональна підтримка\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (${MORNING_QUESTIONS.length} запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (${EVENING_QUESTIONS.length} запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`,
   PROGRESS: (totalDays, morningCompleted, eveningCompleted) =>
     `📊 ВАШ ПРОГРЕС (за 30 днів):\n\n📝 Всього днів: ${totalDays}\n🌅 Ранкові: ${morningCompleted}\n🌙 Вечірні: ${eveningCompleted}\n\n💡 Для детального аналізу використовуй кнопки "📈 Щотижневий звіт" і "📈 Щомісячний звіт"`,
   SUBSCRIPTION_ACTIVE: (plan, start, end) =>
@@ -292,7 +364,7 @@ export const MENU_MATCHERS = Object.freeze({
   PROFILE: (t) => t === 'ℹ️ Профіль',
   CONTINUE_ANSWERS: (t) => t === '🔄 Продовжити відповіді',
   SKIP_SESSION: (t) => t === '⏭️ Пропустити',
-  QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes(t.toLowerCase()),
+  QUICK_OK: (t) => ['+', 'ок', 'ok', 'добре', 'так'].includes((t || '').toLowerCase()),
 });
 
 // === Onboarding steps alias (щоб не дублювати строки у модулях) ===

@@ -1,4 +1,4 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО ЛОГІКУ БЛОКУВАННЯ ТА СЕСІЙ
+// src/controllers/botController.js
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
@@ -17,13 +17,11 @@ import { handleQuestionAnswer, handleRestartCallback } from '../dialogue/handler
 import subscriptionController from './subscriptionController.js';
 import typing from '../utils/typing.js';
 
-// ✅ ЦЕНТРАЛІЗОВАНА ФУНКЦІЯ ПЕРЕВІРКИ АКТИВНОЇ СЕСІЇ
 const getActiveSessionInfo = async (tgId) => {
   try {
     const user = await userService.getUserByTelegramId(tgId);
     const step = user?.Answer_Step;
     
-    // 1. Перевірка активного колеса
     const wheelActive = await wheelBalanceService.isWheelActive(tgId);
     if (wheelActive) {
       return {
@@ -34,7 +32,6 @@ const getActiveSessionInfo = async (tgId) => {
       };
     }
     
-    // 2. Перевірка активних питань-відповідей
     if (step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'))) {
       const sessionType = step.startsWith('Q_m_') ? 'ранкові' : 'вечірні';
       return {
@@ -46,7 +43,6 @@ const getActiveSessionInfo = async (tgId) => {
       };
     }
     
-    // 3. Перевірка AI ментора
     if (aiMentorSession.isActive(tgId)) {
       return {
         type: 'ai',
@@ -64,7 +60,6 @@ const getActiveSessionInfo = async (tgId) => {
   }
 };
 
-// ✅ БЛОКУВАННЯ МЕНЮ ПІД ЧАС АКТИВНИХ СЕСІЙ
 const blockMenuDuringSession = async (ctx, sessionInfo) => {
   await typing(ctx);
   await ctx.reply(
@@ -88,14 +83,13 @@ const botController = (bot) => {
     await handleStart(ctx);
   });
 
-  // ✅ /menu КОМАНДА - ЗАВЖДИ СКАСОВУЄ ВСІ АКТИВНІ СЕСІЇ
+  // ✅ /menu КОМАНДА
   bot.command('menu', async (ctx) => {
     try {
       const tgId = ctx.from.id;
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) return ctx.reply('Натисніть /start');
 
-      // ✅ СКАСУВАННЯ ВСІХ АКТИВНИХ СЕСІЙ
       await wheelBalanceService.cancelActiveWheel(tgId);
       aiMentorSession.end(tgId);
       cancelPendingReminders(tgId);
@@ -111,7 +105,7 @@ const botController = (bot) => {
       await typing(ctx);
       await ctx.reply('🔄 Скасовано всі активні сесії...', keyboards.removeKeyboard());
       await new Promise(r => setTimeout(r, 800));
-      await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
+      await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
     } catch (error) {
       await handleError(ctx, error);
     }
@@ -124,14 +118,16 @@ const botController = (bot) => {
     if (!text) return;
 
     try {
-      // ✅ ПЕРША ПРІОРИТЕТ: онбординг
+      console.log(`[botController] 💬 ТЕКСТ від ${tgId}: "${text}"`);
+
+      // Перша пріоритет: онбординг
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {
         logger.info(`[botController] ✅ Оброблено крок онбордингу для ${tgId}`);
         return;
       }
 
-      // ✅ ДРУГА ПРІОРИТЕТ: отримуємо користувача
+      // Друга пріоритет: отримуємо користувача
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) {
         logger.warn(`[botController] ❌ Користувача ${tgId} не знайдено`);
@@ -139,13 +135,14 @@ const botController = (bot) => {
         return ctx.reply('Натисніть /start для реєстрації', keyboards.mainMenuKeyboard());
       }
 
-      // ✅ ТРЕТЯ ПРІОРИТЕТ: перевірка активної сесії
+      console.log(`[botController] 👤 Користувач ${tgId}: step=${user.Answer_Step}, status=${user.Status}`);
+
+      // Третя пріоритет: перевірка активної сесії
       const sessionInfo = await getActiveSessionInfo(tgId);
 
       if (sessionInfo.active) {
         console.log(`🔒 [bot] Активна сесія ${sessionInfo.type} для ${tgId}`);
         
-        // Обробка команд виходу
         if (text.includes('вихід') || text === '🚪 Вийти із сесії' || text === '/menu') {
           await wheelBalanceService.cancelActiveWheel(tgId);
           aiMentorSession.end(tgId);
@@ -163,7 +160,6 @@ const botController = (bot) => {
           return;
         }
 
-        // Обробка відповідей відповідно до типу сесії
         if (sessionInfo.type === 'wheel') {
           const maybeScore = parseInt(text, 10);
           if (!isNaN(maybeScore) && maybeScore >= 0 && maybeScore <= 10) {
@@ -171,7 +167,6 @@ const botController = (bot) => {
             return;
           }
           
-          // Перевірка чи чекаємо нотатку
           if (wheelBalanceService.isAwaitingNote(ctx)) {
             if (text.length < 10) {
               await typing(ctx);
@@ -182,17 +177,14 @@ const botController = (bot) => {
             return;
           }
           
-          // Якщо введено щось інше під час колеса
           await blockMenuDuringSession(ctx, sessionInfo);
           return;
         }
 
         if (sessionInfo.type === 'questions') {
-          // Обробка відповідей на питання
           const answered = await handleQuestionAnswer(ctx, user, text);
           if (answered) return;
           
-          // Якщо не оброблено - блокуємо меню
           await blockMenuDuringSession(ctx, sessionInfo);
           return;
         }
@@ -202,12 +194,11 @@ const botController = (bot) => {
           return;
         }
 
-        // Якщо нічого не спрацювало - блокуємо меню
         await blockMenuDuringSession(ctx, sessionInfo);
         return;
       }
 
-      // ✅ ЧЕТВЕРТА ПРІОРИТЕТ: перевірка реєстрації
+      // Четверта пріоритет: перевірка реєстрації
       const isRegistered = user['UserRegistered'] === true && user['Status'] === 'Registered User';
       if (!isRegistered) {
         logger.info(`[botController] ⚠️ Користувач ${tgId} не завершив реєстрацію`);
@@ -215,7 +206,7 @@ const botController = (bot) => {
         return ctx.reply('Завершіть реєстрацію спочатку /start');
       }
 
-      // ✅ П'ЯТА ПРІОРИТЕТ: перевірка підписки (з винятками)
+      // П'ята пріоритет: перевірка підписки
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = ['💰 Підписка', '📞 Зв\'язок з нами', '❓ Допомога', '📝 Інструкції'];
       
@@ -228,9 +219,19 @@ const botController = (bot) => {
         return;
       }
 
-      // ✅ ШОСТА ПРІОРИТЕТ: обробка команд меню
+      // ✅ ШОСТА ПРІОРИТЕТ: ОБРОБКА КОМАНД МЕНЮ
+      console.log(`[botController] 🎯 Обробка меню: "${text}"`);
+      
+      // Перевірка специфічних команд
       if (text === '🎯 Колесо балансу') {
+        console.log(`[botController] ✅ КОМАНДА КОЛЕСО для ${tgId}`);
         await wheelBalanceController.handleWheelBalance(ctx);
+        return;
+      }
+      
+      if (text === '🤖 AI наставник') {
+        console.log(`[botController] ✅ КОМАНДА AI для ${tgId}`);
+        await aiMentorController.handleAIMentorRequest(ctx);
         return;
       }
       
@@ -240,7 +241,7 @@ const botController = (bot) => {
         return;
       }
 
-      // ✅ СТАНДАРТНІ КОМАНДИ МЕНЮ
+      // Загальна обробка меню
       await handleMenuCommands(ctx, user, text, bot);
 
     } catch (error) {
@@ -259,14 +260,14 @@ const botController = (bot) => {
     try {
       logger.info(`[botController] 📱 Callback: ${data} від ${tgId}`);
 
-      // ✅ ПЕРША ПРІОРИТЕТ: онбординг callback-и
+      // Перша пріоритет: онбординг callback-и
       const isOnboardingCallback = await handleOnboardingCallback(ctx);
       if (isOnboardingCallback) {
         logger.info(`[botController] ✅ Оброблено онбординг callback для ${tgId}`);
         return;
       }
 
-      // ✅ ДРУГА ПРІОРИТЕТ: перевірка реєстрації
+      // Друга пріоритет: перевірка реєстрації
       const user = await userService.getUserByTelegramId(tgId);
       const isRegistered = user && user['UserRegistered'] === true && user['Status'] === 'Registered User';
       
@@ -276,7 +277,7 @@ const botController = (bot) => {
         return;
       }
 
-      // ✅ ТРЕТЯ ПРІОРИТЕТ: перевірка підписки
+      // Третя пріоритет: перевірка підписки
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = [
         'subscription_info', 'contact_support', 'subscription_plans',
@@ -288,7 +289,7 @@ const botController = (bot) => {
         return;
       }
 
-      // ✅ ЧЕТВЕРТА ПРІОРИТЕТ: системні callback-и (завжди працюють)
+      // Четверта пріоритет: системні callback-и
       if (data === 'continue_answers') {
         const sessionInfo = await getActiveSessionInfo(tgId);
         if (sessionInfo.active) {
@@ -297,10 +298,8 @@ const botController = (bot) => {
           if (sessionInfo.type === 'wheel') {
             await wheelBalanceController.handleWheelCallback(ctx);
           } else if (sessionInfo.type === 'questions') {
-            // Показуємо поточне питання
-            const step = sessionInfo.step;
             const user = await userService.getUserByTelegramId(tgId);
-            await handleQuestionAnswer(ctx, user, null); // null = показати поточне питання
+            await handleQuestionAnswer(ctx, user, null);
           } else if (sessionInfo.type === 'ai') {
             await aiMentorController.handleAIMentorCallback(ctx);
           }
@@ -326,12 +325,12 @@ const botController = (bot) => {
         await ctx.answerCbQuery('Сесію завершено');
         
         setTimeout(async () => {
-          await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
+          await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
         }, 800);
         return;
       }
 
-      // ✅ РЕШТА CALLBACK-ІВ
+      // Решта callback-ів
       if (['restart_morning', 'restart_evening', 'cancel_restart'].includes(data)) {
         await handleRestartCallback(ctx);
         return;
@@ -402,7 +401,6 @@ const botController = (bot) => {
         return;
       }
 
-      // ✅ НЕВІДОМІ CALLBACK-И
       logger.warn(`[botController] ❓ Невідомий callback: ${data}`);
       await ctx.answerCbQuery('Команда не розпізнана');
 
@@ -415,6 +413,7 @@ const botController = (bot) => {
     }
   });
 
+  console.log('✅ [botController] Bot controller initialized successfully');
   return { bot };
 };
 

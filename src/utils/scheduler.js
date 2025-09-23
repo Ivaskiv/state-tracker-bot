@@ -1,4 +1,5 @@
-// src/utils/scheduler.js - ВИПРАВЛЕНО: конфлікт колесо/нагадування + щомісячні перевірки
+// src/utils/scheduler.js
+// Планувальник нагадувань і сервісних задач (ранок/вечір, підписки, колесо балансу)
 
 import cron from 'node-cron';
 import userService from '../auth/services/userService.js';
@@ -8,7 +9,7 @@ import paymentService from '../auth/services/paymentService.js';
 import responseService from '../dialogue/services/responseService.js';
 import wheelBalanceService from '../services/wheelBalanceService.js';
 import wheelBalanceController from '../controllers/wheelBalanceController.js';
-import { aiMentorSession } from '../aiMentor/session.js';
+import logger from '../utils/logger.js';
 
 import {
   CRON_SCHEDULES,
@@ -21,23 +22,28 @@ import {
 
 import { schedulePendingReminders } from '../middleware/pendingFlow.js';
 
-// Внутрішні стани
+// -------------------------------
+// Внутрішні стани/кеші
+// -------------------------------
 const jobs = [];
-const executionLocks = new Map();
-const userSessionLocks = new Set();
-const messageCooldowns = new Map();
+const executionLocks = new Map();   // захист від дубльованого запуску однієї й тієї ж задачі в хвилину
+const userSessionLocks = new Set(); // обмеження на одночасні сесії користувача
+const messageCooldowns = new Map(); // анти-спам на повідомлення
 
-const MESSAGE_COOLDOWN = 60 * 1000;
-const SESSION_LOCK_TTL = 5 * 60 * 1000;
+const MESSAGE_COOLDOWN = 60 * 1000;     // 1 хвилина на тип повідомлення
+const SESSION_LOCK_TTL = 5 * 60 * 1000; // 5 хвилин на тип сесії
 
 let usersCache = null;
 let usersCacheTime = 0;
-const USERS_CACHE_TTL = 5 * 60 * 1000;
+const USERS_CACHE_TTL = 5 * 60 * 1000;  // 5 хвилин
 
-// Хелпери блокувань
+// -------------------------------
+//
+// Хелпери блокувань/кешів
+// -------------------------------
 const getMinuteKey = (type) => {
   const now = new Date();
-  const minute = now.toISOString().slice(0, 16);
+  const minute = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
   return `${type}_${minute}`;
 };
 
@@ -91,7 +97,9 @@ const createTask = (expression, fn, name) => {
   return task;
 };
 
+// -------------------------------
 // Базова вибірка активних користувачів (із кешем)
+// -------------------------------
 const getActiveUsers = async () => {
   const now = Date.now();
   if (usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
@@ -103,39 +111,37 @@ const getActiveUsers = async () => {
   return usersCache;
 };
 
-// ✅ КЛЮЧОВА ЛОГІКА: перевірка чи можна надіслати нагадування
+// -------------------------------
+// Логіка дозволу надсилання нагадувань
+// -------------------------------
 const canReceiveReminder = async (tgId) => {
   try {
-    // 1) Перевіряємо активне колесо балансу
+    // 1) якщо є активне колесо — блокуємо інші нагадування
     const activeWheel = await wheelBalanceService.getActiveWheel(tgId);
     if (activeWheel) {
       console.log(`[scheduler] ⏭️ БЛОК: нагадування для ${tgId} — активне колесо`);
       return false;
     }
 
-    // 2) Перевіряємо активну AI-сесію
-    if (aiMentorSession.isActive(tgId)) {
-      console.log(`[scheduler] ⏭️ БЛОК: нагадування для ${tgId} — активний AI`);
-      return false;
-    }
-
-    // 3) Перевіряємо незавершені питання-відповіді
+    // 2) активні AI-сесії — блокуємо
     const user = await userService.getUserByTelegramId(tgId);
     const step = user?.Answer_Step || '';
-    
-    if (step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'))) {
-      console.log(`[scheduler] ⏭️ БЛОК: нагадування для ${tgId} — активні питання ${step}`);
+    if (step && (step === 'AI_ACTIVE' || step.startsWith('AI_'))) {
+      console.log(`[scheduler] ⏭️ БЛОК: нагадування для ${tgId} — активний AI`);
       return false;
     }
 
     return true;
   } catch (error) {
     console.error(`[scheduler] ❌ Помилка перевірки можливості нагадування для ${tgId}:`, error);
+    // На всяк випадок — не засмічуємо користувача
     return false;
   }
 };
 
-// Відправка повідомлення користувачу
+// -------------------------------
+// Відправка повідомлення користувачу з дефолтною клавіатурою
+// -------------------------------
 const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions = null) => {
   try {
     if (!canSendMessage(tgId, messageType)) {
@@ -146,7 +152,8 @@ const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions 
     const options = keyboardOptions || {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🚪 Пропустити сесію', callback_data: 'exit_session' }],
+          [{ text: '📝 Продовжити відповіді', callback_data: 'continue_answers' }],
+          [{ text: '🚪 Пропустити сесію', callback_data: 'skip_session' }],
         ],
       },
     };
@@ -160,12 +167,14 @@ const safeSendMessage = async (bot, tgId, message, messageType, keyboardOptions 
   }
 };
 
-// ✅ ЗАПУСК СЕСІЇ (ранок/вечір) з усіма перевірками
+// -------------------------------
+// Запуск сесії (ранок/вечір) з перевірками
+// -------------------------------
 const sendSessionMessage = async (bot, type, tgId, name) => {
   try {
     const sessionType = type === QUESTION_TYPES.MORNING ? 'Morning' : 'Evening';
 
-    // 0) КЛЮЧОВА ПЕРЕВІРКА: чи можна показувати нагадування
+    // 0) чи взагалі можна показувати нагадування (не перекривати колесом/AI)
     const canReceive = await canReceiveReminder(tgId);
     if (!canReceive) {
       console.log(`[scheduler] ⏭️ БЛОКУВАННЯ ${sessionType} для ${tgId} — активна інша сесія`);
@@ -185,7 +194,16 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
       return false;
     }
 
-    // 2) чи завершено сьогодні
+    // 2) чи не активна вже ця ж сесія
+    const user = await userService.getUserByTelegramId(tgId);
+    const step = user?.Answer_Step || '';
+    const sessionActive = type === QUESTION_TYPES.MORNING ? step.startsWith('Q_m_') : step.startsWith('Q_e_');
+    if (sessionActive) {
+      console.log(`[scheduler] ⏭️ ПРОПУСК ${sessionType} — сесія вже активна для ${tgId}`);
+      return false;
+    }
+
+    // 3) чи завершено сьогодні
     const completed = await responseService.isSessionCompleted(tgId, type);
     if (completed) {
       const message = type === QUESTION_TYPES.MORNING
@@ -195,14 +213,14 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
       return await safeSendMessage(bot, tgId, message, `${sessionType}_restart_offer`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🔄 Оновити відповіді', callback_data: `restart_${type.toLowerCase()}` }],
-            [{ text: '🚪 Пропустити', callback_data: 'exit_session' }],
+            [{ text: '🔄 Оновити відповіді', callback_data: `restart_${type}` }],
+            [{ text: '❌ Пропустити', callback_data: 'cancel_restart' }],
           ],
         },
       });
     }
 
-    // 3) старт нової сесії
+    // 4) старт нової сесії
     const startStep = type === QUESTION_TYPES.MORNING ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
     await userService.updateUserStep(tgId, startStep);
 
@@ -222,8 +240,10 @@ const sendSessionMessage = async (bot, type, tgId, name) => {
   }
 };
 
+// -------------------------------
 // Розсилка ранкових/вечірніх
-const sendMorningReminder = async (bot) => {
+// -------------------------------
+const sendMorningBulk = async (bot) => {
   if (!guardExecution('Morning')) return;
 
   console.log(`[scheduler] 🌞 РАНОК - ${new Date().toLocaleString('uk-UA')}`);
@@ -245,7 +265,7 @@ const sendMorningReminder = async (bot) => {
   }
 };
 
-const sendEveningReminder = async (bot) => {
+const sendEveningBulk = async (bot) => {
   if (!guardExecution('Evening')) return;
 
   console.log(`[scheduler] 🌙 ВЕЧІР - ${new Date().toLocaleString('uk-UA')}`);
@@ -267,7 +287,9 @@ const sendEveningReminder = async (bot) => {
   }
 };
 
-// Перевірки підписок
+// -------------------------------
+// Перевірки підписок / платежів
+// -------------------------------
 const checkSubscriptions = async (bot) => {
   if (!guardExecution('SubscriptionCheck')) return;
 
@@ -285,11 +307,13 @@ const checkSubscriptions = async (bot) => {
   }
 };
 
-// ✅ ЩОМІСЯЧНА ПЕРЕВІРКА КОЛЕСА БАЛАНСУ (1 числа о 10:00)
+// -------------------------------
+// Щомісячна перевірка колеса балансу (1 числа о 10:00)
+// -------------------------------
 const checkMonthlyWheelBalance = async (bot) => {
   if (!guardExecution('MonthlyWheelCheck')) return;
 
-  console.log('[scheduler] 🎯 ЩОМІСЯЧНА ПЕРЕВІРКА КОЛІС БАЛАНСУ - 1 ЧИСЛО');
+  console.log('[scheduler] 🎯 ЩОМІСЯЧНА ПЕРЕВІРКА КОЛІС БАЛАНСУ');
   try {
     const remindersSent = await wheelBalanceController.checkMonthlyWheelNeed(bot);
     console.log(`[scheduler] ✅ Надіслано ${remindersSent} нагадувань про колесо балансу`);
@@ -298,7 +322,9 @@ const checkMonthlyWheelBalance = async (bot) => {
   }
 };
 
-// ✅ СТАРТ ПЛАНУВАЛЬНИКА
+// -------------------------------
+// Старт/стоп планувальника
+// -------------------------------
 const startScheduler = (bot) => {
   console.log('[scheduler] 🛑 Зупиняємо попередні задачі...');
   jobs.forEach((job) => {
@@ -316,8 +342,8 @@ const startScheduler = (bot) => {
   createTask('0 0 * * *', clearDailyCache, 'daily_cache_clear');
 
   // сесії ранку/вечора
-  createTask(CRON_SCHEDULES.MORNING_REMINDER, () => sendMorningReminder(bot), 'morning_session');
-  createTask(CRON_SCHEDULES.EVENING_REMINDER, () => sendEveningReminder(bot), 'evening_session');
+  createTask(CRON_SCHEDULES.MORNING_REMINDER, () => sendMorningBulk(bot), 'morning_session');
+  createTask(CRON_SCHEDULES.EVENING_REMINDER, () => sendEveningBulk(bot), 'evening_session');
 
   // підписки
   createTask('0 10 * * *', () => checkSubscriptions(bot), 'subscription_check');
@@ -327,7 +353,7 @@ const startScheduler = (bot) => {
     catch (error) { console.error('[scheduler] ❌ Помилка деактивації підписок:', error); }
   }, 'subscription_deactivation');
 
-  // ✅ КОЛЕСО БАЛАНСУ — 1 ЧИСЛА ЩОМІСЯЦЯ о 10:00
+  // колесо балансу — 1 числа щомісяця о 10:00
   createTask('0 10 1 * *', () => checkMonthlyWheelBalance(bot), 'monthly_wheel_check');
 
   console.log(`[scheduler] ✅ Планувальник запущено: ${jobs.length} задач`);
@@ -349,10 +375,14 @@ const stopScheduler = () => {
   console.log('[scheduler] ✅ Планувальник зупинено');
 };
 
-// Експорти
+// -------------------------------
+// Експорти (API файлу як і раніше)
+// -------------------------------
 export {
   startScheduler,
   stopScheduler,
-  sendMorningReminder,
-  sendEveningReminder,
 };
+
+// Ці два експорти лишаю, якщо їх десь імпортують окремо
+export const sendMorningReminder = sendMorningBulk;
+export const sendEveningReminder = sendEveningBulk;

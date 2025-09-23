@@ -1,7 +1,8 @@
-// src/dialogue/handlers/menuHandlers.js - ВИПРАВЛЕНО ПОВНІСТЮ
+// src/dialogue/handlers/menuHandlers.js
 
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
+import wheelBalanceService from '../../services/wheelBalanceService.js';
 import { isActiveSubscription, restrictAccessMessage } from '../../utils/subscriptionUtils.js';
 import { handleError } from '../../utils/errorHandler.js';
 import { MENU_TEXTS } from '../../config/constants.js';
@@ -11,6 +12,7 @@ import logger from '../../utils/logger.js';
 import affirmationService from '../services/affirmationService.js';
 import { sendReport } from '../../services/reportService.js';
 import userService from '../../auth/services/userService.js';
+import typing from '../../utils/typing.js';
 
 const handleMenuCommands = async (ctx, user, text, bot) => {
   logger.info(`📋 [MENU] Обробка команди: "${text}"`);
@@ -20,115 +22,135 @@ const handleMenuCommands = async (ctx, user, text, bot) => {
   console.log(`- Підписка: ${user['Active_Subscription_Status']}`);
   console.log(`- isActiveSubscription: ${isActiveSubscription(user)}`);
 
-  // ✅ КОЛЕСО БАЛАНСУ - ПЕРШОЧЕРГОВА ОБРОБКА
-  if (text === '🎯 Колесо балансу') {
-    console.log(`🎯 [MENU] ЗНАЙДЕНО команду колеса балансу!`);
-    
-    if (!isActiveSubscription(user)) {
-      console.log(`❌ [MENU] Немає активної підписки для колеса балансу`);
-      return await restrictAccessMessage('🎯 Колесо балансу', ctx);
+  try {
+    // ✅ КОЛЕСО БАЛАНСУ
+    if (text === '🎯 Колесо балансу') {
+      console.log(`🎯 [MENU] ЗНАЙДЕНО команду колеса балансу!`);
+      
+      if (!isActiveSubscription(user)) {
+        console.log(`❌ [MENU] Немає активної підписки для колеса балансу`);
+        return await restrictAccessMessage('🎯 Колесо балансу', ctx);
+      }
+      
+      console.log(`✅ [MENU] Запускаємо колесо балансу для ${ctx.from.id}`);
+      await typing(ctx);
+      return await wheelBalanceController.handleWheelBalanceRequest(ctx);
     }
-    
-    console.log(`✅ [MENU] Запускаємо колесо балансу для ${ctx.from.id}`);
-    return await wheelBalanceController.handleWheelBalanceRequest(ctx);
-  }
 
-  // AI наставник
-  if (text === '🤖 AI наставник') {
-    console.log(`🤖 [MENU] ЗНАЙДЕНО команду AI наставника!`);
-    if (!isActiveSubscription(user)) {
-      return await restrictAccessMessage('🤖 AI-наставник', ctx);
+    // ✅ AI наставник
+    if (text === '🤖 AI наставник') {
+      console.log(`🤖 [MENU] ЗНАЙДЕНО команду AI наставника!`);
+      if (!isActiveSubscription(user)) {
+        return await restrictAccessMessage('🤖 AI-наставник', ctx);
+      }
+      await typing(ctx);
+      return await aiMentorController.handleAIMentorRequest(ctx);
     }
-    return await aiMentorController.handleAIMentorRequest(ctx);
-  }
 
-  // Афірмації
-  if (text === '💎 Афірмація') {
-    console.log(`💎 [MENU] ЗНАЙДЕНО команду афірмації!`);
-    const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
-    return await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
-  }
-
-  // Звіти
-  if (text === '📈 Щотижневий звіт') {
-    console.log(`📈 [MENU] ЗНАЙДЕНО команду щотижневого звіту!`);
-    if (!isActiveSubscription(user)) {
-      return await restrictAccessMessage('📋 Щотижневий звіт', ctx);
+    // ✅ Афірмації
+    if (text === '💎 Афірмація') {
+      console.log(`💎 [MENU] ЗНАЙДЕНО команду афірмації!`);
+      await typing(ctx);
+      try {
+        const affirmation = await affirmationService.getAffirmationAndMarkUsed('morning');
+        return await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
+      } catch (error) {
+        console.error('[MENU] Помилка афірмації:', error);
+        return await ctx.reply('✨ Твоя сила всередині тебе! Дій з впевненістю.', keyboards.mainMenuKeyboard());
+      }
     }
-    return await sendReport(bot, ctx.from.id, 'weekly');
-  }
 
-  if (text === '📈 Щомісячний звіт') {
-    console.log(`📈 [MENU] ЗНАЙДЕНО команду щомісячного звіту!`);
-    if (!isActiveSubscription(user)) {
-      return await restrictAccessMessage('📋 Щомісячний звіт', ctx);
+    // ✅ Звіти
+    if (text === '📈 Щотижневий звіт') {
+      console.log(`📈 [MENU] ЗНАЙДЕНО команду щотижневого звіту!`);
+      if (!isActiveSubscription(user)) {
+        return await restrictAccessMessage('📋 Щотижневий звіт', ctx);
+      }
+      await typing(ctx);
+      try {
+        return await sendReport(bot, ctx.from.id, 'weekly');
+      } catch (error) {
+        console.error('[MENU] Помилка тижневого звіту:', error);
+        return await ctx.reply('❌ Не вдалося створити звіт. Спробуй пізніше.', keyboards.mainMenuKeyboard());
+      }
     }
-    return await sendReport(bot, ctx.from.id, 'monthly');
-  }
 
-  // Прогрес
-  if (text === '📊 Мій прогрес') {
-    console.log(`📊 [MENU] ЗНАЙДЕНО команду прогресу!`);
-    return await showUserProgress(ctx, user);
-  }
+    if (text === '📈 Щомісячний звіт') {
+      console.log(`📈 [MENU] ЗНАЙДЕНО команду щомісячного звіту!`);
+      if (!isActiveSubscription(user)) {
+        return await restrictAccessMessage('📋 Щомісячний звіт', ctx);
+      }
+      await typing(ctx);
+      try {
+        return await sendReport(bot, ctx.from.id, 'monthly');
+      } catch (error) {
+        console.error('[MENU] Помилка місячного звіту:', error);
+        return await ctx.reply('❌ Не вдалося створити звіт. Спробуй пізніше.', keyboards.mainMenuKeyboard());
+      }
+    }
 
-  // Підписка
-  if (text === '💰 Підписка') {
-    console.log(`💰 [MENU] ЗНАЙДЕНО команду підписки!`);
-    return await showSubscriptionInfo(ctx, user);
-  }
+    // ✅ Прогрес
+    if (text === '📊 Мій прогрес') {
+      console.log(`📊 [MENU] ЗНАЙДЕНО команду прогресу!`);
+      await typing(ctx);
+      return await showUserProgress(ctx, user);
+    }
 
-  // Допомога
-  if (text === '❓ Допомога') {
-    console.log(`❓ [MENU] ЗНАЙДЕНО команду допомоги!`);
-    return await ctx.reply(MENU_TEXTS.HELP, keyboards.mainMenuKeyboard());
-  }
+    // ✅ Підписка
+    if (text === '💰 Підписка') {
+      console.log(`💰 [MENU] ЗНАЙДЕНО команду підписки!`);
+      await typing(ctx);
+      return await showSubscriptionInfo(ctx, user);
+    }
 
-  // Контакти
-  if (text === '📞 Зв\'язок з нами') {
-    console.log(`📞 [MENU] ЗНАЙДЕНО команду контактів!`);
-    return await ctx.reply(MENU_TEXTS.CONTACT, keyboards.supportKeyboard());
-  }
+    // ✅ Допомога
+    if (text === '❓ Допомога') {
+      console.log(`❓ [MENU] ЗНАЙДЕНО команду допомоги!`);
+      await typing(ctx);
+      return await ctx.reply(MENU_TEXTS.HELP, keyboards.mainMenuKeyboard());
+    }
 
-  // Інструкції
-  if (text === '📝 Інструкції') {
-    console.log(`📝 [MENU] ЗНАЙДЕНО команду інструкцій!`);
-    return await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.mainMenuKeyboard());
-  }
+    // ✅ Контакти
+    if (text === '📞 Зв\'язок з нами') {
+      console.log(`📞 [MENU] ЗНАЙДЕНО команду контактів!`);
+      await typing(ctx);
+      return await ctx.reply(MENU_TEXTS.CONTACT, keyboards.supportKeyboard());
+    }
 
-  // Профіль
-  if (text === 'ℹ️ Профіль') {
-    console.log(`ℹ️ [MENU] ЗНАЙДЕНО команду профілю!`);
-    return await showUserProfile(ctx, user);
-  }
+    // ✅ Інструкції
+    if (text === '📝 Інструкції') {
+      console.log(`📝 [MENU] ЗНАЙДЕНО команду інструкцій!`);
+      await typing(ctx);
+      return await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.mainMenuKeyboard());
+    }
 
-  // Якщо команда не знайдена
-  console.log(`❓ [MENU] НЕВІДОМА команда: "${text}"`);
-  console.log(`[MENU] Доступні команди:`);
-  console.log(`- "🤖 AI наставник"`);
-  console.log(`- "🎯 Колесо балансу"`);
-  console.log(`- "💎 Афірмація"`);
-  console.log(`- "📈 Щотижневий звіт"`);
-  console.log(`- "📈 Щомісячний звіт"`);
-  console.log(`- "📊 Мій прогрес"`);
-  console.log(`- "💰 Підписка"`);
-  console.log(`- "❓ Допомога"`);
-  console.log(`- "📞 Зв'язок з нами"`);
-  console.log(`- "📝 Інструкції"`);
-  console.log(`- "ℹ️ Профіль"`);
-  
-  await ctx.reply(MENU_TEXTS.SELECT_MENU, keyboards.mainMenuKeyboard());
+    // ✅ Профіль
+    if (text === 'ℹ️ Профіль') {
+      console.log(`ℹ️ [MENU] ЗНАЙДЕНО команду профілю!`);
+      await typing(ctx);
+      return await showUserProfile(ctx, user);
+    }
+
+    // Якщо команда не знайдена
+    console.log(`❓ [MENU] НЕВІДОМА команда: "${text}"`);
+    await typing(ctx);
+    await ctx.reply('Оберіть пункт з меню нижче:', keyboards.mainMenuKeyboard());
+
+  } catch (error) {
+    console.error(`❌ [MENU] Критична помилка обробки "${text}":`, error);
+    await typing(ctx);
+    await ctx.reply('Виникла помилка. Спробуйте ще раз.', keyboards.mainMenuKeyboard());
+  }
 };
 
 const showUserProgress = async (ctx, user) => {
   if (!user) {
-    return await ctx.reply(MENU_TEXTS.REGISTER_FIRST, keyboards.mainMenuKeyboard());
+    return await ctx.reply('Спочатку зареєструйтесь /start', keyboards.mainMenuKeyboard());
   }
 
   try {
     const tgId = ctx.from.id;
     
-    // Отримуємо статистику відповідей
     const records = await responseService.getUserRecords(tgId, 30);
     const totalDays = records.length;
     let morningCompleted = 0;
@@ -141,18 +163,15 @@ const showUserProgress = async (ctx, user) => {
       if (evening) eveningCompleted++;
     });
 
-    // Отримуємо статистику коліс
     const wheelStats = await wheelBalanceService.getUserWheelStats(tgId);
     
     let progressText = `📊 ТВІЙ ПРОГРЕС (за 30 днів)\n\n`;
     
-    // Статистика питань-відповідей
     progressText += `📝 Щоденні рефлексії:\n`;
     progressText += `• Всього активних днів: ${totalDays}\n`;
     progressText += `• Ранкові завершено: ${morningCompleted}\n`;
     progressText += `• Вечірні завершено: ${eveningCompleted}\n\n`;
     
-    // Статистика коліс балансу
     progressText += `🎯 Колеса балансу:\n`;
     if (wheelStats.total === 0) {
       progressText += `• Поки що не заповнено\n`;
@@ -169,7 +188,6 @@ const showUserProgress = async (ctx, user) => {
       progressText += '\n';
     }
     
-    // Загальна оцінка активності
     const activityPercent = totalDays > 0 ? Math.round(((morningCompleted + eveningCompleted) / (totalDays * 2)) * 100) : 0;
     
     if (activityPercent >= 80) {
@@ -187,7 +205,8 @@ const showUserProgress = async (ctx, user) => {
     await ctx.reply(progressText, keyboards.mainMenuKeyboard());
     
   } catch (error) {
-    await handleError(ctx, error, MENU_TEXTS.PROGRESS_UNAVAILABLE);
+    console.error('[MENU] Помилка прогресу:', error);
+    await ctx.reply('📊 Прогрес тимчасово недоступний', keyboards.mainMenuKeyboard());
   }
 };
 
@@ -199,30 +218,45 @@ const showSubscriptionInfo = async (ctx, user) => {
     const endDate = user['End_Date'] ? new Date(user['End_Date']).toLocaleDateString('uk-UA') : '—';
 
     const isActive = isActiveSubscription(user);
-    const subscriptionText = isActive 
-      ? MENU_TEXTS.SUBSCRIPTION_ACTIVE(plan, startDate, endDate)
-      : MENU_TEXTS.SUBSCRIPTION_INACTIVE;
+    
+    let subscriptionText = '💰 ПІДПИСКА:\n\n';
+    
+    if (isActive) {
+      subscriptionText += `✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${startDate}\n📅 Діє до: ${endDate}`;
+    } else {
+      subscriptionText += '❌ Неактивна\n\n💰 ДОСТУПНІ ПЛАНИ:\n';
+      subscriptionText += '🔹 Тиждень фокусу — 7€\n';
+      subscriptionText += '🔹 Місяць дії — 30€\n';
+      subscriptionText += '🔹 Рік трансформації — 300€';
+    }
 
-    const keyboard = isActive ? keyboards.mainMenuKeyboard() : keyboards.subscriptionKeyboard();
-    await ctx.reply(subscriptionText, keyboard);
+    await ctx.reply(subscriptionText, keyboards.subscriptionKeyboard());
+    
   } catch (error) {
-    await handleError(ctx, error, MENU_TEXTS.SUBSCRIPTION_UNAVAILABLE);
+    console.error('[MENU] Помилка підписки:', error);
+    await ctx.reply('💰 Інформація про підписку тимчасово недоступна', keyboards.mainMenuKeyboard());
   }
 };
 
 const showUserProfile = async (ctx, user) => {
   try {
-    const tgId = ctx.from.id;
-    const name = user['User Name'] || 'Користувач';
-    const email = user['Email'] || 'Не вказано';
-    const status = user['Active_Subscription_Status'] || '❌ Неактивна';
-    const plan = user['Active Subscription Plan'] || 'Базовий';
+    const name = user['User Name'] || 'Невідомо';
+    const email = user.Email || 'Не вказано';
+    const regDate = user.Created ? new Date(user.Created).toLocaleDateString('uk-UA') : 'Невідомо';
     
-    const profileText = `ℹ️ ТВІЙ ПРОФІЛЬ\n\n👤 Ім'я: ${name}\n📧 Email: ${email}\n🆔 ID: ${tgId}\n💰 План: ${plan}\n📅 Статус: ${status}`;
+    const profileText = `ℹ️ ПРОФІЛЬ:\n\n👤 Ім'я: ${name}\n📧 Email: ${email}\n📅 Реєстрація: ${regDate}`;
+    
     await ctx.reply(profileText, keyboards.mainMenuKeyboard());
+    
   } catch (error) {
-    await handleError(ctx, error, 'ℹ️ Інформація про профіль тимчасово недоступна');
+    console.error('[MENU] Помилка профілю:', error);
+    await ctx.reply('ℹ️ Профіль тимчасово недоступний', keyboards.mainMenuKeyboard());
   }
 };
 
-export { handleMenuCommands };
+export { 
+  handleMenuCommands, 
+  showUserProgress, 
+  showSubscriptionInfo, 
+  showUserProfile 
+};

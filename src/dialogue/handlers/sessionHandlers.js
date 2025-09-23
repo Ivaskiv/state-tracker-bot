@@ -1,94 +1,25 @@
-// src/dialogue/handlers/sessionHandlers.js - ВИПРАВЛЕНО: прибрано кнопку "Продовжити відповіді"
-
+// src/dialogue/handlers/sessionHandlers.js - ВИПРАВЛЕНИЙ
 import userService from '../../auth/services/userService.js';
 import responseService from '../services/responseService.js';
-import affirmationService from '../services/affirmationService.js';
-import { schedulePendingReminders } from '../../middleware/pendingFlow.js';
-import { getUserDateTime } from '../../utils/timezoneUtils.js';
-import { completeSession } from '../../utils/sessionUtils.js';
-import { handleError } from '../../utils/errorHandler.js';
 import keyboards from '../../utils/keyboards.js';
-import typing from '../../utils/typing.js';
-import {
-  ANSWER_STEPS, 
-  QUESTION_TYPES, 
-  MORNING_QUESTIONS, 
-  EVENING_QUESTIONS, 
-  SCHEDULE
-} from '../../config/constants.js';
-
-// Початок ранкових питань
-const startMorningQuestions = async (ctx, user, bot) => {
-  const tgId = ctx.from.id;
-  const currentTime = getUserDateTime(tgId);
-  const currentHour = new Date(currentTime).getHours();
-  const eveningHour = SCHEDULE.EVENING_HOUR;
-
-  if (currentHour >= eveningHour) {
-    await typing(ctx);
-    await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
-    return;
-  }
-
-  const isMorningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.MORNING);
-  if (isMorningCompleted) {
-    await typing(ctx);
-    await ctx.reply('✅ Ти вже завершила ранкові питання за сьогодні.\n\n🔄 Хочеш оновити свої відповіді?', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 Відповісти ще раз', callback_data: 'restart_morning' }],
-          [{ text: '🚪 Скасувати', callback_data: 'exit_session' }]
-        ]
-      }
-    });
-    return;
-  }
-
-  await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
-  await typing(ctx);
-  await ctx.reply(`🌞 Ранкова рефлексія\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
-  schedulePendingReminders(bot, tgId, 'Morning');
-};
-
-// Початок вечірніх питань
-const startEveningQuestions = async (ctx, user, bot) => {
-  const tgId = ctx.from.id;
-  const isEveningCompleted = await responseService.isSessionCompleted(tgId, QUESTION_TYPES.EVENING);
-  
-  if (isEveningCompleted) {
-    await typing(ctx);
-    await ctx.reply('✅ Ти вже завершила вечірні питання за сьогодні.\n\n🔄 Хочеш оновити свої відповіді?', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 Відповісти ще раз', callback_data: 'restart_evening' }],
-          [{ text: '🚪 Скасувати', callback_data: 'exit_session' }]
-        ]
-      }
-    });
-    return;
-  }
-
-  await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
-  await typing(ctx);
-  await ctx.reply(`🌙 Вечірня рефлексія\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
-  schedulePendingReminders(bot, tgId, 'Evening');
-};
+import { handleError } from '../../utils/errorHandler.js';
+import { ANSWER_STEPS, QUESTIONS } from '../../config/constants.js';
+import logger from '../../utils/logger.js';
 
 // Обробка відповідей на питання
 const handleQuestionAnswer = async (ctx, user, text) => {
-  const step = user.Answer_Step;
+  const step = user?.Answer_Step;
   if (!step || step === ANSWER_STEPS.COMPLETED) return false;
   
   const tgId = ctx.from.id;
-  const userName = user['User Name'] || 'Користувач';
 
   try {
     if (step.startsWith('Q_m_')) {
-      return await processMorningQuestions(ctx, user, text, step, tgId, userName);
+      return await processMorningQuestions(ctx, user, text, step, tgId);
     }
 
     if (step.startsWith('Q_e_')) {
-      return await processEveningQuestions(ctx, user, text, step, tgId, userName);
+      return await processEveningQuestions(ctx, user, text, step, tgId);
     }
 
     return false;
@@ -99,75 +30,119 @@ const handleQuestionAnswer = async (ctx, user, text) => {
 };
 
 // Обробка ранкових питань
-const processMorningQuestions = async (ctx, user, text, step, tgId, userName) => {
-  const currentTime = getUserDateTime(tgId);
-  const currentHour = new Date(currentTime).getHours();
-  const eveningHour = SCHEDULE.EVENING_HOUR;
+const processMorningQuestions = async (ctx, user, text, step, tgId) => {
+  const questionNum = parseInt(step.split('_')[2]);
   
-  if (currentHour >= eveningHour) {
-    await typing(ctx);
-    await ctx.reply('Ранкові питання недоступні після 20:00. Спробуй вечірні питання або зачекай до завтра.', keyboards.mainMenuKeyboard());
-    await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_PENDING);
+  if (!text) {
+    const question = QUESTIONS.morning[questionNum - 1];
+    if (question) {
+      await ctx.reply(`${question.text}\n\n${question.hint || ''}`, keyboards.exitSessionKeyboard());
+    }
     return true;
   }
 
-  const questionNum = parseInt(step.split('_')[2]);
-  const fieldName = `Q_m_${questionNum}`;
-  
-  await responseService.createOrUpdateResponse(
-    tgId, userName, QUESTION_TYPES.MORNING, step, questionNum, text, fieldName
-  );
+  if (text.length < 3) {
+    await ctx.reply('Будь ласка, дай більш детальну відповідь (мінімум 3 символи)', keyboards.exitSessionKeyboard());
+    return true;
+  }
 
+  if (text.length > 500) {
+    await ctx.reply('Відповідь завелика. Максимум 500 символів.', keyboards.exitSessionKeyboard());
+    return true;
+  }
+
+  await responseService.saveMorningAnswer(tgId, questionNum, text);
+  
   if (questionNum < 6) {
     const nextStep = `Q_m_${questionNum + 1}`;
     await userService.updateUserStep(tgId, nextStep);
-    await typing(ctx);
-    await ctx.reply(`${questionNum + 1}️⃣/6 ${MORNING_QUESTIONS[questionNum]}`);
+    
+    const nextQuestion = QUESTIONS.morning[questionNum];
+    if (nextQuestion) {
+      await ctx.reply(`✅ Збережено!\n\n${nextQuestion.text}\n\n${nextQuestion.hint || ''}`, keyboards.exitSessionKeyboard());
+    }
   } else {
-    await completeSessionWithAffirmation(ctx, tgId, userName, QUESTION_TYPES.MORNING, 'morning');
+    await completeMorningSession(ctx, tgId);
   }
+  
   return true;
 };
 
 // Обробка вечірніх питань
-const processEveningQuestions = async (ctx, user, text, step, tgId, userName) => {
+const processEveningQuestions = async (ctx, user, text, step, tgId) => {
   const questionNum = parseInt(step.split('_')[2]);
-  const fieldName = `Q_e_${questionNum}`;
   
-  await responseService.createOrUpdateResponse(
-    tgId, userName, QUESTION_TYPES.EVENING, step, questionNum, text, fieldName
-  );
+  if (!text) {
+    const question = QUESTIONS.evening[questionNum - 1];
+    if (question) {
+      await ctx.reply(`${question.text}\n\n${question.hint || ''}`, keyboards.exitSessionKeyboard());
+    }
+    return true;
+  }
 
+  if (text.length < 3) {
+    await ctx.reply('Будь ласка, дай більш детальну відповідь (мінімум 3 символи)', keyboards.exitSessionKeyboard());
+    return true;
+  }
+
+  if (text.length > 500) {
+    await ctx.reply('Відповідь завелика. Максимум 500 символів.', keyboards.exitSessionKeyboard());
+    return true;
+  }
+
+  await responseService.saveEveningAnswer(tgId, questionNum, text);
+  
   if (questionNum < 5) {
     const nextStep = `Q_e_${questionNum + 1}`;
     await userService.updateUserStep(tgId, nextStep);
-    await typing(ctx);
-    await ctx.reply(`${questionNum + 1}️⃣/5 ${EVENING_QUESTIONS[questionNum]}`);
+    
+    const nextQuestion = QUESTIONS.evening[questionNum];
+    if (nextQuestion) {
+      await ctx.reply(`✅ Збережено!\n\n${nextQuestion.text}\n\n${nextQuestion.hint || ''}`, keyboards.exitSessionKeyboard());
+    }
   } else {
-    await completeSessionWithAffirmation(ctx, tgId, userName, QUESTION_TYPES.EVENING, 'evening');
+    await completeEveningSession(ctx, tgId);
   }
+  
   return true;
 };
 
-// Завершення сесії з афірмацією
-const completeSessionWithAffirmation = async (ctx, tgId, userName, questionType, sessionType) => {
-  const affirmation = await affirmationService.getAffirmationAndMarkUsed(sessionType);
-  const affirmationField = questionType === QUESTION_TYPES.MORNING ? 'affirmation_m' : 'affirmation_e';
-  const affirmationStep = questionType === QUESTION_TYPES.MORNING ? ANSWER_STEPS.AFFIRMATION_MORNING : ANSWER_STEPS.AFFIRMATION_EVENING;
-  
-  await responseService.createOrUpdateResponse(
-    tgId, userName, questionType, affirmationStep, 0, affirmation, affirmationField, true
-  );
-  
-  const sessionName = questionType === QUESTION_TYPES.MORNING ? 'Ранкові' : 'Вечірні';
-  
-  await typing(ctx);
-  await completeSession(tgId, ctx, `✅ ${sessionName} питання завершено!\n\n💎 ${affirmation}`);
-  
-  // ✅ ПОКАЗУЄМО ГОЛОВНЕ МЕНЮ (без додаткових кнопок)
-  setTimeout(async () => {
-    await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
-  }, 1000);
+// Завершення ранкової сесії
+const completeMorningSession = async (ctx, tgId) => {
+  try {
+    await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+    
+    const affirmation = '✨ Твоя енергія створює позитивні зміни!';
+    
+    await ctx.reply(
+      `🎉 РАНКОВА РЕФЛЕКСІЯ ЗАВЕРШЕНА!\n\n💫 Твоя афірмація на день:\n"${affirmation}"\n\n🔥 Гарного дня! Увечері я нагадаю про вечірню рефлексію.`,
+      keyboards.mainMenuKeyboard()
+    );
+    
+    logger.info(`✅ [SESSION] Ранкова сесія завершена для ${tgId}`);
+  } catch (error) {
+    logger.error(`❌ [SESSION] Помилка завершення ранкової сесії:`, error);
+    await ctx.reply('✅ Ранкову рефлексію завершено!', keyboards.mainMenuKeyboard());
+  }
+};
+
+// Завершення вечірньої сесії
+const completeEveningSession = async (ctx, tgId) => {
+  try {
+    await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+    
+    const insight = '🌙 Відпочинь і набирайся сил. Завтра нові можливості!';
+    
+    await ctx.reply(
+      `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ ЗАВЕРШЕНА!\n\n💭 Інсайт дня:\n"${insight}"\n\n😴 Солодких снів! Завтра вранці на нас чекає нова рефлексія.`,
+      keyboards.mainMenuKeyboard()
+    );
+    
+    logger.info(`✅ [SESSION] Вечірня сесія завершена для ${tgId}`);
+  } catch (error) {
+    logger.error(`❌ [SESSION] Помилка завершення вечірньої сесії:`, error);
+    await ctx.reply('✅ Вечірню рефлексію завершено!', keyboards.mainMenuKeyboard());
+  }
 };
 
 // Обробка рестарту сесій
@@ -177,35 +152,44 @@ const handleRestartCallback = async (ctx) => {
 
   try {
     if (data === 'restart_morning') {
-      await userService.updateUserStep(tgId, ANSWER_STEPS.MORNING_1);
-      await typing(ctx);
-      await ctx.reply(`🔄 ОНОВЛЮЄМО РАНКОВІ ВІДПОВІДІ\n\n1️⃣/6 ${MORNING_QUESTIONS[0]}`);
-      await ctx.answerCbQuery('Починаємо заново');
+      await userService.updateUserStep(tgId, ANSWER_STEPS.Q_M_1);
+      
+      const firstQuestion = QUESTIONS.morning[0];
+      await ctx.editMessageText(
+        `🌅 РАНКОВА РЕФЛЕКСІЯ\n\n${firstQuestion.text}\n\n${firstQuestion.hint || ''}`,
+        keyboards.exitSessionKeyboard()
+      );
+      await ctx.answerCbQuery('Ранкову рефлексію розпочато!');
       
     } else if (data === 'restart_evening') {
-      await userService.updateUserStep(tgId, ANSWER_STEPS.EVENING_1);
-      await typing(ctx);
-      await ctx.reply(`🔄 ОНОВЛЮЄМО ВЕЧІРНІ ВІДПОВІДІ\n\n1️⃣/5 ${EVENING_QUESTIONS[0]}`);
-      await ctx.answerCbQuery('Починаємо заново');
+      await userService.updateUserStep(tgId, ANSWER_STEPS.Q_E_1);
       
-    } else if (data === 'cancel_restart' || data === 'exit_session') {
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-      await typing(ctx);
-      await ctx.reply('🚪 Скасовано. Повертаємося до меню.', keyboards.mainMenuKeyboard());
+      const firstQuestion = QUESTIONS.evening[0];
+      await ctx.editMessageText(
+        `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ\n\n${firstQuestion.text}\n\n${firstQuestion.hint || ''}`,
+        keyboards.exitSessionKeyboard()
+      );
+      await ctx.answerCbQuery('Вечірню рефлексію розпочато!');
+      
+    } else if (data === 'cancel_restart') {
+      await ctx.editMessageText('❌ Скасовано');
       await ctx.answerCbQuery('Скасовано');
+      
+      setTimeout(async () => {
+        await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+      }, 1000);
     }
   } catch (error) {
-    console.error('[sessionHandlers] Помилка рестарту:', error);
-    await ctx.answerCbQuery('Помилка');
+    logger.error('[sessionHandlers] Помилка рестарту:', error);
+    await ctx.answerCbQuery('Помилка. Спробуй ще раз.');
   }
 };
 
 export {
-  startMorningQuestions,
-  startEveningQuestions,
   handleQuestionAnswer,
   processMorningQuestions,
   processEveningQuestions,
-  completeSessionWithAffirmation,
+  completeMorningSession,
+  completeEveningSession,
   handleRestartCallback
 };

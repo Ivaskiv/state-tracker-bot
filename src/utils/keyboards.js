@@ -247,7 +247,10 @@ const keyboards = {
         inline_keyboard: [
           [{ text: '💰 Інформація про підписку', callback_data: 'subscription_info' }],
           [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
-          [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }]
+          [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }],
+          [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
+        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+      
         ]
       }
     };
@@ -264,6 +267,27 @@ const keyboards = {
       }
     };
   },
+    // ✅ Колесо балансу
+  wheelStartKeyboard: () => ({
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🧭 Почати колесо', callback_data: 'wheel_start' }],
+        [{ text: '📊 Статистика', callback_data: 'wheel_stats' }],
+        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+      ]
+    }
+  })
+,
+// ✅ Виходи з сесій
+  exitSessionKeyboard: () => ({
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🔁 Продовжити', callback_data: 'continue_answers' }],
+        [{ text: '🚪 Вийти із сесії', callback_data: 'skip_session' }]
+      ]
+    }
+  }),
+  
 
   // ====== УТИЛІТАРНІ ======
   removeKeyboard() {
