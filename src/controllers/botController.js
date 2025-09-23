@@ -1,59 +1,58 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО КОНФЛІКТИ ЛОГІКИ
+// src/controllers/botController.js - ВИПРАВЛЕНО ЛОГІКУ БЛОКУВАННЯ ТА СЕСІЙ
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
 import wheelBalanceService from '../services/wheelBalanceService.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
+import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
+import { aiMentorSession } from '../aiMentor/session.js';
 import { cancelPendingReminders } from '../middleware/pendingFlow.js';
-import { globalTypingMiddleware } from '../middleware/typingMiddleware.js';
 import { handleStart, handleRegistrationStep, handleOnboardingCallback } from '../auth/modules/auth.js';
-import { ANSWER_STEPS} from '../config/constants.js';
+import { ANSWER_STEPS } from '../config/constants.js';
 import keyboards from '../utils/keyboards.js';
 import { handleError } from '../utils/errorHandler.js';
 import logger from '../utils/logger.js';
-import aiMentorController from '../aiMentor/controllers/aiMentorController.js';
 import { handleMenuCommands } from '../dialogue/handlers/menuHandlers.js';
 import { handleQuestionAnswer, handleRestartCallback } from '../dialogue/handlers/sessionHandlers.js';
 import subscriptionController from './subscriptionController.js';
+import typing from '../utils/typing.js';
 
 // ✅ ЦЕНТРАЛІЗОВАНА ФУНКЦІЯ ПЕРЕВІРКИ АКТИВНОЇ СЕСІЇ
-const getActiveSessionInfo = async (tgId, ctx) => {
+const getActiveSessionInfo = async (tgId) => {
   try {
     const user = await userService.getUserByTelegramId(tgId);
     const step = user?.Answer_Step;
     
-    // Перевірка активного колеса
+    // 1. Перевірка активного колеса
     const wheelActive = await wheelBalanceService.isWheelActive(tgId);
     if (wheelActive) {
       return {
         type: 'wheel',
         active: true,
-        message: '🎯 Колесо балансу в процесі! Завершіть спочатку або вийдіть із сесії.',
-        action: () => wheelBalanceService.processWheelAction(tgId, ctx)
+        message: '🎯 Колесо балансу в процесі! Завершіть спочатку.',
+        step: 'wheel_balance'
       };
     }
     
-    // Перевірка активних питань-відповідей
-    const isActiveQA = step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'));
-    if (isActiveQA) {
+    // 2. Перевірка активних питань-відповідей
+    if (step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'))) {
       const sessionType = step.startsWith('Q_m_') ? 'ранкові' : 'вечірні';
       return {
         type: 'questions',
         active: true,
         sessionType,
-        message: `📝 ${sessionType} питання в процесі! Завершіть спочатку або вийдіть із сесії.`,
-        action: () => handleQuestionAnswer(ctx, user, null)
+        message: `📝 ${sessionType} питання в процесі! Завершіть спочатку.`,
+        step
       };
     }
     
-    // Перевірка AI ментора
-    const isActiveAI = step && (step === 'AI_ACTIVE' || step?.startsWith('AI_'));
-    if (isActiveAI) {
+    // 3. Перевірка AI ментора
+    if (aiMentorSession.isActive(tgId)) {
       return {
         type: 'ai',
         active: true,
-        message: '🤖 AI-наставник активний! Завершіть діалог або вийдіть із сесії.',
-        action: () => aiMentorController.handleAIMentorCallback(ctx)
+        message: '🤖 AI-наставник активний! Завершіть діалог спочатку.',
+        step: 'ai_mentor'
       };
     }
     
@@ -67,6 +66,7 @@ const getActiveSessionInfo = async (tgId, ctx) => {
 
 // ✅ БЛОКУВАННЯ МЕНЮ ПІД ЧАС АКТИВНИХ СЕСІЙ
 const blockMenuDuringSession = async (ctx, sessionInfo) => {
+  await typing(ctx);
   await ctx.reply(
     `⚠️ ${sessionInfo.message}`,
     {
@@ -83,8 +83,6 @@ const blockMenuDuringSession = async (ctx, sessionInfo) => {
 const botController = (bot) => {
   logger.info('[botController] Initializing bot controller...');
 
-  bot.use(globalTypingMiddleware());
-
   // ✅ /start КОМАНДА
   bot.start(async (ctx) => {
     await handleStart(ctx);
@@ -99,6 +97,7 @@ const botController = (bot) => {
 
       // ✅ СКАСУВАННЯ ВСІХ АКТИВНИХ СЕСІЙ
       await wheelBalanceService.cancelActiveWheel(tgId);
+      aiMentorSession.end(tgId);
       cancelPendingReminders(tgId);
 
       if (ctx.session) {
@@ -109,8 +108,9 @@ const botController = (bot) => {
 
       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
 
+      await typing(ctx);
       await ctx.reply('🔄 Скасовано всі активні сесії...', keyboards.removeKeyboard());
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 800));
       await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
     } catch (error) {
       await handleError(ctx, error);
@@ -135,18 +135,20 @@ const botController = (bot) => {
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) {
         logger.warn(`[botController] ❌ Користувача ${tgId} не знайдено`);
+        await typing(ctx);
         return ctx.reply('Натисніть /start для реєстрації', keyboards.mainMenuKeyboard());
       }
 
       // ✅ ТРЕТЯ ПРІОРИТЕТ: перевірка активної сесії
-      const sessionInfo = await getActiveSessionInfo(tgId, ctx);
+      const sessionInfo = await getActiveSessionInfo(tgId);
 
       if (sessionInfo.active) {
         console.log(`🔒 [bot] Активна сесія ${sessionInfo.type} для ${tgId}`);
         
-        // Обробка специфічних команд виходу
+        // Обробка команд виходу
         if (text.includes('вихід') || text === '🚪 Вийти із сесії' || text === '/menu') {
           await wheelBalanceService.cancelActiveWheel(tgId);
+          aiMentorSession.end(tgId);
           await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
           cancelPendingReminders(tgId);
           
@@ -155,6 +157,7 @@ const botController = (bot) => {
             ctx.session.step = undefined;
           }
           
+          await typing(ctx);
           await ctx.reply('🚪 Сесію скасовано. Повертаємося до меню.');
           await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
           return;
@@ -171,6 +174,7 @@ const botController = (bot) => {
           // Перевірка чи чекаємо нотатку
           if (wheelBalanceService.isAwaitingNote(ctx)) {
             if (text.length < 10) {
+              await typing(ctx);
               await ctx.reply('Додай, будь ласка, ще трішки деталей (2–5 речень).', wheelBalanceService.buildExitKeyboard());
               return;
             }
@@ -179,7 +183,7 @@ const botController = (bot) => {
           }
           
           // Якщо введено щось інше під час колеса
-          await ctx.reply('🎯 Введи оцінку від 0 до 10 або натисни кнопки.', wheelBalanceService.buildExitKeyboard());
+          await blockMenuDuringSession(ctx, sessionInfo);
           return;
         }
 
@@ -187,15 +191,13 @@ const botController = (bot) => {
           // Обробка відповідей на питання
           const answered = await handleQuestionAnswer(ctx, user, text);
           if (answered) return;
+          
+          // Якщо не оброблено - блокуємо меню
+          await blockMenuDuringSession(ctx, sessionInfo);
+          return;
         }
 
         if (sessionInfo.type === 'ai') {
-          if (text === '💎 Афірмація') {
-            await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-            cancelPendingReminders(tgId);
-            await handleMenuCommands(ctx, user, text, bot);
-            return;
-          }
           await aiMentorController.handleAIMentorQuestion(ctx, text);
           return;
         }
@@ -209,6 +211,7 @@ const botController = (bot) => {
       const isRegistered = user['UserRegistered'] === true && user['Status'] === 'Registered User';
       if (!isRegistered) {
         logger.info(`[botController] ⚠️ Користувач ${tgId} не завершив реєстрацію`);
+        await typing(ctx);
         return ctx.reply('Завершіть реєстрацію спочатку /start');
       }
 
@@ -217,6 +220,7 @@ const botController = (bot) => {
       const allowedForInactive = ['💰 Підписка', '📞 Зв\'язок з нами', '❓ Допомога', '📝 Інструкції'];
       
       if (!subscriptionStatus.active && !allowedForInactive.includes(text)) {
+        await typing(ctx);
         await ctx.reply(
           '❌ Твоя підписка закінчилася або неактивна.\n\n💰 Активуй підписку для доступу до всіх функцій.',
           keyboards.subscriptionKeyboard()
@@ -230,7 +234,8 @@ const botController = (bot) => {
         return;
       }
       
-      if (text === '📊 Меню') {
+      if (text === '🏠 Меню' || text === '📊 Меню') {
+        await typing(ctx);
         await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
         return;
       }
@@ -240,6 +245,7 @@ const botController = (bot) => {
 
     } catch (error) {
       console.error('❌ [bot] Помилка в text хендлері:', error);
+      await typing(ctx);
       await ctx.reply('Виникла помилка. Спробуй ще раз або скористайся меню 📊');
       await handleError(ctx, error);
     }
@@ -283,39 +289,46 @@ const botController = (bot) => {
       }
 
       // ✅ ЧЕТВЕРТА ПРІОРИТЕТ: системні callback-и (завжди працюють)
-      if (data === 'continue_answers' || data === 'skip_session') {
-        if (data === 'continue_answers') {
-          const sessionInfo = await getActiveSessionInfo(tgId, ctx);
-          if (sessionInfo.active) {
-            await ctx.answerCbQuery('Продовжуємо');
-            if (sessionInfo.action) {
-              await sessionInfo.action();
-            }
-          } else {
-            await ctx.editMessageText('Немає активних сесій');
-            await ctx.answerCbQuery('Немає активних сесій');
-          }
-          return;
-        }
-
-        if (data === 'skip_session') {
-          await wheelBalanceService.cancelActiveWheel(tgId);
-          await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-          cancelPendingReminders(tgId);
-
-          if (ctx.session) {
-            ctx.session.wheel = undefined;
-            ctx.session.step = undefined;
-          }
-
-          await ctx.editMessageText('🚪 Сесію завершено. Повертаємося до меню.');
-          await ctx.answerCbQuery('Сесію завершено');
+      if (data === 'continue_answers') {
+        const sessionInfo = await getActiveSessionInfo(tgId);
+        if (sessionInfo.active) {
+          await ctx.answerCbQuery('Продовжуємо');
           
-          setTimeout(async () => {
-            await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
-          }, 800);
-          return;
+          if (sessionInfo.type === 'wheel') {
+            await wheelBalanceController.handleWheelCallback(ctx);
+          } else if (sessionInfo.type === 'questions') {
+            // Показуємо поточне питання
+            const step = sessionInfo.step;
+            const user = await userService.getUserByTelegramId(tgId);
+            await handleQuestionAnswer(ctx, user, null); // null = показати поточне питання
+          } else if (sessionInfo.type === 'ai') {
+            await aiMentorController.handleAIMentorCallback(ctx);
+          }
+        } else {
+          await ctx.editMessageText('Немає активних сесій');
+          await ctx.answerCbQuery('Немає активних сесій');
         }
+        return;
+      }
+
+      if (data === 'skip_session') {
+        await wheelBalanceService.cancelActiveWheel(tgId);
+        aiMentorSession.end(tgId);
+        await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+        cancelPendingReminders(tgId);
+
+        if (ctx.session) {
+          ctx.session.wheel = undefined;
+          ctx.session.step = undefined;
+        }
+
+        await ctx.editMessageText('🚪 Сесію завершено. Повертаємося до меню.');
+        await ctx.answerCbQuery('Сесію завершено');
+        
+        setTimeout(async () => {
+          await ctx.reply('🏠 Головне меню:', keyboards.forceUpdateKeyboard());
+        }, 800);
+        return;
       }
 
       // ✅ РЕШТА CALLBACK-ІВ
@@ -367,6 +380,7 @@ const botController = (bot) => {
 
       if (data === 'main_menu') {
         await wheelBalanceService.cancelActiveWheel(tgId);
+        aiMentorSession.end(tgId);
         await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
         cancelPendingReminders(tgId);
         

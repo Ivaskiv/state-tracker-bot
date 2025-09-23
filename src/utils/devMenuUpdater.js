@@ -81,7 +81,7 @@ const updateUserMenu = async (bot, tgId, userName) => {
     await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
     
     // Надсилаємо повідомлення про оновлення
-    const message = `🔄 DEV: Меню оновлено (перезапуск бота)\n\nПривіт, ${userName}! Меню було автоматично оновлено через зміни в коді.`;
+    // const message = `🔄 DEV: Меню оновлено (перезапуск бота)\n\nПривіт, ${userName}! Меню було автоматично оновлено через зміни в коді.`;
     
     await bot.telegram.sendMessage(tgId, message, keyboards.forceUpdateKeyboard());
     
