@@ -196,7 +196,7 @@ export const TIMEZONE_CONFIG = Object.freeze({
 //   TIMEZONE: TIMEZONE_CONFIG.DEFAULT,
 // };
 const _SCHEDULE = {
-  MORNING_TIME: '15:57',  // ваш тестовий час
+  MORNING_TIME: '16:25',  // ваш тестовий час
   EVENING_TIME: '21:30',
   MORNING_START: 0,       // ✅ РОЗШИРЕНО (0-23)
   MORNING_END: 23,        // ✅ РОЗШИРЕНО
