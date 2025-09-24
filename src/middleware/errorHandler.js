@@ -1,7 +1,12 @@
-// src/utils/errorHandler.js - ВИПРАВЛЕНО ІМПОРТ
+// src/utils/errorHandler.js - ВИПРАВЛЕНО
 import keyboards from './keyboards.js';
 
 export const handleError = async (ctx, error, defaultMessage = 'Виникла помилка. Спробуйте ще раз.') => {
   console.error('[ERROR]', error);
-  await ctx.reply(defaultMessage, keyboards.mainMenuKeyboard());
+  
+  try {
+    await ctx.reply(defaultMessage, keyboards.mainMenuKeyboard());
+  } catch (replyError) {
+    console.error('[ERROR] Не вдалося надіслати повідомлення про помилку:', replyError);
+  }
 };

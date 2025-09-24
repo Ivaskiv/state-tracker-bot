@@ -16,7 +16,7 @@ const keyboards = {
         ],
         resize_keyboard: true,
         one_time_keyboard: false,
-        persistent: true
+         is_persistent: true
       }
     };
   },
@@ -308,7 +308,7 @@ const keyboards = {
         ],
         resize_keyboard: true,
         one_time_keyboard: false,
-        persistent: true
+         is_persistent: true
       }
     };
   },

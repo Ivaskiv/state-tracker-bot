@@ -1,12 +1,11 @@
-// src/dialogue/handlers/sessionHandlers.js - ВИПРАВЛЕНИЙ
+// src/dialogue/handlers/sessionHandlers.js - СПРОЩЕНО
 import userService from '../../auth/services/userService.js';
 import responseService from '../services/responseService.js';
 import keyboards from '../../utils/keyboards.js';
-import { handleError } from '../../utils/errorHandler.js';
 import { ANSWER_STEPS, QUESTIONS } from '../../config/constants.js';
 import logger from '../../utils/logger.js';
 
-// Обробка відповідей на питання
+// Обробка відповідей на питання - СПРОЩЕНА ВЕРСІЯ
 const handleQuestionAnswer = async (ctx, user, text) => {
   const step = user?.Answer_Step;
   if (!step || step === ANSWER_STEPS.COMPLETED) return false;
@@ -14,97 +13,80 @@ const handleQuestionAnswer = async (ctx, user, text) => {
   const tgId = ctx.from.id;
 
   try {
+    // Ранкові питання
     if (step.startsWith('Q_m_')) {
-      return await processMorningQuestions(ctx, user, text, step, tgId);
+      const questionNum = parseInt(step.split('_')[2]);
+      
+      if (!text) {
+        const question = QUESTIONS.morning[questionNum - 1];
+        if (question) {
+          await ctx.reply(`${question.text}\n\n${question.hint || ''}`, keyboards.exitSessionKeyboard());
+        }
+        return true;
+      }
+
+      if (text.length < 3) {
+        await ctx.reply('Будь ласка, дай більш детальну відповідь (мінімум 3 символи)', keyboards.exitSessionKeyboard());
+        return true;
+      }
+
+      await responseService.saveMorningAnswer(tgId, questionNum, text);
+      
+      if (questionNum < 6) {
+        const nextStep = `Q_m_${questionNum + 1}`;
+        await userService.updateUserStep(tgId, nextStep);
+        
+        const nextQuestion = QUESTIONS.morning[questionNum];
+        if (nextQuestion) {
+          await ctx.reply(`✅ Збережено!\n\n${nextQuestion.text}\n\n${nextQuestion.hint || ''}`, keyboards.exitSessionKeyboard());
+        }
+      } else {
+        await completeMorningSession(ctx, tgId);
+      }
+      
+      return true;
     }
 
+    // Вечірні питання
     if (step.startsWith('Q_e_')) {
-      return await processEveningQuestions(ctx, user, text, step, tgId);
+      const questionNum = parseInt(step.split('_')[2]);
+      
+      if (!text) {
+        const question = QUESTIONS.evening[questionNum - 1];
+        if (question) {
+          await ctx.reply(`${question.text}\n\n${question.hint || ''}`, keyboards.exitSessionKeyboard());
+        }
+        return true;
+      }
+
+      if (text.length < 3) {
+        await ctx.reply('Будь ласка, дай більш детальну відповідь (мінімум 3 символи)', keyboards.exitSessionKeyboard());
+        return true;
+      }
+
+      await responseService.saveEveningAnswer(tgId, questionNum, text);
+      
+      if (questionNum < 5) {
+        const nextStep = `Q_e_${questionNum + 1}`;
+        await userService.updateUserStep(tgId, nextStep);
+        
+        const nextQuestion = QUESTIONS.evening[questionNum];
+        if (nextQuestion) {
+          await ctx.reply(`✅ Збережено!\n\n${nextQuestion.text}\n\n${nextQuestion.hint || ''}`, keyboards.exitSessionKeyboard());
+        }
+      } else {
+        await completeEveningSession(ctx, tgId);
+      }
+      
+      return true;
     }
 
     return false;
   } catch (error) {
-    await handleError(ctx, error);
+    logger.error('[sessionHandlers] Помилка handleQuestionAnswer:', error);
+    await ctx.reply('❌ Виникла помилка. Спробуй ще раз.', keyboards.mainMenuKeyboard());
     return true;
   }
-};
-
-// Обробка ранкових питань
-const processMorningQuestions = async (ctx, user, text, step, tgId) => {
-  const questionNum = parseInt(step.split('_')[2]);
-  
-  if (!text) {
-    const question = QUESTIONS.morning[questionNum - 1];
-    if (question) {
-      await ctx.reply(`${question.text}\n\n${question.hint || ''}`, keyboards.exitSessionKeyboard());
-    }
-    return true;
-  }
-
-  if (text.length < 3) {
-    await ctx.reply('Будь ласка, дай більш детальну відповідь (мінімум 3 символи)', keyboards.exitSessionKeyboard());
-    return true;
-  }
-
-  if (text.length > 500) {
-    await ctx.reply('Відповідь завелика. Максимум 500 символів.', keyboards.exitSessionKeyboard());
-    return true;
-  }
-
-  await responseService.saveMorningAnswer(tgId, questionNum, text);
-  
-  if (questionNum < 6) {
-    const nextStep = `Q_m_${questionNum + 1}`;
-    await userService.updateUserStep(tgId, nextStep);
-    
-    const nextQuestion = QUESTIONS.morning[questionNum];
-    if (nextQuestion) {
-      await ctx.reply(`✅ Збережено!\n\n${nextQuestion.text}\n\n${nextQuestion.hint || ''}`, keyboards.exitSessionKeyboard());
-    }
-  } else {
-    await completeMorningSession(ctx, tgId);
-  }
-  
-  return true;
-};
-
-// Обробка вечірніх питань
-const processEveningQuestions = async (ctx, user, text, step, tgId) => {
-  const questionNum = parseInt(step.split('_')[2]);
-  
-  if (!text) {
-    const question = QUESTIONS.evening[questionNum - 1];
-    if (question) {
-      await ctx.reply(`${question.text}\n\n${question.hint || ''}`, keyboards.exitSessionKeyboard());
-    }
-    return true;
-  }
-
-  if (text.length < 3) {
-    await ctx.reply('Будь ласка, дай більш детальну відповідь (мінімум 3 символи)', keyboards.exitSessionKeyboard());
-    return true;
-  }
-
-  if (text.length > 500) {
-    await ctx.reply('Відповідь завелика. Максимум 500 символів.', keyboards.exitSessionKeyboard());
-    return true;
-  }
-
-  await responseService.saveEveningAnswer(tgId, questionNum, text);
-  
-  if (questionNum < 5) {
-    const nextStep = `Q_e_${questionNum + 1}`;
-    await userService.updateUserStep(tgId, nextStep);
-    
-    const nextQuestion = QUESTIONS.evening[questionNum];
-    if (nextQuestion) {
-      await ctx.reply(`✅ Збережено!\n\n${nextQuestion.text}\n\n${nextQuestion.hint || ''}`, keyboards.exitSessionKeyboard());
-    }
-  } else {
-    await completeEveningSession(ctx, tgId);
-  }
-  
-  return true;
 };
 
 // Завершення ранкової сесії
@@ -119,9 +101,9 @@ const completeMorningSession = async (ctx, tgId) => {
       keyboards.mainMenuKeyboard()
     );
     
-    logger.info(`✅ [SESSION] Ранкова сесія завершена для ${tgId}`);
+    logger.info(`✅ [sessionHandlers] Ранкова сесія завершена для ${tgId}`);
   } catch (error) {
-    logger.error(`❌ [SESSION] Помилка завершення ранкової сесії:`, error);
+    logger.error('❌ [sessionHandlers] Помилка завершення ранкової сесії:', error);
     await ctx.reply('✅ Ранкову рефлексію завершено!', keyboards.mainMenuKeyboard());
   }
 };
@@ -138,9 +120,9 @@ const completeEveningSession = async (ctx, tgId) => {
       keyboards.mainMenuKeyboard()
     );
     
-    logger.info(`✅ [SESSION] Вечірня сесія завершена для ${tgId}`);
+    logger.info(`✅ [sessionHandlers] Вечірня сесія завершена для ${tgId}`);
   } catch (error) {
-    logger.error(`❌ [SESSION] Помилка завершення вечірньої сесії:`, error);
+    logger.error('❌ [sessionHandlers] Помилка завершення вечірньої сесії:', error);
     await ctx.reply('✅ Вечірню рефлексію завершено!', keyboards.mainMenuKeyboard());
   }
 };
@@ -152,7 +134,7 @@ const handleRestartCallback = async (ctx) => {
 
   try {
     if (data === 'restart_morning') {
-      await userService.updateUserStep(tgId, ANSWER_STEPS.Q_M_1);
+      await userService.updateUserStep(tgId, 'Q_m_1');
       
       const firstQuestion = QUESTIONS.morning[0];
       await ctx.editMessageText(
@@ -162,7 +144,7 @@ const handleRestartCallback = async (ctx) => {
       await ctx.answerCbQuery('Ранкову рефлексію розпочато!');
       
     } else if (data === 'restart_evening') {
-      await userService.updateUserStep(tgId, ANSWER_STEPS.Q_E_1);
+      await userService.updateUserStep(tgId, 'Q_e_1');
       
       const firstQuestion = QUESTIONS.evening[0];
       await ctx.editMessageText(
@@ -187,8 +169,6 @@ const handleRestartCallback = async (ctx) => {
 
 export {
   handleQuestionAnswer,
-  processMorningQuestions,
-  processEveningQuestions,
   completeMorningSession,
   completeEveningSession,
   handleRestartCallback

@@ -10,6 +10,13 @@ import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
 import { startScheduler } from './src/utils/scheduler.js';
 import { SCHEDULE } from './src/config/constants.js';
 
+console.log('🔍 [DEBUG] Змінні оточення:');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
+console.log('- AIRTABLE_API_KEY:', process.env.AIRTABLE_API_KEY ? 'SET' : 'NOT SET');
+console.log('- AIRTABLE_BASE_ID:', process.env.AIRTABLE_BASE_ID ? 'SET' : 'NOT SET');
+console.log('- OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'SET' : 'NOT SET');
+
 // Dev утиліти (тільки для локальної розробки)
 let autoUpdateMenusOnDev, addDevMenuCommands, installPendingFlow;
 if (process.env.NODE_ENV === 'development') {

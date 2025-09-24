@@ -1,4 +1,4 @@
-// src/controllers/botController.js
+// src/controllers/botController.js - ВИПРАВЛЕНО
 
 import userService from '../auth/services/userService.js';
 import wheelBalanceController from './wheelBalanceController.js';
@@ -17,11 +17,15 @@ import { handleQuestionAnswer, handleRestartCallback } from '../dialogue/handler
 import subscriptionController from './subscriptionController.js';
 import typing from '../utils/typing.js';
 
+// ✅ ВИПРАВЛЕНО: функція отримання активної сесії
 const getActiveSessionInfo = async (tgId) => {
   try {
     const user = await userService.getUserByTelegramId(tgId);
     const step = user?.Answer_Step;
     
+    console.log(`🔍 [bot] Перевірка сесії для ${tgId}, step: ${step}`);
+    
+    // Перевірка колеса балансу
     const wheelActive = await wheelBalanceService.isWheelActive(tgId);
     if (wheelActive) {
       return {
@@ -32,6 +36,7 @@ const getActiveSessionInfo = async (tgId) => {
       };
     }
     
+    // Перевірка питань
     if (step && (step.startsWith('Q_m_') || step.startsWith('Q_e_'))) {
       const sessionType = step.startsWith('Q_m_') ? 'ранкові' : 'вечірні';
       return {
@@ -43,6 +48,7 @@ const getActiveSessionInfo = async (tgId) => {
       };
     }
     
+    // Перевірка AI наставника
     if (aiMentorSession.isActive(tgId)) {
       return {
         type: 'ai',
@@ -76,23 +82,25 @@ const blockMenuDuringSession = async (ctx, sessionInfo) => {
 };
 
 const botController = (bot) => {
-  logger.info('[botController] Initializing bot controller...');
+  logger.info('[botController] ✅ Ініціалізація bot controller...');
 
   // ✅ /start КОМАНДА
   bot.start(async (ctx) => {
+    console.log(`🚀 [bot] /start від ${ctx.from.id}`);
     await handleStart(ctx);
   });
 
-  // ✅ /menu КОМАНДА
+  // ✅ /menu КОМАНДА  
   bot.command('menu', async (ctx) => {
     try {
       const tgId = ctx.from.id;
-      const user = await userService.getUserByTelegramId(tgId);
-      if (!user) return ctx.reply('Натисніть /start');
-
+      console.log(`🏠 [bot] /menu від ${tgId}`);
+      
+      // Очищуємо всі активні сесії
       await wheelBalanceService.cancelActiveWheel(tgId);
       aiMentorSession.end(tgId);
       cancelPendingReminders(tgId);
+      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
 
       if (ctx.session) {
         ctx.session.step = undefined;
@@ -100,13 +108,15 @@ const botController = (bot) => {
         ctx.session.wheel = undefined;
       }
 
-      await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
-
       await typing(ctx);
       await ctx.reply('🔄 Скасовано всі активні сесії...', keyboards.removeKeyboard());
-      await new Promise(r => setTimeout(r, 800));
-      await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+      
+      setTimeout(async () => {
+        await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+      }, 800);
+      
     } catch (error) {
+      console.error('❌ [bot] Помилка /menu:', error);
       await handleError(ctx, error);
     }
   });
@@ -118,31 +128,32 @@ const botController = (bot) => {
     if (!text) return;
 
     try {
-      console.log(`[botController] 💬 ТЕКСТ від ${tgId}: "${text}"`);
+      console.log(`💬 [bot] ТЕКСТ від ${tgId}: "${text}"`);
 
-      // Перша пріоритет: онбординг
+      // 1. Онбординг має найвищий пріоритет
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) {
-        logger.info(`[botController] ✅ Оброблено крок онбордингу для ${tgId}`);
+        console.log(`✅ [bot] Оброблено крок онбордингу для ${tgId}`);
         return;
       }
 
-      // Друга пріоритет: отримуємо користувача
+      // 2. Перевіряємо чи користувач існує
       const user = await userService.getUserByTelegramId(tgId);
       if (!user) {
-        logger.warn(`[botController] ❌ Користувача ${tgId} не знайдено`);
+        console.log(`❌ [bot] Користувача ${tgId} не знайдено`);
         await typing(ctx);
         return ctx.reply('Натисніть /start для реєстрації', keyboards.mainMenuKeyboard());
       }
 
-      console.log(`[botController] 👤 Користувач ${tgId}: step=${user.Answer_Step}, status=${user.Status}`);
+      console.log(`👤 [bot] Користувач ${tgId}: step=${user.Answer_Step}, status=${user.Status}`);
 
-      // Третя пріоритет: перевірка активної сесії
+      // 3. Перевіряємо активні сесії
       const sessionInfo = await getActiveSessionInfo(tgId);
-
+      
       if (sessionInfo.active) {
         console.log(`🔒 [bot] Активна сесія ${sessionInfo.type} для ${tgId}`);
         
+        // Команди виходу
         if (text.includes('вихід') || text === '🚪 Вийти із сесії' || text === '/menu') {
           await wheelBalanceService.cancelActiveWheel(tgId);
           aiMentorSession.end(tgId);
@@ -156,17 +167,22 @@ const botController = (bot) => {
           
           await typing(ctx);
           await ctx.reply('🚪 Сесію скасовано. Повертаємося до меню.');
-          await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+          setTimeout(async () => {
+            await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+          }, 1000);
           return;
         }
 
+        // Обробка активних сесій
         if (sessionInfo.type === 'wheel') {
+          // Колесо балансу - перевіряємо числові оцінки
           const maybeScore = parseInt(text, 10);
           if (!isNaN(maybeScore) && maybeScore >= 0 && maybeScore <= 10) {
             await wheelBalanceService.processWheelAnswer(tgId, maybeScore, ctx);
             return;
           }
           
+          // Перевіряємо чи очікуємо нотатку
           if (wheelBalanceService.isAwaitingNote(ctx)) {
             if (text.length < 10) {
               await typing(ctx);
@@ -198,15 +214,15 @@ const botController = (bot) => {
         return;
       }
 
-      // Четверта пріоритет: перевірка реєстрації
+      // 4. Перевіряємо реєстрацію
       const isRegistered = user['UserRegistered'] === true && user['Status'] === 'Registered User';
       if (!isRegistered) {
-        logger.info(`[botController] ⚠️ Користувач ${tgId} не завершив реєстрацію`);
+        console.log(`⚠️ [bot] Користувач ${tgId} не завершив реєстрацію`);
         await typing(ctx);
         return ctx.reply('Завершіть реєстрацію спочатку /start');
       }
 
-      // П'ята пріоритет: перевірка підписки
+      // 5. Перевіряємо підписку
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = ['💰 Підписка', '📞 Зв\'язок з нами', '❓ Допомога', '📝 Інструкції'];
       
@@ -219,18 +235,15 @@ const botController = (bot) => {
         return;
       }
 
-      // ✅ ШОСТА ПРІОРИТЕТ: ОБРОБКА КОМАНД МЕНЮ
-      console.log(`[botController] 🎯 Обробка меню: "${text}"`);
-      
-      // Перевірка специфічних команд
+      // 6. Обробка специфічних команд
       if (text === '🎯 Колесо балансу') {
-        console.log(`[botController] ✅ КОМАНДА КОЛЕСО для ${tgId}`);
+        console.log(`✅ [bot] КОМАНДА КОЛЕСО для ${tgId}`);
         await wheelBalanceController.handleWheelBalance(ctx);
         return;
       }
       
       if (text === '🤖 AI наставник') {
-        console.log(`[botController] ✅ КОМАНДА AI для ${tgId}`);
+        console.log(`✅ [bot] КОМАНДА AI для ${tgId}`);
         await aiMentorController.handleAIMentorRequest(ctx);
         return;
       }
@@ -241,11 +254,11 @@ const botController = (bot) => {
         return;
       }
 
-      // Загальна обробка меню
+      // 7. Загальна обробка меню
       await handleMenuCommands(ctx, user, text, bot);
 
     } catch (error) {
-      console.error('❌ [bot] Помилка в text хендлері:', error);
+      console.error('❌ [bot] Критична помилка в text хендлері:', error);
       await typing(ctx);
       await ctx.reply('Виникла помилка. Спробуй ще раз або скористайся меню 📊');
       await handleError(ctx, error);
@@ -258,26 +271,26 @@ const botController = (bot) => {
     const tgId = ctx.from.id;
 
     try {
-      logger.info(`[botController] 📱 Callback: ${data} від ${tgId}`);
+      console.log(`📱 [bot] Callback: ${data} від ${tgId}`);
 
-      // Перша пріоритет: онбординг callback-и
+      // 1. Онбординг callback-и (найвищий пріоритет)
       const isOnboardingCallback = await handleOnboardingCallback(ctx);
       if (isOnboardingCallback) {
-        logger.info(`[botController] ✅ Оброблено онбординг callback для ${tgId}`);
+        console.log(`✅ [bot] Оброблено онбординг callback для ${tgId}`);
         return;
       }
 
-      // Друга пріоритет: перевірка реєстрації
+      // 2. Перевірка реєстрації
       const user = await userService.getUserByTelegramId(tgId);
       const isRegistered = user && user['UserRegistered'] === true && user['Status'] === 'Registered User';
       
       if (!isRegistered) {
-        logger.info(`[botController] ⚠️ Користувач ${tgId} не завершив реєстрацію для callback ${data}`);
+        console.log(`⚠️ [bot] Користувач ${tgId} не завершив реєстрацію для callback ${data}`);
         await ctx.answerCbQuery('Завершіть реєстрацію спочатку');
         return;
       }
 
-      // Третя пріоритет: перевірка підписки
+      // 3. Перевірка підписки
       const subscriptionStatus = await subscriptionService.checkSubscriptionStatus(tgId);
       const allowedForInactive = [
         'subscription_info', 'contact_support', 'subscription_plans',
@@ -289,7 +302,7 @@ const botController = (bot) => {
         return;
       }
 
-      // Четверта пріоритет: системні callback-и
+      // 4. Системні callback-и
       if (data === 'continue_answers') {
         const sessionInfo = await getActiveSessionInfo(tgId);
         if (sessionInfo.active) {
@@ -330,7 +343,7 @@ const botController = (bot) => {
         return;
       }
 
-      // Решта callback-ів
+      // 5. Специфічні callback-и
       if (['restart_morning', 'restart_evening', 'cancel_restart'].includes(data)) {
         await handleRestartCallback(ctx);
         return;
@@ -341,38 +354,16 @@ const botController = (bot) => {
         return;
       }
 
-      if (
-        data.startsWith('wheel_score_') ||
-        data === 'wheel_exit' ||
-        data === 'wheel_retry' ||
-        data === 'wheel_start_new' ||
-        data === 'wheel_to_menu' ||
-        data === 'wheel_continue' ||
-        data === 'wheel_restart' ||
-        data === 'wheel_cancel' ||
-        data === 'wheel_start' ||
-        data === 'wheel_info' ||
-        data === 'wheel_stats'
-      ) {
+      if (data.startsWith('wheel_') || ['wheel_exit', 'wheel_retry'].includes(data)) {
         await wheelBalanceController.handleWheelCallback(ctx);
         return;
       }
 
-      if (
-        [
-          'subscription_info',
-          'subscription_plans',
-          'subscribe_week',
-          'subscribe_month',
-          'subscribe_year',
-          'renew_subscription',
-          'sync_subscription',
-          'contact_support',
-          'renew_week',
-          'renew_month',
-          'renew_year'
-        ].includes(data)
-      ) {
+      if ([
+        'subscription_info', 'subscription_plans', 'subscribe_week',
+        'subscribe_month', 'subscribe_year', 'renew_subscription',
+        'sync_subscription', 'contact_support'
+      ].includes(data)) {
         await subscriptionController.handleCallback(ctx);
         return;
       }
@@ -401,11 +392,11 @@ const botController = (bot) => {
         return;
       }
 
-      logger.warn(`[botController] ❓ Невідомий callback: ${data}`);
+      console.log(`❓ [bot] Невідомий callback: ${data}`);
       await ctx.answerCbQuery('Команда не розпізнана');
 
     } catch (error) {
-      logger.error(`[botController] ❌ Помилка callback ${data}:`, error);
+      console.error(`❌ [bot] Помилка callback ${data}:`, error);
       await handleError(ctx, error);
       try { 
         await ctx.answerCbQuery('Помилка обробки'); 
@@ -413,7 +404,7 @@ const botController = (bot) => {
     }
   });
 
-  console.log('✅ [botController] Bot controller initialized successfully');
+  console.log('✅ [botController] Bot controller ініціалізовано успішно');
   return { bot };
 };
 

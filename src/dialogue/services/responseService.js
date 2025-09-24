@@ -1,111 +1,125 @@
-// src/dialogue/services/responseService.js - ПОВНИЙ ФАЙЛ
-
-import Airtable from 'airtable';
+// src/dialogue/services/responseService.js - ВИПРАВЛЕНО
+import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';
 
-const base = Airtable.base(process.env.AIRTABLE_BASE_ID);
-const RESPONSES_TABLE = 'Daily_Responses';
+const base = getBase();
 
 const responseService = {
-  async getTodayResponse(telegramId, type = null) {
+  async getUserRecords(tgId, days = 30) {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - days);
+      const fromDateStr = fromDate.toISOString().split('T')[0];
       
-      let formula = `AND({Telegram_ID} = '${telegramId}', {Date} = '${today}')`;
-      if (type) {
-        formula = `AND({Telegram_ID} = '${telegramId}', {Date} = '${today}', {Type} = '${type}')`;
-      }
+      const records = await base(tables.RESPONSES)
+        .select({
+          filterByFormula: `AND({TG_id}="${String(tgId)}", {Date Response} >= "${fromDateStr}")`,
+          sort: [{ field: 'Date Response', direction: 'desc' }]
+        })
+        .all();
       
-      const records = await base(RESPONSES_TABLE).select({
-        filterByFormula: formula,
-        maxRecords: 1
-      }).firstPage();
+      logger.info(`[responseService] Отримано ${records.length} записів для ${tgId}`);
+      return records;
       
-      return records && records.length > 0 ? { id: records[0].id, ...records[0].fields } : null;
     } catch (error) {
-      logger.error('[responseService] Помилка отримання відповіді:', error);
-      return null;
+      logger.error('[responseService] Помилка getUserRecords:', error);
+      return [];
     }
   },
 
-  async saveMorningAnswer(telegramId, questionNumber, answer) {
+  async isSessionCompleted(tgId, sessionType) {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const records = await base(tables.RESPONSES)
+        .select({
+          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date Response})="${today}")`,
+          maxRecords: 1
+        })
+        .firstPage();
+      
+      if (records.length === 0) return false;
+      
+      const record = records[0].fields;
+      
+      if (sessionType === 'morning') {
+        return !!(record.Q_m_6 || record.affirmation_m);
+      } else if (sessionType === 'evening') {
+        return !!(record.Q_e_5 || record.affirmation_e);
+      }
+      
+      return false;
+      
+    } catch (error) {
+      logger.error('[responseService] Помилка isSessionCompleted:', error);
+      return false;
+    }
+  },
+
+  async saveMorningAnswer(tgId, questionNumber, answer) {
     try {
       const today = new Date().toISOString().split('T')[0];
       const fieldName = `Q_m_${questionNumber}`;
       
-      let existingRecord = null;
-      try {
-        const records = await base(RESPONSES_TABLE).select({
-          filterByFormula: `AND({Telegram_ID} = '${telegramId}', {Date} = '${today}')`,
+      const records = await base(tables.RESPONSES)
+        .select({
+          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date Response})="${today}")`,
           maxRecords: 1
-        }).firstPage();
-        
-        if (records && records.length > 0) {
-          existingRecord = records[0];
-        }
-      } catch (error) {
-        logger.warn('[responseService] Не знайдено існуючий запис:', error);
-      }
+        })
+        .firstPage();
       
       const updateData = { [fieldName]: answer };
       
-      if (existingRecord) {
-        await base(RESPONSES_TABLE).update(existingRecord.id, updateData);
-        logger.info(`[responseService] Оновлено ранкову відповідь ${questionNumber} для ${telegramId}`);
+      if (records.length > 0) {
+        await base(tables.RESPONSES).update(records[0].id, updateData);
       } else {
-        await base(RESPONSES_TABLE).create({
-          'Telegram_ID': telegramId.toString(),
-          'Date': today,
-          'Type': 'morning',
+        await base(tables.RESPONSES).create({
+          'TG_id': String(tgId),
+          'Date Response': today,
+          'User Name': 'Користувач',
           ...updateData
         });
-        logger.info(`[responseService] Створено ранкову відповідь ${questionNumber} для ${telegramId}`);
       }
       
+      logger.info(`[responseService] Збережено ранкову відповідь ${questionNumber} для ${tgId}`);
       return true;
+      
     } catch (error) {
-      logger.error('[responseService] Помилка збереження ранкової відповіді:', error);
+      logger.error('[responseService] Помилка saveMorningAnswer:', error);
       throw error;
     }
   },
 
-  async saveEveningAnswer(telegramId, questionNumber, answer) {
+  async saveEveningAnswer(tgId, questionNumber, answer) {
     try {
       const today = new Date().toISOString().split('T')[0];
       const fieldName = `Q_e_${questionNumber}`;
       
-      let existingRecord = null;
-      try {
-        const records = await base(RESPONSES_TABLE).select({
-          filterByFormula: `AND({Telegram_ID} = '${telegramId}', {Date} = '${today}')`,
+      const records = await base(tables.RESPONSES)
+        .select({
+          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date Response})="${today}")`,
           maxRecords: 1
-        }).firstPage();
-        
-        if (records && records.length > 0) {
-          existingRecord = records[0];
-        }
-      } catch (error) {
-        logger.warn('[responseService] Не знайдено існуючий запис:', error);
-      }
+        })
+        .firstPage();
       
       const updateData = { [fieldName]: answer };
       
-      if (existingRecord) {
-        await base(RESPONSES_TABLE).update(existingRecord.id, updateData);
-        logger.info(`[responseService] Оновлено вечірню відповідь ${questionNumber} для ${telegramId}`);
+      if (records.length > 0) {
+        await base(tables.RESPONSES).update(records[0].id, updateData);
       } else {
-        await base(RESPONSES_TABLE).create({
-          'Telegram_ID': telegramId.toString(),
-          'Date': today,
-          'Type': 'evening',
+        await base(tables.RESPONSES).create({
+          'TG_id': String(tgId),
+          'Date Response': today,
+          'User Name': 'Користувач',
           ...updateData
         });
-        logger.info(`[responseService] Створено вечірню відповідь ${questionNumber} для ${telegramId}`);
       }
       
+      logger.info(`[responseService] Збережено вечірню відповідь ${questionNumber} для ${tgId}`);
       return true;
+      
     } catch (error) {
-      logger.error('[responseService] Помилка збереження вечірньої відповіді:', error);
+      logger.error('[responseService] Помилка saveEveningAnswer:', error);
       throw error;
     }
   }

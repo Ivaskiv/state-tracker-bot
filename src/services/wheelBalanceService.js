@@ -1,8 +1,8 @@
 // src/services/wheelBalanceService.js - ДОДАНО ЛОГІКУ ЩОМІСЯЧНИХ ПЕРЕВІРОК
 import { getBase, tables } from '../config/database.js';
-import { chat } from './openaiClient.js';
 import { LIFE_SPHERES, SPHERE_FIELDS, NOTE_FIELDS } from '../config/constants.js';
 import logger from '../utils/logger.js';
+import { chat } from './openaiClient.js';
 
 const base = getBase();
 
