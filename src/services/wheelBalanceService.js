@@ -203,7 +203,6 @@ const getUsersNeedingMonthlyWheel = async () => {
   try {
     console.log('🎯 [wheelBalance] Пошук користувачів для щомісячного нагадування');
     
-    // Отримуємо всіх активних користувачів
     const { getBase, tables } = await import('../config/database.js');
     const base = getBase();
     
@@ -236,6 +235,8 @@ const getUsersNeedingMonthlyWheel = async () => {
           
           console.log(`🎯 [wheelBalance] Користувач ${tgId} (${userName}) потребує ${wheelCheck.type} колесо`);
         }
+        // Затримка між запитами
+        await new Promise(r => setTimeout(r, 200)); // 200 мс
       } catch (error) {
         console.error(`❌ [wheelBalance] Помилка перевірки для користувача ${tgId}:`, error);
       }
@@ -249,7 +250,6 @@ const getUsersNeedingMonthlyWheel = async () => {
     return [];
   }
 };
-
 // ✅ НОВА ФУНКЦІЯ: надсилання щомісячних нагадувань
 const sendMonthlyWheelReminders = async (bot) => {
   try {

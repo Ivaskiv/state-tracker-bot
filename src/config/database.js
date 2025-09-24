@@ -2,7 +2,8 @@
 
 import Airtable from "airtable";
 import dotenv from "dotenv";
-
+import RateLimiter from 'async-ratelimiter'; // Додайте залежність: npm install async-ratelimiter redis
+import Redis from 'ioredis'; // Для Redis, або використовуйте вбудований якщо немає Redis
 dotenv.config();
 
 // ✅ ПЕРЕВІРКА ENV
@@ -22,36 +23,44 @@ console.log(`📋 [database] BASE_ID: ${process.env.AIRTABLE_BASE_ID}`);
 console.log(`🔑 [database] API_KEY: ${process.env.AIRTABLE_API_KEY.substring(0, 10)}...`);
 if (VERBOSE) console.log('🕵️ [database] VERBOSE режим УВІМКНЕНО (AIRTABLE_VERBOSE=1)');
 
-// БАЗОВИЙ КЛІЄНТ
-const base = new Airtable({ 
-  apiKey: process.env.AIRTABLE_API_KEY,
-  endpointUrl: 'https://api.airtable.com',
-  requestTimeout: 5000
-}).base(process.env.AIRTABLE_BASE_ID);
+// Кешуємо інстанс base
+let cachedBase = null;
 
-// Отримати новий інстанс (для параноїків щодо конекшенів)
+// Rate limiter: 5 запитів/сек (Airtable ліміт)
+const redis = new Redis(); // Якщо немає Redis, використовуйте вбудований кеш
+const limiter = new RateLimiter({
+  db: redis,
+  max: 5, // 5 запитів
+  duration: 1000, // за 1 секунду
+});
+
 export const getBase = () => {
-  if (VERBOSE) console.log('[database.getBase] Новий інстанс Airtable base створено');
-  return new Airtable({ 
-    apiKey: process.env.AIRTABLE_API_KEY,
-    endpointUrl: 'https://api.airtable.com',
-    requestTimeout: 5000
-  }).base(process.env.AIRTABLE_BASE_ID);
+  if (!cachedBase) {
+    if (VERBOSE) console.log('[database.getBase] Створюємо новий інстанс Airtable base');
+    cachedBase = new Airtable({ 
+      apiKey: process.env.AIRTABLE_API_KEY,
+      endpointUrl: 'https://api.airtable.com',
+      requestTimeout: 10000 // Збільшено до 10 секунд
+    }).base(process.env.AIRTABLE_BASE_ID);
+  } else if (VERBOSE) {
+    console.log('[database.getBase] Використовуємо кешований інстанс Airtable base');
+  }
+  return cachedBase;
 };
 
 export const tables = Object.freeze({
   USERS: 'Users',
-  SUBSCRIPTIONS: 'Subscriptions', 
+  SUBSCRIPTIONS: 'Subscriptions',
   RESPONSES: 'Responses',
   USER_REFLECTIONS: 'User Reflections',
   MORNING_RESPONSES: 'Morning_Responses',
   EVENING_RESPONSES: 'Evening_Responses',
   AFFIRMATIONS: 'Affirmations',
-  USER_AFFIRMATIONS: 'User Affirmations', 
+  USER_AFFIRMATIONS: 'User Affirmations',
   USER_REPORTS: 'User Reports',
   USER_GOALS: 'User_Goals',
   DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions',
-  AI_CONVERSATIONS: 'AI_Conversations', 
+  AI_CONVERSATIONS: 'AI_Conversations',
   WHEEL_BALANCE: 'WheelBalance'
 });
 
@@ -67,6 +76,12 @@ const logAirtableError = (prefix, error) => {
   console.error(`${prefix} ❌`, JSON.stringify(payload, null, 2));
 };
 
+// Функція для обмеження швидкості запитів
+const rateLimitedOperation = async (operation) => {
+  await limiter.get({ id: 'airtable' }); // Чекає, якщо ліміт перевищено
+  return operation();
+};
+
 export const selectFromTable = (tableName, opts = {}) => {
   const tableKey = tables[tableName] || tableName;
   if (VERBOSE) {
@@ -74,7 +89,7 @@ export const selectFromTable = (tableName, opts = {}) => {
     console.log(`[database.selectFromTable] ▶️ Опції:`, JSON.stringify(opts, null, 2));
   }
   try {
-    return base(tableKey).select(opts);
+    return rateLimitedOperation(() => getBase()(tableKey).select(opts));
   } catch (error) {
     logAirtableError(`[database.selectFromTable:${tableKey}]`, error);
     throw error;
@@ -86,7 +101,6 @@ export const createRows = async (tableName, rows) => {
   if (VERBOSE) {
     console.log(`[database.createRows] ▶️ Таблиця: ${tableKey}`);
     console.log(`[database.createRows] ▶️ Рядків: ${rows.length}`);
-    // покажемо перший запис для звірки
     if (rows.length) {
       console.log(`[database.createRows] ▶️ Перший запис fields:`, JSON.stringify(rows[0]?.fields, null, 2));
       console.log(`[database.createRows] ▶️ Ключі:`, Object.keys(rows[0]?.fields || {}));
@@ -96,11 +110,21 @@ export const createRows = async (tableName, rows) => {
     }
   }
   try {
-    const res = await base(tableKey).create(rows, { typecast: true });
-    if (VERBOSE) {
-      console.log(`[database.createRows] ✅ Створено ${res.length} запис(и). IDs:`, res.map(r => r.id));
+    // Батчинг: Airtable дозволяє до 10 рядків за запит
+    const batches = [];
+    for (let i = 0; i < rows.length; i += 10) {
+      batches.push(rows.slice(i, i + 10));
     }
-    return res;
+    const results = [];
+    for (const batch of batches) {
+      const res = await rateLimitedOperation(() => getBase()(tableKey).create(batch, { typecast: true }));
+      results.push(...res);
+      await new Promise(r => setTimeout(r, 200)); // Затримка між батчами
+    }
+    if (VERBOSE) {
+      console.log(`[database.createRows] ✅ Створено ${results.length} запис(и). IDs:`, results.map(r => r.id));
+    }
+    return results;
   } catch (error) {
     logAirtableError(`[database.createRows:${tableKey}]`, error);
     throw error;
@@ -117,18 +141,26 @@ export const updateRows = async (tableName, rows) => {
     }
   }
   try {
-    const res = await base(tableKey).update(rows, { typecast: true });
-    if (VERBOSE) {
-      console.log(`[database.updateRows] ✅ Оновлено ${res.length} запис(и). IDs:`, res.map(r => r.id));
+    // Батчинг: до 10 рядків за запит
+    const batches = [];
+    for (let i = 0; i < rows.length; i += 10) {
+      batches.push(rows.slice(i, i + 10));
     }
-    return res;
+    const results = [];
+    for (const batch of batches) {
+      const res = await rateLimitedOperation(() => getBase()(tableKey).update(batch, { typecast: true }));
+      results.push(...res);
+      await new Promise(r => setTimeout(r, 200));
+    }
+    if (VERBOSE) {
+      console.log(`[database.updateRows] ✅ Оновлено ${results.length} запис(и). IDs:`, results.map(r => r.id));
+    }
+    return results;
   } catch (error) {
     logAirtableError(`[database.updateRows:${tableKey}]`, error);
     throw error;
   }
 };
-
-// у src/config/database.js в testConnection()
 
 export const testConnection = async () => {
   try {
@@ -223,4 +255,4 @@ const initializeDatabase = async () => {
 
 initializeDatabase();
 
-export default base;
+export default getBase();
