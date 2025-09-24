@@ -1,6 +1,6 @@
 // src/auth/modules/auth.js - ВИПРАВЛЕНО З ПРАВИЛЬНОЮ ЛОГІКОЮ
 
-import userService, { ensureNewUserStub, finalizeRegistration } from '../services/userService.js';
+import userService from '../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { isValidEmail, isValidUaPhone } from '../../utils/validators.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
@@ -8,6 +8,7 @@ import wheelBalanceService from '../../services/wheelBalanceService.js';
 import wayforpayService from '../../services/wayforpayService.js';
 
 import {
+import { ensureNewUserStub } from '../../services/wheelBalanceService';
   SUBSCRIPTION_PLANS,
   OB_STEPS,
   ANSWER_STEPS,
