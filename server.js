@@ -22,7 +22,7 @@ console.log('- AIRTABLE_API_KEY:', process.env.AIRTABLE_API_KEY ? 'SET' : 'NOT S
 // Імпортуємо модулі ПІСЛЯ налаштування env
 import botController from './src/controllers/botController.js';
 import wayforpayService from './src/services/wayforpayService.js';
-import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
+import paymentService from './src/auth/services/paymentService.js';
 import { startScheduler } from './src/utils/scheduler.js';
 import { SCHEDULE } from './src/config/constants.js';
 
@@ -101,7 +101,7 @@ app.post('/api/wayforpay/webhook', async (req, res) => {
     console.log('[W4P] 🔔 Webhook отримано:', JSON.stringify(req.body, null, 2));
     
     const processed = wayforpayService.processWebhookData(req.body);
-    const result = await handleWayForPayWebhook(processed);
+const result = await paymentService.handleWayForPayWebhook(processed);
     const response = wayforpayService.generateWebhookResponse('accept');
     
     console.log('[W4P] ✅ Webhook оброблено:', result);

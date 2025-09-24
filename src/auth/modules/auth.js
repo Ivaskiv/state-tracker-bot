@@ -293,7 +293,7 @@ export async function handleStart(ctx) {
       `📈 Відслідковувати прогрес\n\n` +
       `Готова розпочати свій шлях до кращого життя?`;
 
-    await ctx.reply(greetingText, keyboards.greetingKeyboard());
+await ctx.reply(greetingText, keyboards.onboardingStartKeyboard());
     console.log(`✅ [auth] Онбординг запущено для ${tgId}`);
 
   } catch (error) {
@@ -467,13 +467,15 @@ async function handleSubscriptionStep(ctx, planInput) {
       const savedUser = await safeUpsert(tgId, userData);
       if (!savedUser) throw new Error('Не вдалося зберегти користувача');
 
-      try {
-        await finalizeRegistration(tgId);
-        console.log(`✅ [auth] Реєстрація завершена для ${tgId}`);
-      } catch (finalizeError) {
-        console.warn(`⚠️ [auth] finalizeRegistration warn:`, finalizeError?.message);
-      }
-
+try {
+await finalizeRegistration(tgId, {
+  name: ctx.session.temp.name,
+  email: ctx.session.temp.email, 
+  phone: ctx.session.temp.phone,
+  timezone: ctx.session.temp.timezone
+});} catch (finalizeError) {
+  console.warn(`⚠️ [auth] finalizeRegistration warn:`, finalizeError?.message);
+}
       // Очищення сесії
       ctx.session.step = undefined;
       ctx.session.temp = {};

@@ -247,7 +247,40 @@ const keyboards = {
         is_persistent: true
       }
     };
-  }
+  },
+greetingKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }],
+        [{ text: 'ℹ️ Про бота', callback_data: 'about_bot' }]
+      ]
+    }
+  };
+},
+
+subscriptionPlansKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🧪 Пробний 7 днів — 0€', callback_data: 'plan_free' }],
+        [{ text: '🎯 Тиждень — 7€', callback_data: 'plan_week' }], 
+        [{ text: '📅 Місяць — 30€', callback_data: 'plan_month' }],
+        [{ text: '🗓️ Рік — 300€', callback_data: 'plan_year' }]
+      ]
+    }
+  };
+},
+
+skipKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '⏭️ Пропустити', callback_data: 'skip_step' }]
+      ]
+    }
+  };
+}
 };
 
 export default keyboards; 

@@ -2,8 +2,6 @@
 
 import userService from '../auth/services/userService.js';
 import subscriptionService from '../auth/services/subscriptionService.js';
-import subscriptionSync from '../auth/services/subscriptionSync.js';
-import wayforpayService from '../services/wayforpayService.js';
 import keyboards from '../utils/keyboards.js';
 import typing from '../utils/typing.js';
 import { SUBSCRIPTION_PLANS } from '../config/constants.js';
@@ -193,7 +191,7 @@ const handleSyncSubscription = async (ctx) => {
       progressMsg = await ctx.reply('🔄 Перевіряю статус оплати...');
     }
     
-    const result = await subscriptionSync.syncUserSubscription(tgId);
+    const result = await syncUserSubscription(tgId);
     
     if (progressMsg) {
       try {

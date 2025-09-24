@@ -41,17 +41,17 @@ export const getBase = () => {
 
 export const tables = Object.freeze({
   USERS: 'Users',
-  SUBSCRIPTIONS: 'Subscriptions',
+  SUBSCRIPTIONS: 'Subscriptions', 
   RESPONSES: 'Responses',
   USER_REFLECTIONS: 'User Reflections',
   MORNING_RESPONSES: 'Morning_Responses',
   EVENING_RESPONSES: 'Evening_Responses',
   AFFIRMATIONS: 'Affirmations',
-  USER_AFFIRMATIONS: 'User Affirmations',
+  USER_AFFIRMATIONS: 'User Affirmations', 
   USER_REPORTS: 'User Reports',
   USER_GOALS: 'User_Goals',
   DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions',
-  AI_CONVERSATIONS: 'AI_Conversations',
+  AI_CONVERSATIONS: 'AI_Conversations', 
   WHEEL_BALANCE: 'WheelBalance'
 });
 
