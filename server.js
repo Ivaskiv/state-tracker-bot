@@ -1,65 +1,59 @@
-// server.js - ВИПРАВЛЕНО: розділення локал/продакшн + правильний порядок ініціалізації
+// server.js - ВИПРАВЛЕНО: правильна ініціалізація та порядок запуску
 
 import express from 'express';
 import dotenv from 'dotenv';
 import { Telegraf, session } from 'telegraf';
+import path from 'path';
 
+// Завантажуємо змінні оточення ПЕРЕД усім іншим
+dotenv.config();
+
+// Перевіряємо критичні змінні
+if (!process.env.TELEGRAM_BOT_TOKEN) {
+  console.error('❌ TELEGRAM_BOT_TOKEN відсутній в .env');
+  process.exit(1);
+}
+
+console.log('🔍 [DEBUG] Змінні оточення:');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
+console.log('- AIRTABLE_API_KEY:', process.env.AIRTABLE_API_KEY ? 'SET' : 'NOT SET');
+
+// Імпортуємо модулі ПІСЛЯ налаштування env
 import botController from './src/controllers/botController.js';
 import wayforpayService from './src/services/wayforpayService.js';
 import { handleWayForPayWebhook } from './src/auth/services/paymentService.js';
 import { startScheduler } from './src/utils/scheduler.js';
 import { SCHEDULE } from './src/config/constants.js';
 
-console.log('🔍 [DEBUG] Змінні оточення:');
-console.log('- NODE_ENV:', process.env.NODE_ENV);
-console.log('- TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
-console.log('- AIRTABLE_API_KEY:', process.env.AIRTABLE_API_KEY ? 'SET' : 'NOT SET');
-console.log('- AIRTABLE_BASE_ID:', process.env.AIRTABLE_BASE_ID ? 'SET' : 'NOT SET');
-console.log('- OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'SET' : 'NOT SET');
-
-// Dev утиліти (тільки для локальної розробки)
-let autoUpdateMenusOnDev, addDevMenuCommands, installPendingFlow;
-if (process.env.NODE_ENV === 'development') {
-  try {
-    const devModule = await import('./src/utils/devMenuUpdater.js');
-    autoUpdateMenusOnDev = devModule.autoUpdateMenusOnDev;
-    addDevMenuCommands = devModule.addDevMenuCommands;
-    
-    const pendingModule = await import('./src/middleware/pendingFlow.js');
-    installPendingFlow = pendingModule.installPendingFlow;
-  } catch (e) {
-    console.warn('⚠️ Dev модулі недоступні:', e.message);
-  }
-}
-
-dotenv.config();
-
-// Фікс TZ до запуску
-process.env.TZ = process.env.TZ || SCHEDULE.TIMEZONE;
-
+// Налаштування
 const PORT = Number(process.env.PORT || 3000);
 const MODE = process.env.NODE_ENV === 'development' ? 'local' : 'webhook';
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_BASE = process.env.WEBHOOK_URL || '';
 
-console.log('🔍 Env check:', {
+console.log('🔍 Конфігурація:', {
   MODE, PORT, TZ: process.env.TZ, NODE_ENV: process.env.NODE_ENV,
   TOKEN: TOKEN ? `${TOKEN.slice(0, 10)}...` : 'MISSING'
 });
 
-if (!TOKEN) {
-  console.error('❌ TELEGRAM_BOT_TOKEN is missing');
-  process.exit(1);
-}
+// Встановлюємо часовий пояс
+process.env.TZ = process.env.TZ || SCHEDULE.TIMEZONE;
 
-// ——— 1) Bot init + session
+// ——— 1) Створюємо та налаштовуємо бота
 const bot = new Telegraf(TOKEN);
 
+// ВАЖЛИВО: ініціалізуємо session middleware ПЕРШИМ
 bot.use(session({
-  defaultSession: () => ({ step: undefined, temp: {} })
+  defaultSession: () => ({ 
+    step: undefined, 
+    temp: {},
+    wheel: null,
+    ai: null 
+  })
 }));
 
-// Ловимо типові фейли
+// Глобальна обробка помилок
 bot.catch((err, ctx) => {
   const msg = `${err?.message || ''} ${err?.description || ''}`;
   if (msg.includes('409') || msg.includes('terminated by other getUpdates')) {
@@ -69,23 +63,26 @@ bot.catch((err, ctx) => {
   console.error('❌ Telegraf error:', err);
 });
 
-// ——— 2) Підключення хендлерів
+// ——— 2) Підключаємо контролери бота
 try {
   botController(bot);
-  if (installPendingFlow) installPendingFlow(bot);
-  if (addDevMenuCommands) addDevMenuCommands(bot);
-  console.log('✅ Bot handlers installed');
+  console.log('✅ Bot handlers встановлено');
 } catch (e) {
-  console.error('❌ Error installing bot handlers:', e);
+  console.error('❌ Помилка встановлення bot handlers:', e);
   process.exit(1);
 }
 
-// ——— 3) Express
+// ——— 3) Express сервер
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Health
+// Middleware для парсингу JSON
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Статичні файли
+app.use('/static', express.static(path.join(process.cwd(), 'public')));
+
+// Health endpoint
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
@@ -98,162 +95,149 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// WayForPay webhook
+// WayForPay webhook endpoint
 app.post('/api/wayforpay/webhook', async (req, res) => {
   try {
-    console.log('[W4P] 🔔 webhook payload:', JSON.stringify(req.body));
+    console.log('[W4P] 🔔 Webhook отримано:', JSON.stringify(req.body, null, 2));
+    
     const processed = wayforpayService.processWebhookData(req.body);
     const result = await handleWayForPayWebhook(processed);
     const response = wayforpayService.generateWebhookResponse('accept');
-    console.log('[W4P] ✅ processed:', result);
+    
+    console.log('[W4P] ✅ Webhook оброблено:', result);
     res.json(response);
   } catch (error) {
-    console.error('[W4P] ❌ webhook error:', error);
+    console.error('[W4P] ❌ Помилка webhook:', error);
     const response = wayforpayService.generateWebhookResponse('decline');
     res.status(400).json(response);
   }
 });
 
-// Dev endpoints (тільки локально)
+// Dev endpoints
 if (process.env.NODE_ENV === 'development') {
-  app.post('/dev/update-menus', async (_req, res) => {
+  app.post('/dev/test-message', async (req, res) => {
+    const { tgId, message } = req.body;
+    if (!tgId || !message) {
+      return res.status(400).json({ error: 'tgId and message required' });
+    }
+    
     try {
-      if (autoUpdateMenusOnDev) await autoUpdateMenusOnDev(bot);
-      res.json({ status: 'success', message: 'Menus updated', at: new Date().toISOString() });
-    } catch (e) {
-      console.error('[dev/update-menus] error:', e);
-      res.status(500).json({ status: 'error', message: e.message });
+      await bot.telegram.sendMessage(tgId, message);
+      res.json({ status: 'sent', tgId, message });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
   });
-
-  console.log('🛠️ Dev endpoints ready: /dev/update-menus');
+  
+  console.log('🛠️ Dev endpoints готові: /dev/test-message');
 }
 
-app.use('/static', express.static('public'));
-
-// 404
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
     path: `${req.method} ${req.path}`,
-    endpoints: [
+    available: [
       'GET /health',
       'POST /api/wayforpay/webhook',
-      ...(process.env.NODE_ENV === 'development' ? ['POST /dev/update-menus'] : [])
+      ...(process.env.NODE_ENV === 'development' ? ['POST /dev/test-message'] : [])
     ]
   });
 });
 
-// ——— 4) Старт бота
-if (MODE === 'local') {
-  console.log(`💻 Local mode: polling + Express (PORT=${PORT})`);
-
-  // Очищуємо webhook
-  try {
-    await bot.telegram.deleteWebhook({ drop_pending_updates: true });
-    console.log('🧹 Webhook cleared');
-  } catch (e) {
-    console.warn('ℹ️ deleteWebhook warn:', e?.message);
+// ——— 4) Запуск бота та сервера
+const startBot = async () => {
+  if (MODE === 'local') {
+    console.log(`💻 Local mode: polling + Express (PORT=${PORT})`);
+    
+    try {
+      // Очищуємо webhook
+      await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+      console.log('🧹 Webhook cleared');
+    } catch (e) {
+      console.warn('ℹ️ deleteWebhook warn:', e?.message);
+    }
+    
+    // Запускаємо polling
+    await bot.launch({
+      allowedUpdates: ['message', 'callback_query'],
+      dropPendingUpdates: true
+    });
+    console.log('🤖 Bot polling запущено');
+    
+    // HTTP server
+    app.listen(PORT, () => {
+      console.log(`🌐 HTTP server: http://localhost:${PORT}`);
+      console.log(`📡 WayForPay: POST http://localhost:${PORT}/api/wayforpay/webhook`);
+      console.log(`🏥 Health: GET http://localhost:${PORT}/health`);
+    });
+    
+  } else {
+    // Production webhook mode
+    if (!WEBHOOK_BASE) {
+      console.error('❌ MODE=webhook але WEBHOOK_URL порожній');
+      process.exit(1);
+    }
+    
+    const webhookPath = `/webhook/${TOKEN}`;
+    const webhookUrl = `${WEBHOOK_BASE}${webhookPath}`;
+    
+    // Telegram webhook endpoint
+    app.use(webhookPath, bot.webhookCallback(webhookPath));
+    
+    app.listen(PORT, async () => {
+      console.log(`🚀 Production server на порт ${PORT}`);
+      
+      try {
+        await bot.telegram.setWebhook(webhookUrl, {
+          allowed_updates: ['message', 'callback_query'],
+          drop_pending_updates: true
+        });
+        console.log(`✅ Webhook встановлено: ${webhookUrl}`);
+      } catch (e) {
+        console.error('❌ setWebhook error:', e);
+        process.exit(1);
+      }
+      
+      console.log(`📡 WayForPay: ${WEBHOOK_BASE}/api/wayforpay/webhook`);
+      console.log(`🏥 Health: ${WEBHOOK_BASE}/health`);
+    });
   }
-
-  // Запуск polling
-  bot.launch({
-    allowedUpdates: ['message', 'callback_query']
-  }).then(() => {
-    console.log('🤖 Bot polling started');
-  });
-
-  // Express
-  app.listen(PORT, () => {
-    console.log(`🌐 HTTP server on http://localhost:${PORT}`);
-    console.log(`📡 WayForPay:  POST http://localhost:${PORT}/api/wayforpay/webhook`);
-    console.log(`🏥 Health:     GET  http://localhost:${PORT}/health`);
-  });
-
-  // Scheduler після успішного запуску бота
+  
+  // Запускаємо scheduler після успішного старту бота
   setTimeout(async () => {
     try {
       await startScheduler(bot);
-      console.log('⏱️ Scheduler started');
+      console.log('⏱️ Scheduler запущено');
     } catch (e) {
-      console.error('❌ Scheduler start error:', e);
+      console.error('❌ Scheduler помилка:', e);
     }
-  }, 2000);
-
-  // Dev автооновлення меню
-  if (autoUpdateMenusOnDev) {
-    setTimeout(async () => {
-      try {
-        await autoUpdateMenusOnDev(bot);
-        console.log('🔄 Dev auto menu update done');
-      } catch (e) {
-        console.warn('ℹ️ autoUpdateMenusOnDev warn:', e?.message);
-      }
-    }, 3000);
-  }
-
-} else {
-  // ——— Production / Webhook mode
-  if (!WEBHOOK_BASE) {
-    console.error('❌ MODE=webhook але WEBHOOK_URL порожній');
-    process.exit(1);
-  }
-
-  const webhookPath = `/webhook/${TOKEN}`;
-  const webhookUrl = `${WEBHOOK_BASE}${webhookPath}`;
-
-  // Telegram webhook endpoint
-  app.use(webhookPath, bot.webhookCallback(webhookPath));
-
-  app.listen(PORT, async () => {
-    console.log(`🚀 Production server on :${PORT}`);
-    try {
-      await bot.telegram.setWebhook(webhookUrl, {
-        allowed_updates: ['message', 'callback_query'],
-        drop_pending_updates: true
-      });
-      console.log(`✅ Telegram webhook set: ${webhookUrl}`);
-    } catch (e) {
-      console.error('❌ setWebhook error:', e);
-      process.exit(1);
-    }
-
-    console.log(`📡 WayForPay webhook: ${WEBHOOK_BASE}/api/wayforpay/webhook`);
-    console.log(`🏥 Health:            ${WEBHOOK_BASE}/health`);
-
-    // Scheduler після успішного setWebhook
-    try {
-      await startScheduler(bot);
-      console.log('⏱️ Scheduler started');
-    } catch (e) {
-      console.error('❌ Scheduler start error:', e);
-      process.exit(1);
-    }
-  });
-}
+  }, 3000);
+};
 
 // ——— 5) Graceful shutdown
 const shutdown = async (signal) => {
-  console.log(`🛑 ${signal}: stopping...`);
+  console.log(`🛑 ${signal}: зупинка...`);
   try {
     await bot.stop(signal);
-    console.log('✅ Bot stopped');
+    console.log('✅ Bot зупинено');
   } catch (e) {
     console.error('❌ stop error:', e);
   } finally {
     process.exit(0);
   }
 };
+
 process.once('SIGINT', () => shutdown('SIGINT'));
 process.once('SIGTERM', () => shutdown('SIGTERM'));
 
-// ——— 6) Helpers
-export { bot };
-export const sendTyping = async (ctx, delay = 800) => {
-  try {
-    await ctx.telegram.sendChatAction(ctx.from.id, 'typing');
-    await new Promise((r) => setTimeout(r, delay));
-  } catch {}
-};
+// ——— 6) Запуск
+startBot().catch(error => {
+  console.error('❌ Критична помилка запуску:', error);
+  process.exit(1);
+});
 
-console.log('🎉 Init done → MODE=%s | TZ=%s | ENV=%s', MODE, process.env.TZ, process.env.NODE_ENV);
+// Експортуємо для інших модулів
+export { bot };
+
+console.log('🎉 Ініціалізація завершена → MODE=%s | TZ=%s | ENV=%s', MODE, process.env.TZ, process.env.NODE_ENV);

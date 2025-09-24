@@ -1,4 +1,4 @@
-// src/aiMentor/controllers/aiMentorController.js - ПРОСТИЙ ФІКС
+// src/aiMentor/controllers/aiMentorController.js - ПОВНИЙ ВИПРАВЛЕНИЙ ФАЙЛ
 
 import userService from '../../auth/services/userService.js';
 import keyboards from '../../utils/keyboards.js';
@@ -8,12 +8,14 @@ import { aiMentorSession } from '../session.js';
 import conversationService from '../services/conversationService.js';
 import logger from '../../utils/logger.js';
 import { chat } from '../../services/openaiClient.js';
+import typing from '../../utils/typing.js';
 
 /**
  * Визначає тип контексту питання
  */
 const determineContextType = (question) => {
   const lowerQuestion = question.toLowerCase();
+  
   if (lowerQuestion.includes('ціль') || lowerQuestion.includes('досягти') || lowerQuestion.includes('планую')) {
     return CONTEXT_TYPES.GOAL_SETTING;
   }
@@ -26,6 +28,7 @@ const determineContextType = (question) => {
   if (lowerQuestion.includes('баланс') || lowerQuestion.includes('життя') || lowerQuestion.includes('сфери')) {
     return CONTEXT_TYPES.LIFE_BALANCE;
   }
+  
   return CONTEXT_TYPES.GENERAL;
 };
 
@@ -34,6 +37,7 @@ const determineContextType = (question) => {
  */
 const handleAIMentorRequest = async (ctx) => {
   const tgId = String(ctx.from.id);
+  
   try {
     logger.info(`🤖 [AI MENTOR REQUEST] Початок для користувача ${tgId}`);
 
@@ -43,17 +47,29 @@ const handleAIMentorRequest = async (ctx) => {
       return ctx.reply('Спочатку зареєструйтесь /start', keyboards.mainMenuKeyboard());
     }
 
+    // Перевіряємо активну підписку
     const isActive = user['Active_Subscription_Status']?.includes('✅ Активна');
     if (!isActive) {
       logger.info(`❌ [AI MENTOR] Підписка неактивна для ${tgId}`);
-      return ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
+      return ctx.reply(
+        '🤖 AI-наставник доступний тільки з активною підпискою.\n\n💰 Активуй підписку для доступу до персональної підтримки.',
+        keyboards.subscriptionKeyboard()
+      );
     }
 
-    // ✅ ЗАПУСКАЄМО СЕСІЮ БЕЗ ЗМІНИ Answer_Step
+    // Запускаємо сесію
     aiMentorSession.start(tgId);
     logger.info(`🤖 [AI MENTOR] Сесія запущена для ${tgId}, isActive: ${aiMentorSession.isActive(tgId)}`);
 
-    const helpText = `🤖 AI-НАСТАВНИК\n\nЯ твій персональний AI-коуч! Готовий відповісти на твоє питання.\n\n💡 Персональними порадами\n🎯 Мікро-діями для цілей\n⚡ Підтримкою в складних ситуаціях\n\nНапиши своє питання прямо зараз! 👇`;
+    const helpText = 
+      `🤖 AI-НАСТАВНИК\n\n` +
+      `Я твій персональний AI-коуч! Готовий відповісти на твоє питання.\n\n` +
+      `💡 Персональними порадами\n` +
+      `🎯 Мікро-діями для цілей\n` +
+      `⚡ Підтримкою в складних ситуаціях\n\n` +
+      `Напиши своє питання прямо зараз! 👇`;
+
+    await typing(ctx);
     await ctx.reply(helpText, keyboards.aiMentorStartKeyboard());
     logger.info(`✅ [AI MENTOR] Інструкції надіслано для ${tgId}`);
 
@@ -68,6 +84,7 @@ const handleAIMentorRequest = async (ctx) => {
  */
 const handleAIMentorQuestion = async (ctx, question) => {
   const tgId = String(ctx.from.id);
+  
   try {
     logger.info(`🤖 [AI MENTOR QUESTION] Обробка питання від ${tgId}: "${question.substring(0, 50)}..."`);
 
@@ -75,18 +92,23 @@ const handleAIMentorQuestion = async (ctx, question) => {
     if (!user || !user['Active_Subscription_Status']?.includes('✅ Активна')) {
       logger.warn(`❌ [AI MENTOR] Немає доступу для ${tgId}`);
       aiMentorSession.end(tgId);
-      return ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
+      return ctx.reply(
+        '🤖 AI-наставник доступний тільки з активною підпискою',
+        keyboards.subscriptionKeyboard()
+      );
     }
 
-    // ✅ ПЕРЕВІРЯЄМО ЧИ АКТИВНА СЕСІЯ
-    if (!aiMentorSession.isActive(String(tgId))) {
+    // Перевіряємо чи активна сесія
+    if (!aiMentorSession.isActive(tgId)) {
       logger.warn(`❌ [AI MENTOR] Сесія неактивна для ${tgId}, запускаємо знову`);
-      aiMentorSession.start(String(tgId));
+      aiMentorSession.start(tgId);
     }
 
     const contextType = determineContextType(question);
     logger.info(`🧠 [AI MENTOR] Контекст питання: ${contextType}`);
 
+    await typing(ctx);
+    
     const responseText = await generateAIResponse(question, user, contextType);
     
     // Збереження діалогу
@@ -123,6 +145,8 @@ const handleAIMentorQuestion = async (ctx, question) => {
 const generateAIResponse = async (question, user, contextType) => {
   try {
     let conversationContext = '';
+    
+    // Отримуємо контекст попередніх розмов
     try {
       const recentHistory = await conversationService.getAIConversationHistory(user['TG_id'], 3);
       if (recentHistory.length > 0) {
@@ -136,16 +160,19 @@ const generateAIResponse = async (question, user, contextType) => {
       logger.warn('[AI MENTOR] Не вдалося отримати історію розмов:', historyError);
     }
 
-    const systemPrompt = AI_MENTOR_PROMPTS[contextType] || AI_MENTOR_PROMPTS.SYSTEM_PROMPT;
-    const prompt = `Користувач: ${user['User Name'] || 'Анонім'} (TG_id: ${user['TG_id']})
-Питання: "${question}"
-${conversationContext}
-
-${systemPrompt}`;
+    const systemPrompt = AI_MENTOR_PROMPTS.SYSTEM_PROMPT;
+    const contextPrompt = AI_MENTOR_PROMPTS[contextType] || AI_MENTOR_PROMPTS.GENERAL;
+    
+    const prompt = 
+      `Користувач: ${user['User Name'] || 'Анонім'} (TG_id: ${user['TG_id']})\n` +
+      `Питання: "${question}"\n` +
+      `${conversationContext}\n\n` +
+      `${contextPrompt}`;
 
     logger.info(`[AI MENTOR] Відправляємо запит до OpenAI для ${user['TG_id']}`);
+    
     const response = await chat([
-      { role: 'system', content: AI_MENTOR_PROMPTS.SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt }
     ], 'gpt-4o-mini', 300);
 
@@ -186,10 +213,18 @@ const handleAIMentorCallback = async (ctx) => {
       await ctx.answerCbQuery('Продовжуємо діалог');
 
     } else if (data === 'ai_exit') {
-      aiMentorSession.end(String(tgId));
+      aiMentorSession.end(tgId);
       await ctx.reply('👋 Дякую за спілкування! Повертаємося до головного меню.', keyboards.mainMenuKeyboard());
       await ctx.answerCbQuery('Вихід з AI-наставника');
       logger.info(`🚪 [AI MENTOR] Користувач ${tgId} вийшов з AI-наставника`);
+      
+    } else if (data === 'ai_start_question') {
+      await ctx.reply('💬 Напиши своє питання, і я дам персональну пораду!', keyboards.aiMentorControlKeyboard());
+      await ctx.answerCbQuery('Починаємо діалог');
+      
+    } else {
+      logger.warn(`❓ [AI MENTOR CALLBACK] Невідомий callback: ${data}`);
+      await ctx.answerCbQuery('Команда не розпізнана');
     }
 
   } catch (error) {
@@ -204,13 +239,17 @@ const handleAIMentorCallback = async (ctx) => {
  */
 const getAIConversationReport = async (ctx) => {
   const tgId = String(ctx.from.id);
+  
   try {
     logger.info(`📊 [AI MENTOR REPORT] Генерація звіту для ${tgId}`);
 
     const user = await userService.getUserByTelegramId(tgId);
     if (!user || !user['Active_Subscription_Status']?.includes('✅ Активна')) {
       logger.warn(`❌ [AI MENTOR REPORT] Немає доступу для ${tgId}`);
-      return ctx.reply('🤖 AI-наставник доступний тільки з активною підпискою', keyboards.mainMenuKeyboard());
+      return ctx.reply(
+        '🤖 AI-наставник доступний тільки з активною підпискою',
+        keyboards.subscriptionKeyboard()
+      );
     }
 
     const report = await conversationService.generateAIConversationReport(tgId, 7);

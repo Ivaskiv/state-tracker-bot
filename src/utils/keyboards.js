@@ -1,9 +1,9 @@
-// src/utils/keyboards.js - ДОДАНО КНОПКИ ДЛЯ КОЛЕСА
+// src/utils/keyboards.js - ВИПРАВЛЕНІ КЛАВІАТУРИ
 
 import { TIMEZONES, parseTz } from '../config/constants.js';
 
 const keyboards = {
-  // ====== ГОЛОВНЕ МЕНЮ
+  // ====== ГОЛОВНЕ МЕНЮ ======
   mainMenuKeyboard() {
     return {
       reply_markup: {
@@ -16,12 +16,12 @@ const keyboards = {
         ],
         resize_keyboard: true,
         one_time_keyboard: false,
-         is_persistent: true
+        is_persistent: true
       }
     };
   },
 
-  // ====== ОНБОРДИНГ
+  // ====== ОНБОРДИНГ ======
   onboardingStartKeyboard() {
     return {
       reply_markup: {
@@ -33,33 +33,28 @@ const keyboards = {
     };
   },
 
-  // Кнопка "Пропустити e-mail"
   emailInputKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
           [{ text: '⏭️ Пропустити e-mail', callback_data: 'skip_email' }],
-                  [{ text: '🔙 Назад', callback_data: 'back_email' }]
-
+          [{ text: '🔙 Назад', callback_data: 'back_email' }]
         ]
       }
     };
   },
 
-  // Кнопка "Пропустити телефон"
   phoneInputKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
           [{ text: '⏭️ Пропустити телефон', callback_data: 'skip_phone' }],
-                  [{ text: '🔙 Назад', callback_data: 'back_phone' }]
-
+          [{ text: '🔙 Назад', callback_data: 'back_phone' }]
         ]
       }
     };
   },
 
-  // Вибір часового пояса
   timezoneKeyboard() {
     return {
       reply_markup: {
@@ -71,7 +66,6 @@ const keyboards = {
     };
   },
 
-  // показуємо після вибору TZ
   timezoneConfirmedKeyboard() {
     return {
       reply_markup: {
@@ -79,27 +73,6 @@ const keyboards = {
           [{ text: '🌍 Змінити TZ', callback_data: 'change_tz' }],
           [{ text: '🔙 Назад', callback_data: 'back_timezone' }],
           [{ text: '➡️ Далі', callback_data: 'go_plan' }]
-        ]
-      }
-    };
-  },
-
-  // «Назад» для кроків
-  backFromEmailKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔙 Назад', callback_data: 'back_email' }]
-        ]
-      }
-    };
-  },
-
-  backFromPhoneKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔙 Назад', callback_data: 'back_phone' }]
         ]
       }
     };
@@ -123,24 +96,12 @@ const keyboards = {
       reply_markup: {
         inline_keyboard: [
           [{ text: '✅ Підтвердити', callback_data: `pay_${planValue}` }],
-          [{ text: '🔙 Назад', callback_data: 'back_plan' }],
+          [{ text: '🔙 Назад', callback_data: 'back_plan' }]
         ]
       }
     };
   },
 
-  // Кнопка після активації trial / успішної оплати
-  onboardingPaymentSuccessKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '⚙️ Налаштування нагадувань', callback_data: 'reminders' }]
-        ]
-      }
-    };
-  },
-
-  // старт Колеса (залишаємо на випадок ручного запуску)
   onboardingWheelStartKeyboard() {
     return {
       reply_markup: {
@@ -152,8 +113,6 @@ const keyboards = {
   },
 
   // ====== КОЛЕСО БАЛАНСУ ======
-
-  // ✅ ОЦІНКИ 0-10 (використовується під час колеса)
   wheelScoreInlineKeyboard() {
     return {
       reply_markup: {
@@ -179,33 +138,19 @@ const keyboards = {
     };
   },
 
-  // ✅ ПРОДОВЖИТИ/ВИЙТИ (коли є незавершене колесо)
-  wheelContinueKeyboard() {
+  wheelBalanceCompleteKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '▶️ Продовжити колесо', callback_data: 'wheel_continue' }],
-          [{ text: '🚪 Вийти із сесії', callback_data: 'wheel_exit' }]
+          [{ text: '📊 Мій прогрес', callback_data: 'wheel_stats' }],
+          [{ text: '🔄 Пройти знову за місяць', callback_data: 'wheel_info' }],
+          [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
         ]
       }
     };
   },
 
-  // ✅ ЗАВЕРШЕННЯ КОЛЕСА
-  wheelBalanceCompleteKeyboard() {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '📊 Мій прогрес', callback_data: 'wheel_stats' }],
-        [{ text: '🔄 Пройти знову за місяць', callback_data: 'wheel_info' }],
-        [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
-      ]
-    }
-  };
-},
-
-
-  // ✅ AI НАСТАВНИК
+  // ====== AI НАСТАВНИК ======
   aiMentorStartKeyboard() {
     return {
       reply_markup: {
@@ -240,6 +185,17 @@ const keyboards = {
     };
   },
 
+  exitSessionKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔁 Продовжити', callback_data: 'continue_answers' }],
+          [{ text: '🚪 Вийти із сесії', callback_data: 'skip_session' }]
+        ]
+      }
+    };
+  },
+
   // ====== ПІДПИСКА ======
   subscriptionKeyboard() {
     return {
@@ -249,8 +205,7 @@ const keyboards = {
           [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
           [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }],
           [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
-        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-      
+          [{ text: '🏠 До меню', callback_data: 'main_menu' }]
         ]
       }
     };
@@ -267,32 +222,13 @@ const keyboards = {
       }
     };
   },
-    // ✅ Колесо балансу
-  wheelStartKeyboard: () => ({
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🧭 Почати колесо', callback_data: 'wheel_start' }],
-        [{ text: '📊 Статистика', callback_data: 'wheel_stats' }],
-        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-      ]
-    }
-  })
-,
-// ✅ Виходи з сесій
-  exitSessionKeyboard: () => ({
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🔁 Продовжити', callback_data: 'continue_answers' }],
-        [{ text: '🚪 Вийти із сесії', callback_data: 'skip_session' }]
-      ]
-    }
-  }),
-  
 
   // ====== УТИЛІТАРНІ ======
   removeKeyboard() {
     return {
-      reply_markup: { remove_keyboard: true }
+      reply_markup: { 
+        remove_keyboard: true 
+      }
     };
   },
 
@@ -308,20 +244,10 @@ const keyboards = {
         ],
         resize_keyboard: true,
         one_time_keyboard: false,
-         is_persistent: true
+        is_persistent: true
       }
     };
-  },
-
-  changeTimezoneEntryKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🌍 Змінити TZ', callback_data: 'change_tz' }]
-        ]
-      }
-    };
-  },
+  }
 };
 
-export default keyboards;
+export default keyboards; 

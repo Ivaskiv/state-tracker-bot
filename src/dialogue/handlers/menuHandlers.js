@@ -1,10 +1,8 @@
-// src/dialogue/handlers/menuHandlers.js
+// src/dialogue/handlers/menuHandlers.js - ВИПРАВЛЕНА ОБРОБКА МЕНЮ
 
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
 import wheelBalanceController from '../../controllers/wheelBalanceController.js';
-import wheelBalanceService from '../../services/wheelBalanceService.js';
-import { isActiveSubscription, restrictAccessMessage } from '../../utils/subscriptionUtils.js';
-import { handleError } from '../../utils/errorHandler.js';
+import subscriptionService from '../../auth/services/subscriptionService.js';
 import { MENU_TEXTS } from '../../config/constants.js';
 import keyboards from '../../utils/keyboards.js';
 import responseService from '../services/responseService.js';
@@ -13,13 +11,45 @@ import affirmationService from '../services/affirmationService.js';
 import { sendReport } from '../../services/reportService.js';
 import userService from '../../auth/services/userService.js';
 import typing from '../../utils/typing.js';
+import wheelBalanceService from '../../services/wheelBalanceService.js';
 
+/**
+ * Перевірка активної підписки
+ */
+const isActiveSubscription = (user) => {
+  if (!user) return false;
+  const status = user['Active_Subscription_Status'] || '';
+  return status.includes('✅ Активна');
+};
+
+/**
+ * Повідомлення про обмеження доступу
+ */
+const restrictAccessMessage = async (featureName, ctx) => {
+  const message = 
+    `🚫 ${featureName} недоступний\n\n` +
+    `❌ Твоя підписка неактивна або закінчилася.\n\n` +
+    `💰 Поднови підписку, щоб користуватися всіма функціями бота.`;
+
+  await ctx.reply(message, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
+        [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }]
+      ]
+    }
+  });
+};
+
+/**
+ * Основна функція обробки команд меню
+ */
 const handleMenuCommands = async (ctx, user, text, bot) => {
   logger.info(`📋 [MENU] Обробка команди: "${text}"`);
-  console.log(`[MENU] 🔍 ДЕТАЛЬНА ДІАГНОСТИКА:`);
+  console.log(`[MENU] 🔍 ДІАГНОСТИКА:`);
   console.log(`- Текст: "${text}"`);
-  console.log(`- Користувач: ${user['User Name']}`);
-  console.log(`- Підписка: ${user['Active_Subscription_Status']}`);
+  console.log(`- Користувач: ${user['User Name'] || 'Невідомий'}`);
+  console.log(`- Підписка: ${user['Active_Subscription_Status'] || 'Невідома'}`);
   console.log(`- isActiveSubscription: ${isActiveSubscription(user)}`);
 
   try {
@@ -143,6 +173,9 @@ const handleMenuCommands = async (ctx, user, text, bot) => {
   }
 };
 
+/**
+ * Показ прогресу користувача
+ */
 const showUserProgress = async (ctx, user) => {
   if (!user) {
     return await ctx.reply('Спочатку зареєструйтесь /start', keyboards.mainMenuKeyboard());
@@ -210,6 +243,9 @@ const showUserProgress = async (ctx, user) => {
   }
 };
 
+/**
+ * Показ інформації про підписку
+ */
 const showSubscriptionInfo = async (ctx, user) => {
   try {
     const status = user['Active_Subscription_Status'] || '❌ Неактивна';
@@ -238,11 +274,14 @@ const showSubscriptionInfo = async (ctx, user) => {
   }
 };
 
+/**
+ * Показ профілю користувача
+ */
 const showUserProfile = async (ctx, user) => {
   try {
     const name = user['User Name'] || 'Невідомо';
     const email = user.Email || 'Не вказано';
-    const regDate = user.Created ? new Date(user.Created).toLocaleDateString('uk-UA') : 'Невідомо';
+    const regDate = user.Created_At ? new Date(user.Created_At).toLocaleDateString('uk-UA') : 'Невідомо';
     
     const profileText = `ℹ️ ПРОФІЛЬ:\n\n👤 Ім'я: ${name}\n📧 Email: ${email}\n📅 Реєстрація: ${regDate}`;
     
@@ -258,5 +297,7 @@ export {
   handleMenuCommands, 
   showUserProgress, 
   showSubscriptionInfo, 
-  showUserProfile 
+  showUserProfile,
+  isActiveSubscription,
+  restrictAccessMessage
 };

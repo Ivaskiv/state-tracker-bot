@@ -1,10 +1,14 @@
 // src/dialogue/services/responseService.js - ВИПРАВЛЕНО
+
 import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';
 
 const base = getBase();
 
 const responseService = {
+  /**
+   * Отримання записів користувача за період
+   */
   async getUserRecords(tgId, days = 30) {
     try {
       const fromDate = new Date();
@@ -27,6 +31,9 @@ const responseService = {
     }
   },
 
+  /**
+   * Перевірка чи завершена сесія
+   */
   async isSessionCompleted(tgId, sessionType) {
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -56,6 +63,9 @@ const responseService = {
     }
   },
 
+  /**
+   * Збереження ранкової відповіді
+   */
   async saveMorningAnswer(tgId, questionNumber, answer) {
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -90,6 +100,9 @@ const responseService = {
     }
   },
 
+  /**
+   * Збереження вечірньої відповіді
+   */
   async saveEveningAnswer(tgId, questionNumber, answer) {
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -120,6 +133,43 @@ const responseService = {
       
     } catch (error) {
       logger.error('[responseService] Помилка saveEveningAnswer:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Збереження афірмації
+   */
+  async saveAffirmation(tgId, type, affirmation) {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const fieldName = type === 'morning' ? 'affirmation_m' : 'affirmation_e';
+      
+      const records = await base(tables.RESPONSES)
+        .select({
+          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date Response})="${today}")`,
+          maxRecords: 1
+        })
+        .firstPage();
+      
+      const updateData = { [fieldName]: affirmation };
+      
+      if (records.length > 0) {
+        await base(tables.RESPONSES).update(records[0].id, updateData);
+      } else {
+        await base(tables.RESPONSES).create({
+          'TG_id': String(tgId),
+          'Date Response': today,
+          'User Name': 'Користувач',
+          ...updateData
+        });
+      }
+      
+      logger.info(`[responseService] Збережено ${type} афірмацію для ${tgId}`);
+      return true;
+      
+    } catch (error) {
+      logger.error('[responseService] Помилка saveAffirmation:', error);
       throw error;
     }
   }
