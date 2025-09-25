@@ -1,4 +1,5 @@
-// src/utils/scheduler.js - СПРОЩЕНО ДЛЯ ШВИДКОГО ВИПРАВЛЕННЯ
+// src/utils/scheduler.js - ВИПРАВЛЕНО: БЕЗ REDIS
+
 import cron from 'node-cron';
 import userService from '../auth/services/userService.js';
 import { CRON_SCHEDULES, SCHEDULE } from '../config/constants.js';
@@ -6,12 +7,12 @@ import { CRON_SCHEDULES, SCHEDULE } from '../config/constants.js';
 const jobs = [];
 let isSchedulerStarted = false;
 
-// Простий захист від дублювання
+// Простий захист від дублювання без Redis
 const executionLocks = new Set();
 
 const guardExecution = (type) => {
   const now = new Date();
-  const key = `${type}_${now.toISOString().slice(0, 16)}`; // до хвилин
+  const key = `${type}_${now.toISOString().slice(0, 16)}`;
   
   if (executionLocks.has(key)) {
     console.log(`[scheduler] ⏭️ Дублювання ${type} пропущено`);
@@ -19,11 +20,12 @@ const guardExecution = (type) => {
   }
   
   executionLocks.add(key);
-  setTimeout(() => executionLocks.delete(key), 120000); // 2 хвилини
+  // Очищуємо через 2 хвилини
+  setTimeout(() => executionLocks.delete(key), 120000);
   return true;
 };
 
-// Тестова функція для ранкових повідомлень
+// Ранкові нагадування
 const sendMorningReminders = async (bot) => {
   if (!guardExecution('morning')) return;
   
@@ -33,9 +35,12 @@ const sendMorningReminders = async (bot) => {
     const users = await userService.getActiveUsers();
     console.log(`[scheduler] Знайдено ${users.length} активних користувачів`);
     
-    for (const user of users.slice(0, 5)) { // Обмежуємо до 5 для тестування
+    // Обмежуємо до 10 для початку
+    for (const user of users.slice(0, 10)) {
       const tgId = user['TG_id'];
       const name = user['User Name'] || 'Користувач';
+      
+      if (!tgId) continue;
       
       try {
         await bot.telegram.sendMessage(
@@ -62,14 +67,14 @@ const sendMorningReminders = async (bot) => {
       }
       
       // Затримка між користувачами
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 1000));
     }
   } catch (error) {
     console.error('[scheduler] ❌ Помилка ранкових нагадувань:', error);
   }
 };
 
-// Тестова функція для вечірніх повідомлень  
+// Вечірні нагадування
 const sendEveningReminders = async (bot) => {
   if (!guardExecution('evening')) return;
   
@@ -79,9 +84,12 @@ const sendEveningReminders = async (bot) => {
     const users = await userService.getActiveUsers();
     console.log(`[scheduler] Знайдено ${users.length} активних користувачів`);
     
-    for (const user of users.slice(0, 5)) { // Обмежуємо до 5 для тестування
+    // Обмежуємо до 10 для початку
+    for (const user of users.slice(0, 10)) {
       const tgId = user['TG_id'];
       const name = user['User Name'] || 'Користувач';
+      
+      if (!tgId) continue;
       
       try {
         await bot.telegram.sendMessage(
@@ -108,7 +116,7 @@ const sendEveningReminders = async (bot) => {
       }
       
       // Затримка між користувачами
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 1000));
     }
   } catch (error) {
     console.error('[scheduler] ❌ Помилка вечірніх нагадувань:', error);
@@ -127,7 +135,7 @@ export const startScheduler = (bot) => {
   console.log(`[scheduler] Вечір: ${SCHEDULE.EVENING_TIME}`);
 
   try {
-    // Ранкові нагадування
+    // Ранкові нагадування - 08:00
     const morningJob = cron.schedule(CRON_SCHEDULES.MORNING_QUESTIONS, () => {
       sendMorningReminders(bot);
     }, {
@@ -135,7 +143,7 @@ export const startScheduler = (bot) => {
       scheduled: true
     });
     
-    // Вечірні нагадування
+    // Вечірні нагадування - 21:30
     const eveningJob = cron.schedule(CRON_SCHEDULES.EVENING_QUESTIONS, () => {
       sendEveningReminders(bot);
     }, {
@@ -143,12 +151,13 @@ export const startScheduler = (bot) => {
       scheduled: true
     });
 
+    // Додаємо задачі до списку
     jobs.push(morningJob, eveningJob);
     isSchedulerStarted = true;
 
     console.log('✅ [scheduler] Scheduler запущено успішно');
-    console.log(`📅 [scheduler] Ранкові нагадування: ${CRON_SCHEDULES.MORNING_QUESTIONS}`);
-    console.log(`📅 [scheduler] Вечірні нагадування: ${CRON_SCHEDULES.EVENING_QUESTIONS}`);
+    console.log(`📅 [scheduler] Ранкові: ${CRON_SCHEDULES.MORNING_QUESTIONS}`);
+    console.log(`📅 [scheduler] Вечірні: ${CRON_SCHEDULES.EVENING_QUESTIONS}`);
     
   } catch (error) {
     console.error('[scheduler] ❌ Помилка запуску scheduler:', error);
