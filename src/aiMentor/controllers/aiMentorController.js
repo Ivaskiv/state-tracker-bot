@@ -1,9 +1,11 @@
-// src/aiMentor/controllers/aiMentorController.js - СПРОЩЕНО
+// src/aiMentor/controllers/aiMentorController.js - ОНОВЛЕНО ЗА НОВИМ ТЗ
 
 import userService from '../../auth/services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { aiMentorSession } from '../session.js';
 import { chat } from '../../services/openaiClient.js';
+import conversationService from '../services/conversationService.js';
+import { CONTEXT_TYPES, analyzeQuestionContext, selectPrompt } from '../../config/aiMentorPrompts.js';
 
 const handleAIMentorRequest = async (ctx) => {
   const tgId = String(ctx.from.id);
@@ -18,10 +20,9 @@ const handleAIMentorRequest = async (ctx) => {
     }
 
     // Перевіряємо підписку
-    const isActive = (user['Active_Subscription_Status'] || '').includes('✅ Активна') ||
-                     user['Subscription Status'] === 'Active';
+    const hasAccess = userService.hasActiveAccess(user);
                      
-    if (!isActive) {
+    if (!hasAccess) {
       console.log(`❌ [AI MENTOR] Підписка неактивна для ${tgId}`);
       return ctx.reply(
         '🤖 AI-наставник доступний з активною підпискою.\n\n💰 Активуй підписку для персональної підтримки.',
@@ -41,12 +42,15 @@ const handleAIMentorRequest = async (ctx) => {
     console.log(`🤖 [AI MENTOR] Сесія запущена для ${tgId}`);
 
     const helpText = 
-      `🤖 AI-НАСТАВНИК\n\n` +
-      `Я твій персональний коуч! Готовий відповісти:\n\n` +
-      `💡 Персональні поради\n` +
-      `🎯 Мікро-дії для цілей\n` +
-      `⚡ Підтримка в складних ситуаціях\n\n` +
-      `Напиши своє питання! 👇`;
+      `🤖 AI-НАСТАВНИК "ЕФЕКТ"\n\n` +
+      `Привіт! Я твій персональний AI-коуч у стилі "Очі в очі" 💪\n\n` +
+      `Готовий допомогти з:\n\n` +
+      `🎯 Постановкою та досягненням цілей\n` +
+      `⚡ Подоланням блоків та страхів\n` +
+      `💡 Мотивацією та фокусом\n` +
+      `📈 Створенням стратегій дій\n\n` +
+      `Напиши своє питання! 👇\n\n` +
+      `💬 Я відповідаю конкретно, з мікро-діями та підтримкою.`;
 
     await ctx.reply(helpText, keyboards.aiMentorStartKeyboard());
 
@@ -69,7 +73,7 @@ const handleAIMentorQuestion = async (ctx, question) => {
     }
 
     const user = await userService.getUserByTelegramId(tgId);
-    if (!user || !(user['Active_Subscription_Status'] || '').includes('✅ Активна')) {
+    if (!user || !userService.hasActiveAccess(user)) {
       aiMentorSession.end(tgId);
       return ctx.reply('🤖 Потрібна активна підписка', {
         reply_markup: {
@@ -80,8 +84,24 @@ const handleAIMentorQuestion = async (ctx, question) => {
       });
     }
 
-    // Генеруємо відповідь
-    const responseText = await generateAIResponse(question, user);
+    // Показуємо що бот думає
+    await ctx.telegram.sendChatAction(ctx.chat.id, 'typing');
+
+    // Аналізуємо контекст питання
+    const contextType = analyzeQuestionContext(question);
+    console.log(`🔍 [AI MENTOR] Контекст: ${contextType}`);
+
+    // Генеруємо відповідь AI
+    const responseText = await generateAIResponse(question, user, contextType, tgId);
+    
+    // Зберігаємо діалог
+    const context = {
+      contextType,
+      userGoal: user.daily_main_goal || '',
+      userState: user.daily_state || 'unknown'
+    };
+    
+    await conversationService.saveAIConversation(tgId, question, responseText, context);
     
     await ctx.reply(responseText, keyboards.aiMentorControlKeyboard());
     console.log(`✅ [AI MENTOR] Відповідь надіслано для ${tgId}`);
@@ -92,33 +112,36 @@ const handleAIMentorQuestion = async (ctx, question) => {
   }
 };
 
-const generateAIResponse = async (question, user) => {
+const generateAIResponse = async (question, user, contextType, tgId) => {
   try {
-    const systemPrompt = `Ти — експертний AI-наставник рівня Tony Robbins. 
+    // Отримуємо історію діалогів для контексту
+    const conversationHistory = await conversationService.getAIConversationHistory(tgId, 3);
     
-Принципи:
-- Говори з позиції "ти вже маєш силу всередині"
-- Конкретні мікро-дії, не загальні поради
-- До 150 слів
-- Підтримуючий тон
-- Українською мовою
-
-Формат відповіді:
-🎯 [інсайт про ситуацію]
-💡 [конкретні дії]
-✨ [мотиваційне закриття]`;
-
-    const prompt = `Користувач: ${user['User Name'] || 'Користувач'}
-Питання: "${question}"
-
-Дай персональну підтримуючу відповідь з конкретними діями.`;
+    // Отримуємо дані користувача для персоналізації
+    const userName = user['User Name'] || 'Користувач';
+    
+    // Формуємо системний промпт
+    const systemPrompt = selectPrompt(contextType);
+    
+    // Формуємо користувацький промпт з контекстом
+    let userPrompt = `Користувач: ${userName}\nПитання: "${question}"`;
+    
+    // Додаємо контекст з попередніх діалогів
+    if (conversationHistory.length > 0) {
+      userPrompt += `\n\nКонтекст попередніх діалогів:\n`;
+      conversationHistory.forEach((conv, i) => {
+        userPrompt += `${i+1}. Питання: "${conv.question}"\n   Відповідь: "${conv.response.substring(0, 200)}..."\n`;
+      });
+    }
+    
+    userPrompt += `\n\nДай персоналізовану відповідь з конкретними діями в стилі "Очі в очі".`;
 
     console.log(`[AI MENTOR] Відправляємо запит до OpenAI`);
     
     const response = await chat([
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: prompt }
-    ], 'gpt-4o-mini', 300);
+      { role: 'user', content: userPrompt }
+    ], 'gpt-4o-mini', 400);
 
     if (!response?.trim()) {
       throw new Error('Порожня відповідь від OpenAI');
@@ -129,14 +152,17 @@ const generateAIResponse = async (question, user) => {
   } catch (error) {
     console.error('[AI MENTOR] Помилка OpenAI:', error);
 
-    // Fallback відповіді
-    const fallbacks = [
-      '🎯 Твоє питання показує силу духу.\n💡 Почни з одного маленького кроку вперед.\n✨ Ти знаєш відповідь, довіряй собі! ✨',
-      '🎯 Я бачу твою рішучість знайти рішення.\n💡 Зроби паузу, подихай і запиши одну ідею для дії.\n✨ Ти вже на правильному шляху! 💪',
-      '🎯 Твоя енергія всередині тебе!\n💡 Зроби 5-хвилинну прогулянку і подумай над одним кроком.\n✨ Ти сильніший, ніж думаєш! 🌟'
-    ];
+    // Fallback відповіді залежно від контексту
+    const contextFallbacks = {
+      [CONTEXT_TYPES.GOAL_SETTING]: '🎯 Твоє бажання ставити цілі показує силу.\n💡 Почни з однієї конкретної мети на тиждень.\n✨ Ти вже знаєш що робити - довіряй собі! ✨',
+      [CONTEXT_TYPES.MOTIVATION]: '💪 Твоя енергія всередині тебе!\n💡 Зроби 5-хвилинну прогулянку і подумай над одним кроком.\n✨ Ти сильніший, ніж думаєш! 🌟',
+      [CONTEXT_TYPES.MICRO_ACTIONS]: '🎯 Маленькі кроки ведуть до великих результатів.\n💡 Обери одну дію на 15 хвилин і зроби її зараз.\n✨ Дія створює впевненість! 💪',
+      [CONTEXT_TYPES.LIFE_BALANCE]: '⚖️ Баланс - це вибір пріоритетів.\n💡 Визнач одну сферу для фокусу на цьому тижні.\n✨ Ти маєш силу змінювати! 🌟',
+      [CONTEXT_TYPES.BLOCK_ANALYSIS]: '🔍 Розпізнавання блоку - це вже половина перемоги.\n💡 Зроби один маленький крок всупереч страху.\n✨ Твоя сміливість зростає з кожною дією! ⚡',
+      [CONTEXT_TYPES.GENERAL]: '🎯 Твоє питання показує силу духу.\n💡 Почни з одного маленького кроку вперед.\n✨ Ти знаєш відповідь, довіряй собі! ✨'
+    };
 
-    return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${fallbacks[Math.floor(Math.random() * fallbacks.length)]}`;
+    return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${contextFallbacks[contextType] || contextFallbacks[CONTEXT_TYPES.GENERAL]}`;
   }
 };
 
@@ -148,14 +174,34 @@ const handleAIMentorCallback = async (ctx) => {
     console.log(`📱 [AI MENTOR] Callback: ${data} від ${tgId}`);
 
     if (data === 'ai_continue' || data === 'ai_start_question') {
-      await ctx.reply('💬 Напиши своє питання, і я дам персональну пораду!', keyboards.aiMentorControlKeyboard());
+      await ctx.reply('💬 Напиши своє питання, і я дам персональну пораду в стилі "Очі в очі"!', keyboards.aiMentorControlKeyboard());
       await ctx.answerCbQuery('Продовжуємо діалог');
 
     } else if (data === 'ai_exit') {
       aiMentorSession.end(tgId);
-      await ctx.reply('👋 Дякую за спілкування! Повертаємося до меню.', keyboards.mainMenuKeyboard());
+      await ctx.reply('👋 Дякую за спілкування! Пам\'ятай: дія - це мова проти страху.\n\nПовертаємося до меню.', keyboards.mainMenuKeyboard());
       await ctx.answerCbQuery('Вихід з AI-наставника');
       console.log(`🚪 [AI MENTOR] Користувач ${tgId} вийшов`);
+      
+    } else if (data === 'ai_report') {
+      // Генеруємо звіт діалогів
+      const report = await conversationService.generateAIConversationReport(tgId, 7);
+      await ctx.reply(report, keyboards.aiMentorControlKeyboard());
+      await ctx.answerCbQuery('Звіт згенеровано');
+      
+    } else if (data === 'ai_goals') {
+      // Спеціальний режим для роботи з цілями
+      await ctx.reply(
+        '🎯 РЕЖИМ РОБОТИ З ЦІЛЯМИ\n\n' +
+        'Розкажи про свою ціль, і я допоможу:\n' +
+        '• Сформулювати її чітко\n' +
+        '• Розбити на кроки\n' +
+        '• Створити план дій\n' +
+        '• Подолати блоки\n\n' +
+        'Опиши свою ціль 👇',
+        keyboards.aiMentorControlKeyboard()
+      );
+      await ctx.answerCbQuery('Режим цілей активовано');
       
     } else {
       console.log(`❓ [AI MENTOR] Невідомий callback: ${data}`);
@@ -173,4 +219,4 @@ export default {
   handleAIMentorRequest,
   handleAIMentorQuestion,
   handleAIMentorCallback
-}; 
+};
