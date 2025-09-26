@@ -1,4 +1,4 @@
-// src/config/database.js - ВИПРАВЛЕНО: БЕЗ REDIS
+// src/config/database.js - ОПТИМІЗОВАНО ДЛЯ СТАБІЛЬНОСТІ
 
 import Airtable from "airtable";
 import dotenv from "dotenv";
@@ -26,10 +26,17 @@ let cachedBase = null;
 export const getBase = () => {
   if (!cachedBase) {
     if (VERBOSE) console.log('[database.getBase] Створюємо новий інстанс Airtable');
+    
     cachedBase = new Airtable({ 
       apiKey: process.env.AIRTABLE_API_KEY,
       endpointUrl: 'https://api.airtable.com',
-      requestTimeout: 10000
+      requestTimeout: 60000, // Збільшуємо до 60 секунд
+      // Додаємо retry логіку
+      retry: {
+        attempts: 3,
+        delay: 1000,
+        exponentialDelay: true
+      }
     }).base(process.env.AIRTABLE_BASE_ID);
   }
   return cachedBase;
@@ -51,25 +58,58 @@ export const tables = Object.freeze({
   WHEEL_BALANCE: 'WheelBalance'
 });
 
-// Простий rate limiter без Redis
-let requestTimes = [];
-const rateLimitWindow = 1000; // 1 секунда
-const maxRequestsPerSecond = 5;
+// Оптимізований rate limiter
+let requestQueue = [];
+let isProcessing = false;
 
-const simpleRateLimit = async () => {
-  const now = Date.now();
-  // Очищуємо старі запити
-  requestTimes = requestTimes.filter(time => now - time < rateLimitWindow);
+const RATE_LIMIT = {
+  requests: 5,        // Зменшуємо до 5 запитів
+  window: 1000,       // за 1 секунду  
+  delay: 300          // Збільшуємо затримку між запитами
+};
+
+const processQueue = async () => {
+  if (isProcessing || requestQueue.length === 0) return;
   
-  if (requestTimes.length >= maxRequestsPerSecond) {
-    const oldestRequest = Math.min(...requestTimes);
-    const waitTime = rateLimitWindow - (now - oldestRequest);
-    if (waitTime > 0) {
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+  isProcessing = true;
+  
+  while (requestQueue.length > 0) {
+    const { operation, resolve, reject, timestamp } = requestQueue.shift();
+    
+    try {
+      // Перевіряємо чи не застарів запит (більше 2 хвилин)
+      if (Date.now() - timestamp > 120000) {
+        reject(new Error('Request timeout - removed from queue'));
+        continue;
+      }
+      
+      const result = await operation();
+      resolve(result);
+      
+      // Затримка між запитами
+      if (requestQueue.length > 0) {
+        await new Promise(r => setTimeout(r, RATE_LIMIT.delay));
+      }
+      
+    } catch (error) {
+      reject(error);
     }
   }
   
-  requestTimes.push(now);
+  isProcessing = false;
+};
+
+const queueOperation = (operation) => {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({
+      operation,
+      resolve,
+      reject,
+      timestamp: Date.now()
+    });
+    
+    processQueue();
+  });
 };
 
 // Логування помилок Airtable
@@ -83,13 +123,19 @@ const logAirtableError = (prefix, error) => {
   console.error(`${prefix} ❌`, JSON.stringify(payload, null, 2));
 };
 
-// Операція з rate limiting
+// Операція з rate limiting та чергою
 const rateLimitedOperation = async (operation, tag = 'op') => {
   try {
-    await simpleRateLimit();
-    return await operation();
+    return await queueOperation(async () => {
+      try {
+        return await operation();
+      } catch (error) {
+        logAirtableError(`[rateLimitedOperation:${tag}]`, error);
+        throw error;
+      }
+    });
   } catch (error) {
-    logAirtableError(`[rateLimitedOperation:${tag}]`, error);
+    logAirtableError(`[queueOperation:${tag}]`, error);
     throw error;
   }
 };
@@ -100,12 +146,8 @@ export const selectFromTable = (tableName, opts = {}) => {
     console.log(`[database.selectFromTable] Таблиця: ${tableKey}`);
     console.log(`[database.selectFromTable] Опції:`, JSON.stringify(opts, null, 2));
   }
-  try {
-    return rateLimitedOperation(() => getBase()(tableKey).select(opts));
-  } catch (error) {
-    logAirtableError(`[database.selectFromTable:${tableKey}]`, error);
-    throw error;
-  }
+  
+  return rateLimitedOperation(() => getBase()(tableKey).select(opts), `select_${tableKey}`);
 };
 
 export const createRows = async (tableName, rows) => {
@@ -113,22 +155,33 @@ export const createRows = async (tableName, rows) => {
   if (VERBOSE) {
     console.log(`[database.createRows] Таблиця: ${tableKey}, Рядків: ${rows.length}`);
   }
+  
   try {
     // Батчинг: до 10 рядків за запит
     const batches = [];
     for (let i = 0; i < rows.length; i += 10) {
       batches.push(rows.slice(i, i + 10));
     }
+    
     const results = [];
     for (const batch of batches) {
-      const res = await rateLimitedOperation(() => getBase()(tableKey).create(batch, { typecast: true }));
+      const res = await rateLimitedOperation(
+        () => getBase()(tableKey).create(batch, { typecast: true }),
+        `create_${tableKey}`
+      );
       results.push(...res);
-      if (batches.length > 1) await new Promise(r => setTimeout(r, 200));
+      
+      // Затримка між батчами
+      if (batches.length > 1 && batch !== batches[batches.length - 1]) {
+        await new Promise(r => setTimeout(r, 500));
+      }
     }
+    
     if (VERBOSE) {
       console.log(`[database.createRows] ✅ Створено ${results.length} запис(и)`);
     }
     return results;
+    
   } catch (error) {
     logAirtableError(`[database.createRows:${tableKey}]`, error);
     throw error;
@@ -140,21 +193,31 @@ export const updateRows = async (tableName, rows) => {
   if (VERBOSE) {
     console.log(`[database.updateRows] Таблиця: ${tableKey}, Рядків: ${rows.length}`);
   }
+  
   try {
     const batches = [];
     for (let i = 0; i < rows.length; i += 10) {
       batches.push(rows.slice(i, i + 10));
     }
+    
     const results = [];
     for (const batch of batches) {
-      const res = await rateLimitedOperation(() => getBase()(tableKey).update(batch, { typecast: true }));
+      const res = await rateLimitedOperation(
+        () => getBase()(tableKey).update(batch, { typecast: true }),
+        `update_${tableKey}`
+      );
       results.push(...res);
-      if (batches.length > 1) await new Promise(r => setTimeout(r, 200));
+      
+      if (batches.length > 1 && batch !== batches[batches.length - 1]) {
+        await new Promise(r => setTimeout(r, 500));
+      }
     }
+    
     if (VERBOSE) {
       console.log(`[database.updateRows] ✅ Оновлено ${results.length} запис(и)`);
     }
     return results;
+    
   } catch (error) {
     logAirtableError(`[database.updateRows:${tableKey}]`, error);
     throw error;
@@ -164,11 +227,15 @@ export const updateRows = async (tableName, rows) => {
 export const testConnection = async () => {
   try {
     console.log('[database.testConnection] 🧪 Тестування з\'єднання з Airtable...');
-    const testBase = getBase();
+    
+    const testOperation = async () => {
+      const testBase = getBase();
+      return await testBase('Users')
+        .select({ maxRecords: 1 })
+        .firstPage();
+    };
 
-    const page = await testBase('Users')
-      .select({ maxRecords: 1 })
-      .firstPage();
+    const page = await rateLimitedOperation(testOperation, 'test_connection');
 
     console.log('[database.testConnection] ✅ З\'єднання успішне!');
     console.log(`[database.testConnection] 📊 Таблиця Users: ${page.length > 0 ? 'містить записи' : 'порожня'}`);
@@ -180,6 +247,7 @@ export const testConnection = async () => {
       statusCode: error.statusCode,
       type: error.type
     });
+    
     if (error.statusCode === 401) return { success: false, error: 'invalid_api_key' };
     if (error.statusCode === 404) return { success: false, error: 'not_found' };
     if (error.statusCode === 403) return { success: false, error: 'access_denied' };
@@ -187,22 +255,31 @@ export const testConnection = async () => {
   }
 };
 
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('[database] 🛑 Зупинка обробки черги...');
+  requestQueue = [];
+  isProcessing = false;
+});
+
 const initializeDatabase = async () => {
   console.log('🚀 [database] Ініціалізація бази даних...');
   try {
     const testResult = await testConnection();
     if (testResult.success) {
       console.log('✅ [database] База даних готова до роботи');
+      console.log(`📊 [database] Rate limit: ${RATE_LIMIT.requests}/${RATE_LIMIT.window}ms, затримка: ${RATE_LIMIT.delay}ms`);
     } else {
       console.error('❌ [database] Проблема з базою:', testResult.error);
-      console.warn('⚠️ [database] Продовжуємо роботу');
+      console.warn('⚠️ [database] Продовжуємо роботу з обмеженим функціоналом');
     }
   } catch (error) {
     console.error('❌ [database] Критична помилка ініціалізації:', error);
-    console.warn('⚠️ [database] Продовжуємо без тестування');
+    console.warn('⚠️ [database] Продовжуємо без тестування - база може бути недоступна');
   }
 };
 
+// Ініціалізуємо при завантаженні модуля
 initializeDatabase();
 
 export default getBase();
