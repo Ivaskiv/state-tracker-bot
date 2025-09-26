@@ -1,35 +1,47 @@
-// src/config/database.js - ОПТИМІЗОВАНА КОНФІГУРАЦІЯ БАЗИ ДАНИХ
+// src/config/database.js - ОПТИМІЗОВАНО ДЛЯ СТАБІЛЬНОСТІ
 
 import Airtable from "airtable";
-import NodeCache from 'node-cache';
+import dotenv from "dotenv";
+dotenv.config();
 
 // Перевірка ENV
-const requiredEnvVars = {
-  'AIRTABLE_API_KEY': process.env.AIRTABLE_API_KEY,
-  'AIRTABLE_BASE_ID': process.env.AIRTABLE_BASE_ID
-};
-
-for (const [key, value] of Object.entries(requiredEnvVars)) {
-  if (!value) {
-    console.error(`❌ ${key} не встановлено в .env файлі!`);
-    process.exit(1);
-  }
+if (!process.env.AIRTABLE_API_KEY) {
+  console.error('❌ AIRTABLE_API_KEY не встановлено в .env файлі!');
+  process.exit(1);
+}
+if (!process.env.AIRTABLE_BASE_ID) {
+  console.error('❌ AIRTABLE_BASE_ID не встановлено в .env файлі!');
+  process.exit(1);
 }
 
 const VERBOSE = process.env.AIRTABLE_VERBOSE === '1';
 
-console.log('🔗 [DATABASE] Ініціалізація Airtable...');
-console.log(`📋 [DATABASE] BASE_ID: ${process.env.AIRTABLE_BASE_ID}`);
-console.log(`🔑 [DATABASE] API_KEY: ${process.env.AIRTABLE_API_KEY.substring(0, 10)}...`);
+console.log('🔗 [database] Ініціалізація Airtable...');
+console.log(`📋 [database] BASE_ID: ${process.env.AIRTABLE_BASE_ID}`);
+console.log(`🔑 [database] API_KEY: ${process.env.AIRTABLE_API_KEY.substring(0, 10)}...`);
 
-// ===== КЕШ =====
-const requestCache = new NodeCache({ 
-  stdTTL: 300, // 5 хвилин
-  checkperiod: 60,
-  maxKeys: 1000 
-});
+// Кешуємо інстанс base
+let cachedBase = null;
 
-// ===== ТАБЛИЦІ =====
+export const getBase = () => {
+  if (!cachedBase) {
+    if (VERBOSE) console.log('[database.getBase] Створюємо новий інстанс Airtable');
+    
+    cachedBase = new Airtable({ 
+      apiKey: process.env.AIRTABLE_API_KEY,
+      endpointUrl: 'https://api.airtable.com',
+      requestTimeout: 60000, // Збільшуємо до 60 секунд
+      // Додаємо retry логіку
+      retry: {
+        attempts: 3,
+        delay: 1000,
+        exponentialDelay: true
+      }
+    }).base(process.env.AIRTABLE_BASE_ID);
+  }
+  return cachedBase;
+};
+
 export const tables = Object.freeze({
   USERS: 'Users',
   SUBSCRIPTIONS: 'Subscriptions', 
@@ -46,326 +58,228 @@ export const tables = Object.freeze({
   WHEEL_BALANCE: 'WheelBalance'
 });
 
-// ===== RATE LIMITER =====
-class SimpleRateLimiter {
-  constructor(requestsPerSecond = 4) {
-    this.requestsPerSecond = requestsPerSecond;
-    this.requestTimes = [];
-    this.queue = [];
-    this.isProcessing = false;
-  }
+// Оптимізований rate limiter
+let requestQueue = [];
+let isProcessing = false;
 
-  async execute(operation, tag = 'operation') {
-    return new Promise((resolve, reject) => {
-      this.queue.push({ operation, resolve, reject, tag, timestamp: Date.now() });
-      this.processQueue();
-    });
-  }
+const RATE_LIMIT = {
+  requests: 5,        // Зменшуємо до 5 запитів
+  window: 1000,       // за 1 секунду  
+  delay: 300          // Збільшуємо затримку між запитами
+};
 
-  async processQueue() {
-    if (this.isProcessing || this.queue.length === 0) return;
+const processQueue = async () => {
+  if (isProcessing || requestQueue.length === 0) return;
+  
+  isProcessing = true;
+  
+  while (requestQueue.length > 0) {
+    const { operation, resolve, reject, timestamp } = requestQueue.shift();
     
-    this.isProcessing = true;
-
-    while (this.queue.length > 0) {
-      const { operation, resolve, reject, tag, timestamp } = this.queue.shift();
-      
-      // Видаляємо застарілі запити (більше 2 хвилин)
+    try {
+      // Перевіряємо чи не застарів запит (більше 2 хвилин)
       if (Date.now() - timestamp > 120000) {
         reject(new Error('Request timeout - removed from queue'));
         continue;
       }
-
-      try {
-        // Rate limiting
-        await this.waitForSlot();
-        
-        // Виконуємо операцію
-        const result = await operation();
-        resolve(result);
-        
-        if (VERBOSE) console.log(`[DATABASE] ✅ ${tag} completed`);
-        
-      } catch (error) {
-        console.error(`[DATABASE] ❌ ${tag} failed:`, {
-          message: error.message,
-          statusCode: error.statusCode
-        });
-        reject(error);
-      }
-    }
-
-    this.isProcessing = false;
-  }
-
-  async waitForSlot() {
-    const now = Date.now();
-    const windowMs = 1000; // 1 секунда
-    
-    // Очищаємо старі запити
-    this.requestTimes = this.requestTimes.filter(time => now - time < windowMs);
-    
-    // Чекаємо якщо перевищено ліміт
-    if (this.requestTimes.length >= this.requestsPerSecond) {
-      const waitTime = Math.max(0, windowMs - (now - this.requestTimes[0])) + 100;
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      return this.waitForSlot(); // Рекурсивно перевіряємо знову
-    }
-    
-    this.requestTimes.push(now);
-  }
-}
-
-// ===== ГОЛОВНИЙ КЛАС БАЗИ ДАНИХ =====
-class Database {
-  constructor() {
-    this.base = null;
-    this.rateLimiter = new SimpleRateLimiter(4); // 4 запити/сек
-    this.connectionTested = false;
-    this.initializeBase();
-  }
-
-  initializeBase() {
-    try {
-      this.base = new Airtable({ 
-        apiKey: process.env.AIRTABLE_API_KEY,
-        endpointUrl: 'https://api.airtable.com',
-        requestTimeout: 30000, // 30 секунд
-      }).base(process.env.AIRTABLE_BASE_ID);
       
-      console.log('✅ [DATABASE] Airtable base ініціалізовано');
+      const result = await operation();
+      resolve(result);
+      
+      // Затримка між запитами
+      if (requestQueue.length > 0) {
+        await new Promise(r => setTimeout(r, RATE_LIMIT.delay));
+      }
+      
     } catch (error) {
-      console.error('❌ [DATABASE] Помилка ініціалізації:', error);
-      throw error;
+      reject(error);
     }
   }
+  
+  isProcessing = false;
+};
 
-  getBase() {
-    if (!this.base) {
-      this.initializeBase();
-    }
-    return this.base;
+const queueOperation = (operation) => {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({
+      operation,
+      resolve,
+      reject,
+      timestamp: Date.now()
+    });
+    
+    processQueue();
+  });
+};
+
+// Логування помилок Airtable
+const logAirtableError = (prefix, error) => {
+  const payload = {
+    message: error?.message,
+    statusCode: error?.statusCode,
+    type: error?.error?.type,
+    requestId: error?.error?.requestId
+  };
+  console.error(`${prefix} ❌`, JSON.stringify(payload, null, 2));
+};
+
+// Операція з rate limiting та чергою
+const rateLimitedOperation = async (operation, tag = 'op') => {
+  try {
+    return await queueOperation(async () => {
+      try {
+        return await operation();
+      } catch (error) {
+        logAirtableError(`[rateLimitedOperation:${tag}]`, error);
+        throw error;
+      }
+    });
+  } catch (error) {
+    logAirtableError(`[queueOperation:${tag}]`, error);
+    throw error;
   }
+};
 
-  // Виконання операції з rate limiting
-  async execute(operation, tag = 'operation') {
-    return await this.rateLimiter.execute(operation, tag);
+export const selectFromTable = (tableName, opts = {}) => {
+  const tableKey = tables[tableName] || tableName;
+  if (VERBOSE) {
+    console.log(`[database.selectFromTable] Таблиця: ${tableKey}`);
+    console.log(`[database.selectFromTable] Опції:`, JSON.stringify(opts, null, 2));
   }
+  
+  return rateLimitedOperation(() => getBase()(tableKey).select(opts), `select_${tableKey}`);
+};
 
-  // SELECT операція з кешуванням
-  async select(tableName, options = {}, useCache = true) {
-    const cacheKey = `select_${tableName}_${JSON.stringify(options)}`;
-    
-    if (useCache && requestCache.has(cacheKey)) {
-      if (VERBOSE) console.log(`[DATABASE] 🎯 Cache hit: ${cacheKey}`);
-      return requestCache.get(cacheKey);
-    }
-
-    const tableKey = tables[tableName] || tableName;
-    
-    const operation = async () => {
-      return await this.getBase()(tableKey).select(options).all();
-    };
-
-    const result = await this.execute(operation, `select_${tableKey}`);
-    
-    if (useCache && result.length > 0) {
-      requestCache.set(cacheKey, result, 300); // 5 хвилин кеш
-    }
-    
-    return result;
+export const createRows = async (tableName, rows) => {
+  const tableKey = tables[tableName] || tableName;
+  if (VERBOSE) {
+    console.log(`[database.createRows] Таблиця: ${tableKey}, Рядків: ${rows.length}`);
   }
-
-  // CREATE операція
-  async create(tableName, records) {
-    const tableKey = tables[tableName] || tableName;
-    
-    // Батчинг: до 10 записів за раз
+  
+  try {
+    // Батчинг: до 10 рядків за запит
     const batches = [];
-    const recordsArray = Array.isArray(records) ? records : [records];
-    
-    for (let i = 0; i < recordsArray.length; i += 10) {
-      batches.push(recordsArray.slice(i, i + 10));
+    for (let i = 0; i < rows.length; i += 10) {
+      batches.push(rows.slice(i, i + 10));
     }
-
-    const results = [];
     
+    const results = [];
     for (const batch of batches) {
-      const operation = async () => {
-        return await this.getBase()(tableKey).create(batch, { typecast: true });
-      };
-
-      const batchResults = await this.execute(operation, `create_${tableKey}`);
-      results.push(...batchResults);
+      const res = await rateLimitedOperation(
+        () => getBase()(tableKey).create(batch, { typecast: true }),
+        `create_${tableKey}`
+      );
+      results.push(...res);
       
       // Затримка між батчами
-      if (batches.length > 1) {
-        await new Promise(r => setTimeout(r, 200));
+      if (batches.length > 1 && batch !== batches[batches.length - 1]) {
+        await new Promise(r => setTimeout(r, 500));
       }
     }
-
-    // Очищаємо кеш для цієї таблиці
-    this.clearTableCache(tableName);
     
+    if (VERBOSE) {
+      console.log(`[database.createRows] ✅ Створено ${results.length} запис(и)`);
+    }
     return results;
-  }
-
-  // UPDATE операція
-  async update(tableName, updates) {
-    const tableKey = tables[tableName] || tableName;
     
+  } catch (error) {
+    logAirtableError(`[database.createRows:${tableKey}]`, error);
+    throw error;
+  }
+};
+
+export const updateRows = async (tableName, rows) => {
+  const tableKey = tables[tableName] || tableName;
+  if (VERBOSE) {
+    console.log(`[database.updateRows] Таблиця: ${tableKey}, Рядків: ${rows.length}`);
+  }
+  
+  try {
     const batches = [];
-    const updatesArray = Array.isArray(updates) ? updates : [updates];
-    
-    for (let i = 0; i < updatesArray.length; i += 10) {
-      batches.push(updatesArray.slice(i, i + 10));
+    for (let i = 0; i < rows.length; i += 10) {
+      batches.push(rows.slice(i, i + 10));
     }
-
-    const results = [];
     
+    const results = [];
     for (const batch of batches) {
-      const operation = async () => {
-        return await this.getBase()(tableKey).update(batch, { typecast: true });
-      };
-
-      const batchResults = await this.execute(operation, `update_${tableKey}`);
-      results.push(...batchResults);
+      const res = await rateLimitedOperation(
+        () => getBase()(tableKey).update(batch, { typecast: true }),
+        `update_${tableKey}`
+      );
+      results.push(...res);
       
-      if (batches.length > 1) {
-        await new Promise(r => setTimeout(r, 200));
+      if (batches.length > 1 && batch !== batches[batches.length - 1]) {
+        await new Promise(r => setTimeout(r, 500));
       }
     }
-
-    // Очищаємо кеш
-    this.clearTableCache(tableName);
     
+    if (VERBOSE) {
+      console.log(`[database.updateRows] ✅ Оновлено ${results.length} запис(и)`);
+    }
     return results;
-  }
-
-  // Знайти запис за ID
-  async find(tableName, recordId) {
-    const tableKey = tables[tableName] || tableName;
     
-    const operation = async () => {
-      return await this.getBase()(tableKey).find(recordId);
+  } catch (error) {
+    logAirtableError(`[database.updateRows:${tableKey}]`, error);
+    throw error;
+  }
+};
+
+export const testConnection = async () => {
+  try {
+    console.log('[database.testConnection] 🧪 Тестування з\'єднання з Airtable...');
+    
+    const testOperation = async () => {
+      const testBase = getBase();
+      return await testBase('Users')
+        .select({ maxRecords: 1 })
+        .firstPage();
     };
 
-    return await this.execute(operation, `find_${tableKey}`);
-  }
+    const page = await rateLimitedOperation(testOperation, 'test_connection');
 
-  // Очистити кеш для таблиці
-  clearTableCache(tableName) {
-    const keys = requestCache.keys();
-    const tableKeys = keys.filter(key => key.startsWith(`select_${tableName}`));
+    console.log('[database.testConnection] ✅ З\'єднання успішне!');
+    console.log(`[database.testConnection] 📊 Таблиця Users: ${page.length > 0 ? 'містить записи' : 'порожня'}`);
+
+    return { success: true, records: page.length, message: 'OK' };
+  } catch (error) {
+    console.error('[database.testConnection] ❌ Помилка з\'єднання:', {
+      message: error.message,
+      statusCode: error.statusCode,
+      type: error.type
+    });
     
-    for (const key of tableKeys) {
-      requestCache.del(key);
-    }
-    
-    if (VERBOSE && tableKeys.length > 0) {
-      console.log(`[DATABASE] 🧹 Очищено ${tableKeys.length} кеш записів для ${tableName}`);
-    }
+    if (error.statusCode === 401) return { success: false, error: 'invalid_api_key' };
+    if (error.statusCode === 404) return { success: false, error: 'not_found' };
+    if (error.statusCode === 403) return { success: false, error: 'access_denied' };
+    return { success: false, error: error.message };
   }
-
-  // Очистити весь кеш
-  clearCache() {
-    requestCache.flushAll();
-    console.log('[DATABASE] 🧹 Весь кеш очищено');
-  }
-
-  // Тестування з'єднання
-  async testConnection() {
-    try {
-      console.log('[DATABASE] 🧪 Тестування з\'єднання...');
-      
-      const operation = async () => {
-        return await this.getBase()('Users')
-          .select({ maxRecords: 1 })
-          .firstPage();
-      };
-
-      const records = await this.execute(operation, 'test_connection');
-
-      this.connectionTested = true;
-      console.log('[DATABASE] ✅ З\'єднання успішне!');
-      console.log(`[DATABASE] 📊 Таблиця Users: ${records.length > 0 ? 'містить записи' : 'порожня'}`);
-
-      return { 
-        success: true, 
-        records: records.length, 
-        message: 'Connection successful' 
-      };
-      
-    } catch (error) {
-      console.error('[DATABASE] ❌ Помилка з\'єднання:', {
-        message: error.message,
-        statusCode: error.statusCode
-      });
-      
-      const errorMap = {
-        401: 'invalid_api_key',
-        404: 'table_not_found', 
-        403: 'access_denied',
-        422: 'invalid_request'
-      };
-      
-      return { 
-        success: false, 
-        error: errorMap[error.statusCode] || error.message 
-      };
-    }
-  }
-
-  // Статистика
-  getStats() {
-    return {
-      cacheStats: requestCache.getStats(),
-      queueLength: this.rateLimiter.queue.length,
-      connectionTested: this.connectionTested
-    };
-  }
-}
-
-// ===== ЕКСПОРТ =====
-const database = new Database();
-
-export const getBase = () => database.getBase();
-export const testConnection = () => database.testConnection();
-export const clearCache = () => database.clearCache();
-export const getDatabaseStats = () => database.getStats();
-
-// Простіші функції для зручності
-export const selectFromTable = async (tableName, options = {}) => {
-  return await database.select(tableName, options);
-};
-
-export const createRows = async (tableName, records) => {
-  return await database.create(tableName, records);
-};
-
-export const updateRows = async (tableName, updates) => {
-  return await database.update(tableName, updates);
-};
-
-export const findRecord = async (tableName, recordId) => {
-  return await database.find(tableName, recordId);
 };
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('[DATABASE] 🛑 Зупинка обробки черги...');
-  database.rateLimiter.queue = [];
+  console.log('[database] 🛑 Зупинка обробки черги...');
+  requestQueue = [];
+  isProcessing = false;
 });
 
-// Автоматичне тестування при ініціалізації
-setTimeout(async () => {
+const initializeDatabase = async () => {
+  console.log('🚀 [database] Ініціалізація бази даних...');
   try {
-    await database.testConnection();
+    const testResult = await testConnection();
+    if (testResult.success) {
+      console.log('✅ [database] База даних готова до роботи');
+      console.log(`📊 [database] Rate limit: ${RATE_LIMIT.requests}/${RATE_LIMIT.window}ms, затримка: ${RATE_LIMIT.delay}ms`);
+    } else {
+      console.error('❌ [database] Проблема з базою:', testResult.error);
+      console.warn('⚠️ [database] Продовжуємо роботу з обмеженим функціоналом');
+    }
   } catch (error) {
-    console.warn('[DATABASE] ⚠️ Автоматичне тестування не вдалося');
+    console.error('❌ [database] Критична помилка ініціалізації:', error);
+    console.warn('⚠️ [database] Продовжуємо без тестування - база може бути недоступна');
   }
-}, 2000);
+};
 
-console.log('[DATABASE] ✅ Database модуль готовий');
+// Ініціалізуємо при завантаженні модуля
+initializeDatabase();
 
-export default database;
+export default getBase();

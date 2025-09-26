@@ -9,6 +9,7 @@ import wheelController from './wheelController.js';
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
 import subscriptionController from '../subscriptionController.js';
 import reportService from '../../services/reportService.js';
+import sessionHandler from '../handlers/sessionHandler.js';
 
 const mainFlowController = {
   
@@ -54,6 +55,11 @@ const mainFlowController = {
       }
 
       // СЦЕНАРІЙ 4: Перевіряємо перше колесо балансу
+      const activeSession = await sessionHandler.isActiveSession(tgId);
+if (activeSession) {
+  await sessionHandler.handleBlockedMenu(ctx);
+  return;
+}
       const hasWheel = await this.checkFirstWheel(tgId);
       console.log(`[MAIN FLOW] 🎯 Перше колесо для ${tgId}: ${hasWheel ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО'}`);
 
@@ -63,6 +69,10 @@ const mainFlowController = {
       }
 
       // СЦЕНАРІЙ 5: Все готово - головне меню
+      if (!user || !user.UserRegistered) {
+  await ctx.reply('Потрібно завершити реєстрацію /start');
+  return;
+}
       console.log(`[MAIN FLOW] ✅ Все готово для ${tgId} - показуємо головне меню`);
       await this.showMainMenu(ctx, user);
 
@@ -236,28 +246,29 @@ const mainFlowController = {
     });
   },
 
-  async showFirstWheel(ctx, user) {
-    const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
-    
-    const message = 
-      `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
-      `Привіт, ${userName}! 👋\n\n` +
-      `Щоб персоналізувати AI-наставника, заповн перше колесо балансу.\n\n` +
-      `📊 Оцініш 8 сфер життя (5-10 хв)\n` +
-      `🎯 Отримаєш персональні рекомендації\n\n` +
-      `Готова почати?`;
+async showFirstWheel(ctx, user) {
+  const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
+  
+  const message = 
+    `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
+    `Привіт, ${userName}! 👋\n\n` +
+    `Ми радимо почати саме з колеса балансу 🌀\n` +
+    `Це допоможе AI-наставнику дати тобі максимально ` +
+    `персоналізовані підказки та рекомендації.\n\n` +
+    `📊 Тобі потрібно оцінити 8 сфер життя (5–10 хв).\n` +
+    `🎯 У результаті отримаєш інсайти та план дій.\n\n` +
+    `Готова почати?`;
 
-    await ctx.reply(message, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' }],
-          [{ text: '❓ Що це таке?', callback_data: 'wheel_info' }],
-          [{ text: '⏭ Пізніше', callback_data: 'main_menu' }]
-        ]
-      }
-    });
-  },
-
+  await ctx.reply(message, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' }],
+        [{ text: '❓ Що це таке?', callback_data: 'wheel_info' }],
+        [{ text: '⏭ Пізніше', callback_data: 'main_menu' }]
+      ]
+    }
+  });
+},
   async showMainMenu(ctx, user) {
     const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
     const status = user?.['Active_Subscription_Status'] || '✅ Активна';

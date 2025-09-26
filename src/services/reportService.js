@@ -85,3 +85,12 @@ export async function saveReportToAirtable(base, { tgId, userName, period, repor
   }]);
   return rec?.id;
 }
+
+
+// 👇 ДОДАЙ ЦЕ
+const reportService = {
+  generateReport,
+  sendReport,
+  saveReportToAirtable
+};
+export default reportService;

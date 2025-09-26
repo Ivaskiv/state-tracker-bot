@@ -1,4 +1,4 @@
-// server.js - ОПТИМІЗОВАНИЙ СЕРВЕР З ПОВНОЮ ЛОГІКОЮ
+// server.js - ОПТИМІЗОВАНИЙ СЕРВЕР З ПОВНОЮ ЛОГІКОЮ (clean)
 
 import express from 'express';
 import dotenv from 'dotenv';
@@ -11,7 +11,7 @@ dotenv.config();
 // Перевіряємо критичні змінні
 const requiredEnvVars = [
   'TELEGRAM_BOT_TOKEN',
-  'AIRTABLE_API_KEY', 
+  'AIRTABLE_API_KEY',
   'AIRTABLE_BASE_ID',
   'OPENAI_API_KEY'
 ];
@@ -25,10 +25,10 @@ for (const envVar of requiredEnvVars) {
 
 console.log('✅ [SERVER] Всі змінні оточення готові');
 
-// Імпортуємо модулі після налаштування env
+// Імпорти після env
 import botController from './src/controllers/botController.js';
 import wayforpayService from './src/services/wayforpayService.js';
-import paymentService from './src/auth/services/paymentService.js';
+import paymentService, { setNotifier } from './src/auth/services/paymentService.js';
 import { startScheduler } from './src/utils/scheduler.js';
 import { testConnection } from './src/config/database.js';
 
@@ -45,6 +45,9 @@ process.env.TZ = 'Europe/Kyiv';
 const bot = new Telegraf(TOKEN, {
   handlerTimeout: 90000 // 90 секунд timeout для handlers
 });
+
+// Підключаємо notifier до paymentService (без циклічних імпортів)
+setNotifier((tgId, text, extra) => bot.telegram.sendMessage(tgId, text, extra));
 
 // Ініціалізуємо session middleware
 bot.use(session({
@@ -65,12 +68,9 @@ bot.catch(async (err, ctx) => {
     update: ctx.update?.message?.text || ctx.update?.callback_query?.data,
     user: ctx.from?.id
   });
-  
   try {
     await ctx.reply('❌ Виникла технічна помилка. Спробуй /start');
-  } catch (replyError) {
-    console.error('❌ Не вдалося надіслати повідомлення про помилку');
-  }
+  } catch {}
 });
 
 // Підключаємо контролери бота
@@ -86,12 +86,10 @@ try {
 // Express сервер
 const app = express();
 
-// Налаштування middleware
-app.use(express.json({ 
+// Middleware
+app.use(express.json({
   limit: '10mb',
-  verify: (req, res, buf) => {
-    req.rawBody = buf.toString('utf8');
-  }
+  verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); }
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -104,20 +102,15 @@ if (MODE === 'local') {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(200);
-    } else {
-      next();
-    }
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
   });
 }
 
 // Health endpoint
 app.get('/health', async (req, res) => {
   try {
-    // Перевіряємо з'єднання з базою
     const dbStatus = await testConnection();
-    
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -136,47 +129,36 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Status endpoint для моніторингу
+// Status endpoint
 app.get('/status', (req, res) => {
-  const memoryUsage = process.memoryUsage();
-  const uptime = process.uptime();
-  
+  const m = process.memoryUsage();
   res.json({
-    uptime: Math.floor(uptime),
+    uptime: Math.floor(process.uptime()),
     memory: {
-      used: Math.round(memoryUsage.rss / 1024 / 1024) + ' MB',
-      heap: Math.round(memoryUsage.heapUsed / 1024 / 1024) + ' MB'
+      used: Math.round(m.rss / 1024 / 1024) + ' MB',
+      heap: Math.round(m.heapUsed / 1024 / 1024) + ' MB'
     },
     node_version: process.version,
     mode: MODE
   });
 });
 
-// WayForPay webhook endpoint з розширеною обробкою
+// WayForPay webhook
 app.post('/api/wayforpay/webhook', async (req, res) => {
   const startTime = Date.now();
-  
   try {
     console.log('[WEBHOOK] 🔔 WayForPay webhook отримано');
     console.log('[WEBHOOK] Headers:', JSON.stringify(req.headers, null, 2));
     console.log('[WEBHOOK] Body:', JSON.stringify(req.body, null, 2));
-    
-    // Обробляємо webhook
+
     const processed = wayforpayService.processWebhookData(req.body);
-    const result = await paymentService.handleWayForPayWebhook(processed);
-    
-    // Генеруємо відповідь
+    await paymentService.handleWayForPayWebhook(processed);
+
     const response = wayforpayService.generateWebhookResponse('accept');
-    
-    const processingTime = Date.now() - startTime;
-    console.log(`[WEBHOOK] ✅ Webhook оброблено за ${processingTime}ms`);
-    
+    console.log(`[WEBHOOK] ✅ Webhook оброблено за ${Date.now() - startTime}ms`);
     res.json(response);
-    
   } catch (error) {
-    const processingTime = Date.now() - startTime;
-    console.error(`[WEBHOOK] ❌ Помилка webhook за ${processingTime}ms:`, error);
-    
+    console.error(`[WEBHOOK] ❌ Помилка webhook за ${Date.now() - startTime}ms:`, error);
     const response = wayforpayService.generateWebhookResponse('decline');
     res.status(400).json(response);
   }
@@ -187,40 +169,27 @@ if (MODE === 'local') {
   app.post('/api/test/payment', async (req, res) => {
     try {
       const { tgId, planKey = 'MONTH' } = req.body;
-      
-      if (!tgId) {
-        return res.status(400).json({ error: 'tgId required' });
-      }
-      
-      // Симулюємо успішний платіж
-      const testWebhookData = {
-        merchantAccount: 'test_merchant',
-        orderReference: `TEST_${planKey}_${tgId}_${Date.now()}`,
-        amount: planKey === 'WEEK' ? 7 : planKey === 'MONTH' ? 30 : 300,
-        currency: 'EUR',
-        transactionStatus: 'Approved',
-        clientEmail: `test${tgId}@example.com`,
-        merchantSignature: 'test_signature'
-      };
-      
+      if (!tgId) return res.status(400).json({ error: 'tgId required' });
+
+      const amount = planKey === 'WEEK' ? 7 : planKey === 'MONTH' ? 30 : 300;
+      const duration = planKey === 'WEEK' ? 7 : planKey === 'MONTH' ? 30 : 365;
+
       const processed = {
         tgId: String(tgId),
-        orderReference: testWebhookData.orderReference,
+        orderReference: `TEST_${planKey}_${tgId}_${Date.now()}`,
         transactionStatus: 'Approved',
-        amount: testWebhookData.amount,
+        amount,
         currency: 'EUR',
-        email: testWebhookData.clientEmail,
+        email: `test${tgId}@example.com`,
         planName: `Тест ${planKey}`,
-        planKey: planKey,
-        planDuration: planKey === 'WEEK' ? 7 : planKey === 'MONTH' ? 30 : 365,
+        planKey,
+        planDuration: duration,
         startDate: new Date().toISOString(),
-        endDate: new Date(Date.now() + (planKey === 'WEEK' ? 7 : planKey === 'MONTH' ? 30 : 365) * 24 * 60 * 60 * 1000).toISOString()
+        endDate: new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString()
       };
-      
+
       await paymentService.handleWayForPayWebhook(processed);
-      
       res.json({ success: true, message: 'Test payment processed' });
-      
     } catch (error) {
       console.error('[TEST PAYMENT] Error:', error);
       res.status(500).json({ error: error.message });
@@ -231,7 +200,7 @@ if (MODE === 'local') {
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('[EXPRESS ERROR]', error);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Internal server error',
     timestamp: new Date().toISOString()
   });
@@ -239,7 +208,7 @@ app.use((error, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Not found',
     path: req.path,
     timestamp: new Date().toISOString()
@@ -251,69 +220,53 @@ const startBot = async () => {
   try {
     if (MODE === 'local') {
       console.log('🖥️ [SERVER] Local mode: long polling');
-      
-      // Очищаємо webhook перед запуском polling
       try {
         await bot.telegram.deleteWebhook({ drop_pending_updates: true });
         console.log('🧹 [SERVER] Webhook cleared');
       } catch (e) {
         console.warn('⚠️ [SERVER] deleteWebhook warn:', e?.message);
       }
-      
-      // Запускаємо polling
+
       await bot.launch({
         allowedUpdates: ['message', 'callback_query'],
         dropPendingUpdates: true,
-        polling: {
-          timeout: 30,
-          limit: 100
-        }
+        polling: { timeout: 30, limit: 100 }
       });
-      
       console.log('🤖 [SERVER] Bot polling запущено');
-      
-      // Запускаємо HTTP сервер
+
       app.listen(PORT, '0.0.0.0', () => {
         console.log(`🌐 [SERVER] HTTP server: http://localhost:${PORT}`);
         console.log(`🔗 [SERVER] Health check: http://localhost:${PORT}/health`);
         console.log(`📊 [SERVER] Status: http://localhost:${PORT}/status`);
       });
-      
+
     } else {
       console.log('🚀 [SERVER] Production mode: webhook');
-      
-      if (!WEBHOOK_BASE) {
-        throw new Error('WEBHOOK_URL не встановлено для production режиму');
-      }
-      
+
+      if (!WEBHOOK_BASE) throw new Error('WEBHOOK_URL не встановлено для production режиму');
+
       const webhookPath = `/webhook/${TOKEN}`;
       const webhookUrl = `${WEBHOOK_BASE}${webhookPath}`;
-      
-      // Налаштовуємо webhook endpoint
+
       app.use(webhookPath, bot.webhookCallback(webhookPath));
-      
-      // Запускаємо сервер
+
       app.listen(PORT, '0.0.0.0', async () => {
         console.log(`🚀 [SERVER] Production server на порт ${PORT}`);
-        
         try {
-          // Встановлюємо webhook
           await bot.telegram.setWebhook(webhookUrl, {
             allowed_updates: ['message', 'callback_query'],
             drop_pending_updates: true,
             max_connections: 100
           });
-          
           console.log(`✅ [SERVER] Webhook встановлено: ${webhookUrl}`);
-          
         } catch (error) {
           console.error('❌ [SERVER] setWebhook error:', error);
           process.exit(1);
         }
       });
     }
-    
-    // Запускаємо scheduler через 5 секунд після успішного запуску бота
+
+    // Scheduler
     setTimeout(async () => {
       try {
         await startScheduler(bot);
@@ -322,25 +275,22 @@ const startBot = async () => {
         console.error('❌ [SERVER] Scheduler помилка:', error);
       }
     }, 5000);
-    
-    // Тест з'єднання з базою
+
+    // DB test
     setTimeout(async () => {
       try {
         const dbTest = await testConnection();
-        if (dbTest.success) {
-          console.log('✅ [SERVER] Database connection успішний');
-        } else {
-          console.error('❌ [SERVER] Database connection помилка:', dbTest.error);
-        }
+        if (dbTest.success) console.log('✅ [SERVER] Database connection успішний');
+        else console.error('❌ [SERVER] Database connection помилка:', dbTest.error);
       } catch (error) {
         console.error('❌ [SERVER] Database test error:', error);
       }
     }, 3000);
-    
+
     console.log('✅ [SERVER] AI-наставник бот успішно запущено!');
     console.log(`📅 [SERVER] Mode: ${MODE}`);
     console.log(`🕐 [SERVER] Timezone: ${process.env.TZ}`);
-    
+
   } catch (error) {
     console.error('❌ [SERVER] Критична помилка запуску:', error);
     process.exit(1);
@@ -350,16 +300,11 @@ const startBot = async () => {
 // Graceful shutdown
 const gracefulShutdown = async (signal) => {
   console.log(`🛑 [SERVER] ${signal} отримано, зупинка...`);
-  
   try {
-    // Зупиняємо scheduler
     const { stopScheduler } = await import('./src/utils/scheduler.js');
-    stopScheduler();
-    
-    // Зупиняємо бота
+    stopScheduler?.();
     await bot.stop(signal);
     console.log('✅ [SERVER] Bot зупинено');
-    
   } catch (error) {
     console.error('❌ [SERVER] Помилка при зупинці:', error);
   } finally {
@@ -367,15 +312,9 @@ const gracefulShutdown = async (signal) => {
   }
 };
 
-// Обробники сигналів
 process.once('SIGINT', () => gracefulShutdown('SIGINT'));
 process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
-
-// Обробник необроблених помилок
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ [SERVER] Unhandled Rejection:', reason);
-});
-
+process.on('unhandledRejection', (reason) => console.error('❌ [SERVER] Unhandled Rejection:', reason));
 process.on('uncaughtException', (error) => {
   console.error('❌ [SERVER] Uncaught Exception:', error);
   process.exit(1);

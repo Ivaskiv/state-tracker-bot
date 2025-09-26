@@ -1,51 +1,12 @@
-// src/controllers/flows/dailyController.js - КОНТРОЛЕР ЩОДЕННИХ ПИТАНЬ
+// src/controllers/flows/dailyController.js - КОНТРОЛЕР ЩОДЕННИХ ПИТАНЬ (оновлено, питання з constants)
 
 import userService from '../../auth/services/userService.js';
 import responseService from '../../dialogue/services/responseService.js';
 import { chat } from '../../services/openaiClient.js';
 import keyboards from '../../utils/keyboards.js';
+import { QUESTIONS } from '../../config/constants.js';
 
-// Ранкові питання відповідно до ТЗ
-const MORNING_QUESTIONS = [
-  {
-    id: 6,
-    text: "Чому я гідна мати все це прямо зараз? Сильна відповідь із позиції самоцінності.",
-    field: 'Q_m_6',
-    example: "бо я вже достатня / цінна / варта"
-  }
-];
-
-// Вечірні питання відповідно до ТЗ
-const EVENING_QUESTIONS = [
-  {
-    id: 1,
-    text: "Що мене сьогодні наповнило енергією?",
-    field: 'Q_e_1'
-  },
-  {
-    id: 2,
-    text: "Де я сьогодні злила енергію чи втратила стан?",
-    field: 'Q_e_2'
-  },
-  {
-    id: 3,
-    text: "Яка програма або переконання активувалась сьогодні?",
-    field: 'Q_e_3',
-    example: "страх, 'мені не вийде', 'я не заслуговую'"
-  },
-  {
-    id: 4,
-    text: "З якої точки я діяла сьогодні: сили чи страху?",
-    field: 'Q_e_4'
-  },
-  {
-    id: 5,
-    text: "Яка моя головна перемога сьогодні?",
-    field: 'Q_e_5'
-  }
-];
-
-// Мотиваційні афірмації
+// Локальні афірмації (можна винести в constants, але це не конфліктує)
 const MORNING_AFFIRMATIONS = [
   "Моє бачення — мій вибір. Моя сила — в мені. Я вже йду своїм шляхом.",
   "Кожне рішення прокачує мою рішучість. Використовуй її щодня.",
@@ -63,17 +24,15 @@ const EVENING_AFFIRMATIONS = [
 ];
 
 const dailyController = {
-  
   // ===== ОБРОБКА ТЕКСТУ =====
   async handleText(ctx, text, userStep) {
     const tgId = ctx.from.id;
-    
     console.log(`[DAILY] 💬 Відповідь від ${tgId}, step: ${userStep}`);
-    
+
     try {
-      if (userStep.startsWith('Q_m_')) {
+      if (userStep?.startsWith('Q_m_')) {
         await this.handleMorningAnswer(ctx, text, userStep);
-      } else if (userStep.startsWith('Q_e_')) {
+      } else if (userStep?.startsWith('Q_e_')) {
         await this.handleEveningAnswer(ctx, text, userStep);
       }
       return true;
@@ -87,43 +46,34 @@ const dailyController = {
   // ===== ОБРОБКА CALLBACK =====
   async handleCallback(ctx, data) {
     const tgId = ctx.from.id;
-    
     console.log(`[DAILY] 📱 Callback: ${data}`);
-    
+
     try {
       switch (data) {
         case 'start_morning':
           await this.startMorningSession(ctx);
           break;
-          
         case 'start_evening':
           await this.startEveningSession(ctx);
           break;
-          
         case 'exit_morning':
           await this.exitSession(ctx, 'morning');
           break;
-          
         case 'exit_evening':
           await this.exitSession(ctx, 'evening');
           break;
-          
         case 'later_morning':
           await ctx.reply('🌞 Гарно! Ранкові питання будуть чекати на тебе.');
           await ctx.answerCbQuery('Відкладено');
           break;
-          
         case 'later_evening':
           await ctx.reply('🌙 Добре! Вечірні питання будуть доступні пізніше.');
           await ctx.answerCbQuery('Відкладено');
           break;
-          
         default:
           return false;
       }
-      
       return true;
-      
     } catch (error) {
       console.error('[DAILY] ❌ Помилка callback:', error);
       await ctx.answerCbQuery('Помилка');
@@ -158,7 +108,6 @@ const dailyController = {
       // Починаємо з першого питання
       await userService.updateUserStep(tgId, 'Q_m_1');
       await this.askMorningQuestion(ctx, 1);
-
     } catch (error) {
       console.error('[DAILY] ❌ Помилка startMorningSession:', error);
       await ctx.reply('❌ Помилка запуску ранкової сесії.');
@@ -192,23 +141,19 @@ const dailyController = {
       // Починаємо з першого питання
       await userService.updateUserStep(tgId, 'Q_e_1');
       await this.askEveningQuestion(ctx, 1);
-
     } catch (error) {
       console.error('[DAILY] ❌ Помилка startEveningSession:', error);
       await ctx.reply('❌ Помилка запуску вечірньої сесії.');
     }
   },
 
-  // ===== РАНКОВІ ПИТАННЯ =====
+  // ===== РАНКОВІ ПИТАННЯ (з QUESTIONS) =====
   async askMorningQuestion(ctx, questionNumber) {
-    const question = MORNING_QUESTIONS[questionNumber - 1];
-    if (!question) return;
+    const q = QUESTIONS.morning[questionNumber - 1];
+    if (!q) return;
 
-    let message = `🌞 РАНКОВА РЕФЛЕКСІЯ\n\n${question.id}/6 ${question.text}`;
-    
-    if (question.example) {
-      message += `\n\n💡 Приклад: ${question.example}`;
-    }
+    let message = `🌞 РАНКОВА РЕФЛЕКСІЯ\n\n${questionNumber}/${QUESTIONS.morning.length} ${q.text}`;
+    if (q.hint) message += `\n\n💡 Підказка: ${q.hint}`;
 
     await ctx.reply(message, {
       reply_markup: {
@@ -219,16 +164,13 @@ const dailyController = {
     });
   },
 
-  // ===== ВЕЧІРНІ ПИТАННЯ =====
+  // ===== ВЕЧІРНІ ПИТАННЯ (з QUESTIONS) =====
   async askEveningQuestion(ctx, questionNumber) {
-    const question = EVENING_QUESTIONS[questionNumber - 1];
-    if (!question) return;
+    const q = QUESTIONS.evening[questionNumber - 1];
+    if (!q) return;
 
-    let message = `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ\n\n${question.id}/5 ${question.text}`;
-    
-    if (question.example) {
-      message += `\n\n💡 Приклад: ${question.example}`;
-    }
+    let message = `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ\n\n${questionNumber}/${QUESTIONS.evening.length} ${q.text}`;
+    if (q.hint) message += `\n\n💡 Підказка: ${q.hint}`;
 
     await ctx.reply(message, {
       reply_markup: {
@@ -242,23 +184,19 @@ const dailyController = {
   // ===== ОБРОБКА РАНКОВИХ ВІДПОВІДЕЙ =====
   async handleMorningAnswer(ctx, text, userStep) {
     const tgId = ctx.from.id;
-    const questionNumber = parseInt(userStep.split('_')[2]);
-    
+    const questionNumber = parseInt(userStep.split('_')[2], 10);
+
     try {
-      // Зберігаємо відповідь
       await responseService.saveMorningAnswer(tgId, questionNumber, text);
       console.log(`[DAILY] 🌞 Збережено ранкову відповідь ${questionNumber} для ${tgId}`);
 
-      if (questionNumber < 6) {
-        // Переходимо до наступного питання
+      if (questionNumber < QUESTIONS.morning.length) {
         const nextStep = `Q_m_${questionNumber + 1}`;
         await userService.updateUserStep(tgId, nextStep);
         await this.askMorningQuestion(ctx, questionNumber + 1);
       } else {
-        // Завершуємо ранкову сесію
         await this.completeMorningSession(ctx);
       }
-
     } catch (error) {
       console.error('[DAILY] ❌ Помилка handleMorningAnswer:', error);
       await ctx.reply('❌ Помилка збереження відповіді. Спробуй ще раз.');
@@ -268,23 +206,19 @@ const dailyController = {
   // ===== ОБРОБКА ВЕЧІРНІХ ВІДПОВІДЕЙ =====
   async handleEveningAnswer(ctx, text, userStep) {
     const tgId = ctx.from.id;
-    const questionNumber = parseInt(userStep.split('_')[2]);
-    
+    const questionNumber = parseInt(userStep.split('_')[2], 10);
+
     try {
-      // Зберігаємо відповідь
       await responseService.saveEveningAnswer(tgId, questionNumber, text);
       console.log(`[DAILY] 🌙 Збережено вечірню відповідь ${questionNumber} для ${tgId}`);
 
-      if (questionNumber < 5) {
-        // Переходимо до наступного питання
+      if (questionNumber < QUESTIONS.evening.length) {
         const nextStep = `Q_e_${questionNumber + 1}`;
         await userService.updateUserStep(tgId, nextStep);
         await this.askEveningQuestion(ctx, questionNumber + 1);
       } else {
-        // Завершуємо вечірню сесію
         await this.completeEveningSession(ctx);
       }
-
     } catch (error) {
       console.error('[DAILY] ❌ Помилка handleEveningAnswer:', error);
       await ctx.reply('❌ Помилка збереження відповіді. Спробуй ще раз.');
@@ -297,16 +231,12 @@ const dailyController = {
     const userName = ctx.from.first_name || 'Користувач';
 
     try {
-      // Генеруємо персональні мікро-дії на день
       const microActions = await this.generateDailyMicroActions(tgId, 'morning');
-      
-      // Обираємо афірмацію
       const affirmation = MORNING_AFFIRMATIONS[Math.floor(Math.random() * MORNING_AFFIRMATIONS.length)];
-      
-      // Зберігаємо афірмацію
+
       await responseService.saveAffirmation(tgId, 'morning', affirmation);
-      
-      const message = 
+
+      const message =
         `🌞 РАНКОВА РЕФЛЕКСІЯ ЗАВЕРШЕНА!\n\n` +
         `✨ Дякую, ${userName}! Твої відповіді збережено.\n\n` +
         `🎯 ТВОЯ АФІРМАЦІЯ НА ДЕНЬ:\n"${affirmation}"\n\n` +
@@ -314,12 +244,9 @@ const dailyController = {
         `🚀 Продуктивного дня!`;
 
       await ctx.reply(message, keyboards.mainMenuKeyboard());
-
-      // Оновлюємо стан користувача
       await userService.updateUserActivity(tgId);
 
       console.log(`[DAILY] ✅ Ранкова сесія завершена для ${tgId}`);
-
     } catch (error) {
       console.error('[DAILY] ❌ Помилка completeMorningSession:', error);
       await ctx.reply('❌ Помилка завершення сесії.', keyboards.mainMenuKeyboard());
@@ -332,16 +259,12 @@ const dailyController = {
     const userName = ctx.from.first_name || 'Користувач';
 
     try {
-      // Генеруємо персональний фідбек на день
       const dailyFeedback = await this.generateDailyFeedback(tgId, 'evening');
-      
-      // Обираємо афірмацію
       const affirmation = EVENING_AFFIRMATIONS[Math.floor(Math.random() * EVENING_AFFIRMATIONS.length)];
-      
-      // Зберігаємо афірмацію
+
       await responseService.saveAffirmation(tgId, 'evening', affirmation);
-      
-      const message = 
+
+      const message =
         `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ ЗАВЕРШЕНА!\n\n` +
         `✨ Дякую, ${userName}! Твій день проаналізовано.\n\n` +
         `🎯 ТВОЯ АФІРМАЦІЯ НА НІЧ:\n"${affirmation}"\n\n` +
@@ -349,12 +272,9 @@ const dailyController = {
         `😴 Солодких снів!`;
 
       await ctx.reply(message, keyboards.mainMenuKeyboard());
-
-      // Оновлюємо стан користувача
       await userService.updateUserActivity(tgId);
 
       console.log(`[DAILY] ✅ Вечірня сесія завершена для ${tgId}`);
-
     } catch (error) {
       console.error('[DAILY] ❌ Помилка completeEveningSession:', error);
       await ctx.reply('❌ Помилка завершення сесії.', keyboards.mainMenuKeyboard());
@@ -362,11 +282,11 @@ const dailyController = {
   },
 
   // ===== ГЕНЕРАЦІЯ МІКРО-ДІЙ =====
-  async generateDailyMicroActions(tgId, sessionType) {
+  async generateDailyMicroActions(tgId /*, sessionType */) {
     try {
-      // Отримуємо відповіді користувача за сьогодні
       const records = await responseService.getUserRecords(tgId, 1);
-      if (!records.length) return "• Зосередься на головній цілі дня\n• Зроби один крок до мрії\n• Підтримай ресурсний стан";
+      if (!records.length)
+        return "• Зосередься на головній цілі дня\n• Зроби один крок до мрії\n• Підтримай ресурсний стан";
 
       const todayData = records[0].fields;
       const goal = todayData.Q_m_4 || '';
@@ -374,30 +294,29 @@ const dailyController = {
       const qualities = todayData.Q_m_2 || '';
 
       const prompt = `
-      Створи 3 конкретні мікро-дії на сьогодні для користувача:
-      
-      Головна ціль дня: "${goal}"
-      Поточний стан: "${state}"  
-      Якості: "${qualities}"
-      
-      Формат відповіді (лише текст дій):
-      • [Дія 1 - для просування до цілі]
-      • [Дія 2 - для підтримки стану]
-      • [Дія 3 - для розвитку якостей]
-      
-      Кожна дія повинна бути:
-      - Конкретна (що саме робити)
-      - Виконувана за 15-30 хвилин
-      - Мотивуюча
-      `;
+Створи 3 конкретні мікро-дії на сьогодні для користувача:
 
-      const response = await chat([
-        { role: 'system', content: 'Ти експертний коуч. Генеруй конкретні мікро-дії для досягнення цілей.' },
-        { role: 'user', content: prompt }
-      ], 'gpt-4o-mini', 200);
+Головна ціль дня: "${goal}"
+Поточний стан: "${state}"
+Якості: "${qualities}"
+
+Формат відповіді (лише текст дій):
+• [Дія 1 - для просування до цілі]
+• [Дія 2 - для підтримки стану]
+• [Дія 3 - для розвитку якостей]
+
+Кожна дія має бути конкретною, виконуваною за 15–30 хв і мотивуючою.`;
+
+      const response = await chat(
+        [
+          { role: 'system', content: 'Ти експертний коуч. Генеруй конкретні мікро-дії для досягнення цілей.' },
+          { role: 'user', content: prompt }
+        ],
+        'gpt-4o-mini',
+        200
+      );
 
       return response || "• Зроби один крок до головної цілі\n• Підтримай ресурсний стан\n• Розвивай свої сильні якості";
-
     } catch (error) {
       console.error('[DAILY] ❌ Помилка generateDailyMicroActions:', error);
       return "• Зосередься на головній цілі дня\n• Зроби один крок до мрії\n• Підтримай ресурсний стан";
@@ -405,11 +324,11 @@ const dailyController = {
   },
 
   // ===== ГЕНЕРАЦІЯ ВЕЧІРНЬОГО ФІДБЕКУ =====
-  async generateDailyFeedback(tgId, sessionType) {
+  async generateDailyFeedback(tgId /*, sessionType */) {
     try {
-      // Отримуємо відповіді користувача за сьогодні
       const records = await responseService.getUserRecords(tgId, 1);
-      if (!records.length) return "Дякую за чесність у відповідях. Кожен день - це крок до кращої версії себе.";
+      if (!records.length)
+        return "Дякую за чесність у відповідях. Кожен день - це крок до кращої версії себе.";
 
       const todayData = records[0].fields;
       const energy = todayData.Q_e_1 || '';
@@ -419,29 +338,30 @@ const dailyController = {
       const victory = todayData.Q_e_5 || '';
 
       const prompt = `
-      Проаналізуй день користувача та дай короткий фідбек:
-      
-      Що додало енергії: "${energy}"
-      Де втратила енергію: "${energyLoss}"
-      Активні програми: "${programs}"
-      Діяла зі сили чи страху: "${source}"
-      Головна перемога: "${victory}"
-      
-      Дай короткий фідбек (2-3 речення) з:
-      - Підкресленням перемоги
-      - Порадою щодо енергії
-      - Мотиваційним закриттям
-      
-      Стиль: підтримуючий, конкретний, мотивуючий.
-      `;
+Проаналізуй день користувача та дай короткий фідбек:
 
-      const response = await chat([
-        { role: 'system', content: 'Ти мудрий коуч. Даєш підтримуючий фідбек з конкретними порадами.' },
-        { role: 'user', content: prompt }
-      ], 'gpt-4o-mini', 200);
+Що додало енергії: "${energy}"
+Де втратила енергію: "${energyLoss}"
+Активні програми: "${programs}"
+Діяла зі сили чи страху: "${source}"
+Головна перемога: "${victory}"
 
-      return response || "Твоя перемога сьогодні - це доказ твоєї сили. Продовжуй рухатись вперед з вірою в себе.";
+Дай короткий фідбек (2–3 речення):
+- підкресли перемогу
+- порада щодо енергії
+- мотивуюче завершення
+Стиль: підтримуючий, конкретний, мотивуючий.`;
 
+      const response = await chat(
+        [
+          { role: 'system', content: 'Ти мудрий коуч. Даєш підтримуючий фідбек з конкретними порадами.' },
+          { role: 'user', content: prompt }
+        ],
+        'gpt-4o-mini',
+        200
+      );
+
+      return response || "Твоя перемога сьогодні — доказ твоєї сили. Продовжуй рухатись вперед з вірою в себе.";
     } catch (error) {
       console.error('[DAILY] ❌ Помилка generateDailyFeedback:', error);
       return "Дякую за чесність у відповідях. Кожен день робить тебе сильнішою.";
@@ -451,45 +371,19 @@ const dailyController = {
   // ===== ВИХІД ІЗ СЕСІЇ =====
   async exitSession(ctx, sessionType) {
     const tgId = ctx.from.id;
-    
+
     await userService.updateUserActivity(tgId);
-    
-    const message = sessionType === 'morning' 
-      ? '🌞 Ранкову сесію завершено. Гарного дня!'
-      : '🌙 Вечірню сесію завершено. Солодких снів!';
-      
+
+    const message =
+      sessionType === 'morning'
+        ? '🌞 Ранкову сесію завершено. Гарного дня!'
+        : '🌙 Вечірню сесію завершено. Солодких снів!';
+
     await ctx.reply(message, keyboards.mainMenuKeyboard());
     await ctx.answerCbQuery('Сесію завершено');
-    
+
     console.log(`[DAILY] 🚪 Користувач ${tgId} вийшов із ${sessionType} сесії`);
   }
 };
 
-export default dailyController;1,
-    text: "Хто я сьогодні? Опиши себе як нову версію з позиції сили (1-2 речення).",
-    field: 'Q_m_1',
-    example: "Я — топ експерт, я власниця відомого бренду"
-  },
-  {
-    id: 2,
-    text: "Яка я сьогодні? Опиши свої ключові якості.",
-    field: 'Q_m_2',
-    example: "сильна, смілива, рішуча, любляча"
-  },
-  {
-    id: 3,
-    text: "Мої 10 цілей на рік. Пропиши їх щодня, ніби вони вже реальність.",
-    field: 'Q_m_3'
-  },
-  {
-    id: 4,
-    text: "На яку одну ціль я фокусуюсь сьогодні?",
-    field: 'Q_m_4'
-  },
-  {
-    id: 5,
-    text: "Який мій стан сьогодні? Якщо стан не ресурсний — обери новий: впевненість, рішучість, легкість, сила.",
-    field: 'Q_m_5'
-  },
-  {
-    id:
+export default dailyController;

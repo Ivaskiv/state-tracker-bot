@@ -424,6 +424,15 @@ const registrationController = {
       console.error('[REGISTRATION] ❌ Помилка завершення реєстрації:', error);
       return false;
     }
+  },
+    // ===== ПЕРЕВІРКА CALLBACK РЕЄСТРАЦІЇ =====
+  isRegistrationCallback(data) {
+    const registrationCallbacks = [
+      'start_registration', 'onboarding_start', 'onboarding_about', 'about_bot',
+      'skip_step', 'plan_free', 'plan_trial', 'plan_week', 'plan_month', 'plan_year',
+      'activate_trial'
+    ];
+    return registrationCallbacks.includes(data);
   }
 };
 

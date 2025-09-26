@@ -128,7 +128,7 @@ const shouldShowWheelReminder = async (tgId, userRegistrationDate) => {
       .all();
     
     const now = new Date();
-    const regDate = new Date(userRegistrationDate);
+const regDate = userRegistrationDate ? new Date(userRegistrationDate) : new Date();
     
     console.log(`🎯 [wheelBalance] Знайдено ${records.length} записів колеса для ${tgId}`);
     
@@ -202,29 +202,30 @@ const shouldShowWheelReminder = async (tgId, userRegistrationDate) => {
 const getUsersNeedingMonthlyWheel = async () => {
   try {
     console.log('🎯 [wheelBalance] Пошук користувачів для щомісячного нагадування');
-    
-    const { getBase, tables } = await import('../config/database.js');
-    const base = getBase();
-    
+
+    // Використовуємо вже ініціалізований base & tables (без повторного імпорту)
     const activeUsers = await base(tables.USERS)
       .select({
         filterByFormula: `FIND('✅ Активна', {Active_Subscription_Status}) > 0`,
-        fields: ['TG_id', 'User Name', 'Created_Date']
+        fields: ['TG_id', 'User Name', 'Created_Date', 'Registration Date']
       })
       .all();
-    
+
     console.log(`🎯 [wheelBalance] Знайдено ${activeUsers.length} активних користувачів`);
-    
+
     const usersNeedingReminder = [];
-    
+
     for (const user of activeUsers) {
       const tgId = user.fields.TG_id;
       const userName = user.fields['User Name'] || 'Користувач';
-      const createdDate = user.fields.Created_Date || user.fields['Registration Date'] || new Date().toISOString();
-      
+      const createdDate =
+        user.fields['Registration Date'] ||
+        user.fields.Created_Date ||
+        new Date().toISOString();
+
       try {
         const wheelCheck = await shouldShowWheelReminder(tgId, createdDate);
-        
+
         if (wheelCheck.needed && (wheelCheck.type === 'monthly' || wheelCheck.type === 'first')) {
           usersNeedingReminder.push({
             tgId,
@@ -232,25 +233,25 @@ const getUsersNeedingMonthlyWheel = async () => {
             wheelType: wheelCheck.type,
             message: wheelCheck.message
           });
-          
+
           console.log(`🎯 [wheelBalance] Користувач ${tgId} (${userName}) потребує ${wheelCheck.type} колесо`);
         }
-        // Затримка між запитами
-        await new Promise(r => setTimeout(r, 200)); // 200 мс
+
+        // Затримка між запитами (анти-флуд)
+        await new Promise(r => setTimeout(r, 200));
       } catch (error) {
         console.error(`❌ [wheelBalance] Помилка перевірки для користувача ${tgId}:`, error);
       }
     }
-    
+
     console.log(`🎯 [wheelBalance] ✅ Знайдено ${usersNeedingReminder.length} користувачів для нагадування`);
     return usersNeedingReminder;
-    
+
   } catch (error) {
     logger.error('❌ [wheelBalance] Помилка пошуку користувачів для щомісячного нагадування:', error);
     return [];
   }
-};
-// ✅ НОВА ФУНКЦІЯ: надсилання щомісячних нагадувань
+};// ✅ НОВА ФУНКЦІЯ: надсилання щомісячних нагадувань
 const sendMonthlyWheelReminders = async (bot) => {
   try {
     console.log('🎯 [wheelBalance] 📅 ЩОМІСЯЧНА ПЕРЕВІРКА КОЛІС БАЛАНСУ');
