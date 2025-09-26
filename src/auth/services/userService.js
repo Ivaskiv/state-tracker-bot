@@ -1,264 +1,336 @@
-// src/auth/services/userService.js - ОПТИМІЗОВАНИЙ СЕРВІС КОРИСТУВАЧІВ
+// src/auth/services/userService.js
+// ОПТИМІЗОВАНИЙ СЕРВІС КОРИСТУВАЧІВ (без класів/this) + анти-зависання БД (таймаут 4с + raw fallback)
 
-import { selectFromTable, createRows, updateRows } from '../../config/database.js';
+import { getBase, tables, selectFromTable, createRows, updateRows } from '../../config/database.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 
-class UserService {
-  constructor() {
-    this.userCache = new Map();
-    this.cacheTimeout = 5 * 60 * 1000; // 5 хвилин
-  }
+const DB_TIMEOUT_MS = 4000;
+const userCache = new Map();
+const cacheTimeout = 5 * 60 * 1000; // 5 хв
 
-  // ===== ОТРИМАННЯ КОРИСТУВАЧА =====
-async getUserByTelegramId(tgId) {
+// ===== УТИЛІТИ =====
+const escapeFormula = (value = '') => String(value).replace(/'/g, "\\'");
+
+const cacheGet = (key) => {
+  const hit = userCache.get(key);
+  if (hit && (Date.now() - hit.timestamp < cacheTimeout)) return hit.user;
+  if (hit) userCache.delete(key);
+  return null;
+};
+
+const cacheSet = (key, user) => {
+  userCache.set(key, { user, timestamp: Date.now() });
+};
+
+const withTimeout = async (promise, ms = DB_TIMEOUT_MS, label = 'db') =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`TIMEOUT:${label}:${ms}ms`)), ms)
+    ),
+  ]);
+
+// Приводимо будь-що до масиву записів Airtable
+const ensureRecordsArray = async (maybe, label = 'select') => {
+  if (Array.isArray(maybe)) return maybe;
+
+  if (maybe && typeof maybe.firstPage === 'function') {
+    return await withTimeout(maybe.firstPage(), DB_TIMEOUT_MS, `${label}.firstPage`);
+  }
+  if (maybe && typeof maybe.all === 'function') {
+    return await withTimeout(maybe.all(), DB_TIMEOUT_MS, `${label}.all`);
+  }
+  if (maybe && typeof maybe.then === 'function') {
+    return await withTimeout(maybe, DB_TIMEOUT_MS, `${label}.promise`);
+  }
+  return [];
+};
+
+// ===== НОРМАЛІЗАЦІЯ =====
+const normalizeUserData = (record) => {
+  if (!record || !record.fields) return null;
+  const f = record.fields;
+  return {
+    id: record.id,
+    'TG_id': String(f['TG_id'] || ''),
+    'User Name': f['User Name'] || '',
+    'Email': f['Email'] || '',
+    'Phone': f['Phone'] || '',
+    'Time Zone': f['Time Zone'] || 'Europe/Kyiv',
+    'UserRegistered': Boolean(f['UserRegistered']),
+    'Registration Date': f['Registration Date'] || f['Created_At'],
+    'Status': f['Status'] || 'New User',
+    'Subscription Status': f['Subscription Status'] || 'New',
+    'Active Subscription Plan': f['Active Subscription Plan'] || '',
+    'Active_Subscription_Status': f['Active_Subscription_Status'] || '❌ Неактивна',
+    'Start_Date': f['Start_Date'],
+    'End_Date': f['End_Date'],
+    'Answer_Step': f['Answer_Step'] || ANSWER_STEPS.COMPLETED,
+    'Last_Activity': f['Last_Activity'],
+    'Created_At': f['Created_At'],
+    // сумісність
+    daily_main_goal: f['daily_main_goal'],
+    daily_state: f['daily_state'],
+    AT_id: record.id,
+  };
+};
+
+// ===== ОСНОВНІ ОПЕРАЦІЇ =====
+const getUserByTelegramId = async (tgId) => {
   const stringId = String(tgId);
 
+  // кеш
+  const cached = cacheGet(stringId);
+  if (cached) return cached;
+
+  console.log(`[USER SERVICE] 🔍 Пошук користувача ${stringId}`);
+  const filterByFormula = `{TG_id} = '${escapeFormula(stringId)}'`;
+
+  // 1) основна спроба через обгортку selectFromTable
   try {
-    // Кеш
-    const cached = this.userCache.get(stringId);
-    if (cached && (Date.now() - cached.timestamp < this.cacheTimeout)) {
-      return cached.user;
-    }
-
-    console.log(`[USER SERVICE] 🔍 Пошук користувача ${stringId}`);
-
-    const records = await selectFromTable('USERS', {
-      filterByFormula: `{TG_id} = '${stringId}'`,
-      maxRecords: 1
-    });
+    const raw = await withTimeout(
+      Promise.resolve(selectFromTable('USERS', { filterByFormula, maxRecords: 1 })),
+      DB_TIMEOUT_MS,
+      'selectFromTable.call'
+    );
+    const records = await ensureRecordsArray(raw, 'selectFromTable');
 
     if (!records || records.length === 0) {
       console.log(`[USER SERVICE] ❌ Користувач ${stringId} не знайдений`);
-      this.userCache.delete(stringId);
+      userCache.delete(stringId);
       return null;
     }
 
-    const user = this.normalizeUserData(records[0]);
-
-    // Кешуємо
-    this.userCache.set(stringId, { user, timestamp: Date.now() });
+    const user = normalizeUserData(records[0]);
+    cacheSet(stringId, user);
 
     console.log(`[USER SERVICE] ✅ Користувач ${stringId} знайдений:`, {
       name: user['User Name'],
       registered: user.UserRegistered,
-      subscription: user['Active_Subscription_Status']?.substring(0, 30)
+      subscription: (user['Active_Subscription_Status'] || '').slice(0, 30),
     });
-
     return user;
+  } catch (err) {
+    console.warn(`[USER SERVICE] ⚠️ selectFromTable збій: ${err?.message || err}. Пробую raw-fallback`);
+  }
+
+  // 2) RAW fallback напряму через Airtable SDK
+  try {
+    const base = getBase();
+    const query = base(tables.USERS).select({ filterByFormula, maxRecords: 1 });
+    const page = await withTimeout(query.firstPage(), DB_TIMEOUT_MS, 'raw.firstPage');
+    if (!page || page.length === 0) {
+      console.log(`[USER SERVICE] ❌ (raw) Користувач ${stringId} не знайдений`);
+      return null;
+    }
+    const user = normalizeUserData(page[0]);
+    cacheSet(stringId, user);
+    console.log(`[USER SERVICE] ✅ (raw) Користувач ${stringId} знайдений`);
+    return user;
+  } catch (rawErr) {
+    console.error(`[USER SERVICE] ❌ RAW fallback теж впав: ${rawErr?.message || rawErr}`);
+    return null; // важливо: не зависати
+  }
+};
+
+const createUser = async ({ tgId, name, email, phone, timezone, registrationStatus = 'New' }) => {
+  const stringId = String(tgId);
+  try {
+    console.log(`[USER SERVICE] 🆕 Створення користувача ${stringId}`);
+
+    const existing = await getUserByTelegramId(stringId);
+    if (existing) {
+      console.log(`[USER SERVICE] ⚠️ Користувач ${stringId} вже існує`);
+      return existing;
+    }
+
+    const nowISO = new Date().toISOString();
+    const userData = {
+      fields: {
+        'TG_id': stringId,
+        'User Name': name || 'Користувач',
+        'Email': email || `user${stringId}@temp.com`,
+        'Phone': phone || '+380000000000',
+        'Time Zone': timezone || 'Europe/Kyiv',
+        'UserRegistered': true,
+        'Registration Date': nowISO,
+        'Status': 'Registered User',
+        'Subscription Status': registrationStatus,
+        'Answer_Step': ANSWER_STEPS.COMPLETED,
+        'Last_Activity': nowISO,
+        'Created_At': nowISO,
+      },
+    };
+
+    const created = await withTimeout(
+      Promise.resolve(createRows('USERS', [userData])),
+      DB_TIMEOUT_MS,
+      'createRows'
+    );
+    const records = await ensureRecordsArray(created, 'createRows.result');
+    if (!records || records.length === 0) throw new Error('Не вдалося створити користувача');
+
+    const createdUser = normalizeUserData(records[0]);
+    cacheSet(stringId, createdUser);
+
+    console.log(`[USER SERVICE] ✅ Користувача ${stringId} створено`);
+    return createdUser;
   } catch (error) {
-    console.error(`[USER SERVICE] ❌ Помилка отримання користувача ${stringId}:`, error);
+    console.error(`[USER SERVICE] ❌ Помилка створення користувача ${stringId}:`, error);
+    throw error;
+  }
+};
+
+const updateUser = async (tgId, fields) => {
+  const stringId = String(tgId);
+  if (!fields || typeof fields !== 'object' || Object.keys(fields).length === 0) {
+    console.warn(`[USER SERVICE] ⚠️ Порожні поля для оновлення ${stringId}`);
     return null;
   }
-}
-  // ===== СТВОРЕННЯ КОРИСТУВАЧА =====
-  async createUser({ tgId, name, email, phone, timezone, registrationStatus = 'New' }) {
-    const stringId = String(tgId);
-    try {
-      console.log(`[USER SERVICE] 🆕 Створення користувача ${stringId}`);
 
-      const existingUser = await this.getUserByTelegramId(stringId);
-      if (existingUser) {
-        console.log(`[USER SERVICE] ⚠️ Користувач ${stringId} вже існує`);
-        return existingUser;
-      }
+  try {
+    console.log(`[USER SERVICE] 🔄 Оновлення користувача ${stringId}`, Object.keys(fields));
 
-      const userData = {
-        fields: {
-          'TG_id': stringId,
-          'User Name': name || 'Користувач',
-          'Email': email || `user${tgId}@temp.com`,
-          'Phone': phone || '+380000000000',
-          'Time Zone': timezone || 'Europe/Kyiv',
-          'UserRegistered': true,
-          'Registration Date': new Date().toISOString(),
-          'Status': 'Registered User',
-          'Subscription Status': registrationStatus,
-          'Answer_Step': ANSWER_STEPS.COMPLETED,
-          'Last_Activity': new Date().toISOString(),
-          'Created_At': new Date().toISOString()
-        }
-      };
+    const filterByFormula = `{TG_id} = '${escapeFormula(stringId)}'`;
+    const rawSel = await withTimeout(
+      Promise.resolve(selectFromTable('USERS', { filterByFormula, maxRecords: 1 })),
+      DB_TIMEOUT_MS,
+      'selectForUpdate.call'
+    );
+    const sel = await ensureRecordsArray(rawSel, 'selectForUpdate');
 
-      const records = await createRows('USERS', [userData]);
-      if (!records || records.length === 0) throw new Error('Не вдалося створити користувача');
-
-      const createdUser = this.normalizeUserData(records[0]);
-      this.userCache.set(stringId, { user: createdUser, timestamp: Date.now() });
-
-      console.log(`[USER SERVICE] ✅ Користувача ${stringId} створено`);
-      return createdUser;
-
-    } catch (error) {
-      console.error(`[USER SERVICE] ❌ Помилка створення користувача ${stringId}:`, error);
-      throw error;
-    }
-  }
-
-  // ===== ОНОВЛЕННЯ КОРИСТУВАЧА =====
-  async updateUser(tgId, fields) {
-    const stringId = String(tgId);
-
-    if (!fields || typeof fields !== 'object' || Object.keys(fields).length === 0) {
-      console.warn(`[USER SERVICE] ⚠️ Порожні поля для оновлення ${stringId}`);
+    if (!sel || sel.length === 0) {
+      console.warn(`[USER SERVICE] ⚠️ Користувача ${stringId} не знайдено для оновлення`);
       return null;
     }
 
-    try {
-      console.log(`[USER SERVICE] 🔄 Оновлення користувача ${stringId}`, Object.keys(fields));
+    const updateData = {
+      id: sel[0].id,
+      fields: { ...fields, 'Last_Activity': new Date().toISOString() },
+    };
 
-      const records = await selectFromTable('USERS', {
-        filterByFormula: `{TG_id} = '${stringId}'`,
-        maxRecords: 1
-      });
+    const rawUpd = await withTimeout(
+      Promise.resolve(updateRows('USERS', [updateData])),
+      DB_TIMEOUT_MS,
+      'updateRows'
+    );
+    const upd = await ensureRecordsArray(rawUpd, 'updateRows.result');
+    if (!upd || upd.length === 0) throw new Error('Не вдалося оновити користувача');
 
-      if (!records || records.length === 0) {
-        console.warn(`[USER SERVICE] ⚠️ Користувача ${stringId} не знайдено для оновлення`);
-        return null;
-      }
+    const updatedUser = normalizeUserData(upd[0]);
+    cacheSet(stringId, updatedUser);
 
-      const updateData = {
-        id: records[0].id,
-        fields: { ...fields, 'Last_Activity': new Date().toISOString() }
-      };
-
-      const updatedRecords = await updateRows('USERS', [updateData]);
-      if (!updatedRecords || updatedRecords.length === 0) throw new Error('Не вдалося оновити користувача');
-
-      const updatedUser = this.normalizeUserData(updatedRecords[0]);
-      this.userCache.set(stringId, { user: updatedUser, timestamp: Date.now() });
-
-      console.log(`[USER SERVICE] ✅ Користувача ${stringId} оновлено`);
-      return updatedUser;
-
-    } catch (error) {
-      console.error(`[USER SERVICE] ❌ Помилка оновлення користувача ${stringId}:`, error);
-      return null;
-    }
+    console.log(`[USER SERVICE] ✅ Користувача ${stringId} оновлено`);
+    return updatedUser;
+  } catch (error) {
+    console.error(`[USER SERVICE] ❌ Помилка оновлення користувача ${stringId}:`, error);
+    return null;
   }
+};
 
-  // ===== ОНОВЛЕННЯ КРОКУ =====
-  async updateUserStep(tgId, step) {
-    return await this.updateUser(tgId, { Answer_Step: step });
+// ===== СКОРОЧЕНІ ХЕЛПЕРИ =====
+const updateUserStep = async (tgId, step) => updateUser(tgId, { Answer_Step: step });
+const updateUserActivity = async (tgId) => updateUser(tgId, { Answer_Step: ANSWER_STEPS.COMPLETED });
+
+// ===== ВИБІРКИ =====
+const getActiveUsers = async () => {
+  try {
+    console.log('[USER SERVICE] 🔍 Пошук активних користувачів');
+    const raw = await withTimeout(
+      Promise.resolve(selectFromTable('USERS', {
+        filterByFormula: `FIND('✅ Активна', {Active_Subscription_Status}) > 0`,
+      })),
+      DB_TIMEOUT_MS,
+      'selectActive'
+    );
+    const records = await ensureRecordsArray(raw, 'selectActive.result');
+    const users = (records || []).map(r => normalizeUserData(r));
+    console.log(`[USER SERVICE] ✅ Знайдено ${users.length} активних користувачів`);
+    return users;
+  } catch (error) {
+    console.error('[USER SERVICE] ❌ Помилка отримання активних користувачів:', error);
+    return [];
   }
+};
 
-  // ===== ОНОВЛЕННЯ АКТИВНОСТІ =====
-  async updateUserActivity(tgId) {
-    return await this.updateUser(tgId, { Answer_Step: ANSWER_STEPS.COMPLETED });
-  }
+const getUsersWithExpiringSubscriptions = async (daysOffset = 1) => {
+  try {
+    const target = new Date();
+    target.setDate(target.getDate() + daysOffset);
+    const targetStr = target.toISOString().split('T')[0];
 
-  // ===== ОТРИМАННЯ АКТИВНИХ КОРИСТУВАЧІВ =====
-  async getActiveUsers() {
-    try {
-      console.log('[USER SERVICE] 🔍 Пошук активних користувачів');
-      const records = await selectFromTable('USERS', {
-        filterByFormula: `FIND('✅ Активна', {Active_Subscription_Status}) > 0`
-      });
-      const users = (records || []).map((r) => this.normalizeUserData(r));
-      console.log(`[USER SERVICE] ✅ Знайдено ${users.length} активних користувачів`);
-      return users;
-    } catch (error) {
-      console.error('[USER SERVICE] ❌ Помилка отримання активних користувачів:', error);
-      return [];
-    }
-  }
+    console.log(`[USER SERVICE] 📅 Пошук підписок що закінчуються ${targetStr}`);
 
-  // ===== ОТРИМАННЯ КОРИСТУВАЧІВ З ПІДПИСКАМИ ЩО ЗАКІНЧУЮТЬСЯ =====
-  async getUsersWithExpiringSubscriptions(daysOffset = 1) {
-    try {
-      const targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + daysOffset);
-      const targetDateStr = targetDate.toISOString().split('T')[0];
-
-      console.log(`[USER SERVICE] 📅 Пошук підписок що закінчуються ${targetDateStr}`);
-
-      const records = await selectFromTable('USERS', {
+    const raw = await withTimeout(
+      Promise.resolve(selectFromTable('USERS', {
         filterByFormula: `AND(
           FIND('✅ Активна', {Active_Subscription_Status}) > 0,
-          DATESTR({End_Date}) = '${targetDateStr}'
+          DATESTR({End_Date}) = '${targetStr}'
         )`,
-        fields: ['TG_id', 'User Name', 'Active Subscription Plan', 'End_Date']
-      });
+        fields: ['TG_id', 'User Name', 'Active Subscription Plan', 'End_Date'],
+      })),
+      DB_TIMEOUT_MS,
+      'selectExpiring'
+    );
+    const records = await ensureRecordsArray(raw, 'selectExpiring.result');
+    const users = (records || []).map(r => r.fields);
+    console.log(`[USER SERVICE] 📊 Знайдено ${users.length} підписок що закінчуються`);
+    return users;
+  } catch (error) {
+    console.error('[USER SERVICE] ❌ Помилка пошуку підписок що закінчуються:', error);
+    return [];
+  }
+};
 
-      const users = (records || []).map((r) => r.fields);
-      console.log(`[USER SERVICE] 📊 Знайдено ${users.length} підписок що закінчуються`);
-      return users;
+// ===== ПЕРЕВІРКА ДОСТУПУ =====
+const hasActiveAccess = (user) => {
+  if (!user) return false;
 
-    } catch (error) {
-      console.error('[USER SERVICE] ❌ Помилка пошуку підписок що закінчуються:', error);
-      return [];
+  const subscriptionStatus = String(user['Active_Subscription_Status'] || '');
+  const generalStatus = String(user['Subscription Status'] || '');
+  const planName = String(user['Active Subscription Plan'] || '');
+  const endDate = user['End_Date'];
+
+  if (subscriptionStatus.includes('✅ Активна')) return true;
+  if (generalStatus === 'Active') return true;
+
+  if (planName.toLowerCase().includes('пробн') || planName.toLowerCase().includes('trial')) {
+    if (endDate) {
+      try { return new Date() < new Date(endDate); } catch {}
     }
   }
+  return false;
+};
 
-  // ===== ПЕРЕВІРКА АКТИВНОГО ДОСТУПУ =====
-  hasActiveAccess(user) {
-    if (!user) return false;
-
-    const subscriptionStatus = String(user['Active_Subscription_Status'] || '');
-    const generalStatus = String(user['Subscription Status'] || '');
-    const planName = String(user['Active Subscription Plan'] || '');
-    const endDate = user['End_Date'];
-
-    if (subscriptionStatus.includes('✅ Активна')) return true;
-    if (generalStatus === 'Active') return true;
-
-    if (planName.toLowerCase().includes('пробн') || planName.toLowerCase().includes('trial')) {
-      if (endDate) {
-        try {
-          return new Date() < new Date(endDate);
-        } catch (e) {
-          console.warn('[USER SERVICE] Помилка парсингу дати:', e);
-        }
-      }
-    }
-    return false;
+// ===== КЕРУВАННЯ КЕШЕМ =====
+const clearCache = (tgId = null) => {
+  if (tgId) {
+    userCache.delete(String(tgId));
+    console.log(`[USER SERVICE] 🧹 Кеш користувача ${tgId} очищено`);
+  } else {
+    userCache.clear();
+    console.log('[USER SERVICE] 🧹 Весь кеш користувачів очищено');
   }
+};
 
-  // ===== НОРМАЛІЗАЦІЯ ДАНИХ КОРИСТУВАЧА =====
-  normalizeUserData(record) {
-    if (!record || !record.fields) return null;
-    const f = record.fields;
+const getCacheStats = () => ({ size: userCache.size, timeout: cacheTimeout });
 
-    return {
-      id: record.id,
-      'TG_id': String(f['TG_id'] || ''),
-      'User Name': f['User Name'] || '',
-      'Email': f['Email'] || '',
-      'Phone': f['Phone'] || '',
-      'Time Zone': f['Time Zone'] || 'Europe/Kyiv',
-      'UserRegistered': Boolean(f['UserRegistered']),
-      'Registration Date': f['Registration Date'] || f['Created_At'],
-      'Status': f['Status'] || 'New User',
-      'Subscription Status': f['Subscription Status'] || 'New',
-      'Active Subscription Plan': f['Active Subscription Plan'] || '',
-      'Active_Subscription_Status': f['Active_Subscription_Status'] || '❌ Неактивна',
-      'Start_Date': f['Start_Date'],
-      'End_Date': f['End_Date'],
-      'Answer_Step': f['Answer_Step'] || ANSWER_STEPS.COMPLETED,
-      'Last_Activity': f['Last_Activity'],
-      'Created_At': f['Created_At'],
-      // Додаткові поля для сумісності
-      daily_main_goal: f['daily_main_goal'],
-      daily_state: f['daily_state'],
-      AT_id: record.id
-    };
-  }
+// ===== ЕКСПОРТ =====
+const userService = {
+  // основні
+  getUserByTelegramId,
+  createUser,
+  updateUser,
+  updateUserStep,
+  updateUserActivity,
+  // вибірки
+  getActiveUsers,
+  getUsersWithExpiringSubscriptions,
+  // правила доступу
+  hasActiveAccess,
+  // утиліти
+  clearCache,
+  getCacheStats,
+};
 
-  // ===== ОЧИЩЕННЯ КЕШУ =====
-  clearCache(tgId = null) {
-    if (tgId) {
-      this.userCache.delete(String(tgId));
-      console.log(`[USER SERVICE] 🧹 Кеш користувача ${tgId} очищено`);
-    } else {
-      this.userCache.clear();
-      console.log('[USER SERVICE] 🧹 Весь кеш користувачів очищено');
-    }
-  }
-
-  // ===== СТАТИСТИКА =====
-  getCacheStats() {
-    return { size: this.userCache.size, timeout: this.cacheTimeout };
-  }
-}
-
-const userService = new UserService();
 export default userService;
