@@ -1,15 +1,8 @@
-// src/controllers/flows/mainFlowController.js - ЛОГІКА ГОЛОВНОГО ПОТОКУ
+// src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО
 
 import userService from '../../auth/services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
-
-// Контролери модулів
-import wheelController from './wheelController.js';
-import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
-import subscriptionController from '../subscriptionController.js';
-import reportService from '../../services/reportService.js';
-import sessionHandler from '../handlers/sessionHandler.js';
 
 const mainFlowController = {
   
@@ -55,11 +48,6 @@ const mainFlowController = {
       }
 
       // СЦЕНАРІЙ 4: Перевіряємо перше колесо балансу
-      const activeSession = await sessionHandler.isActiveSession(tgId);
-if (activeSession) {
-  await sessionHandler.handleBlockedMenu(ctx);
-  return;
-}
       const hasWheel = await this.checkFirstWheel(tgId);
       console.log(`[MAIN FLOW] 🎯 Перше колесо для ${tgId}: ${hasWheel ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО'}`);
 
@@ -69,16 +57,12 @@ if (activeSession) {
       }
 
       // СЦЕНАРІЙ 5: Все готово - головне меню
-      if (!user || !user.UserRegistered) {
-  await ctx.reply('Потрібно завершити реєстрацію /start');
-  return;
-}
       console.log(`[MAIN FLOW] ✅ Все готово для ${tgId} - показуємо головне меню`);
       await this.showMainMenu(ctx, user);
 
     } catch (error) {
       console.error('[MAIN FLOW] ❌ Помилка handleStart:', error);
-      await ctx.reply('❌ Помилка запуску. Спробуй ще раз /start', keyboards.emergencyKeyboard());
+      await ctx.reply('❌ Помилка запуску. Спробуй ще раз /start', keyboards.mainMenuKeyboard());
     }
   },
 
@@ -96,7 +80,8 @@ if (activeSession) {
           await this.showFeatureBlocked(ctx, 'AI наставник');
           return;
         }
-        await aiMentorController.handleAIMentorRequest(ctx);
+        const aiMentorController = await import('../../aiMentor/controllers/aiMentorController.js');
+        await aiMentorController.default.handleAIMentorRequest(ctx);
         break;
         
       case '🎯 Колесо балансу':
@@ -104,11 +89,13 @@ if (activeSession) {
           await this.showFeatureBlocked(ctx, 'Колесо балансу');
           return;
         }
-        await wheelController.handleRequest(ctx);
+        const wheelController = await import('./wheelController.js');
+        await wheelController.default.handleRequest(ctx);
         break;
         
       case '💰 Підписка':
-        await subscriptionController.handleSubscriptionInfo(ctx);
+        const subscriptionController = await import('../subscriptionController.js');
+        await subscriptionController.default.handleSubscriptionInfo(ctx);
         break;
         
       case '💎 Афірмація':
@@ -158,7 +145,7 @@ if (activeSession) {
   },
 
   // ===== ОБРОБКА CALLBACK =====
-  async handleCallback(ctx, data) {
+  async handleCallback(ctx, data, user) {
     const tgId = ctx.from.id;
     
     console.log(`[MAIN FLOW] 📱 Callback: ${data} від ${tgId}`);
@@ -166,12 +153,12 @@ if (activeSession) {
     try {
       switch (data) {
         case 'main_menu':
-          const user = await userService.getUserByTelegramId(tgId);
-          await this.showMainMenu(ctx, user);
+          const currentUser = user || await userService.getUserByTelegramId(tgId);
+          await this.showMainMenu(ctx, currentUser);
           break;
           
         case 'my_progress':
-          const progressUser = await userService.getUserByTelegramId(tgId);
+          const progressUser = user || await userService.getUserByTelegramId(tgId);
           await this.showProgress(ctx, progressUser);
           break;
           
@@ -205,7 +192,6 @@ if (activeSession) {
       }
     } catch (error) {
       console.error('[MAIN FLOW] ❌ Помилка callback:', error);
-      await ctx.answerCbQuery('Помилка обробки');
     }
   },
 
@@ -246,50 +232,39 @@ if (activeSession) {
     });
   },
 
-async showFirstWheel(ctx, user) {
-  const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
-  
-  const message = 
-    `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
-    `Привіт, ${userName}! 👋\n\n` +
-    `Ми радимо почати саме з колеса балансу 🌀\n` +
-    `Це допоможе AI-наставнику дати тобі максимально ` +
-    `персоналізовані підказки та рекомендації.\n\n` +
-    `📊 Тобі потрібно оцінити 8 сфер життя (5–10 хв).\n` +
-    `🎯 У результаті отримаєш інсайти та план дій.\n\n` +
-    `Готова почати?`;
+  async showFirstWheel(ctx, user) {
+    const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
+    
+    const message = 
+      `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
+      `Привіт, ${userName}! 👋\n\n` +
+      `Рекомендую почати з колеса балансу 🌀\n` +
+      `Це допоможе AI-наставнику дати тобі максимально ` +
+      `персоналізовані підказки та рекомендації.\n\n` +
+      `📊 8 сфер життя (5–10 хв)\n` +
+      `🎯 Отримаєш інсайти та план дій\n\n` +
+      `Готова почати?`;
 
-  await ctx.reply(message, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' }],
-        [{ text: '❓ Що це таке?', callback_data: 'wheel_info' }],
-        [{ text: '⏭ Пізніше', callback_data: 'main_menu' }]
-      ]
-    }
-  });
-},
+    await ctx.reply(message, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' }],
+          [{ text: '❓ Що це таке?', callback_data: 'wheel_info' }],
+          [{ text: '⏭ Пізніше', callback_data: 'main_menu' }]
+        ]
+      }
+    });
+  },
+
   async showMainMenu(ctx, user) {
     const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
     const status = user?.['Active_Subscription_Status'] || '✅ Активна';
     
-    const lastActivity = user?.Last_Activity;
-    const isReturningUser = lastActivity && 
-      (new Date() - new Date(lastActivity)) > 3600000; // більше години
-
-    let message = '';
-    
-    if (isReturningUser) {
-      message = 
-        `👋 Привіт, ${userName}!\n\n` +
-        `${status}\n\n` +
-        `Готова продовжувати свій розвиток?`;
-    } else {
-      message = 
-        `🎉 Вітаю, ${userName}!\n\n` +
-        `${status}\n` +
-        `🚀 Готова до продуктивного дня?`;
-    }
+    const message = 
+      `🏠 Головне меню\n\n` +
+      `👋 ${userName}\n` +
+      `${status}\n\n` +
+      `Готова до продуктивного дня?`;
 
     await ctx.reply(message, keyboards.mainMenuKeyboard());
     
@@ -341,7 +316,8 @@ async showFirstWheel(ctx, user) {
     try {
       await ctx.reply('📊 Генерую щотижневий звіт...');
       
-      const report = await reportService.generateReport(tgId, 7);
+      const reportService = await import('../../services/reportService.js');
+      const report = await reportService.default.generateReport(tgId, 7);
       
       const message = `📊 ЩОТИЖНЕВИЙ AI-ЗВІТ\n\n${report}`;
       
@@ -366,7 +342,8 @@ async showFirstWheel(ctx, user) {
     try {
       await ctx.reply('📅 Генерую щомісячний звіт...');
       
-      const report = await reportService.generateReport(tgId, 30);
+      const reportService = await import('../../services/reportService.js');
+      const report = await reportService.default.generateReport(tgId, 30);
       
       const message = `📅 ЩОМІСЯЧНИЙ AI-ЗВІТ\n\n${report}`;
       

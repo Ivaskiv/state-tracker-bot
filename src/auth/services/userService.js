@@ -1,12 +1,11 @@
-// src/auth/services/userService.js
-// ОПТИМІЗОВАНИЙ СЕРВІС КОРИСТУВАЧІВ (без класів/this) + анти-зависання БД (таймаут 4с + raw fallback)
+// src/auth/services/userService.js - ПОКРАЩЕНО З ШВИДКОЮ ПЕРЕВІРКОЮ
 
-import { getBase, tables, selectFromTable, createRows, updateRows } from '../../config/database.js';
+import { getBase, tables, selectFromTable, createRows, updateRows, quickUserCheck } from '../../config/database.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 
-const DB_TIMEOUT_MS = 4000;
+const DB_TIMEOUT_MS = 3000; // Зменшено до 3 секунд
 const userCache = new Map();
-const cacheTimeout = 5 * 60 * 1000; // 5 хв
+const cacheTimeout = 3 * 60 * 1000; // 3 хв кеш
 
 // ===== УТИЛІТИ =====
 const escapeFormula = (value = '') => String(value).replace(/'/g, "\\'");
@@ -22,31 +21,7 @@ const cacheSet = (key, user) => {
   userCache.set(key, { user, timestamp: Date.now() });
 };
 
-const withTimeout = async (promise, ms = DB_TIMEOUT_MS, label = 'db') =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`TIMEOUT:${label}:${ms}ms`)), ms)
-    ),
-  ]);
-
-// Приводимо будь-що до масиву записів Airtable
-const ensureRecordsArray = async (maybe, label = 'select') => {
-  if (Array.isArray(maybe)) return maybe;
-
-  if (maybe && typeof maybe.firstPage === 'function') {
-    return await withTimeout(maybe.firstPage(), DB_TIMEOUT_MS, `${label}.firstPage`);
-  }
-  if (maybe && typeof maybe.all === 'function') {
-    return await withTimeout(maybe.all(), DB_TIMEOUT_MS, `${label}.all`);
-  }
-  if (maybe && typeof maybe.then === 'function') {
-    return await withTimeout(maybe, DB_TIMEOUT_MS, `${label}.promise`);
-  }
-  return [];
-};
-
-// ===== НОРМАЛІЗАЦІЯ =====
+// Нормалізація даних користувача
 const normalizeUserData = (record) => {
   if (!record || !record.fields) return null;
   const f = record.fields;
@@ -68,7 +43,6 @@ const normalizeUserData = (record) => {
     'Answer_Step': f['Answer_Step'] || ANSWER_STEPS.COMPLETED,
     'Last_Activity': f['Last_Activity'],
     'Created_At': f['Created_At'],
-    // сумісність
     daily_main_goal: f['daily_main_goal'],
     daily_state: f['daily_state'],
     AT_id: record.id,
@@ -79,57 +53,91 @@ const normalizeUserData = (record) => {
 const getUserByTelegramId = async (tgId) => {
   const stringId = String(tgId);
 
-  // кеш
+  // 1. Перевіряємо кеш
   const cached = cacheGet(stringId);
-  if (cached) return cached;
+  if (cached) {
+    console.log(`[USER SERVICE] 🎯 Користувач ${stringId} з кешу`);
+    return cached;
+  }
 
   console.log(`[USER SERVICE] 🔍 Пошук користувача ${stringId}`);
+
+  // 2. СПОЧАТКУ ШВИДКА ПЕРЕВІРКА (3 сек)
+  try {
+    const quickResult = await quickUserCheck(stringId);
+    if (quickResult) {
+      const user = normalizeUserData({ id: quickResult.AT_id, fields: quickResult });
+      cacheSet(stringId, user);
+      
+      console.log(`[USER SERVICE] ⚡ Користувач ${stringId} знайдений швидко:`, {
+        name: user['User Name'],
+        registered: user.UserRegistered,
+        subscription: (user['Active_Subscription_Status'] || '').slice(0, 30),
+      });
+      return user;
+    }
+  } catch (quickError) {
+    console.warn(`[USER SERVICE] ⚠️ Швидка перевірка не вдалася: ${quickError.message}`);
+  }
+
+  // 3. ЯКЩО ШВИДКА ПЕРЕВІРКА НЕ ВДАЛАСЯ - СТАНДАРТНИЙ ПОШУК
   const filterByFormula = `{TG_id} = '${escapeFormula(stringId)}'`;
 
-  // 1) основна спроба через обгортку selectFromTable
   try {
-    const raw = await withTimeout(
-      Promise.resolve(selectFromTable('USERS', { filterByFormula, maxRecords: 1 })),
-      DB_TIMEOUT_MS,
-      'selectFromTable.call'
-    );
-    const records = await ensureRecordsArray(raw, 'selectFromTable');
+    console.log(`[USER SERVICE] 🔄 Використовую стандартний пошук для ${stringId}`);
+    
+    const raw = await selectFromTable('USERS', { 
+      filterByFormula, 
+      maxRecords: 1,
+      fields: ['TG_id', 'User Name', 'UserRegistered', 'Email', 'Phone', 'Status', 'Active_Subscription_Status', 'End_Date', 'Answer_Step']
+    });
+    
+    const records = Array.isArray(raw) ? raw : await raw.firstPage();
 
     if (!records || records.length === 0) {
       console.log(`[USER SERVICE] ❌ Користувач ${stringId} не знайдений`);
-      userCache.delete(stringId);
       return null;
     }
 
     const user = normalizeUserData(records[0]);
     cacheSet(stringId, user);
 
-    console.log(`[USER SERVICE] ✅ Користувач ${stringId} знайдений:`, {
+    console.log(`[USER SERVICE] ✅ Користувач ${stringId} знайдений стандартно:`, {
       name: user['User Name'],
       registered: user.UserRegistered,
       subscription: (user['Active_Subscription_Status'] || '').slice(0, 30),
     });
     return user;
-  } catch (err) {
-    console.warn(`[USER SERVICE] ⚠️ selectFromTable збій: ${err?.message || err}. Пробую raw-fallback`);
-  }
 
-  // 2) RAW fallback напряму через Airtable SDK
-  try {
-    const base = getBase();
-    const query = base(tables.USERS).select({ filterByFormula, maxRecords: 1 });
-    const page = await withTimeout(query.firstPage(), DB_TIMEOUT_MS, 'raw.firstPage');
-    if (!page || page.length === 0) {
-      console.log(`[USER SERVICE] ❌ (raw) Користувач ${stringId} не знайдений`);
-      return null;
+  } catch (standardError) {
+    console.error(`[USER SERVICE] ❌ Стандартний пошук теж збійнув: ${standardError.message}`);
+    
+    // 4. RAW FALLBACK (останній шанс)
+    try {
+      console.log(`[USER SERVICE] 🚨 RAW fallback для ${stringId}`);
+      const base = getBase();
+      const query = base(tables.USERS).select({ filterByFormula, maxRecords: 1 });
+      const page = await Promise.race([
+        query.firstPage(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('RAW_TIMEOUT:2000ms')), 2000)
+        )
+      ]);
+      
+      if (!page || page.length === 0) {
+        console.log(`[USER SERVICE] ❌ (raw) Користувач ${stringId} не знайдений`);
+        return null;
+      }
+      
+      const user = normalizeUserData(page[0]);
+      cacheSet(stringId, user);
+      console.log(`[USER SERVICE] ✅ (raw) Користувач ${stringId} знайдений`);
+      return user;
+      
+    } catch (rawError) {
+      console.error(`[USER SERVICE] ❌ RAW fallback теж впав: ${rawError.message}`);
+      return null; // Повертаємо null замість зависання
     }
-    const user = normalizeUserData(page[0]);
-    cacheSet(stringId, user);
-    console.log(`[USER SERVICE] ✅ (raw) Користувач ${stringId} знайдений`);
-    return user;
-  } catch (rawErr) {
-    console.error(`[USER SERVICE] ❌ RAW fallback теж впав: ${rawErr?.message || rawErr}`);
-    return null; // важливо: не зависати
   }
 };
 
@@ -162,12 +170,8 @@ const createUser = async ({ tgId, name, email, phone, timezone, registrationStat
       },
     };
 
-    const created = await withTimeout(
-      Promise.resolve(createRows('USERS', [userData])),
-      DB_TIMEOUT_MS,
-      'createRows'
-    );
-    const records = await ensureRecordsArray(created, 'createRows.result');
+    const created = await createRows('USERS', [userData]);
+    const records = Array.isArray(created) ? created : [created];
     if (!records || records.length === 0) throw new Error('Не вдалося створити користувача');
 
     const createdUser = normalizeUserData(records[0]);
@@ -175,6 +179,7 @@ const createUser = async ({ tgId, name, email, phone, timezone, registrationStat
 
     console.log(`[USER SERVICE] ✅ Користувача ${stringId} створено`);
     return createdUser;
+    
   } catch (error) {
     console.error(`[USER SERVICE] ❌ Помилка створення користувача ${stringId}:`, error);
     throw error;
@@ -192,12 +197,8 @@ const updateUser = async (tgId, fields) => {
     console.log(`[USER SERVICE] 🔄 Оновлення користувача ${stringId}`, Object.keys(fields));
 
     const filterByFormula = `{TG_id} = '${escapeFormula(stringId)}'`;
-    const rawSel = await withTimeout(
-      Promise.resolve(selectFromTable('USERS', { filterByFormula, maxRecords: 1 })),
-      DB_TIMEOUT_MS,
-      'selectForUpdate.call'
-    );
-    const sel = await ensureRecordsArray(rawSel, 'selectForUpdate');
+    const rawSel = await selectFromTable('USERS', { filterByFormula, maxRecords: 1 });
+    const sel = Array.isArray(rawSel) ? rawSel : await rawSel.firstPage();
 
     if (!sel || sel.length === 0) {
       console.warn(`[USER SERVICE] ⚠️ Користувача ${stringId} не знайдено для оновлення`);
@@ -209,12 +210,8 @@ const updateUser = async (tgId, fields) => {
       fields: { ...fields, 'Last_Activity': new Date().toISOString() },
     };
 
-    const rawUpd = await withTimeout(
-      Promise.resolve(updateRows('USERS', [updateData])),
-      DB_TIMEOUT_MS,
-      'updateRows'
-    );
-    const upd = await ensureRecordsArray(rawUpd, 'updateRows.result');
+    const rawUpd = await updateRows('USERS', [updateData]);
+    const upd = Array.isArray(rawUpd) ? rawUpd : [rawUpd];
     if (!upd || upd.length === 0) throw new Error('Не вдалося оновити користувача');
 
     const updatedUser = normalizeUserData(upd[0]);
@@ -222,6 +219,7 @@ const updateUser = async (tgId, fields) => {
 
     console.log(`[USER SERVICE] ✅ Користувача ${stringId} оновлено`);
     return updatedUser;
+    
   } catch (error) {
     console.error(`[USER SERVICE] ❌ Помилка оновлення користувача ${stringId}:`, error);
     return null;
@@ -236,14 +234,10 @@ const updateUserActivity = async (tgId) => updateUser(tgId, { Answer_Step: ANSWE
 const getActiveUsers = async () => {
   try {
     console.log('[USER SERVICE] 🔍 Пошук активних користувачів');
-    const raw = await withTimeout(
-      Promise.resolve(selectFromTable('USERS', {
-        filterByFormula: `FIND('✅ Активна', {Active_Subscription_Status}) > 0`,
-      })),
-      DB_TIMEOUT_MS,
-      'selectActive'
-    );
-    const records = await ensureRecordsArray(raw, 'selectActive.result');
+    const raw = await selectFromTable('USERS', {
+      filterByFormula: `FIND('✅ Активна', {Active_Subscription_Status}) > 0`,
+    });
+    const records = Array.isArray(raw) ? raw : await raw.all();
     const users = (records || []).map(r => normalizeUserData(r));
     console.log(`[USER SERVICE] ✅ Знайдено ${users.length} активних користувачів`);
     return users;
@@ -261,18 +255,14 @@ const getUsersWithExpiringSubscriptions = async (daysOffset = 1) => {
 
     console.log(`[USER SERVICE] 📅 Пошук підписок що закінчуються ${targetStr}`);
 
-    const raw = await withTimeout(
-      Promise.resolve(selectFromTable('USERS', {
-        filterByFormula: `AND(
-          FIND('✅ Активна', {Active_Subscription_Status}) > 0,
-          DATESTR({End_Date}) = '${targetStr}'
-        )`,
-        fields: ['TG_id', 'User Name', 'Active Subscription Plan', 'End_Date'],
-      })),
-      DB_TIMEOUT_MS,
-      'selectExpiring'
-    );
-    const records = await ensureRecordsArray(raw, 'selectExpiring.result');
+    const raw = await selectFromTable('USERS', {
+      filterByFormula: `AND(
+        FIND('✅ Активна', {Active_Subscription_Status}) > 0,
+        DATESTR({End_Date}) = '${targetStr}'
+      )`,
+      fields: ['TG_id', 'User Name', 'Active Subscription Plan', 'End_Date'],
+    });
+    const records = Array.isArray(raw) ? raw : await raw.all();
     const users = (records || []).map(r => r.fields);
     console.log(`[USER SERVICE] 📊 Знайдено ${users.length} підписок що закінчуються`);
     return users;
@@ -284,21 +274,60 @@ const getUsersWithExpiringSubscriptions = async (daysOffset = 1) => {
 
 // ===== ПЕРЕВІРКА ДОСТУПУ =====
 const hasActiveAccess = (user) => {
-  if (!user) return false;
+  if (!user) {
+    console.log('[hasActiveAccess] Користувач відсутній');
+    return false;
+  }
 
+  console.log('[hasActiveAccess] Перевірка доступу:', {
+    subscriptionStatus: user['Active_Subscription_Status'],
+    generalStatus: user['Subscription Status'],
+    planName: user['Active Subscription Plan'],
+    endDate: user['End_Date']
+  });
+
+  // 1. Перевіряємо статус підписки
   const subscriptionStatus = String(user['Active_Subscription_Status'] || '');
+  if (subscriptionStatus.includes('✅ Активна')) {
+    console.log('[hasActiveAccess] ✅ Активна підписка за статусом');
+    return true;
+  }
+
+  // 2. Перевіряємо загальний статус
   const generalStatus = String(user['Subscription Status'] || '');
-  const planName = String(user['Active Subscription Plan'] || '');
-  const endDate = user['End_Date'];
+  if (generalStatus === 'Active') {
+    console.log('[hasActiveAccess] ✅ Активна підписка за загальним статусом');
+    return true;
+  }
 
-  if (subscriptionStatus.includes('✅ Активна')) return true;
-  if (generalStatus === 'Active') return true;
-
-  if (planName.toLowerCase().includes('пробн') || planName.toLowerCase().includes('trial')) {
+  // 3. Перевіряємо пробний період
+  const planName = String(user['Active Subscription Plan'] || '').toLowerCase();
+  if (planName.includes('пробн') || planName.includes('trial')) {
+    const endDate = user['End_Date'];
     if (endDate) {
-      try { return new Date() < new Date(endDate); } catch {}
+      try {
+        const isValid = new Date() < new Date(endDate);
+        console.log(`[hasActiveAccess] ${isValid ? '✅' : '❌'} Пробний період, дійсний до: ${endDate}`);
+        return isValid;
+      } catch (error) {
+        console.error('[hasActiveAccess] Помилка парсингу дати:', error);
+      }
     }
   }
+
+  // 4. Перевіряємо дату закінчення для будь-якої підписки
+  const endDate = user['End_Date'];
+  if (endDate) {
+    try {
+      const isValid = new Date() < new Date(endDate);
+      console.log(`[hasActiveAccess] ${isValid ? '✅' : '❌'} Підписка за датою, дійсна до: ${endDate}`);
+      return isValid;
+    } catch (error) {
+      console.error('[hasActiveAccess] Помилка парсингу дати закінчення:', error);
+    }
+  }
+
+  console.log('[hasActiveAccess] ❌ Немає активної підписки');
   return false;
 };
 

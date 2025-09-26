@@ -1,17 +1,4 @@
-// src/controllers/handlers/startHandler.js
-// /start: без проміс-гонок, без «готую меню…», з різними меседжами для нових/існуючих
-// ВАЖЛИВО: без статичного імпорту неіснуючого модуля
-
-const safeFallbackStart = async (ctx) => {
-  // Мінімальний фолбек, якщо БД лежить
-  try {
-    await ctx.reply(
-      '👋 Привіт! Я твій AI-мотиватор і коуч.\n' +
-      'Почнімо з короткого знайомства — як до тебе звертатися?'
-    );
-  } catch {}
-};
-
+// src/controllers/handlers/startHandler.js - ВИПРАВЛЕНО
 const startHandler = {
   async handle(ctx, userService) {
     const tgId = ctx.from.id;
@@ -20,47 +7,47 @@ const startHandler = {
 
     console.log(`🚀 [/start] від ${tgId} (${name})`);
 
-    // 1) Читаємо користувача з БД
-    let user = null;
-    let dbHealthy = true;
-    try {
-      user = await userService.getUserByTelegramId(tgId);
-      console.log(`[startHandler] ℹ️ user:`, user ? {
-        name: user['User Name'],
-        registered: user.UserRegistered,
-        plan: user['Active Subscription Plan'],
-        status: user['Active_Subscription_Status']
-      } : 'null');
-    } catch (e) {
-      dbHealthy = false;
-      console.warn(`[startHandler] ⚠️ DB error getUserByTelegramId: ${e?.message || e}`);
-    }
+    // 1) Чита
 
-    if (!dbHealthy) {
-      console.log('[startHandler] ⛑️ Fallback: DB недоступна');
-      await safeFallbackStart(ctx);
-      return;
-    }
+    // 2) ВИПРАВЛЕНА ЛОГІКА: перевіряємо чи користувач дійсно зареєстрований
+    const isFullyRegistered = user && 
+      user.UserRegistered === true && 
+      user['User Name'] && 
+      user.Email && 
+      user.Status === 'Registered User';
 
-    const mainFlowController = (await import('../flows/mainFlowController.js')).default;
+    console.log(`[startHandler] 🔍 Статус реєстрації:`, {
+      userExists: !!user,
+      UserRegistered: user?.UserRegistered,
+      hasName: !!user?.['User Name'],
+      hasEmail: !!user?.Email,
+      status: user?.Status,
+      isFullyRegistered
+    });
 
-    // 2) Новий або незавершений онбординг
-    if (!user || !user.UserRegistered || !user['User Name'] || !user.Email) {
+    // 3) Якщо не зареєстрований - онбординг
+    if (!isFullyRegistered) {
       console.log('[startHandler] 🆕 Новий/незавершений користувач → реєстрація');
-      const registrationController = (await import('../flows/registrationController.js')).default;
-
+      
       const msg =
         `👋 Привіт, ${name}!\n\n` +
         `Я твій AI-мотиватор і коуч: короткі щоденні питання → фокус → прогрес.\n\n` +
-        `Давай познайомимось — як до тебе звертатись? Введи ім’я (2–30 символів).`;
-      try { await ctx.reply(msg); } catch {}
-
-      await registrationController.startRegistration(ctx);
+        `Давай познайомимось — як до тебе звертатись? Введи ім'я (2–30 символів).`;
+      
+      await ctx.reply(msg, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }],
+            [{ text: 'ℹ️ Про бота', callback_data: 'about_bot' }]
+          ]
+        }
+      });
+      
       console.log(`[startHandler] ▶️ Registration start in ${Date.now() - t0}ms`);
       return;
     }
 
-    // 3) Є користувач — перевіряємо доступ
+    // 4) Користувач зареєстрований - перевіряємо доступ
     const hasActive = userService.hasActiveAccess(user);
     console.log(`[startHandler] 💰 hasActive=${hasActive}`);
 
@@ -68,20 +55,39 @@ const startHandler = {
       const msg =
         `👋 З поверненням, ${user['User Name'] || name}!\n\n` +
         `Щоб продовжити щоденні сесії та аналітику, активуй підписку.`;
-      try { await ctx.reply(msg); } catch {}
-
-      await mainFlowController.showSubscriptionRequired(ctx, user);
+      
+      await ctx.reply(msg, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🎁 Пробний період 7 днів', callback_data: 'activate_trial' }],
+            [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
+            [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }]
+          ]
+        }
+      });
+      
       console.log(`[startHandler] 💳 Upsell in ${Date.now() - t0}ms`);
       return;
     }
 
-    // 4) Перше колесо?
+    // 5) Перше колесо?
     let hasFirstWheel = false;
     try {
-      hasFirstWheel = await mainFlowController.checkFirstWheel(tgId);
+      const { getBase, tables } = await import('../config/database.js');
+      const base = getBase();
+      
+      const records = await base(tables.WHEEL_BALANCE)
+        .select({
+          filterByFormula: `AND({TG_id}="${tgId}", {Status}="Completed")`,
+          maxRecords: 1
+        })
+        .firstPage();
+      
+      hasFirstWheel = records.length > 0;
     } catch (e) {
       console.warn(`[startHandler] ⚠️ checkFirstWheel: ${e?.message || e}`);
     }
+    
     console.log(`[startHandler] 🎯 hasFirstWheel=${hasFirstWheel}`);
 
     if (!hasFirstWheel) {
@@ -89,7 +95,7 @@ const startHandler = {
       const msg =
         `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
         `Привіт, ${userName}! 👋\n\n` +
-        `Ми радимо почати саме з колеса балансу — так AI зможе давати тобі **персоналізовані** підказки і стратегії.\n\n` +
+        `Рекомендую почати з колеса балансу — так AI зможе давати тобі **персоналізовані** підказки і стратегії.\n\n` +
         `📊 8 сфер життя (5–10 хв)\n` +
         `🧭 Отримаєш свої фокуси на 30 днів\n\n` +
         `Готова почати?`;
@@ -103,17 +109,44 @@ const startHandler = {
           ]
         }
       });
+      
       console.log(`[startHandler] 🧭 Wheel suggested in ${Date.now() - t0}ms`);
       return;
     }
 
-    // 5) Все ок → тепле «продовжимо?» + меню
+    // 6) Все ок → тепле повернення + повне меню
+    const userName = user['User Name'] || name;
+    const subscriptionStatus = user['Active_Subscription_Status'] || '✅ Активна';
+    
     const contMsg =
-      `👋 Раді бачити знову, ${user['User Name'] || name}!\n` +
-      `Продовжимо з того місця, де зупинились?`;
-    try { await ctx.reply(contMsg); } catch {}
-
-    await mainFlowController.showMainMenu(ctx, user);
+      `👋 Раді бачити знову, ${userName}!\n\n` +
+      `${subscriptionStatus}\n\n` +
+      `Продовжимо твій розвиток? 🚀`;
+    
+    await ctx.reply(contMsg, {
+      reply_markup: {
+        keyboard: [
+          [{ text: '🤖 AI наставник' }, { text: '🎯 Колесо балансу' }],
+          [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
+          [{ text: '💎 Афірмація' }, { text: '📊 Мій прогрес' }],
+          [{ text: '💰 Підписка' }, { text: '❓ Допомога' }],
+          [{ text: '📝 Інструкції' }, { text: '📞 Зв\'язок з нами' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+        is_persistent: true
+      }
+    });
+    
+    // Оновлюємо активність
+    try {
+      await userService.updateUser(tgId, { 
+        Last_Activity: new Date().toISOString() 
+      });
+    } catch (error) {
+      console.warn('Помилка оновлення активності:', error);
+    }
+    
     console.log(`[startHandler] ✅ Main menu in ${Date.now() - t0}ms`);
   }
 };

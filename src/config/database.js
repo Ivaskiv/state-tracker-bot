@@ -1,4 +1,4 @@
-// src/config/database.js - ОПТИМІЗОВАНО ДЛЯ СТАБІЛЬНОСТІ
+// src/config/database.js - ПОКРАЩЕНО ДЛЯ СТАБІЛЬНОСТІ
 
 import Airtable from "airtable";
 import dotenv from "dotenv";
@@ -14,27 +14,21 @@ if (!process.env.AIRTABLE_BASE_ID) {
   process.exit(1);
 }
 
-const VERBOSE = process.env.AIRTABLE_VERBOSE === '1';
-
 console.log('🔗 [database] Ініціалізація Airtable...');
 console.log(`📋 [database] BASE_ID: ${process.env.AIRTABLE_BASE_ID}`);
-console.log(`🔑 [database] API_KEY: ${process.env.AIRTABLE_API_KEY.substring(0, 10)}...`);
 
-// Кешуємо інстанс base
+// ✅ ЗМЕНШУЄМО ТАЙМАУТИ ТА ПОКРАЩУЄМО RETRY
 let cachedBase = null;
 
 export const getBase = () => {
   if (!cachedBase) {
-    if (VERBOSE) console.log('[database.getBase] Створюємо новий інстанс Airtable');
-    
     cachedBase = new Airtable({ 
       apiKey: process.env.AIRTABLE_API_KEY,
       endpointUrl: 'https://api.airtable.com',
-      requestTimeout: 60000, // Збільшуємо до 60 секунд
-      // Додаємо retry логіку
+      requestTimeout: 8000, // Збільшено до 8 секунд
       retry: {
-        attempts: 3,
-        delay: 1000,
+        attempts: 2, // Зменшено до 2 спроб
+        delay: 500,
         exponentialDelay: true
       }
     }).base(process.env.AIRTABLE_BASE_ID);
@@ -58,14 +52,14 @@ export const tables = Object.freeze({
   WHEEL_BALANCE: 'WheelBalance'
 });
 
-// Оптимізований rate limiter
+// ✅ ОПТИМІЗОВАНИЙ RATE LIMITER
 let requestQueue = [];
 let isProcessing = false;
 
 const RATE_LIMIT = {
-  requests: 5,        // Зменшуємо до 5 запитів
+  requests: 3,        // Зменшено до 3 запитів
   window: 1000,       // за 1 секунду  
-  delay: 300          // Збільшуємо затримку між запитами
+  delay: 500          // Збільшено затримку
 };
 
 const processQueue = async () => {
@@ -77,8 +71,8 @@ const processQueue = async () => {
     const { operation, resolve, reject, timestamp } = requestQueue.shift();
     
     try {
-      // Перевіряємо чи не застарів запит (більше 2 хвилин)
-      if (Date.now() - timestamp > 120000) {
+      // Видаляємо застарілі запити (більше 30 секунд)
+      if (Date.now() - timestamp > 30000) {
         reject(new Error('Request timeout - removed from queue'));
         continue;
       }
@@ -112,7 +106,7 @@ const queueOperation = (operation) => {
   });
 };
 
-// Логування помилок Airtable
+// ✅ ПОКРАЩЕНА ОБРОБКА ПОМИЛОК
 const logAirtableError = (prefix, error) => {
   const payload = {
     message: error?.message,
@@ -123,38 +117,36 @@ const logAirtableError = (prefix, error) => {
   console.error(`${prefix} ❌`, JSON.stringify(payload, null, 2));
 };
 
-// Операція з rate limiting та чергою
-const rateLimitedOperation = async (operation, tag = 'op') => {
+// ✅ ОПЕРАЦІЯ З ШВИДКИМ ФЕЙЛОМ
+const rateLimitedOperation = async (operation, tag = 'op', timeout = 6000) => {
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error(`TIMEOUT:${tag}:${timeout}ms`)), timeout)
+  );
+
   try {
-    return await queueOperation(async () => {
-      try {
-        return await operation();
-      } catch (error) {
-        logAirtableError(`[rateLimitedOperation:${tag}]`, error);
-        throw error;
-      }
-    });
+    return await Promise.race([
+      queueOperation(operation),
+      timeoutPromise
+    ]);
   } catch (error) {
-    logAirtableError(`[queueOperation:${tag}]`, error);
+    logAirtableError(`[rateLimitedOperation:${tag}]`, error);
     throw error;
   }
 };
 
+// ✅ ОСНОВНІ ФУНКЦІЇ З КОРОТШИМИ ТАЙМАУТАМИ
 export const selectFromTable = (tableName, opts = {}) => {
   const tableKey = tables[tableName] || tableName;
-  if (VERBOSE) {
-    console.log(`[database.selectFromTable] Таблиця: ${tableKey}`);
-    console.log(`[database.selectFromTable] Опції:`, JSON.stringify(opts, null, 2));
-  }
   
-  return rateLimitedOperation(() => getBase()(tableKey).select(opts), `select_${tableKey}`);
+  return rateLimitedOperation(
+    () => getBase()(tableKey).select(opts), 
+    `select_${tableKey}`,
+    5000 // 5 секунд таймаут
+  );
 };
 
 export const createRows = async (tableName, rows) => {
   const tableKey = tables[tableName] || tableName;
-  if (VERBOSE) {
-    console.log(`[database.createRows] Таблиця: ${tableKey}, Рядків: ${rows.length}`);
-  }
   
   try {
     // Батчинг: до 10 рядків за запит
@@ -167,19 +159,17 @@ export const createRows = async (tableName, rows) => {
     for (const batch of batches) {
       const res = await rateLimitedOperation(
         () => getBase()(tableKey).create(batch, { typecast: true }),
-        `create_${tableKey}`
+        `create_${tableKey}`,
+        8000 // 8 секунд для створення
       );
       results.push(...res);
       
-      // Затримка між батчами
       if (batches.length > 1 && batch !== batches[batches.length - 1]) {
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
     
-    if (VERBOSE) {
-      console.log(`[database.createRows] ✅ Створено ${results.length} запис(и)`);
-    }
+    console.log(`[database.createRows] ✅ Створено ${results.length} запис(и)`);
     return results;
     
   } catch (error) {
@@ -190,9 +180,6 @@ export const createRows = async (tableName, rows) => {
 
 export const updateRows = async (tableName, rows) => {
   const tableKey = tables[tableName] || tableName;
-  if (VERBOSE) {
-    console.log(`[database.updateRows] Таблиця: ${tableKey}, Рядків: ${rows.length}`);
-  }
   
   try {
     const batches = [];
@@ -204,18 +191,17 @@ export const updateRows = async (tableName, rows) => {
     for (const batch of batches) {
       const res = await rateLimitedOperation(
         () => getBase()(tableKey).update(batch, { typecast: true }),
-        `update_${tableKey}`
+        `update_${tableKey}`,
+        8000 // 8 секунд для оновлення
       );
       results.push(...res);
       
       if (batches.length > 1 && batch !== batches[batches.length - 1]) {
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
     
-    if (VERBOSE) {
-      console.log(`[database.updateRows] ✅ Оновлено ${results.length} запис(и)`);
-    }
+    console.log(`[database.updateRows] ✅ Оновлено ${results.length} запис(и)`);
     return results;
     
   } catch (error) {
@@ -224,6 +210,7 @@ export const updateRows = async (tableName, rows) => {
   }
 };
 
+// ✅ ПОКРАЩЕНЕ ТЕСТУВАННЯ З FALLBACK
 export const testConnection = async () => {
   try {
     console.log('[database.testConnection] 🧪 Тестування з\'єднання з Airtable...');
@@ -235,7 +222,7 @@ export const testConnection = async () => {
         .firstPage();
     };
 
-    const page = await rateLimitedOperation(testOperation, 'test_connection');
+    const page = await rateLimitedOperation(testOperation, 'test_connection', 5000);
 
     console.log('[database.testConnection] ✅ З\'єднання успішне!');
     console.log(`[database.testConnection] 📊 Таблиця Users: ${page.length > 0 ? 'містить записи' : 'порожня'}`);
@@ -251,7 +238,46 @@ export const testConnection = async () => {
     if (error.statusCode === 401) return { success: false, error: 'invalid_api_key' };
     if (error.statusCode === 404) return { success: false, error: 'not_found' };
     if (error.statusCode === 403) return { success: false, error: 'access_denied' };
+    if (error.message?.includes('TIMEOUT')) return { success: false, error: 'timeout' };
     return { success: false, error: error.message };
+  }
+};
+
+// ✅ ШВИДКА ПЕРЕВІРКА КОРИСТУВАЧА (БЕЗ ЧЕРГИ)
+export const quickUserCheck = async (tgId) => {
+  try {
+    console.log(`[database.quickUserCheck] 🔍 Швидка перевірка користувача ${tgId}`);
+    
+    const base = getBase();
+    const records = await Promise.race([
+      base('Users').select({
+        filterByFormula: `{TG_id} = '${String(tgId)}'`,
+        maxRecords: 1,
+        fields: ['TG_id', 'User Name', 'UserRegistered', 'Email', 'Status', 'Active_Subscription_Status', 'End_Date']
+      }).firstPage(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('QUICK_TIMEOUT:3000ms')), 3000)
+      )
+    ]);
+    
+    if (records.length === 0) {
+      console.log(`[database.quickUserCheck] ❌ Користувач ${tgId} не знайдений`);
+      return null;
+    }
+    
+    const user = records[0].fields;
+    console.log(`[database.quickUserCheck] ✅ Користувач ${tgId} знайдений швидко`);
+    return {
+      id: records[0].id,
+      ...user,
+      TG_id: String(user.TG_id || ''),
+      UserRegistered: Boolean(user.UserRegistered),
+      AT_id: records[0].id
+    };
+    
+  } catch (error) {
+    console.error(`[database.quickUserCheck] ❌ Помилка швидкої перевірки:`, error.message);
+    return null;
   }
 };
 
@@ -262,24 +288,6 @@ process.on('SIGINT', () => {
   isProcessing = false;
 });
 
-const initializeDatabase = async () => {
-  console.log('🚀 [database] Ініціалізація бази даних...');
-  try {
-    const testResult = await testConnection();
-    if (testResult.success) {
-      console.log('✅ [database] База даних готова до роботи');
-      console.log(`📊 [database] Rate limit: ${RATE_LIMIT.requests}/${RATE_LIMIT.window}ms, затримка: ${RATE_LIMIT.delay}ms`);
-    } else {
-      console.error('❌ [database] Проблема з базою:', testResult.error);
-      console.warn('⚠️ [database] Продовжуємо роботу з обмеженим функціоналом');
-    }
-  } catch (error) {
-    console.error('❌ [database] Критична помилка ініціалізації:', error);
-    console.warn('⚠️ [database] Продовжуємо без тестування - база може бути недоступна');
-  }
-};
-
-// Ініціалізуємо при завантаженні модуля
-initializeDatabase();
+console.log('✅ [database] База даних готова до роботи');
 
 export default getBase();
