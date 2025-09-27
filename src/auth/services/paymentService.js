@@ -1,7 +1,6 @@
 // src/auth/services/paymentService.js - Базовий сервіс платежів
 
 import { getBase, tables } from '../../config/database.js';
-import userService from './userService.js';
 
 const base = getBase();
 

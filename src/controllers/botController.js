@@ -1,12 +1,8 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО З РЕЄСТРАЦІЄЮ
-
-import userService from '../auth/services/userService.js';
+// src/controllers/botController.js
 import keyboards from '../utils/keyboards.js';
+import userService from '../auth/services/userService.js';
 
-// Імпорти модулів авторизації
-import { handleStart, handleRegistrationStep, handleOnboardingCallback } from '../auth/modules/auth.js';
-
-// Імпорти контролерів
+import startHandler from './handlers/startHandler.js';
 import mainFlowController from './flows/mainFlowController.js';
 import registrationController from './flows/registrationController.js';
 import dailyController from './flows/dailyController.js';
@@ -17,177 +13,180 @@ import subscriptionController from './subscriptionController.js';
 const botController = (bot) => {
   console.log('🤖 [botController] Ініціалізація хендлерів');
 
-  // ===== 1. КОМАНДА /start =====
-  bot.start(async (ctx) => {
-    const tgId = ctx.from.id;
-    console.log(`🚀 [/start] від ${tgId}`);
-    
+  // ---- базове middleware: сесія + лог апдейтів
+  bot.use(async (ctx, next) => {
+    ctx.session = ctx.session || { step: undefined, temp: {} };
+
+    const log = {
+      type: ctx.updateType,
+      text: ctx.message?.text,
+      cb: ctx.callbackQuery?.data,
+      from: ctx.from?.id
+    };
+    console.log('➡️', log);
+
     try {
-      // Ініціалізуємо сесію
-      ctx.session = ctx.session || { step: undefined, temp: {} };
-      
-      // Використовуємо новий обробник з auth.js
-      await handleStart(ctx);
-      
+      await next();
     } catch (err) {
-      console.error('[botController] ❌ start error:', err);
-      try { 
-        await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard()); 
-      } catch {}
+      console.error('❌ [botController] middleware error:', err);
+      try { await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard()); } catch {}
     }
   });
 
-  // ===== 2. ОБРОБКА ТЕКСТУ =====
+  // ---- анти-спам + миттєвий answerCbQuery (щоб не ловити 400 "query is too old...")
+  const inflightCallbacks = new Set();
+  bot.on('callback_query', async (ctx, next) => {
+    const id = ctx.callbackQuery?.id;
+    const key = `${ctx.from?.id}:${id}`;
+    if (!id) return;
+
+    if (inflightCallbacks.has(key)) {
+      try { await ctx.answerCbQuery('⏳ Обробляю…'); } catch {}
+      return;
+    }
+    inflightCallbacks.add(key);
+
+    try { await ctx.answerCbQuery(); } catch {}
+
+    try {
+      await next();
+    } finally {
+      setTimeout(() => inflightCallbacks.delete(key), 3000);
+    }
+  });
+
+  // ===== 1) /start
+  bot.start(async (ctx) => {
+    const tgId = ctx.from.id;
+    console.log(`🚀 [/start] від ${tgId}`);
+
+    try {
+      await startHandler.handle(ctx); // <— єдиний вхід для аутентифікації/меню/онбордингу
+    } catch (err) {
+      console.error('[botController] ❌ /start error:', err);
+      try { await ctx.reply('⚠️ Тимчасові труднощі. Відкриваю меню.', keyboards.mainMenuKeyboard()); } catch {}
+    }
+  });
+
+  // ===== 2) TEXT
   bot.on('text', async (ctx) => {
-    // Ігноруємо команди (вони обробляються окремо)
+    // команди обробляються окремо
     if (ctx.message?.entities?.some(e => e.type === 'bot_command')) return;
 
     const tgId = ctx.from.id;
     const text = ctx.message?.text?.trim();
     if (!text) return;
 
-    console.log(`💬 [botController] Текст від ${tgId}: "${text.substring(0, 30)}..."`);
-
     try {
-      // Ініціалізуємо сесію якщо немає
-      ctx.session = ctx.session || { step: undefined, temp: {} };
-
-      // 1. ПЕРЕВІРЯЄМО РЕЄСТРАЦІЮ (найвищий пріоритет)
-      const isRegistrationStep = await handleRegistrationStep(ctx);
-      if (isRegistrationStep) {
-        console.log(`[botController] ✅ Оброблено як крок реєстрації`);
-        return;
+      // якщо користувач у процесі онбордингу — хай перехопить registrationController
+      if (registrationController?.handleText) {
+        const consumed = await registrationController.handleText(ctx);
+        if (consumed) {
+          console.log('[botController] ✅ registrationController.handleText спрацював');
+          return;
+        }
       }
 
-      // 2. ПЕРЕВІРЯЄМО РЕЄСТРАЦІЮ ЧЕРЕЗ КОНТРОЛЕР
-      const isRegistrationText = await registrationController.handleText(ctx);
-      if (isRegistrationText) {
-        console.log(`[botController] ✅ Оброблено через registrationController`);
-        return;
-      }
-
-      // 3. ОТРИМУЄМО КОРИСТУВАЧА
+      // легкий запит юзера (без жорстких таймаутів)
       let user = null;
-      try {
-        user = await userService.getUserByTelegramId(tgId);
-      } catch (error) {
-        console.warn('[botController] База недоступна:', error.message);
-        await ctx.reply('⚠️ Тимчасові проблеми. Спробуй /start');
-        return;
-      }
+      try { user = await userService.getUserByTelegramId(tgId); }
+      catch (e) { console.warn('[botController] ⚠️ getUserByTelegramId failed:', e?.message || e); }
 
-      // 4. ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ ЗАРЕЄСТРОВАНИЙ
-      if (!user || !user.UserRegistered) {
-        await ctx.reply('Спочатку зареєструйся /start');
-        return;
-      }
+      const currentStep = user?.Answer_Step || ctx.session?.step || '';
 
-      // 5. ПЕРЕВІРЯЄМО АКТИВНІ СЕСІЇ
-      const currentStep = user?.Answer_Step || ctx.session?.step;
-      
-      // AI Наставник активний
+      // AI наставник активний?
       const { aiMentorSession } = await import('../aiMentor/session.js');
-      if (aiMentorSession.isActive(tgId)) {
+      if (aiMentorSession?.isActive?.(tgId)) {
         await aiMentorController.handleAIMentorQuestion(ctx, text);
         return;
       }
-      
-      // Колесо балансу
+
+      // колесо балансу
       if (currentStep === 'WheelBalance') {
         await wheelController.handleText(ctx, text);
         return;
       }
-      
-      // Ранкові/вечірні питання
+
+      // ранкові/вечірні питання
       if (currentStep?.startsWith('Q_m_') || currentStep?.startsWith('Q_e_')) {
         await dailyController.handleText(ctx, text, currentStep);
         return;
       }
 
-      // 6. КОМАНДИ МЕНЮ
+      // дефолт: головний флоу меню
       await mainFlowController.handleText(ctx, text, user);
-
     } catch (error) {
       console.error('[botController] ❌ Text error:', error);
-      try { 
-        await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard()); 
-      } catch {}
+      try { await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard()); } catch {}
     }
   });
 
-  // ===== 3. ОБРОБКА CALLBACK =====
+  // ===== 3) CALLBACKS (роутінг)
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery?.data || '';
     const tgId = ctx.from.id;
-    
-    console.log(`📱 [botController] Callback: ${data} від ${tgId}`);
+    console.log(`📱 [callback] ${data} від ${tgId}`);
 
     try {
-      // Завжди відповідаємо на callback
-      await ctx.answerCbQuery();
-      
-      // Ініціалізуємо сесію
-      ctx.session = ctx.session || { step: undefined, temp: {} };
-
-      // 1. ОНБОРДИНГ CALLBACKS (найвищий пріоритет)
-      const isOnboardingCallback = await handleOnboardingCallback(ctx);
-      if (isOnboardingCallback) {
-        console.log(`[botController] ✅ Оброблено через handleOnboardingCallback`);
+      // онбординг
+      if (registrationController?.isRegistrationCallback?.(data)) {
+        await registrationController.handleCallback(ctx, data);
         return;
       }
 
-      // 2. РЕЄСТРАЦІЯ CALLBACKS
-      const isRegistrationCallback = await registrationController.handleCallback(ctx, data);
-      if (isRegistrationCallback) {
-        console.log(`[botController] ✅ Оброблено через registrationController callback`);
-        return;
-      }
-
-      // 3. AI НАСТАВНИК
+      // AI наставник
       if (data.startsWith('ai_')) {
         await aiMentorController.handleAIMentorCallback(ctx);
         return;
       }
 
-      // 4. КОЛЕСО БАЛАНСУ
+      // колесо
       if (data.startsWith('wheel_')) {
         await wheelController.handleCallback(ctx, data);
         return;
       }
 
-      // 5. ЩОДЕННІ ПИТАННЯ
+      // ранкові/вечірні
       if (data.includes('morning') || data.includes('evening')) {
         await dailyController.handleCallback(ctx, data);
         return;
       }
 
-      // 6. ПІДПИСКИ
-      if (data.startsWith('subscribe_') || data === 'subscription_plans' || 
-          data === 'subscription_info' || data === 'sync_subscription' || 
-          data === 'activate_trial' || data === 'contact_support') {
-        await subscriptionController.handleCallback(ctx);
+      // підписки та trial
+      if (
+        data.startsWith('subscribe_') ||
+        data === 'subscription_plans' ||
+        data === 'subscription_info' ||
+        data === 'sync_subscription' ||
+        data === 'activate_trial' ||
+        data === 'plan_free' ||
+        data === 'contact_support'
+      ) {
+        // trial зручно обробляє наш startHandler (plan_free)
+        if (data === 'plan_free') {
+          const mod = (await import('./handlers/startHandler.js')).default;
+          await mod.handleCallback(ctx);
+        } else {
+          await subscriptionController.handleCallback(ctx);
+        }
         return;
       }
 
-      // 7. ОСНОВНІ CALLBACKS
-      const user = await userService.getUserByTelegramId(tgId);
+      // дефолт
+      let user = null;
+      try { user = await userService.getUserByTelegramId(tgId); } catch {}
       await mainFlowController.handleCallback(ctx, data, user);
-
     } catch (error) {
       console.error('[botController] ❌ Callback error:', error);
-      try { 
-        await ctx.answerCbQuery('Помилка обробки'); 
-      } catch {}
+      try { await ctx.answerCbQuery('Помилка'); } catch {}
     }
   });
 
-  // ===== 4. ГЛОБАЛЬНА ОБРОБКА ПОМИЛОК =====
+  // ===== 4) ГЛОБАЛЬНІ ПОМИЛКИ
   bot.catch(async (err, ctx) => {
     console.error('❌ [botController] Global error:', err);
     if (ctx?.reply) {
-      try { 
-        await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard()); 
-      } catch {}
+      try { await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard()); } catch {}
     }
   });
 

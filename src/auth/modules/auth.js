@@ -45,6 +45,7 @@ const safeUpsertUser = async (tgId, fields) => {
   console.log(`[auth] 🔄 safeUpsertUser для ${tgId}:`, Object.keys(fields));
   
   try {
+    // Спочатку пробуємо оновити
     const updated = await userService.updateUser(tgId, fields);
     if (updated) {
       console.log(`[auth] ✅ safeUpsertUser: користувач оновлений`);
@@ -52,8 +53,9 @@ const safeUpsertUser = async (tgId, fields) => {
     }
     
     console.log(`[auth] 🆕 safeUpsertUser: створюємо нового користувача`);
-    // Якщо оновлення не вдалось, створюємо нового
-    const created = await userService.createUser({
+    
+    // З TIMEOUT для створення
+    const createPromise = userService.createUser({
       tgId,
       name: fields['User Name'],
       email: fields.Email,
@@ -62,14 +64,26 @@ const safeUpsertUser = async (tgId, fields) => {
       registrationStatus: fields['Subscription Status'] || 'New'
     });
     
+    const createTimeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('createUser timeout after 15s')), 15000)
+    );
+    
+    let created;
+    try {
+      created = await Promise.race([createPromise, createTimeoutPromise]);
+    } catch (createTimeoutError) {
+      console.error('[safeUpsertUser] ⏰ createUser TIMEOUT:', createTimeoutError.message);
+      throw new Error('База даних недоступна');
+    }
+    
     console.log(`[auth] ✅ safeUpsertUser: новий користувач створений`);
     return created;
+    
   } catch (error) {
     console.error('[safeUpsertUser] ❌ Помилка:', error);
     throw error;
   }
 };
-
 /**
  * Швидке створення користувача з мінімальними даними
  */
@@ -94,7 +108,7 @@ const createMinimalUser = async (tgId, name) => {
 // ===== ОБРОБКА /start =====
 
 /**
- * Головний обробник команди /start
+ * Головний обробник команди /start - ШВИДКИЙ З TYPING
  */
 export const handleStart = async (ctx) => {
   const tgId = ctx.from.id;
@@ -102,86 +116,189 @@ export const handleStart = async (ctx) => {
   
   console.log(`[auth] 🚀 handleStart ПОЧАТОК для ${tgId} (${name})`);
   
+  // Одразу показуємо typing
+  await ctx.sendChatAction('typing');
+  
   if (!ctx.session) {
     console.log(`[auth] 🔧 Ініціалізуємо сесію`);
     ctx.session = { step: undefined, temp: {} };
   }
   
   try {
-    console.log(`[auth] 📞 Викликаємо userService.getUserByTelegramId(${tgId})`);
+    console.log(`[auth] 📞 Швидка перевірка користувача ${tgId}`);
     
-    // Отримуємо користувача (може бути null)
+    // ШВИДКА перевірка - спочатку кеш, потім швидкий запит
     let user = null;
+    let needsRegistration = false;
+    
     try {
-      const startTime = Date.now();
-      user = await userService.getUserByTelegramId(tgId);
-      const duration = Date.now() - startTime;
-      
-      console.log(`[auth] 📊 getUserByTelegramId завершено за ${duration}ms, результат:`, {
-        userFound: !!user,
-        userName: user?.['User Name'],
-        userRegistered: user?.UserRegistered,
-        status: user?.Status
-      });
-      
+      // Перевіряємо кеш
+      const cached = userService.getFromCache?.(tgId);
+      if (cached) {
+        user = cached;
+        console.log(`[auth] ⚡ Користувач з кешу`);
+      } else {
+        // Швидкий запит з timeout 5 сек
+        const quickCheck = userService.getUserByTelegramId(tgId);
+        const timeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Quick check timeout')), 5000)
+        );
+        
+        user = await Promise.race([quickCheck, timeout]);
+        console.log(`[auth] ⚡ Швидка перевірка завершена`);
+      }
     } catch (error) {
-      console.error('[auth] ❌ Помилка отримання користувача:', {
-        message: error.message,
-        stack: error.stack?.substring(0, 200)
-      });
-      console.warn('[auth] ⚠️ Продовжуємо без користувача');
+      console.warn(`[auth] ⚠️ Швидка перевірка не вдалась, створюємо користувача`);
+      needsRegistration = true;
     }
     
-    // Сценарій 1: Користувач не існує або не завершив реєстрацію
-    if (!user || isProfileIncomplete(user)) {
-      const scenario = !user ? 'НОВИЙ' : 'НЕЗАВЕРШЕНИЙ';
-      console.log(`[auth] 🆕 Сценарій 1: ${scenario} користувач ${tgId} - запуск реєстрації`);
+    // Якщо користувача немає або БД недоступна - одразу створюємо мінімальний запис
+    if (!user || needsRegistration) {
+      console.log(`[auth] 🆕 Створюємо мінімальний запис для ${tgId}`);
+      
+      // Створюємо мінімальний запис В ФОНІ
+      createMinimalUserInBackground(tgId, name);
+      
+      // А користувачу одразу показуємо реєстрацію
+      console.log(`[auth] 📝 Показуємо реєстрацію`);
       await startRegistration(ctx, name);
       return;
     }
     
-    console.log(`[auth] ✅ Користувач ${tgId} існує та зареєстрований, перевіряємо доступ`);
+    // Користувач існує - перевіряємо чи завершив реєстрацію
+    if (isProfileIncomplete(user)) {
+      console.log(`[auth] 📝 Профіль незавершений, продовжуємо реєстрацію`);
+      await continueRegistration(ctx, user);
+      return;
+    }
     
-    // Сценарій 2: Перевіряємо підписку
-    console.log(`[auth] 💰 Перевіряємо підписку для ${tgId}`);
+    console.log(`[auth] ✅ Користувач зареєстрований, перевіряємо доступ`);
+    await ctx.sendChatAction('typing');
+    
+    // Перевіряємо підписку
     const hasAccess = userService.hasActiveAccess(user);
-    console.log(`[auth] 💰 Результат перевірки підписки: ${hasAccess ? 'АКТИВНА' : 'НЕАКТИВНА'}`);
+    console.log(`[auth] 💰 Підписка: ${hasAccess ? 'АКТИВНА' : 'НЕАКТИВНА'}`);
     
     if (!hasAccess) {
-      console.log(`[auth] 💳 Сценарій 2: Показуємо потребу в підписці`);
+      console.log(`[auth] 💳 Показуємо потребу в підписці`);
       await showSubscriptionRequired(ctx, user);
       return;
     }
     
-    // Сценарій 3: Перевіряємо перше колесо балансу
-    console.log(`[auth] 🎯 Перевіряємо перше колесо для ${tgId}`);
-    const hasWheel = await checkFirstWheel(tgId);
-    console.log(`[auth] 🎯 Результат перевірки колеса: ${hasWheel ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО'}`);
+    // Перевіряємо перше колесо
+    console.log(`[auth] 🎯 Перевіряємо колесо`);
+    await ctx.sendChatAction('typing');
+    
+    let hasWheel = false;
+    try {
+      hasWheel = await checkFirstWheelQuick(tgId);
+    } catch {
+      hasWheel = true; // Якщо не можемо перевірити, припускаємо що є
+    }
     
     if (!hasWheel) {
-      console.log(`[auth] 🎯 Сценарій 3: Показуємо перше колесо`);
+      console.log(`[auth] 🎯 Показуємо перше колесо`);
       await showFirstWheel(ctx, user);
       return;
     }
     
-    // Сценарій 4: Все готово - головне меню
-    console.log(`[auth] ✅ Сценарій 4: Все готово для ${tgId} - показуємо головне меню`);
+    // Все готово - головне меню
+    console.log(`[auth] ✅ Головне меню`);
+    await ctx.sendChatAction('typing');
     await showMainMenu(ctx, user);
     
   } catch (error) {
-    console.error('[auth.handleStart] ❌ КРИТИЧНА ПОМИЛКА:', {
-      message: error.message,
-      stack: error.stack,
-      tgId,
-      name
-    });
+    console.error('[auth.handleStart] ❌ КРИТИЧНА ПОМИЛКА:', error);
     
     try {
       await ctx.reply('❌ Помилка. Спробуй ще раз /start');
-    } catch (replyError) {
-      console.error('[auth.handleStart] ❌ Не вдалося надіслати повідомлення про помилку:', replyError);
-    }
+    } catch {}
   }
+};
+/**
+ * Створення мінімального користувача в фоні
+ */
+const createMinimalUserInBackground = async (tgId, name) => {
+  console.log(`[auth] 🔄 Створюємо мінімальний запис в фоні для ${tgId}`);
+  
+  try {
+    // Створюємо базовий запис одразу
+    const minimalData = {
+      'TG_id': String(tgId),
+      'User Name': name || 'Користувач',
+      'Email': `temp${tgId}@example.com`, // Тимчасовий email
+      'Phone': '+380000000000', // Тимчасовий телефон
+      'Time Zone': 'Europe/Kyiv',
+      'Registration Date': new Date().toISOString(),
+      'Status': 'Registration Started',
+      'UserRegistered': false,
+      'Subscription Status': 'New',
+      'Active_Subscription_Status': '❌ Неактивна',
+      'Created_At': new Date().toISOString(),
+    };
+    
+    // Створюємо з timeout 10 сек
+    const createPromise = userService.createUserDirect(minimalData);
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Background create timeout')), 10000)
+    );
+    
+    const created = await Promise.race([createPromise, timeout]);
+    
+    if (created) {
+      console.log(`[auth] ✅ Мінімальний запис створено в фоні`);
+    } else {
+      console.warn(`[auth] ⚠️ Не вдалось створити мінімальний запис`);
+    }
+    
+  } catch (error) {
+    console.error(`[auth] ❌ Помилка створення в фоні:`, error.message);
+  }
+};
+
+/**
+ * Швидка перевірка колеса
+ */
+const checkFirstWheelQuick = async (tgId) => {
+  try {
+    const { getBase, tables } = await import('../../config/database.js');
+    const base = getBase();
+    
+    const quickPromise = base(tables.WHEEL_BALANCE)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Completed")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Wheel check timeout')), 3000)
+    );
+    
+    const records = await Promise.race([quickPromise, timeout]);
+    return records.length > 0;
+    
+  } catch (error) {
+    console.warn(`[auth] ⚠️ Швидка перевірка колеса не вдалась:`, error.message);
+    return false;
+  }
+};
+
+/**
+ * Продовження реєстрації для існуючого користувача
+ */
+const continueRegistration = async (ctx, user) => {
+  await ctx.sendChatAction('typing');
+  
+  const message = `👋 З поверненням!\n\nДавай завершимо реєстрацію.\n\nВведи своє ім'я:`;
+  
+  ctx.session.step = OB_STEPS.NAME;
+  ctx.session.temp = {
+    userId: user.id,
+    existingData: user
+  };
+  
+  await ctx.reply(message, keyboards.skipKeyboard());
 };
 
 // ===== РЕЄСТРАЦІЯ =====

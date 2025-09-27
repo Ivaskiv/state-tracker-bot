@@ -280,7 +280,17 @@ skipKeyboard() {
       ]
     }
   };
-}
+},
+confirmNameKeyboard(name) {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '✅ Залишити', callback_data: 'keep_name' }],
+        [{ text: '✏️ Змінити',  callback_data: 'change_name' }]
+      ]
+    }
+  };
+},
 };
 
 export default keyboards; 
