@@ -55,17 +55,18 @@ const keyboards = {
     };
   },
 
-  timezoneKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          ...TIMEZONES.map(tz => ([{ text: tz, callback_data: `tz_${parseTz(tz)}` }])),
-          [{ text: '🔙 Назад', callback_data: 'back_timezone' }]
-        ]
-      }
-    };
-  },
-
+timezoneKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        ...TIMEZONES.map(label => ([
+          { text: label, callback_data: `tz_${parseTz(label)}` }
+        ])),
+        [{ text: '🔙 Назад', callback_data: 'back_timezone' }]
+      ]
+    }
+  };
+},
   timezoneConfirmedKeyboard() {
     return {
       reply_markup: {

@@ -220,18 +220,39 @@ export const OB_STEPS = Object.freeze({
   DONE: ANSWER_STEPS.OB_DONE,
 });
 
-// === Таймзони для UI ===
+console.log('✅ [constants] Константи ініціалізовано');
+// === Таймзони (Airtable Single select labels) ===
 export const TIMEZONES = Object.freeze([
-  'Europe/Kyiv (UTC+2/UTC+3)',
-  'Europe/Prague (UTC+1/UTC+2)',
-  'Europe/Berlin (UTC+1/UTC+2)',
-  'Europe/Paris (UTC+1/UTC+2)',
-  'Europe/London (UTC+0/UTC+1)',
-  'America/New_York (UTC-5/UTC-4)',
-  'Asia/Dubai (UTC+4)'
+  'Europe/Kiev (UTC+3)',
+  'Europe/Warsaw (UTC+2)',
+  'Europe/Berlin (UTC+2)',
+  'Europe/London (UTC+1)',
+  'Europe/Paris (UTC+2)',
+  'Europe/Rome (UTC+2)',
+  'Europe/Vienna (UTC+2)',
+  'Europe/Stockholm (UTC+2)',
+  'Europe/Moscow (UTC+3)',
+  'Asia/Dubai (UTC+4)',
+  'America/New_York (UTC-4)',
+  'America/Chicago (UTC-5)',
+  'America/Los_Angeles (UTC-7)',
+  'Canada/Toronto (UTC-4)',
+  'Asia/Tokyo (UTC+9)',
+  'Asia/Shanghai (UTC+8)',
+  'Australia/Sydney (UTC+10)',
+  'Europe/Prague (UTC+2)',
+  'Europe/Bucharest (UTC+3)',
+  'Europe/Helsinki (UTC+3)'
 ]);
 
-export const parseTz = (label) => (label || '').split(' ')[0];
+// З label → slug ("Europe/Prague (UTC+2)" -> "Europe/Prague")
+export const parseTz = (label) => String(label).split(' (')[0];
+
+// Із slug → label (для запису в Single select)
+export const resolveTz = (slug) => {
+  const hit = TIMEZONES.find(l => l.startsWith(slug));
+  return hit || 'Europe/Kiev (UTC+3)'; // дефолт безпечний
+};
 // ===== AI НАСТАВНИК ПРОМПТИ =====
 export const AI_MENTOR_PROMPTS = Object.freeze({
   SYSTEM_PROMPT: `Ти — експертний AI-наставник рівня Tony Robbins + Simon Sinek + Tim Ferriss.
