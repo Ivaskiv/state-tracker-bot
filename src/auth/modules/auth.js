@@ -1,4 +1,4 @@
-// src/auth/modules/auth.js - З ДЕТАЛЬНИМИ ЛОГАМИ ДЛЯ ДІАГНОСТИКИ
+// src/auth/modules/auth.js - АВТЕНТИФІКАЦІЯ З ДЕТАЛЬНИМИ ЛОГАМИ
 
 import userService from '../services/userService.js';
 import paymentService from '../services/paymentService.js';
@@ -423,9 +423,6 @@ const handleSubscriptionStep = async (ctx, planInput) => {
   }
 };
 
-// ===== РЕШТА ФУНКЦІЙ БЕЗ ЗМІН =====
-// (тут я скорочую для економії місця, але в реальному файлі всі функції повинні бути)
-
 /**
  * Нормалізація ключа плану
  */
@@ -446,10 +443,8 @@ const normalizePlanKey = (plan) => {
   return result;
 };
 
-// Додай всі інші функції без змін...
 const handleTrialPlan = async (ctx, tgId) => {
   console.log(`[auth] 🧪 handleTrialPlan для ${tgId}`);
-  // ... решта коду
   try {
     const activated = await paymentService.activateTrialSubscription(tgId, 7);
     
@@ -482,7 +477,30 @@ const handleTrialPlan = async (ctx, tgId) => {
 
 const handlePaidPlan = async (ctx, tgId, planKey) => {
   console.log(`[auth] 💳 handlePaidPlan для ${tgId}, план: ${planKey}`);
-  // ... решта коду без змін
+  
+  const planInfo = SUBSCRIPTION_PLANS[planKey];
+  if (!planInfo) {
+    await ctx.reply('❌ Невірний план підписки.');
+    return true;
+  }
+
+  const message = 
+    `💳 ОПЛАТА ПІДПИСКИ\n\n` +
+    `План: ${planInfo.name}\n` +
+    `Вартість: ${planInfo.price}€\n` +
+    `Період: ${planInfo.duration} днів\n\n` +
+    `Після оплати підписка активується автоматично.`;
+
+  await ctx.reply(message, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '💳 Оплатити зараз', callback_data: `subscribe_${planKey.toLowerCase()}` }],
+        [{ text: '🧪 Пробна версія', callback_data: 'plan_trial' }],
+        [{ text: '⏭ Пізніше', callback_data: 'main_menu' }]
+      ]
+    }
+  });
+  
   return true;
 };
 
@@ -540,26 +558,121 @@ export const handleOnboardingCallback = async (ctx) => {
   }
 };
 
-// ДОПОМІЖНІ ФУНКЦІЇ (додай решту без змін)
+// ДОПОМІЖНІ ФУНКЦІЇ
 const handleSkipStep = async (ctx) => {
   console.log(`[auth] ⏭️ handleSkipStep для кроку: ${ctx.session.step}`);
-  // ... код без змін
+  
+  const currentStep = ctx.session.step;
+  const tgId = ctx.from.id;
+  const name = ctx.from.first_name || 'Користувач';
+
+  switch (currentStep) {
+    case OB_STEPS.NAME:
+      ctx.session.temp.name = name;
+      ctx.session.step = OB_STEPS.EMAIL;
+      await ctx.reply('📧 Введи email:', keyboards.skipKeyboard());
+      break;
+      
+    case OB_STEPS.EMAIL:
+      ctx.session.temp.email = `user${tgId}@temp.com`;
+      ctx.session.step = OB_STEPS.PHONE;
+      await ctx.reply('📱 Введи телефон:', keyboards.skipKeyboard());
+      break;
+      
+    case OB_STEPS.PHONE:
+      ctx.session.temp.phone = '+380000000000';
+      ctx.session.step = OB_STEPS.PLAN;
+      await ctx.reply('🎁 Обери план:', keyboards.subscriptionPlansKeyboard());
+      break;
+      
+    default:
+      await ctx.reply('❌ Цей крок не можна пропустити');
+  }
 };
 
 const showAboutBot = async (ctx) => {
-  // ... код без змін
+  const message = 
+    `🤖 AI МОТИВАТОР-КОУЧ\n\n` +
+    `✨ Що я роблю:\n` +
+    `• Ранкові питання для фокусу\n` +
+    `• Вечірні питання для рефлексії\n` +
+    `• AI-наставник для підтримки\n` +
+    `• Колесо балансу для аналізу життя\n` +
+    `• Персональні звіти та рекомендації\n\n` +
+    `🎯 Результат: більше усвідомленості, мотивації та досягнень!`;
+  
+  await ctx.reply(message, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }],
+        [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
+      ]
+    }
+  });
 };
 
 const showSubscriptionRequired = async (ctx, user) => {
-  // ... код без змін
+  const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
+  
+  const message = 
+    `👋 З поверненням, ${userName}!\n\n` +
+    `💡 Для повного доступу потрібна активна підписка:\n\n` +
+    `🎯 AI коучинг 24/7\n` +
+    `📊 Колесо балансу\n` +
+    `📈 Персональна аналітика\n\n` +
+    `💰 Активуй підписку:`;
+
+  await ctx.reply(message, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎁 Пробний період 7 днів', callback_data: 'activate_trial' }],
+        [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
+        [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }]
+      ]
+    }
+  });
 };
 
 const showFirstWheel = async (ctx, user) => {
-  // ... код без змін
+  const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
+  
+  const message = 
+    `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
+    `Привіт, ${userName}! 👋\n\n` +
+    `Рекомендую почати з колеса балансу 🌀\n` +
+    `Це допоможе AI-наставнику дати тобі максимально ` +
+    `персоналізовані підказки та рекомендації.\n\n` +
+    `📊 8 сфер життя (5–10 хв)\n` +
+    `🎯 Отримаєш інсайти та план дій\n\n` +
+    `Готова почати?`;
+
+  await ctx.reply(message, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' }],
+        [{ text: '❓ Що це таке?', callback_data: 'wheel_info' }],
+        [{ text: '⏭ Пізніше', callback_data: 'main_menu' }]
+      ]
+    }
+  });
 };
 
 const showMainMenu = async (ctx, user) => {
-  // ... код без змін
+  const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
+  const status = user?.['Active_Subscription_Status'] || '✅ Активна';
+  
+  const message = 
+    `🏠 Головне меню\n\n` +
+    `👋 ${userName}\n` +
+    `${status}\n\n` +
+    `Готова до продуктивного дня?`;
+
+  await ctx.reply(message, keyboards.mainMenuKeyboard());
+  
+  // Оновлюємо активність в фоні
+  userService.updateUser(ctx.from.id, { 
+    Last_Activity: new Date().toISOString() 
+  }).catch(error => console.warn('Помилка оновлення активності:', error));
 };
 
 const checkFirstWheel = async (tgId) => {

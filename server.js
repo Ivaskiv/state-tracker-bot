@@ -1,23 +1,16 @@
-// server.js - ПРАВИЛЬНИЙ З AUTH СИСТЕМОЮ
-
+// server.js - ГОЛОВНИЙ ФАЙЛ СЕРВЕРУ
 import dotenv from 'dotenv';
 dotenv.config();
 
 import { Telegraf, session } from 'telegraf';
-
-// Імпорти auth системи
 import { handleStart, handleRegistrationStep, handleOnboardingCallback } from './src/auth/modules/auth.js';
 import userService from './src/auth/services/userService.js';
-
-// Імпорти контролерів
 import mainFlowController from './src/controllers/flows/mainFlowController.js';
 import registrationController from './src/controllers/flows/registrationController.js';
 import dailyController from './src/controllers/flows/dailyController.js';
 import wheelController from './src/controllers/flows/wheelController.js';
 import aiMentorController from './src/aiMentor/controllers/aiMentorController.js';
 import subscriptionController from './src/controllers/subscriptionController.js';
-
-// Імпорти утиліт
 import keyboards from './src/utils/keyboards.js';
 import { testConnection } from './src/config/database.js';
 
@@ -27,14 +20,14 @@ async function start() {
     process.exit(1);
   }
 
-  console.log('🚀 [SERVER] Запуск бота з auth системою...');
+  console.log('🚀 [SERVER] Запуск AI-наставник бота...');
 
   // Створюємо бота
   const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, { 
-    handlerTimeout: 90000 // 90 секунд
+    handlerTimeout: 90000 
   });
 
-  // Знімаємо старий вебхук
+  // Очищаємо webhook
   try {
     await bot.telegram.deleteWebhook({ drop_pending_updates: false });
     console.log('🧹 [SERVER] Webhook очищено');
@@ -77,12 +70,8 @@ async function start() {
     console.log(`🚀 [/start] від ${tgId}`);
     
     try {
-      // Ініціалізуємо сесію
       ctx.session = ctx.session || { step: undefined, temp: {} };
-      
-      // Використовуємо auth систему
       await handleStart(ctx);
-      
     } catch (err) {
       console.error('[SERVER] ❌ start error:', err);
       try { 
@@ -93,7 +82,6 @@ async function start() {
 
   // ===== ОБРОБКА ТЕКСТУ =====
   bot.on('text', async (ctx) => {
-    // Ігноруємо команди
     if (ctx.message?.entities?.some(e => e.type === 'bot_command')) return;
 
     const tgId = ctx.from.id;
@@ -101,10 +89,9 @@ async function start() {
     if (!text) return;
 
     try {
-      // Ініціалізуємо сесію
       ctx.session = ctx.session || { step: undefined, temp: {} };
 
-      // 1. РЕЄСТРАЦІЯ (найвищий пріоритет)
+      // 1. РЕЄСТРАЦІЯ
       const isRegistrationStep = await handleRegistrationStep(ctx);
       if (isRegistrationStep) return;
 
@@ -166,13 +153,10 @@ async function start() {
     const tgId = ctx.from.id;
 
     try {
-      // Завжди відповідаємо на callback
       await ctx.answerCbQuery();
-      
-      // Ініціалізуємо сесію
       ctx.session = ctx.session || { step: undefined, temp: {} };
 
-      // 1. ОНБОРДИНГ CALLBACKS (найвищий пріоритет)
+      // 1. ОНБОРДИНГ CALLBACKS
       const isOnboardingCallback = await handleOnboardingCallback(ctx);
       if (isOnboardingCallback) return;
 
@@ -219,8 +203,6 @@ async function start() {
   });
 
   // ===== ДОДАТКОВІ КОМАНДИ =====
-  
-  // Тестова команда для колеса
   bot.command('wheel', async (ctx) => {
     try {
       await wheelController.handleRequest(ctx);
@@ -230,7 +212,6 @@ async function start() {
     }
   });
 
-  // Health check
   bot.command('health', async (ctx) => {
     try {
       const dbStatus = await testConnection();
@@ -303,7 +284,7 @@ async function start() {
     process.exit(1);
   });
 
-  console.log('✅ [SERVER] AI-наставник бот з auth системою готовий!');
+  console.log('✅ [SERVER] AI-наставник бот готовий!');
 }
 
 start().catch(error => {

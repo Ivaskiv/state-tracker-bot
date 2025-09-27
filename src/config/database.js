@@ -1,4 +1,4 @@
-// src/config/database.js — СПРОЩЕНО ТА ОПТИМІЗОВАНО
+// src/config/database.js — БАЗА ДАНИХ AIRTABLE
 
 import Airtable from 'airtable';
 import dotenv from 'dotenv';
