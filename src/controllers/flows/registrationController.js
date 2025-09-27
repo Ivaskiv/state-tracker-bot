@@ -1,18 +1,18 @@
-// src/controllers/flows/registrationController.js - КОНТРОЛЕР РЕЄСТРАЦІЇ
+// src/controllers/flows/registrationController.js - Контролер реєстрації
 
 import userService from '../../auth/services/userService.js';
 import paymentService from '../../auth/services/paymentService.js';
 import keyboards from '../../utils/keyboards.js';
-import { isValidEmail, isValidUaPhone } from '../../utils/validators.js';
-import { SUBSCRIPTION_PLANS } from '../../config/constants.js';
+import { isValidEmail, isValidUaPhone, isValidName, formatEmail, formatPhone, formatName } from '../../utils/validators.js';
+import { SUBSCRIPTION_PLANS, OB_STEPS } from '../../config/constants.js';
 
-// Стани реєстрації
+// Стани реєстрації (використовуємо ті ж самі що в OB_STEPS)
 const REGISTRATION_STEPS = {
-  PITCH: 'reg_pitch',
-  NAME: 'reg_name', 
-  EMAIL: 'reg_email',
-  PHONE: 'reg_phone',
-  PLAN: 'reg_plan'
+  PITCH: OB_STEPS.PITCH,
+  NAME: OB_STEPS.NAME,
+  EMAIL: OB_STEPS.EMAIL,
+  PHONE: OB_STEPS.PHONE,
+  PLAN: OB_STEPS.PLAN
 };
 
 const registrationController = {
@@ -135,7 +135,7 @@ const registrationController = {
 
   // ===== КРОК: ІМ'Я =====
   async handleNameStep(ctx, name) {
-    if (!name || name.length < 2 || name.length > 50) {
+    if (!isValidName(name)) {
       await ctx.reply(
         '⚠️ Введи правильне ім\'я (2-50 символів):',
         keyboards.skipKeyboard()
@@ -143,7 +143,7 @@ const registrationController = {
       return;
     }
     
-    ctx.session.temp.name = name;
+    ctx.session.temp.name = formatName(name);
     ctx.session.step = REGISTRATION_STEPS.EMAIL;
     
     await ctx.reply(
@@ -154,7 +154,7 @@ const registrationController = {
 
   // ===== КРОК: EMAIL =====
   async handleEmailStep(ctx, email) {
-    if (!email || !isValidEmail(email)) {
+    if (!isValidEmail(email)) {
       await ctx.reply(
         '⚠️ Невірний email. Введи коректний (example@gmail.com):',
         keyboards.skipKeyboard()
@@ -162,7 +162,7 @@ const registrationController = {
       return;
     }
     
-    ctx.session.temp.email = email.toLowerCase();
+    ctx.session.temp.email = formatEmail(email);
     ctx.session.step = REGISTRATION_STEPS.PHONE;
     
     await ctx.reply(
@@ -173,7 +173,9 @@ const registrationController = {
 
   // ===== КРОК: ТЕЛЕФОН =====
   async handlePhoneStep(ctx, phone) {
-    if (!phone || !isValidUaPhone(phone)) {
+    const formattedPhone = formatPhone(phone);
+    
+    if (!isValidUaPhone(formattedPhone)) {
       await ctx.reply(
         '⚠️ Неправильний телефон. Введи +380XXXXXXXXX:',
         keyboards.skipKeyboard()
@@ -181,7 +183,7 @@ const registrationController = {
       return;
     }
     
-    ctx.session.temp.phone = phone;
+    ctx.session.temp.phone = formattedPhone;
     ctx.session.step = REGISTRATION_STEPS.PLAN;
     
     await ctx.reply(
@@ -400,6 +402,16 @@ const registrationController = {
     return Object.values(REGISTRATION_STEPS).includes(step);
   },
 
+  // ===== ПЕРЕВІРКА CALLBACK РЕЄСТРАЦІЇ =====
+  isRegistrationCallback(data) {
+    const registrationCallbacks = [
+      'start_registration', 'onboarding_start', 'onboarding_about', 'about_bot',
+      'skip_step', 'plan_free', 'plan_trial', 'plan_week', 'plan_month', 'plan_year',
+      'activate_trial'
+    ];
+    return registrationCallbacks.includes(data);
+  },
+
   // ===== ЗАВЕРШЕННЯ РЕЄСТРАЦІЇ =====
   async completeRegistration(ctx) {
     const tgId = ctx.from.id;
@@ -424,16 +436,9 @@ const registrationController = {
       console.error('[REGISTRATION] ❌ Помилка завершення реєстрації:', error);
       return false;
     }
-  },
-    // ===== ПЕРЕВІРКА CALLBACK РЕЄСТРАЦІЇ =====
-  isRegistrationCallback(data) {
-    const registrationCallbacks = [
-      'start_registration', 'onboarding_start', 'onboarding_about', 'about_bot',
-      'skip_step', 'plan_free', 'plan_trial', 'plan_week', 'plan_month', 'plan_year',
-      'activate_trial'
-    ];
-    return registrationCallbacks.includes(data);
   }
 };
 
 export default registrationController;
+
+console.log('✅ [registrationController] Контролер реєстрації ініціалізовано');

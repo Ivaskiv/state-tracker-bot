@@ -1,8 +1,10 @@
-// src/controllers/botController.js - ВИПРАВЛЕНО
+// src/controllers/botController.js - ВИПРАВЛЕНО З РЕЄСТРАЦІЄЮ
+
 import userService from '../auth/services/userService.js';
 import keyboards from '../utils/keyboards.js';
-import { handleOnboardingCallback } from '../auth/modules/auth.js';
-import { handleRegistrationStep } from '../auth/modules/auth.js';
+
+// Імпорти модулів авторизації
+import { handleStart, handleRegistrationStep, handleOnboardingCallback } from '../auth/modules/auth.js';
 
 // Імпорти контролерів
 import mainFlowController from './flows/mainFlowController.js';
@@ -24,7 +26,9 @@ const botController = (bot) => {
       // Ініціалізуємо сесію
       ctx.session = ctx.session || { step: undefined, temp: {} };
       
-      await mainFlowController.handleStart(ctx);
+      // Використовуємо новий обробник з auth.js
+      await handleStart(ctx);
+      
     } catch (err) {
       console.error('[botController] ❌ start error:', err);
       try { 
@@ -48,11 +52,21 @@ const botController = (bot) => {
       // Ініціалізуємо сесію якщо немає
       ctx.session = ctx.session || { step: undefined, temp: {} };
 
-      // 1. ПЕРЕВІРЯЄМО ОНБОРДИНГ
-      const isOnboarding = await handleRegistrationStep(ctx);
-      if (isOnboarding) return;
+      // 1. ПЕРЕВІРЯЄМО РЕЄСТРАЦІЮ (найвищий пріоритет)
+      const isRegistrationStep = await handleRegistrationStep(ctx);
+      if (isRegistrationStep) {
+        console.log(`[botController] ✅ Оброблено як крок реєстрації`);
+        return;
+      }
 
-      // 2. ОТРИМУЄМО КОРИСТУВАЧА
+      // 2. ПЕРЕВІРЯЄМО РЕЄСТРАЦІЮ ЧЕРЕЗ КОНТРОЛЕР
+      const isRegistrationText = await registrationController.handleText(ctx);
+      if (isRegistrationText) {
+        console.log(`[botController] ✅ Оброблено через registrationController`);
+        return;
+      }
+
+      // 3. ОТРИМУЄМО КОРИСТУВАЧА
       let user = null;
       try {
         user = await userService.getUserByTelegramId(tgId);
@@ -62,13 +76,13 @@ const botController = (bot) => {
         return;
       }
 
-      // 3. ПЕРЕВІРЯЄМО РЕЄСТРАЦІЮ
+      // 4. ПЕРЕВІРЯЄМО ЧИ КОРИСТУВАЧ ЗАРЕЄСТРОВАНИЙ
       if (!user || !user.UserRegistered) {
         await ctx.reply('Спочатку зареєструйся /start');
         return;
       }
 
-      // 4. ПЕРЕВІРЯЄМО АКТИВНІ СЕСІЇ
+      // 5. ПЕРЕВІРЯЄМО АКТИВНІ СЕСІЇ
       const currentStep = user?.Answer_Step || ctx.session?.step;
       
       // AI Наставник активний
@@ -90,7 +104,7 @@ const botController = (bot) => {
         return;
       }
 
-      // 5. КОМАНДИ МЕНЮ
+      // 6. КОМАНДИ МЕНЮ
       await mainFlowController.handleText(ctx, text, user);
 
     } catch (error) {
@@ -115,30 +129,39 @@ const botController = (bot) => {
       // Ініціалізуємо сесію
       ctx.session = ctx.session || { step: undefined, temp: {} };
 
-      // ОНБОРДИНГ CALLBACKS
-      if (await handleOnboardingCallback(ctx)) {
+      // 1. ОНБОРДИНГ CALLBACKS (найвищий пріоритет)
+      const isOnboardingCallback = await handleOnboardingCallback(ctx);
+      if (isOnboardingCallback) {
+        console.log(`[botController] ✅ Оброблено через handleOnboardingCallback`);
         return;
       }
 
-      // AI НАСТАВНИК
+      // 2. РЕЄСТРАЦІЯ CALLBACKS
+      const isRegistrationCallback = await registrationController.handleCallback(ctx, data);
+      if (isRegistrationCallback) {
+        console.log(`[botController] ✅ Оброблено через registrationController callback`);
+        return;
+      }
+
+      // 3. AI НАСТАВНИК
       if (data.startsWith('ai_')) {
         await aiMentorController.handleAIMentorCallback(ctx);
         return;
       }
 
-      // КОЛЕСО БАЛАНСУ
+      // 4. КОЛЕСО БАЛАНСУ
       if (data.startsWith('wheel_')) {
         await wheelController.handleCallback(ctx, data);
         return;
       }
 
-      // ЩОДЕННІ ПИТАННЯ
+      // 5. ЩОДЕННІ ПИТАННЯ
       if (data.includes('morning') || data.includes('evening')) {
         await dailyController.handleCallback(ctx, data);
         return;
       }
 
-      // ПІДПИСКИ
+      // 6. ПІДПИСКИ
       if (data.startsWith('subscribe_') || data === 'subscription_plans' || 
           data === 'subscription_info' || data === 'sync_subscription' || 
           data === 'activate_trial' || data === 'contact_support') {
@@ -146,13 +169,7 @@ const botController = (bot) => {
         return;
       }
 
-      // РЕЄСТРАЦІЯ
-      if (registrationController.isRegistrationCallback?.(data)) {
-        await registrationController.handleCallback(ctx, data);
-        return;
-      }
-
-      // ОСНОВНІ CALLBACKS
+      // 7. ОСНОВНІ CALLBACKS
       const user = await userService.getUserByTelegramId(tgId);
       await mainFlowController.handleCallback(ctx, data, user);
 
@@ -174,7 +191,7 @@ const botController = (bot) => {
     }
   });
 
-  console.log('✅ [botController] Готово');
+  console.log('✅ [botController] Готово з реєстрацією');
   return { bot };
 };
 
