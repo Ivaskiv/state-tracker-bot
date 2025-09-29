@@ -64,6 +64,39 @@ export const SUBSCRIPTION_PLANS = Object.freeze({
     description: 'Максимальна економія та підтримка протягом року'
   }
 });
+export const CURRENT_ACTIVITY = Object.freeze({
+  IDLE: 'idle',
+
+  // Онбординг
+  OB_NAME: 'ob_name',
+  OB_EMAIL: 'ob_email',
+  OB_PHONE: 'ob_phone',
+  OB_TZ: 'ob_timezone',
+  OB_PLAN: 'ob_plan',
+  PAYMENT_PENDING: 'payment_pending',
+  COMPLETED: 'completed',
+
+  // Меню/режими
+  WHEEL: 'WheelBalance',        // legacy назва збережена
+  AI_MENTOR: 'ai_mentor',
+  WEEKLY: 'weekly_report',
+  MONTHLY: 'monthly_report',
+  SUBSCRIPTION: 'subscription',
+
+  // Ранкові/вечірні кроки
+  Q_M_1: 'Q_m_1', Q_M_2: 'Q_m_2', Q_M_3: 'Q_m_3',
+  Q_M_4: 'Q_m_4', Q_M_5: 'Q_m_5', Q_M_6: 'Q_m_6',
+  Q_E_1: 'Q_e_1', Q_E_2: 'Q_e_2', Q_E_3: 'Q_e_3', Q_E_4: 'Q_e_4', Q_E_5: 'Q_e_5',
+});
+
+// Для меню (якщо потрібно)
+export const MENU_TO_ACTIVITY = Object.freeze({
+  '🤖 AI наставник': CURRENT_ACTIVITY.AI_MENTOR,
+  '🎯 Колесо балансу': CURRENT_ACTIVITY.WHEEL,
+  '📅 Щотижневий': CURRENT_ACTIVITY.WEEKLY,
+  '🗓 Щомісячний': CURRENT_ACTIVITY.MONTHLY,
+  '💰 Підписка': CURRENT_ACTIVITY.SUBSCRIPTION,
+});
 
 // ===== КРОКИ ВІДПОВІДЕЙ / ОНБОРДИНГУ =====
 export const ANSWER_STEPS = Object.freeze({

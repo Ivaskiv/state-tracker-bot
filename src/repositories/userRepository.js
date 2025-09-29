@@ -1,9 +1,14 @@
-// src/repositories/userRepository.js - З ДЕТАЛЬНОЮ ДІАГНОСТИКОЮ
+// src/repositories/userRepository.js - ВИПРАВЛЕНО ФОРМАТ ДАТИ
 
 import { getBase, tables } from '../config/database.js';
 import { USER_STATUS, SUBSCRIPTION_STATUS, ANSWER_STEPS } from '../config/constants.js';
 
 const TABLE = 'USERS';
+
+// ✅ УТИЛІТА ДЛЯ ПРАВИЛЬНОГО ФОРМАТУ ДАТИ
+const getAirtableDate = () => {
+  return new Date().toISOString().split('.')[0] + 'Z'; // Видаляємо мілісекунди
+};
 
 // Утиліта для форматування часу очікування
 const formatWaitTime = (seconds) => {
@@ -40,65 +45,11 @@ export const findByTgId = async (tgId) => {
     }
     
   } catch (error) {
-    const elapsed = Date.now() - (error.startTime || Date.now());
-    
     console.error('\n========================================');
     console.error('ПОМИЛКА ПІДКЛЮЧЕННЯ ДО AIRTABLE');
     console.error('========================================');
     console.error(`Тип помилки: ${error.name || 'Unknown'}`);
     console.error(`Повідомлення: ${error.message}`);
-    
-    if (error.statusCode) {
-      console.error(`HTTP Status: ${error.statusCode}`);
-    }
-    
-    // Аналіз помилок
-    if (error.message.includes('timeout') || error.name === 'TimeoutError') {
-      console.error('\nПРИЧИНА: Airtable не відповідає (timeout)');
-      console.error('ДІАГНОЗ: Rate limit блокування');
-      console.error('\nЩО РОБИТИ:');
-      console.error('1. Зупиніть бота (Ctrl+C)');
-      console.error('2. Зачекайте 30-60 хвилин');
-      console.error('3. Запустіть бота знову');
-      console.error('\nАльтернатива:');
-      console.error('- Перевірте API key: https://airtable.com/account');
-      console.error('- Перевірте Base ID в .env файлі');
-      
-    } else if (error.statusCode === 429) {
-      const retryAfter = error.headers?.['retry-after'] || 30;
-      console.error(`\nПРИЧИНА: Rate limit перевищено (429 Too Many Requests)`);
-      console.error(`ЧЕКАТИ: ${formatWaitTime(retryAfter)}`);
-      console.error('\nЩО РОБИТИ:');
-      console.error(`1. Зупиніть бота`);
-      console.error(`2. Зачекайте ${formatWaitTime(retryAfter)}`);
-      console.error(`3. Запустіть бота знову`);
-      
-    } else if (error.statusCode === 401) {
-      console.error('\nПРИЧИНА: Невірний API ключ (401 Unauthorized)');
-      console.error('ЩО РОБИТИ:');
-      console.error('1. Перевірте AIRTABLE_API_KEY в .env файлі');
-      console.error('2. Згенеруйте новий API key: https://airtable.com/account');
-      
-    } else if (error.statusCode === 404) {
-      console.error('\nПРИЧИНА: База або таблиця не знайдена (404 Not Found)');
-      console.error('ЩО РОБИТИ:');
-      console.error('1. Перевірте AIRTABLE_BASE_ID в .env файлі');
-      console.error('2. Перевірте що таблиця "Users" існує в базі');
-      
-    } else if (error.statusCode === 403) {
-      console.error('\nПРИЧИНА: Немає доступу (403 Forbidden)');
-      console.error('ЩО РОБИТИ:');
-      console.error('1. Перевірте права доступу до бази');
-      console.error('2. API key має мати права на читання таблиці Users');
-      
-    } else {
-      console.error('\nПРИЧИНА: Невідома помилка');
-      console.error('ЩО РОБИТИ:');
-      console.error('1. Перевірте інтернет з\'єднання');
-      console.error('2. Перевірте що Airtable доступний: https://status.airtable.com/');
-      console.error('3. Спробуйте через 5 хвилин');
-    }
-    
     console.error('========================================\n');
     
     throw error;
@@ -107,7 +58,7 @@ export const findByTgId = async (tgId) => {
 
 // ===== CREATE =====
 export const createUser = async (tgId, name, timezone = 'Europe/Kiev (UTC+3)') => {
-  const now = new Date().toISOString();
+  const now = getAirtableDate(); // ✅ ВИПРАВЛЕНИЙ ФОРМАТ
   
   console.log(`[userRepo] Створення користувача ${tgId}...`);
   
@@ -159,9 +110,13 @@ export const updateUser = async (recordId, fields) => {
   
   try {
     const cleanFields = { ...fields };
+    
+    // ✅ ВИДАЛЯЄМО READONLY ПОЛЯ
     delete cleanFields['Active_Subscription_Status'];
     delete cleanFields['Last Modified Time'];
-    cleanFields.Last_Activity = new Date().toISOString();
+    
+    // ✅ ЗАВЖДИ ОНОВЛЮЄМО Last_Activity З ПРАВИЛЬНИМ ФОРМАТОМ
+    cleanFields.Last_Activity = getAirtableDate();
     
     const base = getBase();
     const startTime = Date.now();

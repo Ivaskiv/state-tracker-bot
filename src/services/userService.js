@@ -1,4 +1,4 @@
-// src/services/userService.js - ВИПРАВЛЕНО З КЕШЕМ
+// src/services/userService.js - ВИПРАВЛЕНО ЛОГІКУ РЕЄСТРАЦІЇ
 
 import userRepo from '../repositories/userRepository.js';
 import { USER_STATUS, SUBSCRIPTION_STATUS, ANSWER_STEPS, CONFIG } from '../config/constants.js';
@@ -67,18 +67,21 @@ export const getUserByTgId = async (tgId) => {
   return user;
 };
 
-// ✅ ENSURE USER
+// ✅ ENSURE USER - ВИПРАВЛЕНО ЛОГІКУ
 export const ensureUser = async (tgId, name) => {
-  console.log(`[userService] ensureUser(${tgId}, ${name})...`);
+  console.log(`[userService] 🔍 ensureUser(${tgId}, ${name})...`);
   
+  // Спочатку перевіряємо чи існує
   let user = await getUserByTgId(tgId);
+  
   if (user) {
-    console.log(`[userService] ✅ Користувач існує`);
+    console.log(`[userService] ✅ Користувач вже існує: ${user['User Name']}, статус: ${user.Status}`);
     return user;
   }
   
-  console.log(`[userService] 🆕 Створюємо нового користувача...`);
-  const record = await userRepo.createUser(tgId, name);
+  // ✅ СТВОРЮЄМО НОВОГО КОРИСТУВАЧА ІЗ TG_id ЯК ІДЕНТИФІКАТОРА
+  console.log(`[userService] 🆕 Створюємо нового користувача з TG_id як ім'ям...`);
+  const record = await userRepo.createUser(tgId, String(tgId)); // ✅ ВИКОРИСТОВУЄМО TG_id ЯК ІМ'Я
   user = mapRecord(record);
   
   // Додаємо нового користувача до кешу
@@ -87,9 +90,9 @@ export const ensureUser = async (tgId, name) => {
       user,
       timestamp: Date.now()
     });
+    console.log(`[userService] ✅ Користувача створено з ім'ям ${user['User Name']} та статусом ${user.Status}`);
   }
   
-  console.log(`[userService] ✅ Користувача створено:`, user['User Name']);
   return user;
 };
 
@@ -133,7 +136,7 @@ export const hasActiveAccess = (user) => {
 
 // ===== ФІНАЛІЗАЦІЯ РЕЄСТРАЦІЇ =====
 export const finalizeRegistration = async (tgId, data) => {
-  const now = new Date().toISOString();
+  const now = new Date().toISOString().split('.')[0] + 'Z'; // ✅ ВИПРАВЛЕНИЙ ФОРМАТ
   
   console.log(`[userService] finalizeRegistration(${tgId})...`);
   
@@ -143,7 +146,7 @@ export const finalizeRegistration = async (tgId, data) => {
     Phone: data.phone || null,
     'Time Zone': data.timezone,
     UserRegistered: true,
-    Status: USER_STATUS.REGISTERED,
+    Status: USER_STATUS.REGISTERED, // ✅ ТЕПЕР ЗМІНЮЄМО НА REGISTERED
     DateUserRegistered: now,
     'Registration Date': now,
     Answer_Step: ANSWER_STEPS.COMPLETED
@@ -156,13 +159,12 @@ export const activateTrial = async (tgId, days = 7) => {
   const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
   
   console.log(`[userService] activateTrial(${tgId}, ${days} днів)...`);
-  console.log(`[userService] Період: ${start.toISOString()} → ${end.toISOString()}`);
   
   return await updateUserFields(tgId, {
     'Active Subscription Plan': '🧪 Пробний період — 0€',
     'Subscription Status': SUBSCRIPTION_STATUS.ACTIVE,
-    'Start_Date': start.toISOString(),
-    'End_Date': end.toISOString()
+    'Start_Date': start.toISOString().split('.')[0] + 'Z',
+    'End_Date': end.toISOString().split('.')[0] + 'Z'
   });
 };
 
