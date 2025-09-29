@@ -1,4 +1,4 @@
-// src/services/userService.js - ВИПРАВЛЕНО ЛОГІКУ РЕЄСТРАЦІЇ
+// src/services/userService.js - ОСТАТОЧНА ВИПРАВЛЕНА ВЕРСІЯ
 
 import userRepo from '../repositories/userRepository.js';
 import { USER_STATUS, SUBSCRIPTION_STATUS, ANSWER_STEPS, CONFIG } from '../config/constants.js';
@@ -24,13 +24,13 @@ const mapRecord = (record) => {
     Status: f.Status || USER_STATUS.NEW,
     'Subscription Status': f['Subscription Status'] || SUBSCRIPTION_STATUS.NEW,
     'Active Subscription Plan': f['Active Subscription Plan'] || '',
-    'Start_Date': f.Start_Date || null,
-    'End_Date': f.End_Date || null,
+    Start_Date: f.Start_Date || null, // ✅ З підкресленням як поле в Airtable
+    End_Date: f.End_Date || null, // ✅ З підкресленням як поле в Airtable
     'Active_Subscription_Status': f['Active_Subscription_Status'] || '',
     Answer_Step: f.Answer_Step || ANSWER_STEPS.COMPLETED,
     Created_At: f.Created_At || null,
     Last_Activity: f.Last_Activity || null,
-    CreatedUserTime: f.CreatedUserTime || null
+    'Registration Date': f['Registration Date'] || null
   };
 };
 
@@ -78,9 +78,9 @@ export const ensureUser = async (tgId, name) => {
     return user;
   }
   
-  // ✅ СТВОРЮЄМО ТІЛЬКИ якщо НЕ ІСНУЄ
+  // ✅ СТВОРЮЄМО ТІЛЬКИ якщо НЕ ІСНУЄ - використовуємо ім'я з Telegram
   console.log(`[userService] 🆕 Створюємо нового користувача...`);
-  const record = await userRepo.createUser(tgId, String(tgId));
+  const record = await userRepo.createUser(tgId, name || String(tgId)); // ✅ ВИПРАВЛЕНО
   user = mapRecord(record);
   
   // Додаємо до кешу
@@ -99,21 +99,28 @@ export const ensureUser = async (tgId, name) => {
 export const updateUserFields = async (tgId, fields) => {
   console.log(`[userService] updateUserFields(${tgId})...`, Object.keys(fields));
   
-  const user = await getUserByTgId(tgId);
+  // ✅ ЗАВЖДИ запитуємо свіжі дані з БД (ігноруємо кеш)
+  userCache.delete(String(tgId));
+  const record = await userRepo.findByTgId(tgId);
+  const user = mapRecord(record);
+  
   if (!user) {
     console.log(`[userService] ❌ Користувача не знайдено`);
     return null;
   }
   
-  const updated = await userRepo.updateUser(user.id, fields);
-  const result = mapRecord(updated);
-  
-  // ✅ ВИДАЛЯЄМО З КЕШУ після оновлення
-  userCache.delete(String(tgId));
-  console.log(`[userService] 🗑️ Кеш очищено для ${tgId}`);
-  
-  console.log(`[userService] ✅ Поля оновлено`);
-  return result;
+  try {
+    const updated = await userRepo.updateUser(user.id, fields);
+    const result = mapRecord(updated);
+    
+    console.log(`[userService] ✅ Поля оновлено`);
+    return result;
+  } catch (error) {
+    console.error(`[userService] ❌ Помилка оновлення: ${error.message}`);
+    // Очищаємо кеш при помилці
+    userCache.delete(String(tgId));
+    throw error;
+  }
 };
 
 // ===== ПЕРЕВІРКА ДОСТУПУ =====
@@ -124,7 +131,7 @@ export const hasActiveAccess = (user) => {
   if (user['Subscription Status'] === SUBSCRIPTION_STATUS.ACTIVE) return true;
   
   // 2) За датою
-  const endDate = user.End_Date;
+  const endDate = user.End_Date; // ✅ З підкресленням
   if (!endDate) return false;
   
   const expiry = new Date(endDate).getTime();
@@ -145,7 +152,7 @@ export const finalizeRegistration = async (tgId, data) => {
     Phone: data.phone || null,
     'Time Zone': data.timezone,
     UserRegistered: true,
-    CreatedUserTime: now, // ✅ Правильна назва поля
+    'Registration Date': now, // ✅ ВИПРАВЛЕНО - правильна назва поля в Airtable
     Answer_Step: ANSWER_STEPS.COMPLETED
   });
 };
@@ -160,8 +167,8 @@ export const activateTrial = async (tgId, days = 7) => {
   return await updateUserFields(tgId, {
     'Active Subscription Plan': '🧪 Пробний період — 0€',
     'Subscription Status': SUBSCRIPTION_STATUS.ACTIVE,
-    'Start_Date': start.toISOString(),
-    'End_Date': end.toISOString()
+    Start_Date: start.toISOString().split('T')[0], // ✅ ТІЛЬКИ ДАТА: 2025-01-15
+    End_Date: end.toISOString().split('T')[0] // ✅ ТІЛЬКИ ДАТА: 2025-01-22
   });
 };
 
@@ -187,7 +194,7 @@ export const getCacheStats = () => {
 // ===== ЕКСПОРТ =====
 export default {
   getUserByTgId,
-  ensureUser, // ✅ ДОДАНО
+  ensureUser,
   updateUserFields,
   hasActiveAccess,
   finalizeRegistration,

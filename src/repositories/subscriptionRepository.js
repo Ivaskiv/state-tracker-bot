@@ -1,4 +1,4 @@
-// src/repositories/subscriptionRepository.js - ПОВНА ВЕРСІЯ
+// src/repositories/subscriptionRepository.js - ВИПРАВЛЕНО НАЗВИ ПОЛІВ
 
 import { selectFromTable, createRows, updateRows } from '../config/database.js';
 
@@ -8,25 +8,26 @@ const TABLE = 'SUBSCRIPTIONS';
 export const createSubscription = async (tgId, planData) => {
   console.log(`[subscriptionRepo] 🆕 Створення підписки для ${tgId}...`);
   
-  const now = new Date().toISOString();
+  const now = new Date();
+  const startDate = planData.startDate ? new Date(planData.startDate) : now;
+  const endDate = planData.endDate ? new Date(planData.endDate) : now;
   
   const fields = {
     TG_id: String(tgId),
     'User Name': planData.userName || 'Користувач',
-    'Order_Reference': planData.orderReference || `SUB_${tgId}_${Date.now()}`,
-    'Payment_Status': planData.paymentStatus || 'Approved',
+    Order_Reference: planData.orderReference || `SUB_${tgId}_${Date.now()}`,
+    Payment_Status: planData.paymentStatus || 'Approved',
     Status: 'Active',
-    'Plan_Name': planData.planName,
+    Plan_Name: planData.planName,
     Amount: planData.amount || 0,
     Currency: 'EUR',
-    'Start_Date': planData.startDate || now,
-    'End_Date': planData.endDate,
-    'Is_Active': '✅ Активна',
-    'Created_At': now
+    Start_Date: startDate.toISOString().split('T')[0],
+    End_Date: endDate.toISOString().split('T')[0],
+    Is_Active: '✅ Активна'
+    // Created_At видалено - це автоматичне поле в Airtable
   };
   
   try {
-    // createRows приймає масив
     const [record] = await createRows(TABLE, [{ fields }]);
     console.log(`[subscriptionRepo] ✅ Підписку створено, ID: ${record.id}`);
     return record;
@@ -147,7 +148,7 @@ export const deactivateSubscription = async (recordId) => {
       id: recordId,
       fields: {
         Status: 'Expired',
-        'Is_Active': '❌ Неактивна'
+        Is_Active: '❌ Неактивна'
       }
     }]);
     
@@ -162,18 +163,20 @@ export const deactivateSubscription = async (recordId) => {
 export const renewSubscription = async (recordId, endDate) => {
   console.log(`[subscriptionRepo] 🔄 Продовження підписки ${recordId}...`);
   
+  const endDateStr = new Date(endDate).toISOString().split('T')[0];
+  
   try {
     const [updated] = await updateRows(TABLE, [{
       id: recordId,
       fields: {
         Status: 'Active',
-        'Is_Active': '✅ Активна',
-        'End_Date': endDate,
-        'Renewal_Date': new Date().toISOString()
+        Is_Active: '✅ Активна',
+        End_Date: endDateStr,
+        Renewal_Date: new Date().toISOString().split('T')[0]
       }
     }]);
     
-    console.log(`[subscriptionRepo] ✅ Підписку продовжено до ${endDate}`);
+    console.log(`[subscriptionRepo] ✅ Підписку продовжено до ${endDateStr}`);
     return updated;
   } catch (error) {
     console.error(`[subscriptionRepo] ❌ Помилка renewSubscription:`, error.message);
@@ -188,7 +191,6 @@ export const deactivateExpiredSubscriptions = async () => {
   const today = new Date().toISOString().split('T')[0];
   
   try {
-    // Знаходимо прострочені
     const records = await selectFromTable(TABLE, {
       filterByFormula: `AND(
         {Status} = 'Active',
@@ -203,12 +205,11 @@ export const deactivateExpiredSubscriptions = async () => {
     
     console.log(`[subscriptionRepo] ⚠️ Знайдено ${records.length} прострочених підписок`);
     
-    // Деактивуємо всі
     const updates = records.map(record => ({
       id: record.id,
       fields: {
         Status: 'Expired',
-        'Is_Active': '❌ Неактивна'
+        Is_Active: '❌ Неактивна'
       }
     }));
     
@@ -259,24 +260,15 @@ export const getSubscriptionStats = async () => {
 };
 
 export default {
-  // Create
   createSubscription,
-  
-  // Read
   findSubscriptionByTgId,
   findActiveSubscription,
   findSubscriptionsByStatus,
   findExpiringSubscriptions,
-  
-  // Update
   updateSubscription,
   deactivateSubscription,
   renewSubscription,
-  
-  // Bulk
   deactivateExpiredSubscriptions,
-  
-  // Stats
   getSubscriptionStats
 };
 

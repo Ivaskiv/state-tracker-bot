@@ -1,24 +1,23 @@
-// src/controllers/handlers/startHandler.js - З TYPING
+// src/controllers/handlers/startHandler.js - ВИПРАВЛЕНО ІМ'Я
 
 import userService from '../../services/userService.js';
 import onboardingService from '../../services/onboardingService.js';
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
-import { MESSAGES, ANSWER_STEPS } from '../../config/constants.js';
+import { MESSAGES, ANSWER_STEPS, USER_STATUS } from '../../config/constants.js';
 
 // ===== ГОЛОВНИЙ ХЕНДЛЕР /start =====
 export const handle = async (ctx) => {
   const tgId = ctx.from.id;
-  const name = ctx.from.first_name || 'Користувач';
+  const telegramName = ctx.from.first_name || ctx.from.username || 'Користувач';
   
-  console.log(`[startHandler] /start від ${tgId} (${name})`);
+  console.log(`[startHandler] /start від ${tgId} (${telegramName})`);
   
   try {
-    // Typing
     await typing(ctx, 500);
     
-    // 1) Ensure користувач (створить якщо немає, поверне існуючого якщо є)
-    const user = await userService.ensureUser(tgId, name);
+    // 1) Ensure користувач
+    const user = await userService.ensureUser(tgId, telegramName);
     console.log(`[startHandler] Користувач:`, user ? user['User Name'] : 'ERROR');
     
     if (!user) {
@@ -27,7 +26,14 @@ export const handle = async (ctx) => {
       return;
     }
     
-    // 2) Якщо зареєстрований (UserRegistered === true)
+    // ✅ ВИПРАВЛЕННЯ: Якщо User Name = TG_id, оновлюємо на ім'я з Telegram
+    if (user['User Name'] === String(tgId)) {
+      console.log(`[startHandler] 🔄 Оновлюємо User Name з ${tgId} на ${telegramName}`);
+      await userService.updateUserFields(tgId, { 'User Name': telegramName });
+      user['User Name'] = telegramName; // Оновлюємо локально
+    }
+    
+    // 2) Якщо зареєстрований
     if (user.UserRegistered) {
       console.log(`[startHandler] ✅ Користувач зареєстрований`);
       const hasAccess = userService.hasActiveAccess(user);
@@ -50,7 +56,7 @@ export const handle = async (ctx) => {
       return;
     }
     
-    // 3) Якщо НЕ зареєстрований - показуємо привітання для початку онбордингу
+    // 3) Якщо НЕ зареєстрований - показуємо привітання
     console.log(`[startHandler] 🆕 Показуємо привітання для онбордингу`);
     await startOnboarding(ctx, user);
     
@@ -62,11 +68,28 @@ export const handle = async (ctx) => {
 
 // ===== ПОЧАТОК ОНБОРДИНГУ =====
 const startOnboarding = async (ctx, user) => {
+  const userName = user['User Name'];
+  
   await typing(ctx, 300);
-  await ctx.reply(
-    MESSAGES.WELCOME(user['User Name']), 
-    keyboards.greetingKeyboard()
-  );
+  
+  // ✅ ВИПРАВЛЕНО - пропонуємо підтвердити або змінити ім'я
+  const message = 
+    `👋 Привіт, ${userName}!\n\n` +
+    `Я твій AI-мотиватор та коуч! Допомагаю:\n\n` +
+    `🎯 Ставити та досягати цілі\n` +
+    `⚖️ Знаходити баланс у житті\n` +
+    `💪 Підтримувати мотивацію\n` +
+    `📈 Відслідковувати прогрес\n\n` +
+    `Залишити ім'я "${userName}" або ввести інше?`;
+  
+  await ctx.reply(message, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: `✅ Залишити "${userName}"`, callback_data: 'use_telegram_name' }],
+        [{ text: '✏️ Ввести інше ім\'я', callback_data: 'enter_custom_name' }]
+      ]
+    }
+  });
 };
 
 // ===== ОБРОБКА ТЕКСТУ =====
@@ -138,14 +161,39 @@ export const handleCallback = async (ctx) => {
   if (!user) return false;
   
   try {
+    // Підтвердження імені з Telegram
+    if (data === 'use_telegram_name') {
+      await typing(ctx, 300);
+      
+      await userService.updateUserFields(tgId, { 
+        Status: USER_STATUS.REGISTERED,
+        Answer_Step: ANSWER_STEPS.OB_EMAIL
+      });
+      
+      await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
+      return true;
+    }
+    
+    // Введення власного імені
+    if (data === 'enter_custom_name') {
+      await typing(ctx, 300);
+      
+      await userService.updateUserFields(tgId, { 
+        Status: USER_STATUS.REGISTERED,
+        Answer_Step: ANSWER_STEPS.OB_NAME
+      });
+      
+      await ctx.reply(MESSAGES.ASK_NAME);
+      return true;
+    }
+    
     // Привітання
     if (data === 'start_registration') {
       await typing(ctx, 300);
       
-      // ✅ ЗМІНЮЄМО СТАТУС ОДРАЗУ НА REGISTERED USER
       await userService.updateUserFields(tgId, { 
-        Status: USER_STATUS.REGISTERED, // ✅ "Registered User"
-        Answer_Step: ANSWER_STEPS.OB_NAME 
+        Status: USER_STATUS.REGISTERED,
+        Answer_Step: ANSWER_STEPS.OB_NAME
       });
       
       await ctx.reply(MESSAGES.ASK_NAME);
@@ -199,6 +247,7 @@ export const handleCallback = async (ctx) => {
     return true;
   }
 };
+
 export default {
   handle,
   handleText,
