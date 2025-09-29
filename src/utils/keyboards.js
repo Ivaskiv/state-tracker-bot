@@ -59,8 +59,8 @@ timezoneKeyboard() {
   return {
     reply_markup: {
       inline_keyboard: [
-        ...TIMEZONES.map(label => ([
-          { text: label, callback_data: `tz_${getTzLabel(label)}` }
+        ...TIMEZONES.map(tz => ([
+          { text: tz.label, callback_data: `tz_${tz.slug}` }
         ])),
         [{ text: '🔙 Назад', callback_data: 'back_timezone' }]
       ]

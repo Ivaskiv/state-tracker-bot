@@ -30,8 +30,7 @@ const mapRecord = (record) => {
     Answer_Step: f.Answer_Step || ANSWER_STEPS.COMPLETED,
     Created_At: f.Created_At || null,
     Last_Activity: f.Last_Activity || null,
-    DateUserRegistered: f.DateUserRegistered || null,
-    'Registration Date': f['Registration Date'] || null
+    CreatedUserTime: f.CreatedUserTime || null
   };
 };
 
@@ -67,7 +66,7 @@ export const getUserByTgId = async (tgId) => {
   return user;
 };
 
-// ✅ ENSURE USER - ВИПРАВЛЕНО ЛОГІКУ
+// ✅ ENSURE USER - НЕ СТВОРЮЄ ДУБЛІКАТІВ
 export const ensureUser = async (tgId, name) => {
   console.log(`[userService] 🔍 ensureUser(${tgId}, ${name})...`);
   
@@ -75,22 +74,22 @@ export const ensureUser = async (tgId, name) => {
   let user = await getUserByTgId(tgId);
   
   if (user) {
-    console.log(`[userService] ✅ Користувач вже існує: ${user['User Name']}, статус: ${user.Status}`);
+    console.log(`[userService] ✅ Користувач вже існує: ${user['User Name']}, UserRegistered: ${user.UserRegistered}, Status: ${user.Status}`);
     return user;
   }
   
-  // ✅ СТВОРЮЄМО НОВОГО КОРИСТУВАЧА ІЗ TG_id ЯК ІДЕНТИФІКАТОРА
-  console.log(`[userService] 🆕 Створюємо нового користувача з TG_id як ім'ям...`);
-  const record = await userRepo.createUser(tgId, String(tgId)); // ✅ ВИКОРИСТОВУЄМО TG_id ЯК ІМ'Я
+  // ✅ СТВОРЮЄМО ТІЛЬКИ якщо НЕ ІСНУЄ
+  console.log(`[userService] 🆕 Створюємо нового користувача...`);
+  const record = await userRepo.createUser(tgId, String(tgId));
   user = mapRecord(record);
   
-  // Додаємо нового користувача до кешу
+  // Додаємо до кешу
   if (user) {
     userCache.set(String(tgId), {
       user,
       timestamp: Date.now()
     });
-    console.log(`[userService] ✅ Користувача створено з ім'ям ${user['User Name']} та статусом ${user.Status}`);
+    console.log(`[userService] ✅ Користувача створено: ${user['User Name']}, UserRegistered: ${user.UserRegistered}, Status: ${user.Status}`);
   }
   
   return user;
@@ -136,7 +135,7 @@ export const hasActiveAccess = (user) => {
 
 // ===== ФІНАЛІЗАЦІЯ РЕЄСТРАЦІЇ =====
 export const finalizeRegistration = async (tgId, data) => {
-  const now = new Date().toISOString().split('.')[0] + 'Z'; // ✅ ВИПРАВЛЕНИЙ ФОРМАТ
+  const now = new Date().toISOString();
   
   console.log(`[userService] finalizeRegistration(${tgId})...`);
   
@@ -146,9 +145,7 @@ export const finalizeRegistration = async (tgId, data) => {
     Phone: data.phone || null,
     'Time Zone': data.timezone,
     UserRegistered: true,
-    Status: USER_STATUS.REGISTERED, // ✅ ТЕПЕР ЗМІНЮЄМО НА REGISTERED
-    DateUserRegistered: now,
-    'Registration Date': now,
+    CreatedUserTime: now, // ✅ Правильна назва поля
     Answer_Step: ANSWER_STEPS.COMPLETED
   });
 };
@@ -163,8 +160,8 @@ export const activateTrial = async (tgId, days = 7) => {
   return await updateUserFields(tgId, {
     'Active Subscription Plan': '🧪 Пробний період — 0€',
     'Subscription Status': SUBSCRIPTION_STATUS.ACTIVE,
-    'Start_Date': start.toISOString().split('.')[0] + 'Z',
-    'End_Date': end.toISOString().split('.')[0] + 'Z'
+    'Start_Date': start.toISOString(),
+    'End_Date': end.toISOString()
   });
 };
 
@@ -190,7 +187,7 @@ export const getCacheStats = () => {
 // ===== ЕКСПОРТ =====
 export default {
   getUserByTgId,
-  ensureUser,
+  ensureUser, // ✅ ДОДАНО
   updateUserFields,
   hasActiveAccess,
   finalizeRegistration,

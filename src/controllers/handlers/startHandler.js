@@ -17,7 +17,7 @@ export const handle = async (ctx) => {
     // Typing
     await typing(ctx, 500);
     
-    // 1) Ensure користувач
+    // 1) Ensure користувач (створить якщо немає, поверне існуючого якщо є)
     const user = await userService.ensureUser(tgId, name);
     console.log(`[startHandler] Користувач:`, user ? user['User Name'] : 'ERROR');
     
@@ -27,7 +27,7 @@ export const handle = async (ctx) => {
       return;
     }
     
-    // 2) Якщо зареєстрований
+    // 2) Якщо зареєстрований (UserRegistered === true)
     if (user.UserRegistered) {
       console.log(`[startHandler] ✅ Користувач зареєстрований`);
       const hasAccess = userService.hasActiveAccess(user);
@@ -50,8 +50,8 @@ export const handle = async (ctx) => {
       return;
     }
     
-    // 3) Онбординг
-    console.log(`[startHandler] 🆕 Запуск онбордингу`);
+    // 3) Якщо НЕ зареєстрований - показуємо привітання для початку онбордингу
+    console.log(`[startHandler] 🆕 Показуємо привітання для онбордингу`);
     await startOnboarding(ctx, user);
     
   } catch (error) {
@@ -141,8 +141,14 @@ export const handleCallback = async (ctx) => {
     // Привітання
     if (data === 'start_registration') {
       await typing(ctx, 300);
+      
+      // ✅ ЗМІНЮЄМО СТАТУС ОДРАЗУ НА REGISTERED USER
+      await userService.updateUserFields(tgId, { 
+        Status: USER_STATUS.REGISTERED, // ✅ "Registered User"
+        Answer_Step: ANSWER_STEPS.OB_NAME 
+      });
+      
       await ctx.reply(MESSAGES.ASK_NAME);
-      await userService.updateUserFields(tgId, { Answer_Step: ANSWER_STEPS.OB_NAME });
       return true;
     }
     
@@ -193,7 +199,6 @@ export const handleCallback = async (ctx) => {
     return true;
   }
 };
-
 export default {
   handle,
   handleText,
