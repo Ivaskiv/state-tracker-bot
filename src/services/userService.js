@@ -1,8 +1,13 @@
-// src/services/userService.js - ВИПРАВЛЕНО
+// src/services/userService.js - ВИПРАВЛЕНО З КЕШЕМ
 
 import userRepo from '../repositories/userRepository.js';
 import { USER_STATUS, SUBSCRIPTION_STATUS, ANSWER_STEPS, CONFIG } from '../config/constants.js';
 
+// ===== КЕШ КОРИСТУВАЧІВ =====
+const userCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 хвилин
+
+// ===== MAPPER =====
 const mapRecord = (record) => {
   if (!record) return null;
   
@@ -31,14 +36,38 @@ const mapRecord = (record) => {
 };
 
 // ===== ОСНОВНІ ОПЕРАЦІЇ =====
+
+// ✅ GET USER З КЕШЕМ
 export const getUserByTgId = async (tgId) => {
-  console.log(`[userService] getUserByTgId(${tgId})...`);
+  const cacheKey = String(tgId);
+  
+  // Перевіряємо кеш
+  const cached = userCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`[userService] 💾 Користувач з кешу: ${tgId}`);
+    return cached.user;
+  }
+  
+  // Якщо немає в кеші - запитуємо з БД
+  console.log(`[userService] 🔍 getUserByTgId(${tgId}) - запит до БД...`);
   const record = await userRepo.findByTgId(tgId);
   const user = mapRecord(record);
-  console.log(`[userService] Результат:`, user ? `користувач ${user['User Name']}` : 'не знайдено');
+  
+  // Зберігаємо в кеш якщо знайшли
+  if (user) {
+    userCache.set(cacheKey, {
+      user,
+      timestamp: Date.now()
+    });
+    console.log(`[userService] ✅ Користувача ${user['User Name']} додано до кешу`);
+  } else {
+    console.log(`[userService] ❌ Користувача ${tgId} не знайдено`);
+  }
+  
   return user;
 };
 
+// ✅ ENSURE USER
 export const ensureUser = async (tgId, name) => {
   console.log(`[userService] ensureUser(${tgId}, ${name})...`);
   
@@ -51,10 +80,20 @@ export const ensureUser = async (tgId, name) => {
   console.log(`[userService] 🆕 Створюємо нового користувача...`);
   const record = await userRepo.createUser(tgId, name);
   user = mapRecord(record);
+  
+  // Додаємо нового користувача до кешу
+  if (user) {
+    userCache.set(String(tgId), {
+      user,
+      timestamp: Date.now()
+    });
+  }
+  
   console.log(`[userService] ✅ Користувача створено:`, user['User Name']);
   return user;
 };
 
+// ✅ UPDATE USER З ОЧИЩЕННЯМ КЕШУ
 export const updateUserFields = async (tgId, fields) => {
   console.log(`[userService] updateUserFields(${tgId})...`, Object.keys(fields));
   
@@ -66,6 +105,11 @@ export const updateUserFields = async (tgId, fields) => {
   
   const updated = await userRepo.updateUser(user.id, fields);
   const result = mapRecord(updated);
+  
+  // ✅ ВИДАЛЯЄМО З КЕШУ після оновлення
+  userCache.delete(String(tgId));
+  console.log(`[userService] 🗑️ Кеш очищено для ${tgId}`);
+  
   console.log(`[userService] ✅ Поля оновлено`);
   return result;
 };
@@ -122,11 +166,35 @@ export const activateTrial = async (tgId, days = 7) => {
   });
 };
 
+// ===== УТИЛІТИ КЕШУ =====
+export const clearCache = (tgId = null) => {
+  if (tgId) {
+    userCache.delete(String(tgId));
+    console.log(`[userService] 🗑️ Кеш очищено для ${tgId}`);
+  } else {
+    const size = userCache.size;
+    userCache.clear();
+    console.log(`[userService] 🗑️ Весь кеш очищено (${size} записів)`);
+  }
+};
+
+export const getCacheStats = () => {
+  return {
+    size: userCache.size,
+    users: Array.from(userCache.keys())
+  };
+};
+
+// ===== ЕКСПОРТ =====
 export default {
   getUserByTgId,
   ensureUser,
   updateUserFields,
   hasActiveAccess,
   finalizeRegistration,
-  activateTrial
+  activateTrial,
+  clearCache,
+  getCacheStats
 };
+
+console.log('✅ [userService] Сервіс з кешем ініціалізовано');
