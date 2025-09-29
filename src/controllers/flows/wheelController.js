@@ -1,6 +1,6 @@
 // src/controllers/flows/wheelController.js - КОНТРОЛЕР КОЛЕСА БАЛАНСУ
 
-import userService from '../../auth/services/userService.js';
+import userService from '../../services/userService.js';
 import wheelBalanceService from '../../services/wheelBalanceService.js';
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';

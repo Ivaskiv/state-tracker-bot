@@ -1,6 +1,6 @@
 // src/controllers/flows/dailyController.js - КОНТРОЛЕР ЩОДЕННИХ ПИТАНЬ (оновлено, питання з constants)
 
-import userService from '../../auth/services/userService.js';
+import userService from '../../services/userService.js';
 import responseService from '../../dialogue/services/responseService.js';
 import { chat } from '../../services/openaiClient.js';
 import keyboards from '../../utils/keyboards.js';

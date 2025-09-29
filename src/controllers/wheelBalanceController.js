@@ -1,6 +1,6 @@
 // src/controllers/wheelBalanceController.js - ВИПРАВЛЕНО З ЛОГІЧНИМИ ПОВІДОМЛЕННЯМИ
 import wheelBalanceService from '../services/wheelBalanceService.js';
-import userService from '../auth/services/userService.js';
+import userService from '../services/userService.js';
 import keyboards from '../utils/keyboards.js';
 import typing from '../utils/typing.js';
 import { ANSWER_STEPS, OB_STEPS } from '../config/constants.js';

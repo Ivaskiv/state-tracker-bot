@@ -1,7 +1,7 @@
 // src/controllers/subscriptionController.js - ВИПРАВЛЕНО З ПРАВИЛЬНИМИ WAYFORPAY ПОСИЛАННЯМИ
 
-import userService from '../auth/services/userService.js';
-import subscriptionService from '../auth/services/subscriptionService.js';
+import userService from '../services/userService.js';
+import subscriptionService from '../services/subscriptionService.js';
 import keyboards from '../utils/keyboards.js';
 import typing from '../utils/typing.js';
 import { SUBSCRIPTION_PLANS } from '../config/constants.js';

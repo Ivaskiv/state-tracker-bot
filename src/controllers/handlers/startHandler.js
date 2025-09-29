@@ -1,269 +1,201 @@
-// src/controllers/handlers/startHandler.js — ВИПРАВЛЕНО
+// src/controllers/handlers/startHandler.js - З TYPING
+
+import userService from '../../services/userService.js';
+import onboardingService from '../../services/onboardingService.js';
 import keyboards from '../../utils/keyboards.js';
-import userService from '../../auth/services/userService.js';
-import paymentService from '../../auth/services/paymentService.js';
-import { 
-  isSkip, 
-  isValidEmail, 
-  isValidUaPhone, 
-  isValidName, 
-  formatPhone, 
-  formatEmail, 
-  formatName 
-} from '../../utils/validators.js';
-import { TIMEZONES, parseTz } from '../../config/constants.js';
+import typing from '../../utils/typing.js';
+import { MESSAGES, ANSWER_STEPS } from '../../config/constants.js';
 
-const askName = async (ctx, currentName = '') => {
-  if (!currentName) {
-    await ctx.reply(
-      `Давай познайомимось — як до тебе звертатись?\n\nВведи ім'я (2–30 символів).`
-    );
-    ctx.session.step = 'ob_name';
-  } else {
-    await ctx.reply(
-      `Твоє імʼя в записі: <b>${currentName}</b>.\nЗалишаємо його чи змінюємо?`,
-      { parse_mode: 'HTML', ...keyboards.confirmNameKeyboard(currentName) }
-    );
-    ctx.session.step = 'ob_name_confirm';
-  }
-};
-
-const askEmail = async (ctx) => {
-  await ctx.reply(
-    `Вкажи свій e-mail (для надсилання звітів).\nАбо пропусти.`,
-    keyboards.emailInputKeyboard()
-  );
-  ctx.session.step = 'ob_email';
-};
-
-const askPhone = async (ctx) => {
-  await ctx.reply(
-    `Залиш номер телефону (для звʼязку в разі питань).\nАбо пропусти.`,
-    keyboards.phoneInputKeyboard()
-  );
-  ctx.session.step = 'ob_phone';
-};
-
-const askTimezone = async (ctx) => {
-  await ctx.reply(
-    `⚠️ ВАЖЛИВО: Обери свій часовий пояс!\n\nЯ надсилатиму ранкові питання о <b>08:00 за твоїм місцевим часом</b>.\n\n🌍 Твій часовий пояс:`,
-    { parse_mode: 'HTML', ...keyboards.timezoneKeyboard() }
-  );
-  ctx.session.step = 'ob_timezone';
-};
-
-const showPlans = async (ctx) => {
-  await ctx.reply(
-    `Обери план доступу.\nМожеш почати з безкоштовного пробного тижня.`,
-    keyboards.subscriptionPlansKeyboard()
-  );
-  ctx.session.step = 'ob_plan';
-};
-
-const sendWelcomeBack = async (ctx, user) => {
-  const name = user?.['User Name'] || ctx.from.first_name || 'Користувач';
-  const statusLine = user?.['Active_Subscription_Status'] || '✅ Активна';
-
-  await ctx.reply(
-    `👋 Раді бачити знову, ${name}!\n\n${statusLine}\n\nПродовжимо твій розвиток? 🚀`,
-    keyboards.mainMenuKeyboard()
-  );
-};
-
-const startHandler = {
-  // /start
-  async handle(ctx) {
-    const tgId = String(ctx.from.id);
-    const name = ctx.from.first_name || 'Користувач';
-    console.log(`🚀 [/start] from=${tgId} (${name})`);
-
-    try {
-      // 1) Перевіряємо чи користувач існує
-      let user = await userService.getUserByTelegramId(tgId);
+// ===== ГОЛОВНИЙ ХЕНДЛЕР /start =====
+export const handle = async (ctx) => {
+  const tgId = ctx.from.id;
+  const name = ctx.from.first_name || 'Користувач';
+  
+  console.log(`[startHandler] /start від ${tgId} (${name})`);
+  
+  try {
+    // Typing
+    await typing(ctx, 500);
+    
+    // 1) Ensure користувач
+    const user = await userService.ensureUser(tgId, name);
+    console.log(`[startHandler] Користувач:`, user ? user['User Name'] : 'ERROR');
+    
+    if (!user) {
+      console.error(`[startHandler] ❌ Не вдалося створити користувача!`);
+      await ctx.reply(MESSAGES.ERROR_GENERIC);
+      return;
+    }
+    
+    // 2) Якщо зареєстрований
+    if (user.UserRegistered) {
+      console.log(`[startHandler] ✅ Користувач зареєстрований`);
+      const hasAccess = userService.hasActiveAccess(user);
       
-      // 2) ✅ ЯКЩО КОРИСТУВАЧА НЕМАЄ - СТВОРЮЄМО ОДРАЗУ
-      if (!user) {
-        console.log(`[startHandler] 🆕 СТВОРЮЄМО нового користувача ${tgId}`);
-        
-        user = await userService.createUser({
-          tgId: tgId,
-          name: name,
-          timezone: 'Europe/Kyiv'
-        });
-        
-        console.log(`[startHandler] ✅ Користувач створений: ${user ? 'так' : 'ні'}`);
+      await typing(ctx, 300);
+      
+      if (hasAccess) {
+        console.log(`[startHandler] ✅ Є доступ - показуємо меню`);
+        await ctx.reply(
+          MESSAGES.WELCOME_BACK_ACTIVE(user['User Name']), 
+          keyboards.mainMenuKeyboard()
+        );
+      } else {
+        console.log(`[startHandler] ⚠️ Немає доступу - показуємо плани`);
+        await ctx.reply(
+          MESSAGES.WELCOME_BACK_INACTIVE(user['User Name']), 
+          keyboards.subscriptionPlansKeyboard()
+        );
       }
-
-      // 3) якщо є активний доступ — одразу тепле вітання + меню
-      if (userService.hasActiveAccess(user) && user.UserRegistered) {
-        await sendWelcomeBack(ctx, user);
-        ctx.session.step = undefined;
-        return;
-      }
-
-      // 4) інакше запускаємо онбординг (з імʼям)
-      await askName(ctx, user['User Name']);
-    } catch (error) {
-      console.error('[startHandler.handle] ❌ Помилка:', error);
-      await ctx.reply('Виникла помилка при ініціалізації. Спробуй ще раз /start');
+      return;
     }
-  },
-
-  // текстові відповіді під час онбордингу
-  async handleText(ctx) {
-    const tgId = String(ctx.from.id);
-    const text = (ctx.message?.text || '').trim();
-    const step = ctx.session?.step;
-
-    if (!step) return false; // не онбординг
-
-    try {
-      if (step === 'ob_name') {
-        if (!isValidName(text)) {
-          await ctx.reply('Імʼя має бути від 2 до 50 символів. Введи ще раз.');
-          return true;
-        }
-        
-        // ✅ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
-        await userService.updateUser(tgId, { 'User Name': formatName(text) });
-        await askEmail(ctx);
-        return true;
-      }
-
-      if (step === 'ob_email') {
-        if (isSkip(text)) {
-          await askPhone(ctx);
-          return true;
-        }
-        
-        if (text && !isValidEmail(text)) {
-          await ctx.reply('Схоже, email некоректний. Введи інший або натисни «⏭️ Пропустити».',
-            keyboards.emailInputKeyboard()
-          );
-          return true;
-        }
-        
-        if (text) {
-          // ✅ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
-          await userService.updateUser(tgId, { Email: formatEmail(text) });
-        }
-        await askPhone(ctx);
-        return true;
-      }
-
-      if (step === 'ob_phone') {
-        if (isSkip(text)) {
-          await askTimezone(ctx);
-          return true;
-        }
-        
-        const formattedPhone = formatPhone(text);
-        if (text && !isValidUaPhone(formattedPhone)) {
-          await ctx.reply('Виглядає як некоректний номер телефону. Введи у форматі +380XXXXXXXXX або натисни «⏭️ Пропустити».',
-            keyboards.phoneInputKeyboard()
-          );
-          return true;
-        }
-        
-        if (text) {
-          // ✅ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
-          await userService.updateUser(tgId, { Phone: formattedPhone });
-        }
-        await askTimezone(ctx);
-        return true;
-      }
-
-      // інші кроки — тільки callback
-      return false;
-    } catch (error) {
-      console.error('[startHandler.handleText] ❌ Помилка:', error);
-      await ctx.reply('Виникла помилка. Спробуй ще раз або натисни кнопку пропустити.');
-      return true;
-    }
-  },
-
-  // callback-и онбордингу
-  async handleCallback(ctx) {
-    const tgId = String(ctx.from.id);
-    const data = ctx.callbackQuery?.data || '';
-
-    try {
-      // підтвердження/зміна імені
-      if (data === 'keep_name') {
-        await askEmail(ctx);
-        return true;
-      }
-      if (data === 'change_name') {
-        await ctx.reply('Введи нове імʼя (2–50 символів).');
-        ctx.session.step = 'ob_name';
-        return true;
-      }
-
-      // скіпи
-      if (data === 'skip_email') {
-        await askPhone(ctx);
-        return true;
-      }
-      if (data === 'skip_phone') {
-        await askTimezone(ctx);
-        return true;
-      }
-
-      // таймзона
-      if (data.startsWith('tz_')) {
-        const selectedTz = data.slice(3); // tz_Europe/Prague → Europe/Prague
-        
-        // Знаходимо повний лейбл для збереження в Airtable
-        const fullLabel = TIMEZONES.find(tz => parseTz(tz) === selectedTz) || `${selectedTz} (UTC+0)`;
-        
-        // ✅ ЗАВЕРШУЄМО РЕЄСТРАЦІЮ
-        await userService.updateUser(tgId, { 
-          'Time Zone': fullLabel,
-          UserRegistered: true,
-          DateUserRegistered: new Date().toISOString(),
-          Status: 'Registered User'
-        });
-        
-        await ctx.reply(`✅ Часовий пояс збережено: <b>${fullLabel}</b>`, { parse_mode: 'HTML' });
-        await showPlans(ctx);
-        return true;
-      }
-
-      // плани
-      if (data === 'plan_free' || data === 'activate_trial') {
-        console.log(`[startHandler] 🧪 Активація trial для ${tgId}`);
-        
-        const activated = await paymentService.activateTrialSubscription(tgId, 7);
-        
-        if (activated) {
-          await ctx.reply(
-            `🎉 Пробний доступ активовано!\n\n✅ 7 днів повного доступу\n\n🎯 Усі функції доступні!`,
-            { parse_mode: 'HTML' }
-          );
-
-          // показуємо головне меню
-          const fresh = await userService.getUserByTelegramId(tgId);
-          await sendWelcomeBack(ctx, fresh);
-          ctx.session.step = undefined;
-        } else {
-          await ctx.reply('❌ Помилка активації. Зв\'яжись з підтримкою.');
-        }
-        return true;
-      }
-
-      // інші плани — показуємо інформацію про оплату
-      if (['plan_week','plan_month','plan_year'].includes(data)) {
-        await ctx.reply('💳 Для оплати цього плану зверніться до підтримки: nadyastarway@gmail.com\n\nАбо оберіть пробний тиждень для початку.');
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('[startHandler.handleCallback] ❌ Помилка:', error);
-      await ctx.reply('Виникла помилка. Спробуй ще раз /start');
-      return true;
-    }
+    
+    // 3) Онбординг
+    console.log(`[startHandler] 🆕 Запуск онбордингу`);
+    await startOnboarding(ctx, user);
+    
+  } catch (error) {
+    console.error('[startHandler] ❌ Помилка:', error);
+    await ctx.reply(MESSAGES.ERROR_GENERIC);
   }
 };
 
-export default startHandler;
+// ===== ПОЧАТОК ОНБОРДИНГУ =====
+const startOnboarding = async (ctx, user) => {
+  await typing(ctx, 300);
+  await ctx.reply(
+    MESSAGES.WELCOME(user['User Name']), 
+    keyboards.greetingKeyboard()
+  );
+};
+
+// ===== ОБРОБКА ТЕКСТУ =====
+export const handleText = async (ctx) => {
+  const tgId = ctx.from.id;
+  const text = ctx.message?.text?.trim();
+  
+  console.log(`[startHandler] handleText(${tgId}): "${text}"`);
+  
+  const user = await userService.getUserByTgId(tgId);
+  if (!user || user.UserRegistered) {
+    console.log(`[startHandler] ❌ Не онбординг`);
+    return false;
+  }
+  
+  const step = user.Answer_Step;
+  console.log(`[startHandler] Крок: ${step}`);
+  
+  try {
+    if (step === ANSWER_STEPS.OB_NAME) {
+      await typing(ctx, 300);
+      const result = await onboardingService.handleNameStep(tgId, text);
+      if (result.error) {
+        await ctx.reply(result.message);
+      } else {
+        await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
+      }
+      return true;
+    }
+    
+    if (step === ANSWER_STEPS.OB_EMAIL) {
+      await typing(ctx, 300);
+      const result = await onboardingService.handleEmailStep(tgId, text);
+      if (result.error) {
+        await ctx.reply(result.message, keyboards.emailInputKeyboard());
+      } else {
+        await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
+      }
+      return true;
+    }
+    
+    if (step === ANSWER_STEPS.OB_PHONE) {
+      await typing(ctx, 300);
+      const result = await onboardingService.handlePhoneStep(tgId, text);
+      if (result.error) {
+        await ctx.reply(result.message, keyboards.phoneInputKeyboard());
+      } else {
+        await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
+      }
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('[startHandler] ❌ Помилка handleText:', error);
+    await ctx.reply(MESSAGES.ERROR_GENERIC);
+    return true;
+  }
+};
+
+// ===== ОБРОБКА CALLBACK =====
+export const handleCallback = async (ctx) => {
+  const tgId = ctx.from.id;
+  const data = ctx.callbackQuery?.data;
+  
+  console.log(`[startHandler] handleCallback(${tgId}): ${data}`);
+  
+  const user = await userService.getUserByTgId(tgId);
+  if (!user) return false;
+  
+  try {
+    // Привітання
+    if (data === 'start_registration') {
+      await typing(ctx, 300);
+      await ctx.reply(MESSAGES.ASK_NAME);
+      await userService.updateUserFields(tgId, { Answer_Step: ANSWER_STEPS.OB_NAME });
+      return true;
+    }
+    
+    // Скіпи
+    if (data === 'skip_email') {
+      await typing(ctx, 300);
+      await onboardingService.handleEmailStep(tgId, null, true);
+      await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
+      return true;
+    }
+    
+    if (data === 'skip_phone') {
+      await typing(ctx, 300);
+      await onboardingService.handlePhoneStep(tgId, null, true);
+      await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
+      return true;
+    }
+    
+    // Таймзона
+    if (data.startsWith('tz_')) {
+      await typing(ctx, 300);
+      const tzSlug = data.slice(3);
+      await onboardingService.handleTimezoneStep(tgId, tzSlug);
+      await ctx.reply(MESSAGES.ASK_PLAN, keyboards.subscriptionPlansKeyboard());
+      return true;
+    }
+    
+    // Плани
+    if (data === 'plan_free' || data === 'activate_trial') {
+      await typing(ctx, 500);
+      const result = await onboardingService.handlePlanStep(tgId, 'TRIAL');
+      
+      if (result.success && result.trial) {
+        await ctx.reply(MESSAGES.TRIAL_ACTIVATED, keyboards.mainMenuKeyboard());
+      }
+      return true;
+    }
+    
+    if (['plan_week', 'plan_month', 'plan_year'].includes(data)) {
+      await ctx.reply('💳 Для оплати зверніться до підтримки: nadyastarway@gmail.com');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('[startHandler] ❌ Помилка callback:', error);
+    await ctx.reply(MESSAGES.ERROR_GENERIC);
+    return true;
+  }
+};
+
+export default {
+  handle,
+  handleText,
+  handleCallback
+};

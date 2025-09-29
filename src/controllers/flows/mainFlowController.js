@@ -1,6 +1,6 @@
 // src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО
 
-import userService from '../../auth/services/userService.js';
+import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
 

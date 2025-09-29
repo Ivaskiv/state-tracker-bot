@@ -1,7 +1,7 @@
 // src/auth/services/paymentService.js - ОПТИМІЗОВАНО
 
 import { getBase, tables } from '../../config/database.js';
-import userService from './userService.js';
+import userService from '../../services/userService.js';
 
 const base = getBase();
 

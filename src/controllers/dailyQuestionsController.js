@@ -1,6 +1,6 @@
 // src/controllers/dailyQuestionsController.js - ВИПРАВЛЕНИЙ
 
-import userService from '../auth/services/userService.js';
+import userService from '../services/userService.js';
 import responseService from '../dialogue/services/responseService.js';
 import { chat } from '../services/openaiClient.js';
 import { QUESTIONS, ANSWER_STEPS } from '../config/constants.js';

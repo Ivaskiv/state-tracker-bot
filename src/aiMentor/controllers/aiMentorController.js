@@ -1,6 +1,6 @@
 // src/aiMentor/controllers/aiMentorController.js - КОНТРОЛЕР AI НАСТАВНИКА
 
-import userService from '../../auth/services/userService.js';
+import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { aiMentorSession } from '../session.js';
 import { chat } from '../../services/openaiClient.js';

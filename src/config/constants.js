@@ -1,69 +1,77 @@
-// src/config/constants.js - ВИПРАВЛЕНО: ЦЕНТРАЛІЗОВАНІ КОНСТАНТИ
+// src/config/constants.js - ЦЕНТРАЛІЗОВАНІ КОНСТАНТИ (ФІНАЛЬНА ВЕРСІЯ)
 
-// --- Плани підписки ---
-export const SUBSCRIPTION_PLANS = Object.freeze({
-  TRIAL: {
-    name: '🧪 Пробний 7 днів — 0€',
-    price: 0,
-    duration: 7,
-    description: 'Повний доступ на 7 днів',
-  },
-  WEEK: {
-    name: 'Тиждень фокусу — 7€',
-    price: 7,
-    duration: 7,
-    description: 'Ідеально для короткого фокусу або тесту системи',
-  },
-  MONTH: {
-    name: 'Місяць дії — 30€',
-    price: 30,
-    duration: 30,
-    description: 'Глибинна робота з твоїми цілями та стратегією',
-  },
-  YEAR: {
-    name: 'Рік трансформації — 300€',
-    price: 300,
-    duration: 365,
-    description: 'Максимальна економія та підтримка протягом року',
-  }
-});
-
-// ✅ ТАЙМЗОНИ - ТОЧНІ ЛЕЙБЛИ ДЛЯ AIRTABLE SINGLE SELECT
+// ===== ЧАСОВІ ЗОНИ =====
 export const TIMEZONES = [
-  { label: 'Europe/Kiev (UTC+3)',        slug: 'Europe/Kiev' },
-  { label: 'Europe/Warsaw (UTC+2)',      slug: 'Europe/Warsaw' },
-  { label: 'Europe/Berlin (UTC+2)',      slug: 'Europe/Berlin' },
-  { label: 'Europe/London (UTC+1)',      slug: 'Europe/London' },
-  { label: 'Europe/Paris (UTC+2)',       slug: 'Europe/Paris' },
-  { label: 'Europe/Rome (UTC+2)',        slug: 'Europe/Rome' },
-  { label: 'Europe/Vienna (UTC+2)',      slug: 'Europe/Vienna' },
-  { label: 'Europe/Stockholm (UTC+2)',   slug: 'Europe/Stockholm' },
-  { label: 'Europe/Moscow (UTC+3)',      slug: 'Europe/Moscow' },
-  { label: 'Asia/Dubai (UTC+4)',         slug: 'Asia/Dubai' },
-  { label: 'America/New_York (UTC-4)',   slug: 'America/New_York' },
-  { label: 'America/Chicago (UTC-5)',    slug: 'America/Chicago' },
-  { label: 'America/Los_Angeles (UTC-7)',slug: 'America/Los_Angeles' },
-  { label: 'Canada/Toronto (UTC-4)',     slug: 'Canada/Toronto' },
-  { label: 'Asia/Tokyo (UTC+9)',         slug: 'Asia/Tokyo' },
-  { label: 'Asia/Shanghai (UTC+8)',      slug: 'Asia/Shanghai' },
-  { label: 'Australia/Sydney (UTC+10)',  slug: 'Australia/Sydney' },
-  { label: 'Europe/Prague (UTC+2)',      slug: 'Europe/Prague' },
-  { label: 'Europe/Bucharest (UTC+3)',   slug: 'Europe/Bucharest' },
-  { label: 'Europe/Helsinki (UTC+3)',    slug: 'Europe/Helsinki' },
+  { label: 'Europe/Kiev (UTC+3)', slug: 'Europe/Kiev' },
+  { label: 'Europe/Warsaw (UTC+2)', slug: 'Europe/Warsaw' },
+  { label: 'Europe/Berlin (UTC+2)', slug: 'Europe/Berlin' },
+  { label: 'Europe/London (UTC+1)', slug: 'Europe/London' },
+  { label: 'Europe/Paris (UTC+2)', slug: 'Europe/Paris' },
+  { label: 'Europe/Rome (UTC+2)', slug: 'Europe/Rome' },
+  { label: 'Europe/Vienna (UTC+2)', slug: 'Europe/Vienna' },
+  { label: 'Europe/Stockholm (UTC+2)', slug: 'Europe/Stockholm' },
+  { label: 'Europe/Moscow (UTC+3)', slug: 'Europe/Moscow' },
+  { label: 'Asia/Dubai (UTC+4)', slug: 'Asia/Dubai' },
+  { label: 'America/New_York (UTC-4)', slug: 'America/New_York' },
+  { label: 'America/Chicago (UTC-5)', slug: 'America/Chicago' },
+  { label: 'America/Los_Angeles (UTC-7)', slug: 'America/Los_Angeles' },
+  { label: 'Canada/Toronto (UTC-4)', slug: 'Canada/Toronto' },
+  { label: 'Asia/Tokyo (UTC+9)', slug: 'Asia/Tokyo' },
+  { label: 'Asia/Shanghai (UTC+8)', slug: 'Asia/Shanghai' },
+  { label: 'Australia/Sydney (UTC+10)', slug: 'Australia/Sydney' },
+  { label: 'Europe/Prague (UTC+2)', slug: 'Europe/Prague' },
+  { label: 'Europe/Bucharest (UTC+3)', slug: 'Europe/Bucharest' },
+  { label: 'Europe/Helsinki (UTC+3)', slug: 'Europe/Helsinki' },
 ];
 
 // Повертає ПОВНИЙ лейбл для Airtable single select по slug
-export function parseTz(slug) {
-  const f = TIMEZONES.find(t => t.slug === slug);
-  return f ? f.label : slug;
-}
-// --- Кроки відповідей / онбордингу ---
+export const getTzLabel = (slug) => {
+  const tz = TIMEZONES.find(t => t.slug === slug);
+  return tz ? tz.label : `${slug} (UTC+0)`;
+};
+
+// Alias для зворотної сумісності
+export const parseTz = getTzLabel;
+
+// ===== ПЛАНИ ПІДПИСКИ =====
+export const SUBSCRIPTION_PLANS = Object.freeze({
+  TRIAL: {
+    key: 'TRIAL',
+    name: '🧪 Пробний період — 0€',
+    price: 0,
+    duration: 7,
+    description: 'Повний доступ на 7 днів'
+  },
+  WEEK: {
+    key: 'WEEK',
+    name: 'Тиждень фокусу — 7€',
+    price: 7,
+    duration: 7,
+    description: 'Ідеально для короткого фокусу або тесту системи'
+  },
+  MONTH: {
+    key: 'MONTH',
+    name: 'Місяць дії — 30€',
+    price: 30,
+    duration: 30,
+    description: 'Глибинна робота з твоїми цілями та стратегією'
+  },
+  YEAR: {
+    key: 'YEAR',
+    name: 'Рік трансформації — 300€',
+    price: 300,
+    duration: 365,
+    description: 'Максимальна економія та підтримка протягом року'
+  }
+});
+
+// ===== КРОКИ ВІДПОВІДЕЙ / ОНБОРДИНГУ =====
 export const ANSWER_STEPS = Object.freeze({
   // Основні кроки
   BEGIN: 'Begin_answer',
   COMPLETED: 'completed',
 
-  // Онбординг (Flow: onboarding)
+  // Онбординг
   OB_PITCH: 'ob_pitch',
   OB_NAME: 'ob_name',
   OB_EMAIL: 'ob_email',
@@ -97,7 +105,49 @@ export const ANSWER_STEPS = Object.freeze({
   AI_MENTOR_ACTIVE: 'ai_mentor_active'
 });
 
-// --- Запитання ---
+// Alias для зворотної сумісності
+export const ONBOARDING_STEPS = Object.freeze({
+  NAME: ANSWER_STEPS.OB_NAME,
+  EMAIL: ANSWER_STEPS.OB_EMAIL,
+  PHONE: ANSWER_STEPS.OB_PHONE,
+  TIMEZONE: ANSWER_STEPS.OB_TIMEZONE,
+  PLAN: ANSWER_STEPS.OB_PLAN,
+  COMPLETED: ANSWER_STEPS.COMPLETED
+});
+
+export const OB_STEPS = Object.freeze({
+  PITCH: ANSWER_STEPS.OB_PITCH,
+  NAME: ANSWER_STEPS.OB_NAME,
+  EMAIL: ANSWER_STEPS.OB_EMAIL,
+  PHONE: ANSWER_STEPS.OB_PHONE,
+  TIMEZONE: ANSWER_STEPS.OB_TIMEZONE,
+  PLAN: ANSWER_STEPS.OB_PLAN,
+  PAYMENT_PENDING: ANSWER_STEPS.OB_PAYMENT_PENDING,
+  PAYMENT_SUCCESS: ANSWER_STEPS.OB_PAYMENT_SUCCESS,
+  REMINDERS_INTRO: ANSWER_STEPS.OB_REMINDERS_INTRO,
+  DONE: ANSWER_STEPS.OB_DONE,
+});
+
+// ===== СТАТУСИ КОРИСТУВАЧА =====
+export const USER_STATUS = Object.freeze({
+  NEW: 'New User',
+  REGISTERED: 'Registered User',
+  ACTIVE: 'Active User'
+});
+
+export const SUBSCRIPTION_STATUS = Object.freeze({
+  NEW: 'New',
+  ACTIVE: 'Active',
+  PAUSED: 'Paused',
+  EXPIRED: 'Expired',
+  PAID: 'Paid',
+  PENDING: 'Pending',
+  EMPTY: 'Empty',
+  DECLINED: 'Declined',
+  APPROVED: 'Approved'
+});
+
+// ===== ЗАПИТАННЯ =====
 export const QUESTIONS = {
   morning: [
     {
@@ -165,7 +215,7 @@ export const QUESTIONS = {
 export const MORNING_QUESTIONS = QUESTIONS.morning.map(q => q.text);
 export const EVENING_QUESTIONS = QUESTIONS.evening.map(q => q.text);
 
-// --- Колесо балансу ---
+// ===== КОЛЕСО БАЛАНСУ =====
 export const LIFE_SPHERES = [
   'Здоров\'я та енергія',
   'Особистісний розвиток',
@@ -199,7 +249,7 @@ export const NOTE_FIELDS = [
   'Housing_Notes'
 ];
 
-// --- Часові налаштування ---
+// ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 export const SCHEDULE = Object.freeze({
   MORNING_TIME: '08:00',
   EVENING_TIME: '21:30',
@@ -210,15 +260,15 @@ export const SCHEDULE = Object.freeze({
   TIMEZONE: 'Europe/Kyiv'
 });
 
-// --- CRON ---
+// ===== CRON РОЗКЛАДИ =====
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: `0 8 * * *`,  // 08:00
-  EVENING_QUESTIONS: `30 21 * * *`, // 21:30
-  SUBSCRIPTION_CHECK: '0 10 * * *',
-  MONTHLY_WHEEL_CHECK: '0 10 1 * *' // 1 число кожного місяця
+  MORNING_QUESTIONS: `0 8 * * *`,      // 08:00
+  EVENING_QUESTIONS: `30 21 * * *`,    // 21:30
+  SUBSCRIPTION_CHECK: '0 10 * * *',    // 10:00 щодня
+  MONTHLY_WHEEL_CHECK: '0 10 1 * *'    // 10:00 1-го числа
 });
 
-// --- Повідомлення планувальника ---
+// ===== ПОВІДОМЛЕННЯ ПЛАНУВАЛЬНИКА =====
 export const SCHEDULER_MESSAGES = Object.freeze({
   MORNING_SESSION_START: (name) =>
     `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
@@ -228,28 +278,48 @@ export const SCHEDULER_MESSAGES = Object.freeze({
   EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!'
 });
 
-// --- Меню тексти ---
+// ===== ТЕКСТИ ПОВІДОМЛЕНЬ =====
+export const MESSAGES = Object.freeze({
+  // Вітання
+  WELCOME: (name) => 
+    `👋 Привіт, ${name}!\n\nЯ твій AI-мотиватор і коуч!\n\nДопомагаю:\n🎯 Ставити цілі\n⚖️ Знаходити баланс\n💪 Підтримувати мотивацію\n\nГотова розпочати?`,
+  
+  WELCOME_BACK_ACTIVE: (name) => 
+    `👋 З поверненням, ${name}!\n✅ Підписка активна.\nПродовжимо?`,
+  
+  WELCOME_BACK_INACTIVE: (name) => 
+    `👋 З поверненням, ${name}!\n💡 Активуй підписку для повного доступу.`,
+  
+  // Онбординг
+  ASK_NAME: 'Як до тебе звертатись?\n\nВведи ім\'я (2–50 символів).',
+  
+  ASK_EMAIL: 'Вкажи свій e-mail (для надсилання звітів).\nАбо пропусти.',
+  
+  ASK_PHONE: 'Залиш номер телефону (для зв\'язку).\nАбо пропусти.',
+  
+  ASK_TIMEZONE: '⚠️ ВАЖЛИВО: Обери свій часовий пояс!\n\nЯ надсилатиму ранкові питання о 08:00 за твоїм місцевим часом.\n\n🌍 Твій часовий пояс:',
+  
+  ASK_PLAN: 'Обери план доступу.\nМожеш почати з безкоштовного пробного тижня.',
+  
+  TRIAL_ACTIVATED: '🎉 Реєстрацію завершено!\n🧪 Пробний доступ активовано на 7 днів.\n\nГотова почати?',
+  
+  // Помилки
+  ERROR_GENERIC: '❌ Виникла помилка. Спробуй ще раз /start',
+  ERROR_NAME: 'Ім\'я має бути від 2 до 50 символів. Введи ще раз.',
+  ERROR_EMAIL: 'Схоже, email некоректний. Введи інший або пропусти.',
+  ERROR_PHONE: 'Виглядає як некоректний номер. Введи у форматі +380XXXXXXXXX або пропусти.'
+});
+
+// ===== МЕНЮ ТЕКСТИ =====
 export const MENU_TEXTS = Object.freeze({
   HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
+  
   CONTACT: `📞 ЗВ'ЯЗОК З НАМИ\n\n💬 **ТЕХНІЧНА ПІДТРИМКА:**\nEmail: nadyastarway@gmail.com\nTelegram: @Nadya2316 (ментор)\nTelegram: @vira_333 (техпідтримка)\n\n📋 **ПИТАННЯ ПРО МАРАФОН:**\nПишіть ментору.\n\n⏰ **ЧАС ВІДПОВІДІ:**\nПротягом 24 годин.\n\n🎯 **ПЕРСОНАЛЬНА КОНСУЛЬТАЦІЯ:**\nEmail з темою "Персональна консультація".`,
+  
   INSTRUCTIONS: `📝 ЯК КОРИСТУВАТИСЯ БОТОМ\n\n🚀 **ПОЧАТОК:**\n• /start для реєстрації\n• Перевір підписку: "💰 Підписка"\n\n📊 **ЩОДЕННІ ЗВІТИ:**\n• "📈 Щотижневий звіт" — AI-аналіз за тиждень\n• "📈 Щомісячний звіт" — глибокий аналіз за місяць\n• "💎 Афірмація" — щоденна мотивація\n• "📊 Мій прогрес" — статистика\n• "🤖 AI наставник" — персональна підтримка\n\n⏰ **АВТОМАТИЧНІ ПИТАННЯ:**\n• ${SCHEDULE.MORNING_TIME} — ранкові питання (${MORNING_QUESTIONS.length} запитань)\n• ${SCHEDULE.EVENING_TIME} — вечірні питання (${EVENING_QUESTIONS.length} запитань)\n\n💡 **ПОРАДИ:**\n• Відповідай щиро на автоматичні питання\n• Переглядай звіти для усвідомлення прогресу\n• Пиши в "📞 Зв'язок з нами" при проблемах`
 });
 
-// === Onboarding steps alias ===
-export const OB_STEPS = Object.freeze({
-  PITCH: ANSWER_STEPS.OB_PITCH,
-  NAME: ANSWER_STEPS.OB_NAME,
-  EMAIL: ANSWER_STEPS.OB_EMAIL,
-  PHONE: ANSWER_STEPS.OB_PHONE,
-  TIMEZONE: ANSWER_STEPS.OB_TIMEZONE,
-  PLAN: ANSWER_STEPS.OB_PLAN,
-  PAYMENT_PENDING: ANSWER_STEPS.OB_PAYMENT_PENDING,
-  PAYMENT_SUCCESS: ANSWER_STEPS.OB_PAYMENT_SUCCESS,
-  REMINDERS_INTRO: ANSWER_STEPS.OB_REMINDERS_INTRO,
-  DONE: ANSWER_STEPS.OB_DONE,
-});
-
-// ===== AI НАСТАВНИК ПРОМПТИ =====
+// ===== AI НАСТАВНИК =====
 export const AI_MENTOR_PROMPTS = Object.freeze({
   SYSTEM_PROMPT: `Ти — експертний AI-наставник рівня Tony Robbins + Simon Sinek + Tim Ferriss.
 
@@ -276,17 +346,26 @@ export const AI_MENTOR_PROMPTS = Object.freeze({
   FEEDBACK_PROMPT: `Ти мудрий коуч. Даєш короткий підтримуючий фідбек з конкретними порадами.`
 });
 
-// ===== AI НАСТАВНИК КОНФІГ =====
 export const AI_MENTOR_CONFIG = Object.freeze({
   FALLBACK_FEEDBACK: "Дякую за чесність у відповідях. Кожен день робить тебе сильнішою.",
   MAX_CONVERSATION_HISTORY: 5,
   RESPONSE_TIMEOUT: 30000
 });
 
-// Лог ініціалізації
-console.log('✅ [constants] Константи ініціалізовано');
-console.log(`✅ [constants] Ранкових питань: ${MORNING_QUESTIONS.length}`);
-console.log(`✅ [constants] Вечірніх питань: ${EVENING_QUESTIONS.length}`);
-console.log(`✅ [constants] Сфер колеса: ${LIFE_SPHERES.length}`);
-console.log(`✅ [constants] CRON розклад: ранок ${SCHEDULE.MORNING_TIME}, вечір ${SCHEDULE.EVENING_TIME}`);
-console.log(`✅ [constants] Таймзон: ${TIMEZONES.length}`);
+// ===== НАЛАШТУВАННЯ =====
+export const CONFIG = Object.freeze({
+  ANTI_SPAM_TTL_MS: 3000,
+  NAME_MIN_LENGTH: 2,
+  NAME_MAX_LENGTH: 50,
+  EMAIL_MAX_LENGTH: 100,
+  PHONE_REGEX: /^\+380\d{9}$/,
+  DEFAULT_TIMEZONE: 'Europe/Kiev (UTC+3)'
+});
+
+// ===== ЛОГУВАННЯ =====
+console.log('✅ [constants] Централізовані константи завантажено');
+console.log(`   • Ранкових питань: ${MORNING_QUESTIONS.length}`);
+console.log(`   • Вечірніх питань: ${EVENING_QUESTIONS.length}`);
+console.log(`   • Сфер колеса: ${LIFE_SPHERES.length}`);
+console.log(`   • Таймзон: ${TIMEZONES.length}`);
+console.log(`   • CRON: ранок ${SCHEDULE.MORNING_TIME}, вечір ${SCHEDULE.EVENING_TIME}`);

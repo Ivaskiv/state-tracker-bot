@@ -1,6 +1,6 @@
 // src/utils/keyboards.js - ВИПРАВЛЕНІ КЛАВІАТУРИ
 
-import { TIMEZONES, parseTz } from '../config/constants.js';
+import { TIMEZONES, getTzLabel } from '../config/constants.js';
 
 const keyboards = {
   // ====== ГОЛОВНЕ МЕНЮ ======
@@ -60,7 +60,7 @@ timezoneKeyboard() {
     reply_markup: {
       inline_keyboard: [
         ...TIMEZONES.map(label => ([
-          { text: label, callback_data: `tz_${parseTz(label)}` }
+          { text: label, callback_data: `tz_${getTzLabel(label)}` }
         ])),
         [{ text: '🔙 Назад', callback_data: 'back_timezone' }]
       ]

@@ -5,7 +5,7 @@ import { aiMentorSession } from '../../aiMentor/session.js';
 // Перевірка активних сесій
 const isActiveSession = async (tgId) => {
   try {
-    const userService = await import('../../auth/services/userService.js');
+    const userService = await import('../../services/userService.js');
     const user = await userService.default.getUserByTelegramId(tgId);
     const step = user?.Answer_Step;
     
@@ -26,7 +26,7 @@ const handleBlockedMenu = async (ctx) => {
   let sessionType = 'сесія';
   
   try {
-    const userService = await import('../../auth/services/userService.js');
+    const userService = await import('../../services/userService.js');
     const user = await userService.default.getUserByTelegramId(tgId);
     const step = user?.Answer_Step;
     
@@ -62,7 +62,7 @@ const handleSessionControl = async (ctx, data) => {
   const tgId = ctx.from.id;
   
   try {
-    const userService = await import('../../auth/services/userService.js');
+    const userService = await import('../../services/userService.js');
     const user = await userService.default.getUserByTelegramId(tgId);
     const step = user?.Answer_Step;
 

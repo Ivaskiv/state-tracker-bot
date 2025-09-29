@@ -1,161 +1,123 @@
-// src/config/database.js — БАЗА ДАНИХ AIRTABLE
+// src/config/database.js - ЧЕРЕЗ FETCH
 
-import Airtable from 'airtable';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ---- Перевірка ENV
-if (!process.env.AIRTABLE_API_KEY) {
-  console.error('❌ AIRTABLE_API_KEY відсутній у .env');
-  process.exit(1);
-}
-if (!process.env.AIRTABLE_BASE_ID) {
-  console.error('❌ AIRTABLE_BASE_ID відсутній у .env');
+if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+  console.error('❌ Відсутні credentials');
   process.exit(1);
 }
 
-console.log('🔗 [database] Ініціалізація Airtable…');
+const API_KEY = process.env.AIRTABLE_API_KEY;
+const BASE_ID = process.env.AIRTABLE_BASE_ID;
+const BASE_URL = `https://api.airtable.com/v0/${BASE_ID}`;
 
-let cachedBase = null;
-
-// ---- Один інстанс base на весь процес
-export const getBase = () => {
-  if (!cachedBase) {
-    Airtable.configure({ apiKey: process.env.AIRTABLE_API_KEY });
-    cachedBase = new Airtable().base(process.env.AIRTABLE_BASE_ID);
-  }
-  return cachedBase;
-};
-
-// ---- Мапа таблиць (для зручності)
 export const tables = Object.freeze({
   USERS: 'Users',
   SUBSCRIPTIONS: 'Subscriptions',
   RESPONSES: 'Responses',
-  USER_REFLECTIONS: 'User Reflections',
-  MORNING_RESPONSES: 'Morning_Responses',
-  EVENING_RESPONSES: 'Evening_Responses',
-  AFFIRMATIONS: 'Affirmations',
-  USER_AFFIRMATIONS: 'User Affirmations',
-  USER_REPORTS: 'User Reports',
-  USER_GOALS: 'User_Goals',
-  DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions',
-  AI_CONVERSATIONS: 'AI_Conversations',
   WHEEL_BALANCE: 'WheelBalance',
+  AI_CONVERSATIONS: 'AI_Conversations'
 });
 
-// ---- Утиліти
-const tableKeyOf = (name) => tables[name] || name;
-const chunk = (arr, n = 10) => {
-  const out = [];
-  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
-  return out;
-};
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const logAirtableError = (prefix, err) => {
-  console.error(`${prefix} ❌`, {
-    message: err?.message,
-    statusCode: err?.statusCode,
-    type: err?.error?.type,
-    requestId: err?.error?.requestId,
+const request = async (method, tableName, options = {}) => {
+  const table = tables[tableName] || tableName;
+  let url = `${BASE_URL}/${encodeURIComponent(table)}`;
+  
+  if (options.recordId) {
+    url += `/${options.recordId}`;
+  }
+  
+  if (options.params) {
+    const params = new URLSearchParams(options.params);
+    url += `?${params}`;
+  }
+
+  console.log(`[database] ${method} ${url}`);
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: AbortSignal.timeout(30000) // 30 секунд timeout
   });
-};
 
-// ---- SELECT: завжди повертаємо масив записів
-export const selectFromTable = async (tableName, opts = {}) => {
-  const key = tableKeyOf(tableName);
-  try {
-    const base = getBase();
-    const query = base(key).select(opts);
-    const page = await query.firstPage(); // завжди масив
-    return page;
-  } catch (err) {
-    logAirtableError(`[database.selectFromTable:${key}]`, err);
-    throw err;
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Airtable error: ${error.error?.message || response.statusText}`);
   }
+
+  return await response.json();
 };
 
-// ---- Зручний геттер одного запису за формулою
-export const getOneByFormula = async (tableName, filterByFormula, fields = undefined) => {
-  const rows = await selectFromTable(tableName, {
-    filterByFormula,
-    maxRecords: 1,
-    ...(fields ? { fields } : {}),
+// ===== SELECT ONE =====
+export const selectOne = async (tableName, filter) => {
+  console.log(`[database] selectOne: ${tableName}, filter="${filter}"`);
+  
+  const data = await request('GET', tableName, {
+    params: {
+      filterByFormula: filter,
+      maxRecords: '1'
+    }
   });
-  return rows[0] || null;
+
+  console.log(`[database] Знайдено: ${data.records.length}`);
+  
+  return data.records[0] || null;
 };
 
-// ---- CREATE (батчами по 10)
-export const createRows = async (tableName, rows) => {
-  const key = tableKeyOf(tableName);
-  try {
-    const base = getBase();
-    const batches = chunk(rows, 10);
-    const results = [];
-    for (const batch of batches) {
-      const res = await base(key).create(batch, { typecast: true });
-      results.push(...res);
+// ===== CREATE =====
+export const createRecord = async (tableName, fields) => {
+  console.log(`[database] createRecord: ${tableName}`);
+  
+  const data = await request('POST', tableName, {
+    body: {
+      fields,
+      typecast: true
     }
-    console.log(`[database.createRows] ✅ ${key}: ${results.length} запис(и)`);
-    return results;
-  } catch (err) {
-    logAirtableError(`[database.createRows:${key}]`, err);
-    throw err;
-  }
+  });
+
+  console.log(`[database] Створено: ${data.id}`);
+  
+  return data;
 };
 
-// ---- UPDATE (батчами по 10)
-export const updateRows = async (tableName, rows) => {
-  const key = tableKeyOf(tableName);
-  try {
-    const base = getBase();
-    const batches = chunk(rows, 10);
-    const results = [];
-    for (const batch of batches) {
-      const res = await base(key).update(batch, { typecast: true });
-      results.push(...res);
+// ===== UPDATE =====
+export const updateRecord = async (tableName, recordId, fields) => {
+  console.log(`[database] updateRecord: ${tableName}/${recordId}`);
+  
+  const data = await request('PATCH', tableName, {
+    recordId,
+    body: {
+      fields,
+      typecast: true
     }
-    console.log(`[database.updateRows] ✅ ${key}: ${results.length} запис(и)`);
-    return results;
-  } catch (err) {
-    logAirtableError(`[database.updateRows:${key}]`, err);
-    throw err;
-  }
+  });
+
+  console.log(`[database] Оновлено`);
+  
+  return data;
 };
 
-// ---- Швидка перевірка користувача (без будь-яких гонок/таймаутів)
-export const quickUserCheck = async (tgId) => {
-  try {
-    const rec = await getOneByFormula(
-      'USERS',
-      `{TG_id} = '${String(tgId)}'`,
-      ['TG_id', 'User Name', 'UserRegistered', 'Email', 'Status', 'Active_Subscription_Status', 'End_Date']
-    );
-    if (!rec) return null;
-    return {
-      id: rec.id,
-      ...rec.fields,
-      TG_id: String(rec.fields.TG_id || ''),
-      UserRegistered: Boolean(rec.fields.UserRegistered),
-      AT_id: rec.id,
-    };
-  } catch (err) {
-    logAirtableError('[database.quickUserCheck]', err);
-    return null;
-  }
+// ===== FIND =====
+export const findRecords = async (tableName, options = {}) => {
+  console.log(`[database] findRecords: ${tableName}`);
+  
+  const data = await request('GET', tableName, {
+    params: options
+  });
+
+  console.log(`[database] Знайдено: ${data.records.length}`);
+  
+  return data.records;
 };
 
-// ---- Healthcheck
-export const testConnection = async () => {
-  try {
-    const page = await selectFromTable('USERS', { maxRecords: 1 });
-    console.log('[database.testConnection] ✅ OK');
-    return { success: true, records: page.length };
-  } catch (err) {
-    logAirtableError('[database.testConnection]', err);
-    return { success: false, error: err?.message || 'unknown' };
-  }
-};
+// Не потрібно для HTTP
+export const getBase = () => null;
 
-// (для зворотної сумісності, якщо десь робили import default)
-export default getBase();
+console.log('✅ [database] HTTP client готовий');

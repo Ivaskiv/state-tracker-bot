@@ -1,6 +1,6 @@
 // src/auth/modules/auth.js - СПРОЩЕНО
 
-import userService from '../services/userService.js';
+import userService from '../../services/userService.js';
 import paymentService from '../services/paymentService.js';
 import keyboards from '../../utils/keyboards.js';
 

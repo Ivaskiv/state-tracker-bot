@@ -1,7 +1,7 @@
 // src/utils/scheduler.js - ОПТИМІЗОВАНО З НАГАДУВАННЯМИ
 
 import cron from 'node-cron';
-import userService from '../auth/services/userService.js';
+import userService from '../services/userService.js';
 import paymentService from '../auth/services/paymentService.js';
 import wheelBalanceController from '../controllers/wheelBalanceController.js';
 import { CRON_SCHEDULES, SCHEDULE } from '../config/constants.js';

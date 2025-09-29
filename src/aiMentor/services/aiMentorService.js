@@ -1,6 +1,6 @@
 // src/aiMentor/services/aiMentorService.js - виправлення
 import { chat } from '../../services/openaiClient.js';
-import userService from '../../auth/services/userService.js';
+import userService from '../../services/userService.js';
 import responseService from '../../dialogue/services/responseService.js';
 import { AI_MENTOR_PROMPTS, AI_MENTOR_CONFIG } from '../../config/constants.js';
 

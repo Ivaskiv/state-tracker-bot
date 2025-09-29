@@ -1,7 +1,7 @@
 // src/controllers/flows/registrationController.js
 import keyboards from '../../utils/keyboards.js';
 import { parseTz } from '../../config/constants.js';
-import userService from '../../auth/services/userService.js';
+import userService from '../../services/userService.js';
 
 const STEPS = {
   NAME: 'ob_name',
