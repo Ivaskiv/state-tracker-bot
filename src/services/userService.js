@@ -140,23 +140,20 @@ export const hasActiveAccess = (user) => {
   return expiry > now;
 };
 
-// ===== ФІНАЛІЗАЦІЯ РЕЄСТРАЦІЇ =====
+
 export const finalizeRegistration = async (tgId, data) => {
   const now = new Date().toISOString();
-  
   console.log(`[userService] finalizeRegistration(${tgId})...`);
-  
   return await updateUserFields(tgId, {
     'User Name': data.name,
     Email: data.email || null,
     Phone: data.phone || null,
     'Time Zone': data.timezone,
     UserRegistered: true,
-    'Registration Date': now, // ✅ ВИПРАВЛЕНО - правильна назва поля в Airtable
-    Answer_Step: ANSWER_STEPS.COMPLETED
+    'Registration Date': now,
+  Current_Activity: 'completed'
   });
 };
-
 // ===== АКТИВАЦІЯ TRIAL =====
 export const activateTrial = async (tgId, days = 7) => {
   const start = new Date();

@@ -1,6 +1,6 @@
 // src/controllers/flows/registrationController.js
 import keyboards from '../../utils/keyboards.js';
-import { parseTz } from '../../config/constants.js';
+import { parseTz, REGISTRATION_SUCCESS_TEMPLATE } from '../../config/constants.js';
 import userService from '../../services/userService.js';
 
 const STEPS = {
@@ -23,23 +23,32 @@ async function askName(ctx) {
   const telegramName = ctx.from.first_name || 'Користувач';
   await ctx.reply(
     `👋 Привіт! Я твій AI-мотиватор і коуч.\n\nЯк до тебе звертатись?`,
-    keyboards.greetingKeyboard(telegramName)
+    keyboards.greetingKeyboard(telegramName) // параметр не обовʼязковий, просто передаємо
   );
 }
 
 async function askEmail(ctx) {
   ctx.session.reg.step = STEPS.EMAIL;
-  await ctx.reply('📧 Введи email для звітів (або пропусти):', keyboards.emailSkipKeyboard());
+  await ctx.reply(
+    '📧 Введи email для звітів (або пропусти):',
+    keyboards.emailInputKeyboard()
+  );
 }
 
 async function askPhone(ctx) {
   ctx.session.reg.step = STEPS.PHONE;
-  await ctx.reply('📱 Введи номер телефону у форматі +380XXXXXXXXX (або пропусти):', keyboards.phoneSkipKeyboard());
+  await ctx.reply(
+    '📱 Введи номер телефону у форматі +380XXXXXXXXX (або пропусти):',
+    keyboards.phoneInputKeyboard()
+  );
 }
 
 async function askTimezone(ctx) {
   ctx.session.reg.step = STEPS.TIMEZONE;
-  await ctx.reply('🌍 Обери свій часовий пояс (важливо для нагадувань):', keyboards.timezoneKeyboard());
+  await ctx.reply(
+    '🌍 Обери свій часовий пояс (важливо для нагадувань):',
+    keyboards.timezoneKeyboard()
+  );
 }
 
 async function askPlan(ctx) {
@@ -48,25 +57,45 @@ async function askPlan(ctx) {
 }
 
 async function finishTrial(ctx) {
-  // записуємо все в Users
+  // anti-dup: не шлемо двічі, якщо callback дернувся повторно
+  ctx.session ??= {};
+  ctx.session.reg ??= {};
+  if (ctx.session.reg.__done) return;
+  ctx.session.reg.__done = true;
+
   const { name, email, phone, tzLabel } = ctx.session.reg;
   const tgId = ctx.from.id;
 
+  // 1) зберігаємо користувача
   await userService.finalizeRegistration(tgId, {
     name,
     email,
     phone,
-    timezoneLabel: tzLabel
+    timezone: tzLabel
   });
 
+  // 2) активуємо trial
   await userService.activateTrial(tgId, 7);
 
-  ctx.session.reg = { step: null, name: '', email: '', phone: '', tzLabel: '' };
+  // 3) беремо дату завершення з БД (або рахуємо локально як fallback)
+  let endStr = 'через 7 днів';
+  try {
+    const fresh = await userService.getUserByTgId(tgId);
+    if (fresh?.End_Date) {
+      endStr = new Date(fresh.End_Date).toLocaleDateString('uk-UA');
+    } else {
+      const d = new Date(); d.setDate(d.getDate() + 7);
+      endStr = d.toLocaleDateString('uk-UA');
+    }
+  } catch {}
 
-  await ctx.reply(
-    `🎉 Реєстрацію завершено!\n🧪 Пробний доступ активовано на 7 днів.\n\nГотова почати?`,
-    keyboards.mainMenuKeyboard()
-  );
+  // 4) чистимо онбординг-сесію
+  ctx.session.reg = { step: null, name: '', email: '', phone: '', tzLabel: '', __done: true };
+
+  // 5) надсилаємо НОВИЙ шаблон
+  const msg = REGISTRATION_SUCCESS_TEMPLATE.replace('{END_DATE}', endStr);
+  if (ctx.callbackQuery) { try { await ctx.answerCbQuery('Пробний доступ активовано'); } catch {} }
+  await ctx.reply(msg, keyboards.mainMenuKeyboard());
 }
 
 export default {
@@ -140,12 +169,14 @@ export default {
     }
 
     if (data === 'plan_trial') {
+      // ✅ реально завершуємо флоу, а не просто рахуємо дату
       await finishTrial(ctx);
-      return true;
+      return true; // важливо: щоб інші хендлери не дублювали відповідь
     }
 
-    // інші плани — просто показуємо інструкцію (без платіжки)
+    // інші плани — просто показуємо інструкцію (без WayForPay тут)
     if (data === 'plan_week' || data === 'plan_month' || data === 'plan_year') {
+      await ctx.answerCbQuery('Оплата поки вручну');
       await ctx.reply(
         `💳 Оплата поки вручну.\nНапиши в підтримку:\n📧 nadyastarway@gmail.com\n💬 @Nadya2316`
       );

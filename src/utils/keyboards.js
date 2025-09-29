@@ -1,6 +1,16 @@
-// src/utils/keyboards.js - ВИПРАВЛЕНІ КЛАВІАТУРИ
+// src/utils/keyboards.js
 
-import { TIMEZONES, getTzLabel } from '../config/constants.js';
+import { TIMEZONES } from '../config/constants.js';
+
+// ===== ІМЕНОВАНИЙ ЕКСПОРТ: кнопка після реєстрації =====
+export const afterRegistrationKeyboard = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '▶️ Почати', callback_data: 'open_main' }],
+      [{ text: '💳 Підписка', callback_data: 'subscription_info' }]
+    ]
+  }
+});
 
 const keyboards = {
   // ====== ГОЛОВНЕ МЕНЮ ======
@@ -55,18 +65,17 @@ const keyboards = {
     };
   },
 
-timezoneKeyboard() {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        ...TIMEZONES.map(tz => ([
-          { text: tz.label, callback_data: `tz_${tz.slug}` }
-        ])),
-        [{ text: '🔙 Назад', callback_data: 'back_timezone' }]
-      ]
-    }
-  };
-},
+  timezoneKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          ...TIMEZONES.map((tz) => [{ text: tz.label, callback_data: `tz_${tz.slug}` }]),
+          [{ text: '🔙 Назад', callback_data: 'back_timezone' }]
+        ]
+      }
+    };
+  },
+
   timezoneConfirmedKeyboard() {
     return {
       reply_markup: {
@@ -227,9 +236,7 @@ timezoneKeyboard() {
   // ====== УТИЛІТАРНІ ======
   removeKeyboard() {
     return {
-      reply_markup: { 
-        remove_keyboard: true 
-      }
+      reply_markup: { remove_keyboard: true }
     };
   },
 
@@ -249,49 +256,54 @@ timezoneKeyboard() {
       }
     };
   },
-greetingKeyboard() {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }],
-        [{ text: 'ℹ️ Про бота', callback_data: 'about_bot' }]
-      ]
-    }
-  };
-},
 
-subscriptionPlansKeyboard() {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🧪 Пробний 7 днів — 0€', callback_data: 'plan_free' }],
-        [{ text: '🎯 Тиждень — 7€', callback_data: 'plan_week' }], 
-        [{ text: '📅 Місяць — 30€', callback_data: 'plan_month' }],
-        [{ text: '🗓️ Рік — 300€', callback_data: 'plan_year' }]
-      ]
-    }
-  };
-},
+  greetingKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }],
+          [{ text: 'ℹ️ Про бота', callback_data: 'about_bot' }]
+        ]
+      }
+    };
+  },
 
-skipKeyboard() {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '⏭️ Пропустити', callback_data: 'skip_step' }]
-      ]
-    }
-  };
-},
-confirmNameKeyboard(name) {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '✅ Залишити', callback_data: 'keep_name' }],
-        [{ text: '✏️ Змінити',  callback_data: 'change_name' }]
-      ]
-    }
-  };
-},
+  subscriptionPlansKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🧪 Пробний 7 днів — 0€', callback_data: 'plan_free' }],
+          [{ text: '🎯 Тиждень — 7€', callback_data: 'plan_week' }],
+          [{ text: '📅 Місяць — 30€', callback_data: 'plan_month' }],
+          [{ text: '🗓️ Рік — 300€', callback_data: 'plan_year' }]
+        ]
+      }
+    };
+  },
+
+  skipKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⏭️ Пропустити', callback_data: 'skip_step' }]
+        ]
+      }
+    };
+  },
+
+  confirmNameKeyboard(/* name */) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✅ Залишити', callback_data: 'keep_name' }],
+          [{ text: '✏️ Змінити',  callback_data: 'change_name' }]
+        ]
+      }
+    };
+  },
+
+  // Додаємо також в default-об’єкт для зручності
+  afterRegistrationKeyboard
 };
 
-export default keyboards; 
+export default keyboards;
