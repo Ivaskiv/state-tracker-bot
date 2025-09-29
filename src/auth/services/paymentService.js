@@ -1,7 +1,7 @@
-// src/auth/services/paymentService.js - ВИПРАВЛЕНО для роботи з userService
+// src/auth/services/paymentService.js - ОПТИМІЗОВАНО
 
 import { getBase, tables } from '../../config/database.js';
-import userService from './userService.js'; // ✅ ДОДАЄМО ІМПОРТ
+import userService from './userService.js';
 
 const base = getBase();
 
@@ -20,13 +20,12 @@ const toUA = (dateISO) => {
   }
 };
 
-// ✅ АКТИВАЦІЯ ПРОБНОЇ ПІДПИСКИ - СПРОЩЕНО
+// ===== АКТИВАЦІЯ ПРОБНОЇ ПІДПИСКИ =====
 export const activateTrialSubscription = async (tgId, days = 7) => {
   try {
     const id = String(tgId);
     console.log(`[paymentService] 🧪 АКТИВАЦІЯ TRIAL для ${id} на ${days} днів`);
     
-    // ✅ Отримуємо користувача
     const user = await userService.getUserByTelegramId(id);
     if (!user) {
       console.error(`[paymentService] ❌ Користувача ${id} не знайдено`);
@@ -41,14 +40,13 @@ export const activateTrialSubscription = async (tgId, days = 7) => {
 
     console.log(`[paymentService] 📅 Trial період: ${now.toISOString()} → ${endISO}`);
 
-    // ✅ Оновлюємо Users через userService
+    // ✅ ОНОВЛЮЄМО Users через userService
     const trialData = {
       'Subscription Status': 'Active',
       'Active Subscription Plan': '🧪 Пробний період',
-      'Active_Subscription_Status': `✅ Активна до ${endUA}`,
       'Start_Date': now.toISOString(),
       'End_Date': endISO,
-      'Answer_Step': 'completed'
+      Answer_Step: 'completed'
     };
 
     console.log(`[paymentService] 🔄 Оновлюємо користувача:`, Object.keys(trialData));
@@ -61,7 +59,7 @@ export const activateTrialSubscription = async (tgId, days = 7) => {
 
     console.log(`[paymentService] ✅ Trial підписка активована для ${id}`);
 
-    // ✅ Логуємо в Subscriptions (опціонально, не критично)
+    // ✅ Логуємо в Subscriptions (опціонально)
     try {
       await base(tables.SUBSCRIPTIONS).create({
         'TG_id': id,
@@ -80,10 +78,9 @@ export const activateTrialSubscription = async (tgId, days = 7) => {
       console.log(`[paymentService] ✅ Запис в Subscriptions створено`);
     } catch (subscriptionError) {
       console.warn(`[paymentService] ⚠️ Не вдалося створити запис підписки:`, subscriptionError.message);
-      // НЕ критично - основне оновлення пройшло успішно
     }
 
-    return true;
+    return updated;
 
   } catch (error) {
     console.error(`[paymentService] ❌ Помилка активації trial для ${tgId}:`, error);
@@ -91,7 +88,66 @@ export const activateTrialSubscription = async (tgId, days = 7) => {
   }
 };
 
-// ✅ ПЕРЕВІРКА ПІДПИСОК ЩО ЗАКІНЧУЮТЬСЯ
+// ===== АКТИВАЦІЯ ПЛАТНОЇ ПІДПИСКИ =====
+export const activatePaidSubscription = async (tgId, planKey, planName, amount, duration) => {
+  try {
+    const id = String(tgId);
+    console.log(`[paymentService] 💳 Активація платної підписки ${planKey} для ${id}`);
+    
+    const user = await userService.getUserByTelegramId(id);
+    if (!user) {
+      console.error(`[paymentService] ❌ Користувача ${id} не знайдено`);
+      return false;
+    }
+
+    const now = new Date();
+    const end = addDays(now, duration);
+    const endUA = toUA(end.toISOString());
+
+    const subscriptionData = {
+      'Subscription Status': 'Active',
+      'Active Subscription Plan': planName,
+      'Start_Date': now.toISOString(),
+      'End_Date': end.toISOString(),
+      Answer_Step: 'completed'
+    };
+
+    const updated = await userService.updateUser(id, subscriptionData);
+    if (!updated) {
+      console.error(`[paymentService] ❌ Не вдалося оновити користувача ${id}`);
+      return false;
+    }
+
+    // Логуємо в Subscriptions
+    try {
+      await base(tables.SUBSCRIPTIONS).create({
+        'TG_id': id,
+        'User Name': user['User Name'] || 'Користувач',
+        'Order_Reference': `PAID_${planKey}_${id}_${Date.now()}`,
+        'Payment_Status': 'Approved',
+        'Status': 'Active',
+        'Plan_Name': planName,
+        'Amount': amount,
+        'Currency': 'EUR',
+        'Start_Date': now.toISOString(),
+        'End_Date': end.toISOString(),
+        'Is_Active': '✅ Активна',
+        'Created_At': new Date().toISOString()
+      });
+    } catch (subscriptionError) {
+      console.warn(`[paymentService] ⚠️ Не вдалося створити запис підписки:`, subscriptionError.message);
+    }
+
+    console.log(`[paymentService] ✅ Платна підписка ${planKey} активована для ${id}`);
+    return updated;
+
+  } catch (error) {
+    console.error(`[paymentService] ❌ Помилка активації платної підписки:`, error);
+    return false;
+  }
+};
+
+// ===== ПЕРЕВІРКА ПІДПИСОК ЩО ЗАКІНЧУЮТЬСЯ =====
 export const checkExpiringSubscriptions = async (bot) => {
   try {
     console.log('[paymentService] 🔍 Пошук підписок, що закінчуються завтра');
@@ -142,7 +198,7 @@ export const checkExpiringSubscriptions = async (bot) => {
   }
 };
 
-// ✅ ДЕАКТИВАЦІЯ ПРОСТРОЧЕНИХ ПІДПИСОК
+// ===== ДЕАКТИВАЦІЯ ПРОСТРОЧЕНИХ ПІДПИСОК =====
 export const deactivateExpiredSubscriptions = async () => {
   try {
     console.log('[paymentService] 🔍 Деактивація прострочених підписок');
@@ -163,9 +219,8 @@ export const deactivateExpiredSubscriptions = async () => {
         console.log(`[paymentService] ⏰ Деактивуємо підписку для ${tgId}`);
         
         await userService.updateUser(tgId, {
-          'Active_Subscription_Status': '❌ Закінчена',
           'Subscription Status': 'Expired',
-          'Answer_Step': 'completed'
+          Answer_Step: 'completed'
         });
         deactivated++;
       }
@@ -180,67 +235,7 @@ export const deactivateExpiredSubscriptions = async () => {
   }
 };
 
-// ✅ АКТИВАЦІЯ ПЛАТНОЇ ПІДПИСКИ
-export const activatePaidSubscription = async (tgId, planKey, planName, amount, duration) => {
-  try {
-    const id = String(tgId);
-    console.log(`[paymentService] 💳 Активація платної підписки ${planKey} для ${id}`);
-    
-    const user = await userService.getUserByTelegramId(id);
-    if (!user) {
-      console.error(`[paymentService] ❌ Користувача ${id} не знайдено`);
-      return false;
-    }
-
-    const now = new Date();
-    const end = addDays(now, duration);
-    const endUA = toUA(end.toISOString());
-
-    const subscriptionData = {
-      'Subscription Status': 'Active',
-      'Active Subscription Plan': planName,
-      'Active_Subscription_Status': `✅ Активна до ${endUA}`,
-      'Start_Date': now.toISOString(),
-      'End_Date': end.toISOString(),
-      'Answer_Step': 'completed'
-    };
-
-    const updated = await userService.updateUser(id, subscriptionData);
-    if (!updated) {
-      console.error(`[paymentService] ❌ Не вдалося оновити користувача ${id}`);
-      return false;
-    }
-
-    // Логуємо в Subscriptions
-    try {
-      await base(tables.SUBSCRIPTIONS).create({
-        'TG_id': id,
-        'User Name': user['User Name'] || 'Користувач',
-        'Order_Reference': `PAID_${planKey}_${id}_${Date.now()}`,
-        'Payment_Status': 'Approved',
-        'Status': 'Active',
-        'Plan_Name': planName,
-        'Amount': amount,
-        'Currency': 'EUR',
-        'Start_Date': now.toISOString(),
-        'End_Date': end.toISOString(),
-        'Is_Active': '✅ Активна',
-        'Created_At': new Date().toISOString()
-      });
-    } catch (subscriptionError) {
-      console.warn(`[paymentService] ⚠️ Не вдалося створити запис підписки:`, subscriptionError.message);
-    }
-
-    console.log(`[paymentService] ✅ Платна підписка ${planKey} активована для ${id}`);
-    return true;
-
-  } catch (error) {
-    console.error(`[paymentService] ❌ Помилка активації платної підписки:`, error);
-    return false;
-  }
-};
-
-// ✅ СИНХРОНІЗАЦІЯ ПІДПИСКИ КОРИСТУВАЧА
+// ===== СИНХРОНІЗАЦІЯ ПІДПИСКИ КОРИСТУВАЧА =====
 export const syncUserSubscription = async (tgId) => {
   try {
     const id = String(tgId);
@@ -262,9 +257,8 @@ export const syncUserSubscription = async (tgId) => {
       
       // Скидаємо статус у Users
       await userService.updateUser(id, {
-        'Active_Subscription_Status': '❌ Неактивна',
-        'Active Subscription Plan': '',
         'Subscription Status': 'Inactive',
+        'Active Subscription Plan': '',
         'Start_Date': null,
         'End_Date': null,
       });
@@ -283,7 +277,6 @@ export const syncUserSubscription = async (tgId) => {
 
     // Оновлюємо користувача
     const updateData = {
-      'Active_Subscription_Status': isStillActive ? `✅ Активна до ${endDateUA}` : '❌ Закінчена',
       'Active Subscription Plan': plan,
       'Subscription Status': isStillActive ? 'Active' : 'Expired',
       'Start_Date': s.Start_Date || null,
@@ -304,7 +297,7 @@ export const syncUserSubscription = async (tgId) => {
   }
 };
 
-// ✅ ЗАГЛУШКА ДЛЯ WEBHOOK (поки що)
+// ===== ЗАГЛУШКА ДЛЯ WEBHOOK =====
 export const handleWayForPayWebhook = async (processedData) => {
   console.log('[paymentService] 🔔 WayForPay webhook (заглушка):', processedData);
   return {
@@ -313,7 +306,7 @@ export const handleWayForPayWebhook = async (processedData) => {
   };
 };
 
-// ✅ ЕКСПОРТ
+// ===== ЕКСПОРТ =====
 const paymentService = {
   activateTrialSubscription,
   activatePaidSubscription,
@@ -325,4 +318,4 @@ const paymentService = {
 
 export default paymentService;
 
-console.log('✅ [paymentService] Платіжний сервіс ініціалізовано');
+console.log('✅ [paymentService] Оптимізований платіжний сервіс ініціалізовано');

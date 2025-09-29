@@ -29,35 +29,34 @@ export const SUBSCRIPTION_PLANS = Object.freeze({
 });
 
 // ✅ ТАЙМЗОНИ - ТОЧНІ ЛЕЙБЛИ ДЛЯ AIRTABLE SINGLE SELECT
-export const TIMEZONES = Object.freeze([
-  'Europe/Kyiv (UTC+2)',
-  'Europe/Prague (UTC+2)', 
-  'Europe/Warsaw (UTC+2)',
-  'Europe/Berlin (UTC+2)',
-  'Europe/Paris (UTC+2)',
-  'Europe/Rome (UTC+2)',
-  'Europe/Vienna (UTC+2)',
-  'Europe/Stockholm (UTC+2)',
-  'Europe/London (UTC+1)',
-  'Europe/Moscow (UTC+3)',
-  'America/New_York (UTC-4)',
-  'America/Chicago (UTC-5)',
-  'America/Los_Angeles (UTC-7)',
-  'Asia/Dubai (UTC+4)',
-  'Asia/Tokyo (UTC+9)',
-  'Asia/Shanghai (UTC+8)',
-  'Australia/Sydney (UTC+10)'
-]);
+export const TIMEZONES = [
+  { label: 'Europe/Kiev (UTC+3)',        slug: 'Europe/Kiev' },
+  { label: 'Europe/Warsaw (UTC+2)',      slug: 'Europe/Warsaw' },
+  { label: 'Europe/Berlin (UTC+2)',      slug: 'Europe/Berlin' },
+  { label: 'Europe/London (UTC+1)',      slug: 'Europe/London' },
+  { label: 'Europe/Paris (UTC+2)',       slug: 'Europe/Paris' },
+  { label: 'Europe/Rome (UTC+2)',        slug: 'Europe/Rome' },
+  { label: 'Europe/Vienna (UTC+2)',      slug: 'Europe/Vienna' },
+  { label: 'Europe/Stockholm (UTC+2)',   slug: 'Europe/Stockholm' },
+  { label: 'Europe/Moscow (UTC+3)',      slug: 'Europe/Moscow' },
+  { label: 'Asia/Dubai (UTC+4)',         slug: 'Asia/Dubai' },
+  { label: 'America/New_York (UTC-4)',   slug: 'America/New_York' },
+  { label: 'America/Chicago (UTC-5)',    slug: 'America/Chicago' },
+  { label: 'America/Los_Angeles (UTC-7)',slug: 'America/Los_Angeles' },
+  { label: 'Canada/Toronto (UTC-4)',     slug: 'Canada/Toronto' },
+  { label: 'Asia/Tokyo (UTC+9)',         slug: 'Asia/Tokyo' },
+  { label: 'Asia/Shanghai (UTC+8)',      slug: 'Asia/Shanghai' },
+  { label: 'Australia/Sydney (UTC+10)',  slug: 'Australia/Sydney' },
+  { label: 'Europe/Prague (UTC+2)',      slug: 'Europe/Prague' },
+  { label: 'Europe/Bucharest (UTC+3)',   slug: 'Europe/Bucharest' },
+  { label: 'Europe/Helsinki (UTC+3)',    slug: 'Europe/Helsinki' },
+];
 
-// ✅ З ЛЕЙБЛА → SLUG ("Europe/Prague (UTC+2)" -> "Europe/Prague")
-export const parseTz = (label) => String(label).split(' (')[0];
-
-// ✅ ЗІ SLUG → ЛЕЙБЛ (для запису в Single select)
-export const resolveTz = (slug) => {
-  const hit = TIMEZONES.find(l => l.startsWith(slug));
-  return hit || 'Europe/Kyiv (UTC+2)'; // безпечний дефолт
-};
-
+// Повертає ПОВНИЙ лейбл для Airtable single select по slug
+export function parseTz(slug) {
+  const f = TIMEZONES.find(t => t.slug === slug);
+  return f ? f.label : slug;
+}
 // --- Кроки відповідей / онбордингу ---
 export const ANSWER_STEPS = Object.freeze({
   // Основні кроки

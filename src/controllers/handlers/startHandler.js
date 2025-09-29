@@ -1,16 +1,7 @@
-// src/controllers/handlers/startHandler.js — швидкий онбординг + trial
+// src/controllers/handlers/startHandler.js — ВИПРАВЛЕНО
 import keyboards from '../../utils/keyboards.js';
-import {
-  getUserByTelegramId,
-  setName, 
-  setEmail, 
-  setPhone, 
-  setTimezone,
-  markRegistered,
-  hasActiveAccess,
-  ensureUserRow
-} from '../../auth/services/userService.js';
-import { activateTrialSubscription } from '../../auth/services/paymentService.js';
+import userService from '../../auth/services/userService.js';
+import paymentService from '../../auth/services/paymentService.js';
 import { 
   isSkip, 
   isValidEmail, 
@@ -20,6 +11,7 @@ import {
   formatEmail, 
   formatName 
 } from '../../utils/validators.js';
+import { TIMEZONES, parseTz } from '../../config/constants.js';
 
 const askName = async (ctx, currentName = '') => {
   if (!currentName) {
@@ -54,7 +46,7 @@ const askPhone = async (ctx) => {
 
 const askTimezone = async (ctx) => {
   await ctx.reply(
-    `Обери свій часовий пояс. Це важливо: я надсилатиму ранкові питання о <b>08:00 за твоїм місцевим часом</b>.`,
+    `⚠️ ВАЖЛИВО: Обери свій часовий пояс!\n\nЯ надсилатиму ранкові питання о <b>08:00 за твоїм місцевим часом</b>.\n\n🌍 Твій часовий пояс:`,
     { parse_mode: 'HTML', ...keyboards.timezoneKeyboard() }
   );
   ctx.session.step = 'ob_timezone';
@@ -70,8 +62,7 @@ const showPlans = async (ctx) => {
 
 const sendWelcomeBack = async (ctx, user) => {
   const name = user?.['User Name'] || ctx.from.first_name || 'Користувач';
-  const end = user?.End_Date ? new Date(user.End_Date).toLocaleDateString('uk-UA') : null;
-  const statusLine = end ? `✅ Активна до ${end}` : (user?.['Active_Subscription_Status'] || '✅ Активна');
+  const statusLine = user?.['Active_Subscription_Status'] || '✅ Активна';
 
   await ctx.reply(
     `👋 Раді бачити знову, ${name}!\n\n${statusLine}\n\nПродовжимо твій розвиток? 🚀`,
@@ -87,17 +78,30 @@ const startHandler = {
     console.log(`🚀 [/start] from=${tgId} (${name})`);
 
     try {
-      // 1) гарантуємо рядок у Users
-      const user = await ensureUserRow(tgId);
+      // 1) Перевіряємо чи користувач існує
+      let user = await userService.getUserByTelegramId(tgId);
+      
+      // 2) ✅ ЯКЩО КОРИСТУВАЧА НЕМАЄ - СТВОРЮЄМО ОДРАЗУ
+      if (!user) {
+        console.log(`[startHandler] 🆕 СТВОРЮЄМО нового користувача ${tgId}`);
+        
+        user = await userService.createUser({
+          tgId: tgId,
+          name: name,
+          timezone: 'Europe/Kyiv'
+        });
+        
+        console.log(`[startHandler] ✅ Користувач створений: ${user ? 'так' : 'ні'}`);
+      }
 
-      // 2) якщо є активний доступ — одразу тепле вітання + меню
-      if (hasActiveAccess(user)) {
+      // 3) якщо є активний доступ — одразу тепле вітання + меню
+      if (userService.hasActiveAccess(user) && user.UserRegistered) {
         await sendWelcomeBack(ctx, user);
         ctx.session.step = undefined;
         return;
       }
 
-      // 3) інакше запускаємо онбординг (з імʼям)
+      // 4) інакше запускаємо онбординг (з імʼям)
       await askName(ctx, user['User Name']);
     } catch (error) {
       console.error('[startHandler.handle] ❌ Помилка:', error);
@@ -119,7 +123,9 @@ const startHandler = {
           await ctx.reply('Імʼя має бути від 2 до 50 символів. Введи ще раз.');
           return true;
         }
-        await setName(tgId, formatName(text));
+        
+        // ✅ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
+        await userService.updateUser(tgId, { 'User Name': formatName(text) });
         await askEmail(ctx);
         return true;
       }
@@ -137,7 +143,10 @@ const startHandler = {
           return true;
         }
         
-        if (text) await setEmail(tgId, formatEmail(text));
+        if (text) {
+          // ✅ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
+          await userService.updateUser(tgId, { Email: formatEmail(text) });
+        }
         await askPhone(ctx);
         return true;
       }
@@ -156,7 +165,10 @@ const startHandler = {
           return true;
         }
         
-        if (text) await setPhone(tgId, formattedPhone);
+        if (text) {
+          // ✅ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
+          await userService.updateUser(tgId, { Phone: formattedPhone });
+        }
         await askTimezone(ctx);
         return true;
       }
@@ -170,7 +182,7 @@ const startHandler = {
     }
   },
 
-  // callback-и онбордингу (підтвердження імені, скіпи, вибір tz, планів)
+  // callback-и онбордингу
   async handleCallback(ctx) {
     const tgId = String(ctx.from.id);
     const data = ctx.callbackQuery?.data || '';
@@ -199,37 +211,49 @@ const startHandler = {
 
       // таймзона
       if (data.startsWith('tz_')) {
-        const tz = data.slice(3); // tz_Europe/Prague → Europe/Prague
-        await setTimezone(tgId, tz);
+        const selectedTz = data.slice(3); // tz_Europe/Prague → Europe/Prague
         
-        // Позначаємо як зареєстрованого
-        const user = await getUserByTelegramId(tgId);
-        await markRegistered(tgId, tz, user?.['User Name']);
+        // Знаходимо повний лейбл для збереження в Airtable
+        const fullLabel = TIMEZONES.find(tz => parseTz(tz) === selectedTz) || `${selectedTz} (UTC+0)`;
         
-        await ctx.reply(`Часовий пояс збережено: <b>${tz}</b>`, { parse_mode: 'HTML' });
+        // ✅ ЗАВЕРШУЄМО РЕЄСТРАЦІЮ
+        await userService.updateUser(tgId, { 
+          'Time Zone': fullLabel,
+          UserRegistered: true,
+          DateUserRegistered: new Date().toISOString(),
+          Status: 'Registered User'
+        });
+        
+        await ctx.reply(`✅ Часовий пояс збережено: <b>${fullLabel}</b>`, { parse_mode: 'HTML' });
         await showPlans(ctx);
         return true;
       }
 
       // плани
       if (data === 'plan_free' || data === 'activate_trial') {
-        const updated = await activateTrialSubscription(tgId, 7);
-        const end = updated?.End_Date ? new Date(updated.End_Date).toLocaleDateString('uk-UA') : '7 днів';
-        await ctx.reply(
-          `🎉 Пробний доступ активовано!\nДіє до: <b>${end}</b>`,
-          { parse_mode: 'HTML' }
-        );
+        console.log(`[startHandler] 🧪 Активація trial для ${tgId}`);
+        
+        const activated = await paymentService.activateTrialSubscription(tgId, 7);
+        
+        if (activated) {
+          await ctx.reply(
+            `🎉 Пробний доступ активовано!\n\n✅ 7 днів повного доступу\n\n🎯 Усі функції доступні!`,
+            { parse_mode: 'HTML' }
+          );
 
-        // показуємо головне меню
-        const fresh = await getUserByTelegramId(tgId);
-        await sendWelcomeBack(ctx, fresh || updated);
-        ctx.session.step = undefined;
+          // показуємо головне меню
+          const fresh = await userService.getUserByTelegramId(tgId);
+          await sendWelcomeBack(ctx, fresh);
+          ctx.session.step = undefined;
+        } else {
+          await ctx.reply('❌ Помилка активації. Зв\'яжись з підтримкою.');
+        }
         return true;
       }
 
-      // інші плани — можеш підʼєднати платіжку, тут просто відкриваємо меню
+      // інші плани — показуємо інформацію про оплату
       if (['plan_week','plan_month','plan_year'].includes(data)) {
-        await ctx.reply('Цей план потребує оплати. Зв\'яжись з підтримкою або обери «Пробний тиждень» після оплати.');
+        await ctx.reply('💳 Для оплати цього плану зверніться до підтримки: nadyastarway@gmail.com\n\nАбо оберіть пробний тиждень для початку.');
         return true;
       }
 
