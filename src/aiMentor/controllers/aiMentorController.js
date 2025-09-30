@@ -99,13 +99,15 @@ const aiMentorController = {
 
       // Генеруємо відповідь AI
       const responseText = await this.generateAIResponse(question, user, contextType, tgId);
-      
+      const recentData = await responseService.getUserRecords(tgId, 1);
+const todayData = recentData[0]?.fields || {};
+
       // Зберігаємо діалог
       const context = {
         contextType,
-        userGoal: user.daily_main_goal || '',
-        userState: user.daily_state || 'unknown'
-      };
+  userGoal: todayData.Q_m_4 || todayData.Q_m_3 || '', 
+  userState: todayData.Q_m_5 || 'unknown'     
+};
       
       await conversationService.saveAIConversation(tgId, question, responseText, context);
       

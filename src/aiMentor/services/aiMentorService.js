@@ -102,6 +102,8 @@ async function generateMicroActions(focusGoal, state, tgId) {
     
     try {
       await activityTracker.saveMicroActions(tgId, validated.microActions);
+      await saveGeneratedActionsToConversation(tgId, validated);
+
       console.log(`[aiMentorService] ✅ Мікро-дії збережено в БД`);
     } catch (saveError) {
       console.error(`[aiMentorService] ❌ Помилка збереження:`, saveError.message);
@@ -151,6 +153,35 @@ async function saveAIConversation(tgId, question, aiResponse, contextType = 'adv
     console.error('[saveAIConversation] Помилка:', error);
   }
 }
+
+const saveGeneratedActionsToConversation = async (tgId, actionsData) => {
+  try {
+    const { getBase, tables } = await import('../../config/database.js');
+    const base = getBase();
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Оновлюємо останній запис діалогу
+    const records = await base(tables.AI_CONVERSATIONS)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", {Date}="${today}")`,
+        maxRecords: 1,
+        sort: [{ field: 'Created_At', direction: 'desc' }]
+      })
+      .firstPage();
+    
+    if (records.length > 0) {
+      const actionsText = actionsData.microActions
+        .map((a, i) => `${i+1}. ${a.action} (${a.time}, ${a.duration_min}хв)`)
+        .join('\n');
+      
+      await base(tables.AI_CONVERSATIONS).update(records[0].id, {
+        Generated_Actions: actionsText
+      });
+    }
+  } catch (error) {
+    console.error('[saveGeneratedActionsToConversation]:', error);
+  }
+};
 
 // ===== ВАЛІДАЦІЯ ТА ПОКРАЩЕННЯ SMART-ДІЙ =====
 function validateAndEnhanceSMARTActions(parsed, focusGoal, state) {
@@ -464,5 +495,6 @@ export default {
   getUserHistory,
   getFallbackActions,
   getSMARTFallbackActions,
-  saveAIConversation 
-};
+  saveAIConversation,
+  saveGeneratedActionsToConversation
+}; 

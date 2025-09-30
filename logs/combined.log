@@ -2650,3 +2650,8 @@
 {"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T07:31:30.006Z"}
 {"Context_Type":"general","Question_length":52,"Response_length":344,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T07:31:30.007Z"}
 {"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: recc0kONBEVg7pbtM","timestamp":"2025-09-30T07:31:30.597Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T07:42:43.966Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Отримано 3 записів історії для 630111093","timestamp":"2025-09-30T07:42:44.151Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T07:42:51.108Z"}
+{"Context_Type":"general","Question_length":36,"Response_length":510,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T07:42:51.109Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: recOGFHX9lH5EzXeH","timestamp":"2025-09-30T07:42:51.943Z"}

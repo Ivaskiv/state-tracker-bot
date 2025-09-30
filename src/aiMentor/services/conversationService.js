@@ -16,14 +16,14 @@ export const saveAIConversation = async (tgId, question, response, context) => {
     const today = new Date().toISOString().split('T')[0];
     const tgIdString = String(tgId);
 
-    // ✅ ВИПРАВЛЕНА СТРУКТУРА - БЕЗ Created_At (використовуємо автополе в Airtable)
+    // ✅ ВИПРАВЛЕНА СТРУКТУРА
     const conversationData = {
       TG_id: tgIdString,
       Date: today,
       Question: question.substring(0, 1000),
       AI_Response: response.substring(0, 2000),
       Context_Type: context?.contextType || CONTEXT_TYPES.GENERAL,
-      Created_At: new Date().toISOString() ,
+      Created_At: new Date().toISOString(),
       User_Goal: context?.userGoal?.substring(0, 100) || '',
       User_State: context?.userState?.substring(0, 100) || 'unknown'
     };
@@ -62,11 +62,12 @@ export const saveAIConversation = async (tgId, question, response, context) => {
 export const getAIConversationHistory = async (tgId, limit = 5) => {
   try {
     logger.info(`[CONVERSATION SERVICE] 📖 Отримання історії для ${tgId}, ліміт: ${limit}`);
+    
     const records = await base(tables.AI_CONVERSATIONS)
       .select({
         filterByFormula: `{TG_id}="${String(tgId)}"`,
         maxRecords: limit,
-        sort: [{ field: 'Created time', direction: 'desc' }] // ✅ ВИКОРИСТОВУЄМО АВТОПОЛЕ
+        sort: [{ field: 'Created_At', direction: 'desc' }] // ✅ ВИПРАВЛЕНО
       })
       .firstPage();
 
@@ -74,7 +75,7 @@ export const getAIConversationHistory = async (tgId, limit = 5) => {
       question: record.fields.Question || '',
       response: record.fields.AI_Response || '',
       contextType: record.fields.Context_Type || CONTEXT_TYPES.GENERAL,
-      createdAt: record.createdTime // ✅ АВТОПОЛЕ AIRTABLE
+      createdAt: record.fields.Created_At || record.createdTime // ✅ FALLBACK на автополе
     }));
 
     logger.info(`✅ [CONVERSATION SERVICE] Отримано ${history.length} записів історії для ${tgId}`);
@@ -102,7 +103,7 @@ export const generateAIConversationReport = async (tgId, days = 7) => {
     const records = await base(tables.AI_CONVERSATIONS)
       .select({
         filterByFormula: `AND({TG_id}="${String(tgId)}", IS_AFTER({Date}, "${dateFromStr}"))`,
-        sort: [{ field: 'Created time', direction: 'desc' }] // ✅ АВТОПОЛЕ
+        sort: [{ field: 'Created_At', direction: 'desc' }] // ✅ ВИПРАВЛЕНО
       })
       .firstPage();
 
