@@ -414,7 +414,200 @@ export const REGISTRATION_SUCCESS_TEMPLATE =
 • 📅 Щомісячний звіт 
 • повторне «колесо» — 1 числа кожного місяця`;
 
+
+// ===== КУРСИ ТА ПРОПОЗИЦІЇ ПОСЛУГ =====
+export const COURSE_OFFERS = Object.freeze({
+  low_activity: {
+    title: "Система 21",
+    price: 33,
+    description: "Для подолання прокрастинації та відкладання",
+    benefit: "21 день до нової звички дії",
+    duration: 21
+  },
+  fear: {
+    title: "Страхи",
+    price: 33,
+    description: "Робота з блоками та внутрішніми страхами",
+    benefit: "Техніки подолання страхів та тривоги",
+    duration: 30
+  },
+  no_goals: {
+    title: "Код змін",
+    price: 33,
+    description: "Стратегія цілепокладання та планування",
+    benefit: "Система досягнення цілей за 30 днів",
+    duration: 30
+  },
+  state_mastery: {
+    title: "Стан — ключ до успіху",
+    price: 10,
+    description: "Управління станом та енергією",
+    benefit: "Подолання апатії та втоми",
+    duration: 14
+  }
+});
+
+export const CONSULTATION_OFFER = Object.freeze({
+  title: "Персональна консультація з Надею",
+  price: 150,
+  duration: 60,
+  benefits: [
+    "Глибинний аналіз блоків",
+    "Персональна стратегія подолання",
+    "Конкретний план дій",
+    "Підтримка 7 днів після сесії"
+  ]
+});
+
+// ===== ТРИГЕРИ БЕЗДІЯЛЬНОСТІ =====
+export const ACTIVITY_TRIGGERS = Object.freeze({
+  MISSED_DAYS_THRESHOLD: 2,
+  INACTIVE_HOURS_THRESHOLD: 48,
+  LOW_ACTIVITY_WEEKS_THRESHOLD: 2,
+  LOW_COMPLETION_RATE: 30,
+  MAX_OFFERS_PER_MONTH: 2
+});
+
+export const PROBLEM_TYPES = Object.freeze({
+  LOW_ACTIVITY: 'low_activity',
+  FEAR: 'fear',
+  NO_GOALS: 'no_goals',
+  STATE_MASTERY: 'state_mastery'
+});
+
+export const PROBLEM_DESCRIPTIONS = Object.freeze({
+  [PROBLEM_TYPES.LOW_ACTIVITY]: 'прокрастинації та відкладанні дій',
+  [PROBLEM_TYPES.FEAR]: 'страхах та внутрішніх блоках',
+  [PROBLEM_TYPES.NO_GOALS]: 'відсутності чіткої стратегії',
+  [PROBLEM_TYPES.STATE_MASTERY]: 'управлінні станом та енергією'
+});
+
+// ===== КОНТАКТИ =====
+export const CONTACTS = Object.freeze({
+  MENTOR_EMAIL: 'nadyastarway@gmail.com',
+  MENTOR_TELEGRAM: '@Nadya2316',
+  TECH_SUPPORT_TELEGRAM: '@vira_333',
+  SUPPORT_RESPONSE_TIME: '2–4 години у робочі дні'
+});
+
+// ===== WAYFORPAY ЛІНКИ =====
+export const WAYFORPAY_LINKS = Object.freeze({
+  WEEK:  'https://secure.wayforpay.com/button/b96923b913d29',
+  MONTH: 'https://secure.wayforpay.com/button/b8df87678cd43',
+  YEAR:  'https://secure.wayforpay.com/button/bf28701123683'
+});
+
+// ===== ПОВІДОМЛЕННЯ ПІДПИСОК =====
+export const SUBSCRIPTION_MESSAGES = Object.freeze({
+  INFO_ACTIVE: (plan, start, end) => 
+    `✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`,
+  
+  INFO_EXPIRING: (daysLeft) => 
+    `\n\n⚠️ Підписка закінчується через ${daysLeft} дн${daysLeft === 1 ? 'ь' : (daysLeft >= 2 && daysLeft <= 4 ? 'і' : 'ів')}!`,
+  
+  INFO_INACTIVE: 
+    '❌ Неактивна\n\n💰 ДОСТУПНІ ПЛАНИ:\n' +
+    '🔹 Тиждень фокусу — 7€\n' +
+    '🔹 Місяць дії — 30€\n' +
+    '🔹 Рік трансформації — 300€\n\n' +
+    '💳 Оплата через WayForPay. Натисни, щоб обрати план:',
+  
+  PLANS_LIST:
+    '💰 ОБЕРИ ПЛАН ПІДПИСКИ:\n\n' +
+    '🔹 Тиждень фокусу — 7€\n' +
+    'Ідеально для короткого фокусу або тесту системи\n\n' +
+    '🔹 Місяць дії — 30€\n' +
+    'Глибинна робота з твоїми цілями та стратегією\n\n' +
+    '🔹 Рік трансформації — 300€\n' +
+    'Максимальна економія та підтримка протягом року\n\n' +
+    '✅ Безпечна оплата через WayForPay',
+  
+  PAYMENT: (planName, price, duration, link) =>
+    `💳 ОПЛАТА ПІДПИСКИ\n\n` +
+    `📋 План: ${planName}\n` +
+    `💰 Вартість: ${price}€\n` +
+    `⏰ Тривалість: ${duration} днів\n\n` +
+    `🔗 Посилання для оплати:\n${link}\n\n` +
+    `💡 Після оплати натисни «🔄 Я вже оплатив» для автоматичної активації.`,
+  
+  RENEWAL: (planName, price, duration, link) =>
+    `🔄 ПРОДОВЖЕННЯ ПІДПИСКИ\n\n` +
+    `📋 План: ${planName}\n` +
+    `💰 Вартість: ${price}€\n` +
+    `⏰ Тривалість: ${duration} днів\n\n` +
+    `✅ Після оплати натисни «🔄 Перевірити оплату»\n\n` +
+    `🔗 Посилання для оплати:\n${link}`,
+  
+  SUPPORT: (tgId) =>
+    `📞 ЗВʼЯЗОК З ПІДТРИМКОЮ\n\n` +
+    `💬 Про підписку:\n` +
+    `• Email: ${CONTACTS.MENTOR_EMAIL}\n` +
+    `• Telegram: ${CONTACTS.MENTOR_TELEGRAM} (ментор)\n` +
+    `• Telegram: ${CONTACTS.TECH_SUPPORT_TELEGRAM} (техпідтримка)\n\n` +
+    `📋 Що написати:\n` +
+    `• Твій Telegram ID: ${tgId}\n` +
+    `• Проблема з оплатою або активацією\n` +
+    `• Скрін чеку (якщо є)\n\n` +
+    `⏰ Час відповіді: ${CONTACTS.SUPPORT_RESPONSE_TIME}\n\n` +
+    `💡 Швидке рішення:\n` +
+    `Натисни «🔄 Я вже оплатив» для автоматичної перевірки`,
+  
+  EXPIRATION_REMINDER: (planName, endDate) =>
+    `⚠️ Підписка закінчується завтра!\n\n` +
+    `📋 План: ${planName}\n` +
+    `📅 Діє до: ${endDate}\n\n` +
+    `💰 Продовж підписку зараз, щоб не втратити доступ до всіх функцій!`
+});
+
+// ===== ПОВІДОМЛЕННЯ КУРСІВ =====
+export const COURSE_MESSAGES = Object.freeze({
+  OFFER: (offerTitle, price, description, benefit, triggerMessage) =>
+    `💡 ПЕРСОНАЛЬНА РЕКОМЕНДАЦІЯ\n\n` +
+    `${triggerMessage}\n\n` +
+    `🎯 Можу запропонувати:\n\n` +
+    `📚 Міні-курс "${offerTitle}" — ${price}€\n` +
+    `${description}\n` +
+    `✅ ${benefit}\n\n` +
+    `або\n\n` +
+    `👥 Консультація з Надею — 60 хв, ${CONSULTATION_OFFER.price}€\n` +
+    `Персональна стратегія подолання блоків\n\n` +
+    `💡 Вибір за тобою. Я тут, щоб підтримати будь-яке рішення.`,
+  
+  COURSE_INFO: (title, price, tgId) =>
+    `📚 КУРС: ${title}\n\n` +
+    `💰 Вартість: ${price}€\n\n` +
+    `📧 Для оформлення:\n` +
+    `Напиши на email: ${CONTACTS.MENTOR_EMAIL}\n` +
+    `або Telegram: ${CONTACTS.MENTOR_TELEGRAM}\n\n` +
+    `📋 Вкажи:\n` +
+    `• Твій Telegram ID: ${tgId}\n` +
+    `• Назву курсу: ${title}\n\n` +
+    `✅ Після оплати отримаєш доступ протягом 24 годин.`,
+  
+  CONSULTATION_INFO: (tgId) =>
+    `👥 КОНСУЛЬТАЦІЯ З НАДЕЮ\n\n` +
+    `⏱ Тривалість: ${CONSULTATION_OFFER.duration} хвилин\n` +
+    `💰 Вартість: ${CONSULTATION_OFFER.price}€\n\n` +
+    `📋 Що включено:\n` +
+    `${CONSULTATION_OFFER.benefits.map(b => `• ${b}`).join('\n')}\n\n` +
+    `📧 Запис:\n` +
+    `Email: ${CONTACTS.MENTOR_EMAIL}\n` +
+    `Telegram: ${CONTACTS.MENTOR_TELEGRAM}\n\n` +
+    `📋 Вкажи:\n` +
+    `• Твій Telegram ID: ${tgId}\n` +
+    `• Бажаний час консультації\n` +
+    `• Основна тема для обговорення`,
+  
+  DISMISS: 
+    '✅ Добре! Якщо передумаєш — я завжди тут.\n\n💪 Продовжуємо рухатись вперед своїми силами!'
+});
+
 // ===== ЛОГУВАННЯ =====
+
+console.log('✅ [constants] Курси та пропозиції завантажено');
+console.log(`   • Курсів: ${Object.keys(COURSE_OFFERS).length}`);
+console.log(`   • Тригерів: ${Object.keys(ACTIVITY_TRIGGERS).length}`);
+
 console.log('✅ [constants] Централізовані константи завантажено');
 console.log(`   • Ранкових питань: ${MORNING_QUESTIONS.length}`);
 console.log(`   • Вечірніх питань: ${EVENING_QUESTIONS.length}`);

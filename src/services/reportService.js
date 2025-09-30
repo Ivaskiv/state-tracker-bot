@@ -85,12 +85,31 @@ export async function saveReportToAirtable(base, { tgId, userName, period, repor
   }]);
   return rec?.id;
 }
+const generateWeeklyReport = async (tgId) => {
+  const weekData = await getWeekData(tgId);
+  
+  return `📊 ТИЖНЕВИЙ ЗВІТ (${weekData.period})
 
+🎯 Перемоги:
+${weekData.wins.map((w, i) => `${i + 1}. ${w}`).join('\n')}
+
+⚡ Де йде енергія: ${weekData.energyFlow.join(', ')}
+💧 Де зливається: ${weekData.energyLeaks.join(', ')}
+
+📈 Виконання: ${weekData.completionRate}%
+🎯 Навички фокусу: ${weekData.skillsFocus.join(', ')}
+
+📅 ПЛАН ТИЖНЯ:
+${weekData.nextWeekActions.map((a, i) => `${i + 1}. ${a.action} (${a.time}, результат: ${a.metric})`).join('\n')}
+
+💪 Виклик: зроби п.1 завтра і напиши 'ЗРОБИЛА'.`;
+};
 
 // 👇 ДОДАЙ ЦЕ
 const reportService = {
   generateReport,
   sendReport,
-  saveReportToAirtable
+  saveReportToAirtable,
+  generateWeeklyReport
 };
 export default reportService;

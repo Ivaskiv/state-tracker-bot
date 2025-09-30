@@ -2630,3 +2630,23 @@
 {"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T05:33:41.831Z"}
 {"Context_Type":"micro_actions","Question_length":101,"Response_length":622,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T05:33:41.832Z"}
 {"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: recaqxcv0EhuMKBTD","timestamp":"2025-09-30T05:33:42.552Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T06:46:25.959Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T06:46:26.715Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T06:46:31.625Z"}
+{"Context_Type":"general","Question_length":93,"Response_length":568,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T06:46:31.625Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: reciHh551Pcif2Qt7","timestamp":"2025-09-30T06:46:32.047Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T06:47:43.559Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T06:47:44.521Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T06:47:51.597Z"}
+{"Context_Type":"general","Question_length":203,"Response_length":837,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T06:47:51.598Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: reczXclUazNWCj5XP","timestamp":"2025-09-30T06:47:52.296Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T07:02:55.442Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T07:02:56.016Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T07:03:07.714Z"}
+{"Context_Type":"micro_actions","Question_length":196,"Response_length":695,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T07:03:07.714Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: rectGyrlXOgVRPiOC","timestamp":"2025-09-30T07:03:08.428Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T07:31:26.381Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T07:31:26.656Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T07:31:30.006Z"}
+{"Context_Type":"general","Question_length":52,"Response_length":344,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T07:31:30.007Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: recc0kONBEVg7pbtM","timestamp":"2025-09-30T07:31:30.597Z"}

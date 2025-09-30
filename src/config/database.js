@@ -46,6 +46,9 @@ export const tables = Object.freeze({
   DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions',
   AI_CONVERSATIONS: 'AI_Conversations',
   WHEEL_BALANCE: 'WheelBalance',
+  MICRO_ACTIONS: 'MICRO_ACTIONS', 
+  ACTIVITY_STATS: 'ACTIVITY_STATS', 
+  OFFERS_LOG: 'Offers_Log'
 });
 
 // ---- Утиліти

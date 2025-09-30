@@ -1,7 +1,9 @@
-// src/dialogue/services/responseService.js - ВИПРАВЛЕНО
+// src/dialogue/services/responseService.js - З ІНТЕГРАЦІЄЮ activityTracker
 
 import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';
+import userService from '../../services/userService.js';
+import activityTracker from '../../services/activityTracker.js';
 
 const base = getBase();
 
@@ -92,6 +94,12 @@ const responseService = {
       }
       
       logger.info(`[responseService] Збережено ранкову відповідь ${questionNumber} для ${tgId}`);
+      
+      // ✅ ОНОВЛЮЄМО last_activity_ts після КОЖНОЇ відповіді
+      await userService.updateUserFields(tgId, {
+        last_activity_ts: new Date().toISOString()
+      }).catch(err => logger.error('[responseService] Помилка оновлення last_activity_ts:', err));
+      
       return true;
       
     } catch (error) {
@@ -129,6 +137,22 @@ const responseService = {
       }
       
       logger.info(`[responseService] Збережено вечірню відповідь ${questionNumber} для ${tgId}`);
+      
+      // ✅ ОНОВЛЮЄМО last_activity_ts після КОЖНОЇ відповіді
+      await userService.updateUserFields(tgId, {
+        last_activity_ts: new Date().toISOString()
+      }).catch(err => logger.error('[responseService] Помилка оновлення last_activity_ts:', err));
+      
+      // ✅ ЯКЩО ЦЕ ОСТАННЯ ВЕЧІРНЯ ВІДПОВІДЬ (Q_e_5) - ФІНАЛІЗУЄМО ДЕНЬ
+      if (questionNumber === 5) {
+        logger.info(`[responseService] 🌙 Остання вечірня відповідь - фіналізація дня для ${tgId}`);
+        
+        // Запускаємо асинхронно, щоб не блокувати відповідь користувачу
+        activityTracker.finalizeDay(tgId).catch(err => {
+          logger.error('[responseService] Помилка finalizeDay:', err);
+        });
+      }
+      
       return true;
       
     } catch (error) {
@@ -166,6 +190,12 @@ const responseService = {
       }
       
       logger.info(`[responseService] Збережено ${type} афірмацію для ${tgId}`);
+      
+      // ✅ ОНОВЛЮЄМО last_activity_ts
+      await userService.updateUserFields(tgId, {
+        last_activity_ts: new Date().toISOString()
+      }).catch(err => logger.error('[responseService] Помилка оновлення last_activity_ts:', err));
+      
       return true;
       
     } catch (error) {

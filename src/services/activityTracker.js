@@ -1,0 +1,405 @@
+// src/services/activityTracker.js - ПОВНА ВЕРСІЯ З АНАЛІЗОМ
+
+import userService from './userService.js';
+import responseService from '../dialogue/services/responseService.js';
+import { getBase, tables } from '../config/database.js';
+import { ACTIVITY_TRIGGERS } from '../config/constants.js';
+
+const base = getBase();
+
+// ===== ЗБЕРЕЖЕННЯ МІКРО-ДІЙ =====
+
+export const saveMicroActions = async (tgId, actions) => {
+  console.log(`[activityTracker] 💾 ВИКЛИКАНО saveMicroActions для ${tgId}`);
+  console.log(`[activityTracker] - Кількість дій: ${actions?.length || 0}`);
+  
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const records = actions.map(action => {
+      console.log(`[activityTracker] 📝 Підготовка дії: ${action.action}`);
+      return {
+        TG_id: String(tgId),
+        Date: today,
+        Action_Text: action.action,
+        Time_Planned: action.time,
+        Duration_Min: action.duration_min,
+        Result_Metric: action.result_metric,
+        Priority: action.priority,
+        Status: 'pending',
+        Source: 'ai_generated',
+        Created_At: new Date().toISOString()
+      };
+    });
+    
+    console.log(`[activityTracker] 📤 Відправка в Airtable...`);
+    await base(tables.MICRO_ACTIONS || 'MICRO_ACTIONS').create(records);
+    
+    console.log(`[activityTracker] ✅ Збережено ${records.length} мікро-дій`);
+    
+  } catch (error) {
+    console.error('[activityTracker] ❌ Помилка збереження:', error);
+    console.error('[activityTracker] Деталі помилки:', error.message);
+  }
+};
+// ===== ОНОВЛЕННЯ СТАТУСУ ДІЇ =====
+export const updateActionStatus = async (tgId, actionText, status) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const records = await base(tables.MICRO_ACTIONS || 'MICRO_ACTIONS')
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date})="${today}", {Action_Text}="${actionText}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    if (records.length > 0) {
+      await base(tables.MICRO_ACTIONS || 'MICRO_ACTIONS').update(records[0].id, {
+        Status: status,
+        Completed_At: status === 'completed' ? new Date().toISOString() : null
+      });
+      
+      console.log(`[activityTracker] ✅ Статус дії оновлено: ${status}`);
+      
+      // ✅ ПІСЛЯ ОНОВЛЕННЯ - ПЕРЕРАХОВУЄМО СТАТИСТИКУ ДНЯ
+      await calculateDailyStats(tgId);
+    }
+    
+  } catch (error) {
+    console.error('[updateActionStatus] Помилка:', error);
+  }
+};
+
+// ===== РОЗРАХУНОК ДЕННОЇ СТАТИСТИКИ =====
+export const calculateDailyStats = async (tgId) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    console.log(`[activityTracker] 📊 Розрахунок статистики дня для ${tgId}`);
+    
+    // 1. Перевіряємо ранкові/вечірні питання
+    const responses = await responseService.getUserRecords(tgId, 1);
+    const todayResponse = responses.find(r => 
+      r.fields?.Date_Response?.startsWith(today)
+    );
+    
+    const morningCompleted = !!todayResponse?.fields?.Q_m_6;
+    const eveningCompleted = !!todayResponse?.fields?.Q_e_5;
+    const hasVictory = !!todayResponse?.fields?.Q_e_5;
+    
+    // 2. Підраховуємо мікро-дії
+    const actions = await base(tables.MICRO_ACTIONS || 'MICRO_ACTIONS')
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date})="${today}")`
+      })
+      .firstPage();
+    
+    const actionsPlanned = actions.length;
+    const actionsCompleted = actions.filter(a => a.fields.Status === 'completed').length;
+    const completionRate = actionsPlanned > 0 
+      ? Math.round((actionsCompleted / actionsPlanned) * 100) 
+      : 0;
+    
+    // 3. AI взаємодії
+    const aiConversations = await base(tables.AI_CONVERSATIONS || 'AI_Conversations')
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date})="${today}")`
+      })
+      .firstPage();
+    
+    // 4. Перевіряємо чи вже є запис за сьогодні
+    const existingStats = await base(tables.ACTIVITY_STATS || 'ACTIVITY_STATS')
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    const statsData = {
+      TG_id: String(tgId),
+      Date: today,
+      Morning_Completed: morningCompleted,
+      Evening_Completed: eveningCompleted,
+      Actions_Planned: actionsPlanned,
+      Actions_Completed: actionsCompleted,
+      Completion_Rate: completionRate,
+      Has_Victory: hasVictory,
+      AI_Interactions: aiConversations.length
+    };
+    
+    // 5. Оновлюємо або створюємо
+    if (existingStats.length > 0) {
+      await base(tables.ACTIVITY_STATS || 'ACTIVITY_STATS').update(existingStats[0].id, statsData);
+      console.log(`[activityTracker] 🔄 Оновлено статистику дня`);
+    } else {
+      await base(tables.ACTIVITY_STATS || 'ACTIVITY_STATS').create(statsData);
+      console.log(`[activityTracker] ✅ Створено статистику дня`);
+    }
+    
+    console.log(`[activityTracker] 📊 Completion rate: ${completionRate}% (${actionsCompleted}/${actionsPlanned})`);
+    
+    return {
+      completionRate,
+      actionsCompleted,
+      actionsPlanned,
+      hasVictory,
+      morningCompleted,
+      eveningCompleted
+    };
+    
+  } catch (error) {
+    console.error('[calculateDailyStats] Помилка:', error);
+    return null;
+  }
+};
+
+// ===== ВЕЧІРНІЙ ПІДРАХУНОК (викликати після завершення вечірніх питань) =====
+export const finalizeDay = async (tgId) => {
+  try {
+    console.log(`[activityTracker] 🌙 Фіналізація дня для ${tgId}`);
+    
+    const stats = await calculateDailyStats(tgId);
+    
+    if (!stats) return;
+    
+    // Оновлюємо лічильники користувача
+    if (!stats.morningCompleted || !stats.eveningCompleted) {
+      // Пропущений день
+      await updateMissedDays(tgId, true);
+    } else {
+      // День завершено успішно - скидаємо лічильник
+      await updateMissedDays(tgId, false);
+    }
+    
+    // Оновлюємо last_activity_ts
+    await userService.updateUserFields(tgId, {
+      last_activity_ts: new Date().toISOString()
+    });
+    
+    console.log(`[activityTracker] ✅ День фіналізовано`);
+    
+  } catch (error) {
+    console.error('[finalizeDay] Помилка:', error);
+  }
+};
+
+// ===== ПЕРЕВІРКА COMPLETION RATE ЗА ТИЖДЕНЬ =====
+export const checkWeeklyCompletionRate = async (tgId) => {
+  try {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgoStr = weekAgo.toISOString().split('T')[0];
+    
+    const stats = await base(tables.ACTIVITY_STATS || 'ACTIVITY_STATS')
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", IS_AFTER({Date}, "${weekAgoStr}"))`,
+        sort: [{ field: 'Date', direction: 'desc' }]
+      })
+      .firstPage();
+    
+    if (stats.length === 0) return 0;
+    
+    // Середній completion rate за тиждень
+    const totalRate = stats.reduce((sum, s) => sum + (s.fields.Completion_Rate || 0), 0);
+    const avgCompletionRate = Math.round(totalRate / stats.length);
+    
+    // Дні з перемогами
+    const daysWithVictories = stats.filter(s => s.fields.Has_Victory).length;
+    const victoryRate = Math.round((daysWithVictories / stats.length) * 100);
+    
+    console.log(`[activityTracker] 📊 Тижневий аналіз для ${tgId}:`);
+    console.log(`  - Completion rate: ${avgCompletionRate}%`);
+    console.log(`  - Victory rate: ${victoryRate}%`);
+    console.log(`  - Днів з даними: ${stats.length}`);
+    
+    // Оновлюємо low_activity_weeks якщо < 30%
+    if (avgCompletionRate < ACTIVITY_TRIGGERS.LOW_COMPLETION_RATE) {
+      await updateLowActivityWeeks(tgId, true);
+    } else {
+      await updateLowActivityWeeks(tgId, false);
+    }
+    
+    return {
+      avgCompletionRate,
+      victoryRate,
+      totalDays: stats.length,
+      daysWithVictories
+    };
+    
+  } catch (error) {
+    console.error('[checkWeeklyCompletionRate] Помилка:', error);
+    return null;
+  }
+};
+
+// ===== АНАЛІЗ ТИПУ ПРОБЛЕМИ (для тригерів) =====
+export const analyzeProblemType = async (tgId) => {
+  try {
+    const records = await responseService.getUserRecords(tgId, 14);
+    
+    if (records.length === 0) return 'no_goals';
+    
+    let fearCount = 0;
+    let noGoalsCount = 0;
+    let procrastinationCount = 0;
+    
+    for (const record of records) {
+      const programs = (record.fields?.Q_e_3 || '').toLowerCase();
+      const state = (record.fields?.Q_m_5 || '').toLowerCase();
+      const goals = record.fields?.Q_m_3 || '';
+      
+      if (programs.includes('страх') || programs.includes('боюсь') || programs.includes('тривога')) {
+        fearCount++;
+      }
+      
+      if (!goals || goals.length < 10) {
+        noGoalsCount++;
+      }
+      
+      if (programs.includes('відклад') || programs.includes('не роблю') || state.includes('лінь')) {
+        procrastinationCount++;
+      }
+    }
+    
+    const max = Math.max(fearCount, noGoalsCount, procrastinationCount);
+    
+    if (max === 0) return 'no_goals';
+    if (fearCount === max) return 'fear';
+    if (procrastinationCount === max) return 'low_activity';
+    if (noGoalsCount === max) return 'no_goals';
+    
+    return 'no_goals';
+    
+  } catch (error) {
+    console.error('[analyzeProblemType] Помилка:', error);
+    return 'no_goals';
+  }
+};
+
+// ===== ПЕРЕВІРКА ТРИГЕРІВ БЕЗДІЯЛЬНОСТІ =====
+export const checkInactivityTriggers = async (tgId) => {
+  try {
+    console.log(`[activityTracker] 🔍 Перевірка тригерів для ${tgId}`);
+    
+    const user = await userService.getUserByTgId(tgId);
+    if (!user) return null;
+    
+    const missedDays = user.work_missed_days || 0;
+    const lowActivityWeeks = user.work_low_activity_weeks_count || 0;
+    const lastActivity = user.last_activity_ts;
+    
+    // ТРИГЕР 1: Missed_days >= 2
+    if (missedDays >= ACTIVITY_TRIGGERS.MISSED_DAYS_THRESHOLD) {
+      console.log(`[activityTracker] ⚠️ Тригер 1: ${missedDays} пропущених днів`);
+      
+      return {
+        level: 1,
+        type: 'missed_days',
+        message: `Бачу два пропуски поспіль. Все ок?\n\nНазви одну маленьку дію на завтра — я зафіксую.`,
+        action: 'mild_reminder',
+        showOffer: false
+      };
+    }
+    
+    // ТРИГЕР 2: +48 год без реакції
+    if (lastActivity) {
+      const hoursSinceActive = getHoursSince(lastActivity);
+      
+      if (hoursSinceActive >= ACTIVITY_TRIGGERS.INACTIVE_HOURS_THRESHOLD) {
+        console.log(`[activityTracker] ⚠️ Тригер 2: ${hoursSinceActive} год без активності`);
+        
+        return {
+          level: 2,
+          type: 'no_response_48h',
+          message: `${user['User Name'] || 'Користувач'}, результат > виправдання.\n\n💡 Пропозиція: 1 дія на 10 хв завтра. Я допоможу інтегрувати.\n\nЯку обираєш?`,
+          action: 'direct_reminder',
+          showOffer: false
+        };
+      }
+    }
+    
+    // ТРИГЕР 3: low_activity_weeks >= 2 (ПОКАЗУЄМО ПРОПОЗИЦІЮ)
+    if (lowActivityWeeks >= ACTIVITY_TRIGGERS.LOW_ACTIVITY_WEEKS_THRESHOLD) {
+      console.log(`[activityTracker] ⚠️ Тригер 3: ${lowActivityWeeks} тижнів низької активності`);
+      
+      const problemType = await analyzeProblemType(tgId);
+      
+      return {
+        level: 3,
+        type: 'low_activity_weeks',
+        problemType: problemType,
+        message: `Бачу, що ти застрягла. Можу запропонувати допомогу.`,
+        action: 'offer_service',
+        showOffer: true
+      };
+    }
+    
+    console.log(`[activityTracker] ✅ Тригери не спрацювали для ${tgId}`);
+    return null;
+    
+  } catch (error) {
+    console.error('[activityTracker] ❌ Помилка перевірки тригерів:', error);
+    return null;
+  }
+};
+
+// ===== ДОПОМІЖНІ ФУНКЦІЇ =====
+
+const getHoursSince = (timestampISO) => {
+  try {
+    const last = new Date(timestampISO);
+    const now = new Date();
+    return Math.floor((now - last) / (1000 * 60 * 60));
+  } catch (error) {
+    return 0;
+  }
+};
+
+export const updateMissedDays = async (tgId, increment = true) => {
+  try {
+    const user = await userService.getUserByTgId(tgId);
+    if (!user) return;
+    
+    const currentMissed = user.work_missed_days || 0;
+    
+    await userService.updateUserFields(tgId, {
+      work_missed_days: increment ? currentMissed + 1 : 0
+    });
+    
+    console.log(`[activityTracker] ${increment ? '➕' : '🔄'} Missed days для ${tgId}: ${increment ? currentMissed + 1 : 0}`);
+    
+  } catch (error) {
+    console.error('[updateMissedDays] Помилка:', error);
+  }
+};
+
+export const updateLowActivityWeeks = async (tgId, increment = true) => {
+  try {
+    const user = await userService.getUserByTgId(tgId);
+    if (!user) return;
+    
+    const currentWeeks = user.work_low_activity_weeks_count || 0;
+    
+    await userService.updateUserFields(tgId, {
+      work_low_activity_weeks_count: increment ? currentWeeks + 1 : 0
+    });
+    
+    console.log(`[activityTracker] ${increment ? '➕' : '🔄'} Low activity weeks для ${tgId}: ${increment ? currentWeeks + 1 : 0}`);
+    
+  } catch (error) {
+    console.error('[updateLowActivityWeeks] Помилка:', error);
+  }
+};
+
+export default {
+  saveMicroActions,
+  updateActionStatus,
+  calculateDailyStats,
+  finalizeDay,
+  checkWeeklyCompletionRate,
+  analyzeProblemType,
+  checkInactivityTriggers,
+  updateMissedDays,
+  updateLowActivityWeeks
+};

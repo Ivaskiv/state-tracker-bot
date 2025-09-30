@@ -23,6 +23,7 @@ export const saveAIConversation = async (tgId, question, response, context) => {
       Question: question.substring(0, 1000),
       AI_Response: response.substring(0, 2000),
       Context_Type: context?.contextType || CONTEXT_TYPES.GENERAL,
+      Created_At: new Date().toISOString() ,
       User_Goal: context?.userGoal?.substring(0, 100) || '',
       User_State: context?.userState?.substring(0, 100) || 'unknown'
     };
