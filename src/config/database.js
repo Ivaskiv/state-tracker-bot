@@ -1,4 +1,4 @@
-// src/config/database.js — СІНГЛТОН + СТАБІЛЬНІ ЛОГИ
+// src/config/database.js — СІНГЛТОН + СТАБІЛЬНІ ЛОГИ + ВИПРАВЛЕНІ НАЗВИ ТАБЛИЦЬ
 import Airtable from 'airtable';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -31,11 +31,24 @@ export const getBase = () => {
   return baseSingleton;
 };
 
-// ---- Мапа таблиць (лише ті, що реально використовуєш)
+// ---- Мапа таблиць (ВИПРАВЛЕНІ НАЗВИ ЗГІДНО З AIRTABLE СТРУКТУРОЮ)
 export const tables = Object.freeze({
+  // ===== ОСНОВНІ ТАБЛИЦІ =====
   USERS: 'Users',
   SUBSCRIPTIONS: 'Subscriptions',
   RESPONSES: 'Responses',
+  
+  // ===== AI НАСТАВНИК =====
+  AI_CONVERSATIONS: 'AI_Conversations', // ✅ Основна таблиця діалогів
+  AI_CONVERSATIONS_FEEDBACK: 'AI_Conversations_Feedback_Advice', // ✅ Фідбек та поради
+  
+  // ===== МІКРО-ДІЇ =====
+  MICRO_ACTIONS: 'MICRO_ACTIONS', // ✅ Згенеровані дії
+  
+  // ===== СТАТИСТИКА =====
+  ACTIVITY_STATS: 'ACTIVITY_STATS', // ✅ Статистика активності
+  
+  // ===== ІНШІ ТАБЛИЦІ =====
   USER_REFLECTIONS: 'User Reflections',
   MORNING_RESPONSES: 'Morning_Responses',
   EVENING_RESPONSES: 'Evening_Responses',
@@ -43,21 +56,22 @@ export const tables = Object.freeze({
   USER_AFFIRMATIONS: 'User Affirmations',
   USER_REPORTS: 'User Reports',
   USER_GOALS: 'User_Goals',
-  DAILY_MICRO_ACTIONS: 'Daily_Micro_Actions',
-  AI_CONVERSATIONS: 'AI_Conversations',
   WHEEL_BALANCE: 'WheelBalance',
-  MICRO_ACTIONS: 'MICRO_ACTIONS', 
-  ACTIVITY_STATS: 'ACTIVITY_STATS', 
-  OFFERS_LOG: 'Offers_Log'
+  OFFERS_LOG: 'Offers_Log',
+  
+  // ===== DEPRECATED (для зворотної сумісності) =====
+  DAILY_MICRO_ACTIONS: 'MICRO_ACTIONS' // ✅ Alias для старого коду
 });
 
 // ---- Утиліти
 const keyOf = (name) => tables[name] || name;
+
 const chunk = (arr, n = 10) => {
   const out = [];
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
   return out;
 };
+
 const logAirtableError = (prefix, err) => {
   const payload = {
     message: err?.message,
@@ -157,3 +171,42 @@ export const testConnection = async () => {
     return { success: false, error: err?.message || 'unknown' };
   }
 };
+
+// ---- Валідація таблиць при старті (опціонально)
+export const validateTables = async () => {
+  console.log('[database] 🔍 Валідація таблиць...');
+  
+  const criticalTables = [
+    'USERS',
+    'AI_CONVERSATIONS', 
+    'MICRO_ACTIONS',
+    'ACTIVITY_STATS'
+  ];
+  
+  const results = [];
+  
+  for (const tableKey of criticalTables) {
+    try {
+      const tableName = tables[tableKey];
+      await getBase()(tableName).select({ maxRecords: 1 }).firstPage();
+      results.push({ table: tableName, status: '✅' });
+      console.log(`[database] ✅ ${tableName}`);
+    } catch (error) {
+      results.push({ table: tables[tableKey], status: '❌', error: error.message });
+      console.error(`[database] ❌ ${tables[tableKey]}: ${error.message}`);
+    }
+  }
+  
+  const allValid = results.every(r => r.status === '✅');
+  
+  if (allValid) {
+    console.log('[database] ✅ Всі критичні таблиці доступні');
+  } else {
+    console.warn('[database] ⚠️ Деякі таблиці недоступні');
+  }
+  
+  return { valid: allValid, results };
+};
+
+console.log('[database] ✅ Конфігурація завантажена');
+console.log('[database] 📊 Доступні таблиці:', Object.keys(tables).length);

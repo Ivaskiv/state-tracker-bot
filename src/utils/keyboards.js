@@ -172,17 +172,24 @@ const keyboards = {
     };
   },
 
-  aiMentorControlKeyboard() {
+aiMentorControlKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
           [{ text: '💬 Продовжити діалог', callback_data: 'ai_continue' }],
+          [
+            { text: '📊 Звіт за тиждень', callback_data: 'ai_report' },
+            { text: '🎯 Режим цілей', callback_data: 'ai_goals' }
+          ],
+          [
+            { text: '👍 Корисно', callback_data: 'rate_helpful' },
+            { text: '👎 Не дуже', callback_data: 'rate_not_helpful' }
+          ],
           [{ text: '🚪 Вийти', callback_data: 'ai_exit' }]
         ]
       }
     };
   },
-
   // ====== ПИТАННЯ-ВІДПОВІДІ ======
   continueAnswersKeyboard() {
     return {

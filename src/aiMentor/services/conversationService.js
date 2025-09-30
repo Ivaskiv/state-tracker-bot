@@ -9,24 +9,26 @@ const base = getBase();
 /**
  * ✅ Зберігає діалог з AI з УСІМА полями
  */
+
 export const saveAIConversation = async (tgId, data) => {
   try {
     logger.info(`[CONVERSATION] 💾 Збереження діалогу для ${tgId}`);
     
-    const today = new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
+    const today = now.split('T')[0]; // YYYY-MM-DD для Date
     const tgIdString = String(tgId);
 
-    // ✅ ПОВНА СТРУКТУРА З УСІМА ПОЛЯМИ
+    // ✅ ПРАВИЛЬНА СТРУКТУРА ПОЛІВ ЗГІДНО З AIRTABLE
     const conversationData = {
       TG_id: tgIdString,
-      Date: today,
-      Created_At: now,
+      'User Name': data.userName || 'Користувач',
+      Date: today, 
+      Created_At: now, 
       Question: data.question.substring(0, 1000),
       AI_Response: data.response.substring(0, 2000),
-      Context_Type: data.contextType || CONTEXT_TYPES.GENERAL,
+      Context_Type: data.contextType || 'general',
       User_Goal: data.userGoal?.substring(0, 500) || '',
-      User_State: data.userState?.substring(0, 200) || 'unknown',
+      User_State: data.userState?.substring(0, 200) || '',
       User_Qualities: data.userQualities?.substring(0, 500) || '',
       Generated_Actions: data.generatedActions ? JSON.stringify(data.generatedActions) : null,
       Course_Suggested: data.courseSuggested || null,
@@ -36,16 +38,15 @@ export const saveAIConversation = async (tgId, data) => {
       Session_ID: data.sessionId || null
     };
 
-    logger.info(`[CONVERSATION] 📊 Повні дані:`, {
+    logger.info(`[CONVERSATION] 📊 Дані для збереження:`, {
       TG_id: conversationData.TG_id,
+      Date: conversationData.Date,
+      Created_At: conversationData.Created_At,
       Context: conversationData.Context_Type,
       Has_Goal: !!conversationData.User_Goal,
-      Has_State: !!conversationData.User_State,
-      Has_Actions: conversationData.Has_Micro_Actions,
-      Course: conversationData.Course_Suggested
+      Has_Actions: conversationData.Has_Micro_Actions
     });
 
-    // Збереження в Airtable
     const record = await base(tables.AI_CONVERSATIONS).create([{
       fields: conversationData
     }], { typecast: true });
@@ -54,7 +55,7 @@ export const saveAIConversation = async (tgId, data) => {
     return record[0];
 
   } catch (error) {
-    logger.error('❌ [CONVERSATION] КРИТИЧНА ПОМИЛКА:', {
+    logger.error('❌ [CONVERSATION] ПОМИЛКА:', {
       message: error.message,
       statusCode: error.statusCode,
       tgId: tgId
@@ -63,7 +64,6 @@ export const saveAIConversation = async (tgId, data) => {
     return null;
   }
 };
-
 /**
  * ✅ Отримує історію діалогів
  */

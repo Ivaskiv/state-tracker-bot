@@ -9,39 +9,6 @@ const base = getBase();
 
 // ===== ЗБЕРЕЖЕННЯ МІКРО-ДІЙ =====
 
-// export const saveMicroActions = async (tgId, actions) => {
-//   console.log(`[activityTracker] 💾 ВИКЛИКАНО saveMicroActions для ${tgId}`);
-//   console.log(`[activityTracker] - Кількість дій: ${actions?.length || 0}`);
-  
-//   try {
-//     const today = new Date().toISOString().split('T')[0];
-    
-//     const records = actions.map(action => {
-//       console.log(`[activityTracker] 📝 Підготовка дії: ${action.action}`);
-//       return {
-//         TG_id: String(tgId),
-//         Date: today,
-//         Action_Text: action.action,
-//         Time_Planned: action.time,
-//         Duration_Min: action.duration_min,
-//         Result_Metric: action.result_metric,
-//         Priority: action.priority,
-//         Status: 'pending',
-//         Source: 'ai_generated',
-//         Created_At: new Date().toISOString()
-//       };
-//     });
-    
-//     console.log(`[activityTracker] 📤 Відправка в Airtable...`);
-//     await base(tables.MICRO_ACTIONS || 'MICRO_ACTIONS').create(records);
-    
-//     console.log(`[activityTracker] ✅ Збережено ${records.length} мікро-дій`);
-    
-//   } catch (error) {
-//     console.error('[activityTracker] ❌ Помилка збереження:', error);
-//     console.error('[activityTracker] Деталі помилки:', error.message);
-//   }
-// };
 // ===== ОНОВЛЕННЯ СТАТУСУ ДІЇ =====
 export const updateActionStatus = async (tgId, actionText, status) => {
   try {
@@ -391,39 +358,49 @@ export const updateLowActivityWeeks = async (tgId, increment = true) => {
     console.error('[updateLowActivityWeeks] Помилка:', error);
   }
 };
-// export const incrementAIInteractions = async (tgId) => {
-//   try {
-//     const today = new Date().toISOString().split('T')[0];
-    
-//     // Перевіряємо чи є запис за сьогодні
-//     const existingStats = await base(tables.ACTIVITY_STATS)
-//       .select({
-//         filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date})="${today}")`,
-//         maxRecords: 1
-//       })
-//       .firstPage();
-    
-//     if (existingStats.length > 0) {
-//       const currentCount = existingStats[0].fields.AI_Interactions || 0;
-//       await base(tables.ACTIVITY_STATS).update(existingStats[0].id, {
-//         AI_Interactions: currentCount + 1
-//       });
-//     } else {
-//       await base(tables.ACTIVITY_STATS).create({
-//         TG_id: String(tgId),
-//         Date: today,
-//         AI_Interactions: 1
-//       });
-//     }
-    
-//     console.log(`[activityTracker] ✅ AI взаємодія зафіксована для ${tgId}`);
-    
-//   } catch (error) {
-//     console.error('[incrementAIInteractions] Помилка:', error);
-//   }
-// };
 
-// ===== ЗБЕРЕЖЕННЯ МІКРО-ДІЙ З ПОСИЛАННЯМ НА ДІАЛОГ =====
+// src/services/activityTracker.js - РОЗКОМЕНТУВАТИ МЕТОД
+
+export const incrementAIInteractions = async (tgId) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Перевіряємо чи є запис за сьогодні
+    const existingStats = await base(tables.ACTIVITY_STATS)
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    if (existingStats.length > 0) {
+      const currentCount = existingStats[0].fields.AI_Interactions || 0;
+      await base(tables.ACTIVITY_STATS).update(existingStats[0].id, {
+        AI_Interactions: currentCount + 1
+      });
+    } else {
+      await base(tables.ACTIVITY_STATS).create({
+        TG_id: String(tgId),
+        Date: today,
+        AI_Interactions: 1,
+        Morning_Completed: false,
+        Evening_Completed: false,
+        Actions_Planned: 0,
+        Actions_Completed: 0,
+        Completion_Rate: 0,
+        Has_Victory: false
+      });
+    }
+    
+    console.log(`[activityTracker] ✅ AI взаємодія зафіксована для ${tgId}`);
+    
+  } catch (error) {
+    console.error('[incrementAIInteractions] Помилка:', error);
+  }
+};
+
+
+// src/services/activityTracker.js - ВИПРАВЛЕННЯ saveMicroActions
 
 export const saveMicroActions = async (tgId, actions, conversationId = null) => {
   console.log(`[activityTracker] 💾 Збереження мікро-дій для ${tgId}`);
@@ -431,43 +408,51 @@ export const saveMicroActions = async (tgId, actions, conversationId = null) => 
   console.log(`[activityTracker] - Conversation ID: ${conversationId || 'none'}`);
   
   try {
+    if (!actions || !Array.isArray(actions) || actions.length === 0) {
+      console.log(`[activityTracker] ⚠️ Немає дій для збереження`);
+      return;
+    }
+
     const today = new Date().toISOString().split('T')[0];
     
-    const records = actions.map(action => {
-      const record = {
+    // ✅ ПРАВИЛЬНИЙ ФОРМАТ: масив об'єктів з полем fields
+    const records = actions.map(action => ({
+      fields: {
         TG_id: String(tgId),
         Date: today,
-        Action_Text: action.action,
-        Time_Planned: action.time || 'будь-коли',
-        Duration_Min: action.duration_min || 15,
-        Result_Metric: action.result_metric || 'виконано',
-        Priority: action.priority || 'середня',
+        Action_Text: action.action || action.Action_Text || '',
+        Time_Planned: action.time || action.Time_Planned || 'будь-коли',
+        Duration_Min: action.duration_min || action.Duration_Min || 15,
+        Result_Metric: action.result_metric || action.Result_Metric || 'виконано',
+        Priority: action.priority || action.Priority || 'середня',
         Status: 'pending',
         Source: 'ai_generated',
-        Created_At: new Date().toISOString()
-      };
-      
-      // ✅ ДОДАЄМО ЗВ'ЯЗОК З ДІАЛОГОМ
-      if (conversationId) {
-        record.Linked_Conversation = [conversationId];
+        Created_At: new Date().toISOString(),
+        // ✅ ЗВ'ЯЗОК З ДІАЛОГОМ (якщо є ID)
+        ...(conversationId && { Linked_Conversation: [conversationId] }),
+        // ✅ ПОВ'ЯЗАНА ЦІЛЬ (якщо є)
+        ...(action.related_goal && { Related_Goal: action.related_goal })
       }
-      
-      // ✅ ДОДАЄМО ПОВ'ЯЗАНУ ЦІЛЬ
-      if (action.related_goal) {
-        record.Related_Goal = action.related_goal;
-      }
-      
-      return record;
-    });
+    }));
     
-    console.log(`[activityTracker] 📤 Відправка в Airtable...`);
-    await base(tables.MICRO_ACTIONS).create(records);
+    console.log(`[activityTracker] 📤 Відправка ${records.length} записів до Airtable...`);
+    console.log(`[activityTracker] 📝 Перший запис:`, JSON.stringify(records[0], null, 2));
     
-    console.log(`[activityTracker] ✅ Збережено ${records.length} мікро-дій`);
+    const created = await base(tables.MICRO_ACTIONS).create(records, { typecast: true });
+    
+    console.log(`[activityTracker] ✅ Збережено ${created.length} мікро-дій`);
+    
+    return created;
     
   } catch (error) {
-    console.error('[activityTracker] ❌ Помилка збереження:', error);
-    console.error('[activityTracker] Деталі:', error.message);
+    console.error('[activityTracker] ❌ Помилка збереження:', error.message);
+    if (error.statusCode) {
+      console.error('[activityTracker] Status:', error.statusCode);
+    }
+    if (error.error) {
+      console.error('[activityTracker] Error type:', error.error);
+    }
+    console.error('[activityTracker] Stack:', error.stack);
   }
 };
 export default {
@@ -479,5 +464,7 @@ export default {
   analyzeProblemType,
   checkInactivityTriggers,
   updateMissedDays,
-  updateLowActivityWeeks
+  updateLowActivityWeeks,
+  incrementAIInteractions 
+
 };
