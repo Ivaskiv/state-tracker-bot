@@ -1,4 +1,4 @@
-// src/controllers/handlers/textHandler.js
+// src/controllers/handlers/textHandler.js - ВИПРАВЛЕНО ЛОГІКУ AI НАСТАВНИКА
 
 import startHandler from './startHandler.js';
 import userService from '../../services/userService.js';
@@ -28,14 +28,16 @@ export const handle = async (ctx) => {
       return;
     }
     
-    // 3. АКТИВНІ СЕСІЇ
-    const step = user.Answer_Step;
-    
-    // AI Наставник
+    // ✅ ВИПРАВЛЕНО: ПЕРЕВІРКА AI НАСТАВНИКА ПЕРША
+    // Якщо активна сесія AI - обробляємо як питання
     if (aiMentorSession.isActive?.(tgId)) {
+      console.log(`[textHandler] 🤖 Активна сесія AI для ${tgId}, обробляємо питання`);
       await aiMentorController.handleAIMentorQuestion(ctx, text);
       return;
     }
+    
+    // 3. АКТИВНІ СЕСІЇ (КРІМ AI)
+    const step = user.Answer_Step;
     
     // Колесо балансу
     if (step === 'WheelBalance') {

@@ -1,10 +1,10 @@
-// src/controllers/handlers/startHandler.js - ВИПРАВЛЕНО ІМ'Я
+// src/controllers/handlers/startHandler.js - ВИПРАВЛЕНО ПОВІДОМЛЕННЯ TRIAL
 
 import userService from '../../services/userService.js';
 import onboardingService from '../../services/onboardingService.js';
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
-import { MESSAGES, ANSWER_STEPS, USER_STATUS } from '../../config/constants.js';
+import { MESSAGES, ANSWER_STEPS, USER_STATUS, REGISTRATION_SUCCESS_TEMPLATE, SCHEDULE } from '../../config/constants.js';
 
 // ===== ГОЛОВНИЙ ХЕНДЛЕР /start =====
 export const handle = async (ctx) => {
@@ -224,13 +224,28 @@ export const handleCallback = async (ctx) => {
       return true;
     }
     
-    // Плани
+    // ✅ ВИПРАВЛЕНО: Активація пробного періоду з правильним повідомленням
     if (data === 'plan_free' || data === 'activate_trial') {
       await typing(ctx, 500);
       const result = await onboardingService.handlePlanStep(tgId, 'TRIAL');
       
       if (result.success && result.trial) {
-        await ctx.reply(MESSAGES.TRIAL_ACTIVATED, keyboards.mainMenuKeyboard());
+        // Отримуємо дату закінчення trial
+        const freshUser = await userService.getUserByTgId(tgId);
+        let endDateStr = 'через 7 днів';
+        
+        if (freshUser?.End_Date) {
+          try {
+            endDateStr = new Date(freshUser.End_Date).toLocaleDateString('uk-UA');
+          } catch (e) {
+            console.error('[startHandler] Помилка форматування дати:', e);
+          }
+        }
+        
+        // ✅ ВИКОРИСТОВУЄМО ШАБЛОН З CONSTANTS
+        const message = REGISTRATION_SUCCESS_TEMPLATE.replace('{END_DATE}', endDateStr);
+        
+        await ctx.reply(message, keyboards.mainMenuKeyboard());
       }
       return true;
     }

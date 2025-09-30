@@ -2615,3 +2615,18 @@
 {"level":"info","message":"[botController] ✅ Ініціалізація bot controller...","timestamp":"2025-09-23T16:32:19.939Z"}
 {"level":"info","message":"[botController] ✅ Ініціалізація bot controller...","timestamp":"2025-09-23T18:06:02.025Z"}
 {"level":"info","message":"[botController] ✅ Ініціалізація bot controller...","timestamp":"2025-09-24T10:38:15.574Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-29T19:37:18.097Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Отримано 0 записів історії для 630111093","timestamp":"2025-09-29T19:37:18.766Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-29T19:37:23.556Z"}
+{"Context_Type":"general","Question_length":34,"Response_length":541,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-29T19:37:23.557Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] КРИТИЧНА ПОМИЛКА збереження: Field \"Created_At\" cannot accept the provided value","questionLength":34,"responseLength":541,"tgId":"630111093","timestamp":"2025-09-29T19:37:23.817Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T05:27:08.571Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T05:27:09.162Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T05:27:14.466Z"}
+{"Context_Type":"general","Question_length":34,"Response_length":627,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T05:27:14.466Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: rec7ceKAzRtDRCYcM","timestamp":"2025-09-30T05:27:15.250Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T05:33:35.844Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T05:33:36.117Z"}
+{"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T05:33:41.831Z"}
+{"Context_Type":"micro_actions","Question_length":101,"Response_length":622,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T05:33:41.832Z"}
+{"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: recaqxcv0EhuMKBTD","timestamp":"2025-09-30T05:33:42.552Z"}

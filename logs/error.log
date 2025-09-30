@@ -32,3 +32,6 @@
 {"error":"NOT_AUTHORIZED","level":"error","message":"❌ [wheelBalance] Помилка збереження нотатки: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-09-20T20:28:59.235Z"}
 {"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] Помилка обробки оцінки: Unknown field name: \"Spirituality_Values\"","statusCode":422,"timestamp":"2025-09-21T16:55:14.924Z"}
 {"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] Помилка обробки оцінки: Unknown field name: \"Spirituality_Values\"","statusCode":422,"timestamp":"2025-09-21T16:55:53.017Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] КРИТИЧНА ПОМИЛКА збереження: Field \"Created_At\" cannot accept the provided value","questionLength":34,"responseLength":541,"tgId":"630111093","timestamp":"2025-09-29T19:37:23.817Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T05:27:09.162Z"}
+{"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T05:33:36.117Z"}

@@ -1,4 +1,4 @@
-// src/aiMentor/controllers/aiMentorController.js - КОНТРОЛЕР AI НАСТАВНИКА
+// src/aiMentor/controllers/aiMentorController.js - ДОДАНО ЛОГУВАННЯ
 
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
@@ -16,14 +16,13 @@ const aiMentorController = {
     try {
       console.log(`[AI MENTOR] 🤖 Запит від ${tgId}`);
 
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       if (!user) {
         console.log(`[AI MENTOR] ❌ Користувач ${tgId} не знайдений`);
         await ctx.reply('Спочатку зареєструйся /start', keyboards.mainMenuKeyboard());
         return;
       }
 
-      // Перевіряємо підписку
       const hasAccess = userService.hasActiveAccess(user);
                        
       if (!hasAccess) {
@@ -72,14 +71,13 @@ const aiMentorController = {
     try {
       console.log(`[AI MENTOR] 💬 Питання від ${tgId}: "${question.substring(0, 50)}..."`);
 
-      // Перевіряємо чи активна сесія
+      // ✅ ДОДАНО: Перевірка активності сесії
       if (!aiMentorSession.isActive(tgId)) {
-        console.log(`[AI MENTOR] ❌ Сесія неактивна для ${tgId}`);
-        await ctx.reply('Сесія неактивна. Запусти AI-наставника заново.', keyboards.mainMenuKeyboard());
-        return;
+        console.log(`[AI MENTOR] ❌ Сесія неактивна для ${tgId} - запускаємо заново`);
+        aiMentorSession.start(tgId);
       }
 
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       if (!user || !userService.hasActiveAccess(user)) {
         aiMentorSession.end(tgId);
         await ctx.reply('🤖 Потрібна активна підписка', {
@@ -131,6 +129,11 @@ const aiMentorController = {
       switch (data) {
         case 'ai_continue':
         case 'ai_start_question':
+          // ✅ ВИПРАВЛЕНО: Перевіряємо/запускаємо сесію
+          if (!aiMentorSession.isActive(tgId)) {
+            aiMentorSession.start(tgId);
+            console.log(`[AI MENTOR] ✅ Сесію перезапущено для ${tgId}`);
+          }
           await ctx.reply('💬 Напиши своє питання, і я дам персональну пораду в стилі "Очі в очі"!', keyboards.aiMentorControlKeyboard());
           await ctx.answerCbQuery('Продовжуємо діалог');
           break;
@@ -177,19 +180,12 @@ const aiMentorController = {
   // ===== ГЕНЕРАЦІЯ AI ВІДПОВІДІ =====
   async generateAIResponse(question, user, contextType, tgId) {
     try {
-      // Отримуємо історію діалогів для контексту
       const conversationHistory = await conversationService.getAIConversationHistory(tgId, 3);
-      
-      // Отримуємо дані користувача для персоналізації
       const userName = user['User Name'] || 'Користувач';
-      
-      // Формуємо системний промпт
       const systemPrompt = selectPrompt(contextType);
       
-      // Формуємо користувацький промпт з контекстом
       let userPrompt = `Користувач: ${userName}\nПитання: "${question}"`;
       
-      // Додаємо контекст з попередніх діалогів
       if (conversationHistory.length > 0) {
         userPrompt += `\n\nКонтекст попередніх діалогів:\n`;
         conversationHistory.forEach((conv, i) => {
@@ -215,7 +211,6 @@ const aiMentorController = {
     } catch (error) {
       console.error('[AI MENTOR] ❌ Помилка OpenAI:', error);
 
-      // Fallback відповіді залежно від контексту
       const contextFallbacks = {
         [CONTEXT_TYPES.GOAL_SETTING]: '🎯 Твоє бажання ставити цілі показує силу.\n💡 Почни з однієї конкретної мети на тиждень.\n✨ Ти вже знаєш що робити - довіряй собі!',
         [CONTEXT_TYPES.MOTIVATION]: '💪 Твоя енергія всередині тебе!\n💡 Зроби 5-хвилинну прогулянку і подумай над одним кроком.\n✨ Ти сильніший, ніж думаєш!',
