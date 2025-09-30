@@ -439,6 +439,38 @@ const keyboards = {
       }
     };
   },
+  aiMentorControlKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '💬 Продовжити діалог', callback_data: 'ai_continue' }],
+        [
+          { text: '📊 Звіт за тиждень', callback_data: 'ai_report' },
+          { text: '🎯 Режим цілей', callback_data: 'ai_goals' }
+        ],
+        [
+          { text: '👍 Корисно', callback_data: 'rate_helpful' },
+          { text: '👎 Не дуже', callback_data: 'rate_not_helpful' }
+        ],
+        [{ text: '🚪 Вийти', callback_data: 'ai_exit' }]
+      ]
+    }
+  };
+},
+
+courseOfferKeyboard(problemType, title, price) {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: `📚 "${title}" — ${price}€`, callback_data: `buy_course_${problemType}` }],
+        [{ text: '👥 Консультація (150€)', callback_data: 'book_consultation' }],
+        [{ text: '💬 Продовжити без курсу', callback_data: 'ai_continue' }],
+        [{ text: '⏭ Подумаю', callback_data: 'dismiss_offer' }]
+      ]
+    }
+  };
+},
+
 
   // Додаємо також в default-об’єкт для зручності
   afterRegistrationKeyboard

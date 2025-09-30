@@ -39,3 +39,4 @@
 {"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T06:47:44.521Z"}
 {"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T07:02:56.016Z"}
 {"level":"error","message":"❌ [CONVERSATION SERVICE] Помилка отримання історії: Unknown field name: \"Created time\"","tgId":"630111093","timestamp":"2025-09-30T07:31:26.656Z"}
+{"level":"error","message":"❌ [CONVERSATION] КРИТИЧНА ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T11:53:11.103Z"}

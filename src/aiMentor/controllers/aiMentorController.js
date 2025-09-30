@@ -1,11 +1,13 @@
-// src/aiMentor/controllers/aiMentorController.js - ДОДАНО ЛОГУВАННЯ
+// src/aiMentor/controllers/aiMentorController.js - ПОВНА ОПТИМІЗАЦІЯ
 
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { aiMentorSession } from '../session.js';
 import { chat } from '../../services/openaiClient.js';
 import conversationService from '../services/conversationService.js';
-import { CONTEXT_TYPES, analyzeQuestionContext, selectPrompt } from '../../config/aiMentorPrompts.js';
+import responseService from '../../dialogue/services/responseService.js';
+import activityTracker from '../../services/activityTracker.js';
+import { CONTEXT_TYPES, analyzeQuestionContext, selectPrompt, analyzeCourseNeed } from '../../config/aiMentorPrompts.js';
 
 const aiMentorController = {
 
@@ -41,9 +43,22 @@ const aiMentorController = {
         return;
       }
 
+      // Перевіряємо активну сесію
+      if (aiMentorSession.isActive(tgId)) {
+        console.log(`[AI MENTOR] ✅ Сесія вже активна для ${tgId}`);
+        await ctx.reply(
+          '🤖 Сесія AI-наставника вже активна!\n\n💬 Напиши своє питання або натисни "Вийти" для завершення.',
+          keyboards.aiMentorControlKeyboard()
+        );
+        return;
+      }
+
       // Запускаємо сесію
-      aiMentorSession.start(tgId);
-      console.log(`[AI MENTOR] ✅ Сесія запущена для ${tgId}`);
+      const sessionId = aiMentorSession.start(tgId);
+      console.log(`[AI MENTOR] ✅ Сесію запущено для ${tgId}, session: ${sessionId}`);
+
+      // ✅ ЗБІЛЬШУЄМО ЛІЧИЛЬНИК AI ВЗАЄМОДІЙ
+      await activityTracker.incrementAIInteractions(tgId);
 
       const helpText = 
         `🤖 AI-НАСТАВНИК "ЕФЕКТ"\n\n` +
@@ -56,7 +71,7 @@ const aiMentorController = {
         `Напиши своє питання! 👇\n\n` +
         `💬 Я відповідаю конкретно, з мікро-діями та підтримкою.`;
 
-      await ctx.reply(helpText, keyboards.aiMentorStartKeyboard());
+      await ctx.reply(helpText, keyboards.aiMentorControlKeyboard());
 
     } catch (error) {
       console.error('[AI MENTOR] ❌ Помилка запиту:', error);
@@ -71,9 +86,9 @@ const aiMentorController = {
     try {
       console.log(`[AI MENTOR] 💬 Питання від ${tgId}: "${question.substring(0, 50)}..."`);
 
-      // ✅ ДОДАНО: Перевірка активності сесії
+      // Перевірка активності сесії
       if (!aiMentorSession.isActive(tgId)) {
-        console.log(`[AI MENTOR] ❌ Сесія неактивна для ${tgId} - запускаємо заново`);
+        console.log(`[AI MENTOR] ⚠️ Сесія неактивна для ${tgId} - запускаємо заново`);
         aiMentorSession.start(tgId);
       }
 
@@ -93,30 +108,209 @@ const aiMentorController = {
       // Показуємо що бот думає
       await ctx.telegram.sendChatAction(ctx.chat.id, 'typing');
 
+      // ✅ ОТРИМУЄМО ПОВНИЙ КОНТЕКСТ
+      const recentData = await responseService.getUserRecords(tgId, 1);
+      const todayData = recentData[0]?.fields || {};
+      
+      const conversationHistory = await conversationService.getAIConversationHistory(tgId, 3);
+
       // Аналізуємо контекст питання
       const contextType = analyzeQuestionContext(question);
       console.log(`[AI MENTOR] 🔍 Контекст: ${contextType}`);
 
-      // Генеруємо відповідь AI
-      const responseText = await this.generateAIResponse(question, user, contextType, tgId);
-      const recentData = await responseService.getUserRecords(tgId, 1);
-const todayData = recentData[0]?.fields || {};
+      // ✅ ВИЗНАЧАЄМО ЧИ ПОТРІБНІ МІКРО-ДІЇ
+      const needsMicroActions = this.shouldGenerateMicroActions(question, contextType);
 
-      // Зберігаємо діалог
-      const context = {
+      // Генеруємо відповідь AI
+      const responseData = await this.generateAIResponse(
+        question, 
+        user, 
+        contextType, 
+        tgId, 
+        todayData,
+        conversationHistory,
+        needsMicroActions
+      );
+
+      // ✅ АНАЛІЗУЄМО ЧИ ПОТРІБЕН КУРС
+      const courseNeed = analyzeCourseNeed(question, conversationHistory);
+
+      // ✅ ЗБЕРІГАЄМО ДІАЛОГ З УСІМА ПОЛЯМИ
+      const conversationRecord = await conversationService.saveAIConversation(tgId, {
+        question,
+        response: responseData.response,
         contextType,
-  userGoal: todayData.Q_m_4 || todayData.Q_m_3 || '', 
-  userState: todayData.Q_m_5 || 'unknown'     
-};
+        userGoal: todayData.Q_m_4 || todayData.Q_m_3 || '',
+        userState: todayData.Q_m_5 || 'unknown',
+        userQualities: todayData.Q_m_2 || '',
+        generatedActions: responseData.microActions || null,
+        courseSuggested: courseNeed?.course?.title || null,
+        conversationLength: question.length + responseData.response.length,
+        hasMicroActions: !!responseData.microActions,
+        sessionId: aiMentorSession.get(tgId)?.sessionId || null
+      });
+
+      // ✅ ЗБЕРІГАЄМО МІКРО-ДІЇ ЯКЩО Є
+      if (responseData.microActions && Array.isArray(responseData.microActions)) {
+        await activityTracker.saveMicroActions(tgId, responseData.microActions, conversationRecord?.id);
+      }
+
+      // Відправляємо відповідь
+      await ctx.reply(responseData.response, keyboards.aiMentorControlKeyboard());
       
-      await conversationService.saveAIConversation(tgId, question, responseText, context);
-      
-      await ctx.reply(responseText, keyboards.aiMentorControlKeyboard());
+      // Якщо є пропозиція курсу - відправляємо окремим повідомленням
+      if (courseNeed && responseData.shouldOfferCourse) {
+        await new Promise(r => setTimeout(r, 2000)); // Пауза 2 сек
+        
+        const courseMessage = 
+          `💡 ПЕРСОНАЛЬНА РЕКОМЕНДАЦІЯ\n\n` +
+          `${courseNeed.reason}\n\n` +
+          `📚 Курс "${courseNeed.course.title}" — ${courseNeed.course.price}€\n` +
+          `${courseNeed.course.description}\n\n` +
+          `Або персональна консультація з Надею — 60 хв, 150€`;
+        
+        await ctx.reply(courseMessage, keyboards.courseOfferKeyboard(
+          courseNeed.problemType || 'general',
+          courseNeed.course.title,
+          courseNeed.course.price
+        ));
+      }
+
       console.log(`[AI MENTOR] ✅ Відповідь надіслано для ${tgId}`);
+
+      // Оновлюємо активність
+      aiMentorSession.updateActivity(tgId);
+      await activityTracker.incrementAIInteractions(tgId);
 
     } catch (error) {
       console.error('[AI MENTOR] ❌ Помилка питання:', error);
       await ctx.reply('❌ Помилка при обробці питання. Спробуй ще раз.');
+    }
+  },
+
+  // ===== ВИЗНАЧЕННЯ ЧИ ПОТРІБНІ МІКРО-ДІЇ =====
+  shouldGenerateMicroActions(question, contextType) {
+    const q = question.toLowerCase();
+    
+    // Ключові слова що вказують на потребу мікро-дій
+    const actionKeywords = [
+      'що робити', 'як діяти', 'з чого почати', 'план', 'кроки',
+      'як досягти', 'допоможи', 'потрібна порада', 'не знаю що',
+      'застрягла', 'як подолати', 'дій', 'стратегія'
+    ];
+    
+    const hasActionKeyword = actionKeywords.some(keyword => q.includes(keyword));
+    const isActionContext = [
+      CONTEXT_TYPES.MICRO_ACTIONS,
+      CONTEXT_TYPES.GOAL_SETTING,
+      CONTEXT_TYPES.BLOCK_ANALYSIS
+    ].includes(contextType);
+    
+    return hasActionKeyword || isActionContext;
+  },
+
+  // ===== ГЕНЕРАЦІЯ AI ВІДПОВІДІ =====
+  async generateAIResponse(question, user, contextType, tgId, todayData, conversationHistory, needsMicroActions) {
+    try {
+      const userName = user['User Name'] || 'Користувач';
+      const systemPrompt = selectPrompt(contextType);
+      
+      // ✅ ПОБУДОВА КОНТЕКСТНОГО PROMPT
+      let userPrompt = `Користувач: ${userName}\nПитання: "${question}"\n\n`;
+      
+      // Додаємо контекст з сьогоднішніх відповідей
+      if (todayData.Q_m_4) {
+        userPrompt += `🎯 Головна ціль на сьогодні: "${todayData.Q_m_4}"\n`;
+      }
+      if (todayData.Q_m_3) {
+        userPrompt += `🎯 Мікро-цілі: "${todayData.Q_m_3}"\n`;
+      }
+      if (todayData.Q_m_5) {
+        userPrompt += `💭 Поточний стан: "${todayData.Q_m_5}"\n`;
+      }
+      if (todayData.Q_m_2) {
+        userPrompt += `💪 Сильні якості: "${todayData.Q_m_2}"\n`;
+      }
+      if (todayData.Q_m_1) {
+        userPrompt += `✨ Самоідентифікація: "${todayData.Q_m_1}"\n`;
+      }
+      
+      // Додаємо історію діалогів
+      if (conversationHistory.length > 0) {
+        userPrompt += `\n📚 Контекст попередніх діалогів:\n`;
+        conversationHistory.forEach((conv, i) => {
+          userPrompt += `${i+1}. Q: "${conv.question.substring(0, 80)}..."\n`;
+          userPrompt += `   A: "${conv.response.substring(0, 100)}..."\n`;
+        });
+      }
+      
+      // ✅ ЗАПИТ НА МІКРО-ДІЇ ЯКЩО ПОТРІБНО
+      if (needsMicroActions) {
+        userPrompt += `\n\n🎯 ВАЖЛИВО: Після відповіді створи 2-3 КОНКРЕТНІ МІКРО-ДІЇ у форматі JSON:\n`;
+        userPrompt += `{"microActions": [{"action": "конкретна дія", "time": "HH:MM-HH:MM", "duration_min": 15, "result_metric": "результат", "priority": "висока"}]}\n`;
+      }
+      
+      userPrompt += `\n\nДай персоналізовану відповідь з конкретними діями в стилі "Очі в очі".`;
+
+      console.log(`[AI MENTOR] 🔄 Відправляємо запит до OpenAI`);
+      console.log(`[AI MENTOR] 📊 Контекст: цілі=${!!todayData.Q_m_4}, стан=${!!todayData.Q_m_5}, історія=${conversationHistory.length}`);
+      
+      const response = await chat([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ], 'gpt-4o-mini', needsMicroActions ? 600 : 400);
+
+      if (!response?.trim()) {
+        throw new Error('Порожня відповідь від OpenAI');
+      }
+
+      // ✅ ПАРСИМО МІКРО-ДІЇ ЯКЩО Є
+      let microActions = null;
+      let cleanResponse = response;
+      
+      if (needsMicroActions) {
+        const jsonMatch = response.match(/\{[\s\S]*"microActions"[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.microActions && Array.isArray(parsed.microActions)) {
+              microActions = parsed.microActions;
+              cleanResponse = response.replace(jsonMatch[0], '').trim();
+              console.log(`[AI MENTOR] ✅ Виділено ${microActions.length} мікро-дій`);
+            }
+          } catch (parseError) {
+            console.error('[AI MENTOR] ⚠️ Помилка парсингу мікро-дій:', parseError);
+          }
+        }
+      }
+
+      // ✅ ВИЗНАЧАЄМО ЧИ ПРОПОНУВАТИ КУРС
+      const shouldOfferCourse = conversationHistory.length >= 2 && 
+                               contextType !== CONTEXT_TYPES.GENERAL;
+
+      return {
+        response: `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${cleanResponse}`,
+        microActions,
+        shouldOfferCourse
+      };
+
+    } catch (error) {
+      console.error('[AI MENTOR] ❌ Помилка OpenAI:', error);
+
+      const contextFallbacks = {
+        [CONTEXT_TYPES.GOAL_SETTING]: '🎯 Твоє бажання ставити цілі показує силу.\n💡 Почни з однієї конкретної мети на тиждень.\n✨ Ти вже знаєш що робити - довіряй собі!',
+        [CONTEXT_TYPES.MOTIVATION]: '💪 Твоя енергія всередині тебе!\n💡 Зроби 5-хвилинну прогулянку і подумай над одним кроком.\n✨ Ти сильніший, ніж думаєш!',
+        [CONTEXT_TYPES.MICRO_ACTIONS]: '🎯 Маленькі кроки ведуть до великих результатів.\n💡 Обери одну дію на 15 хвилин і зроби її зараз.\n✨ Дія створює впевненість!',
+        [CONTEXT_TYPES.LIFE_BALANCE]: '⚖️ Баланс - це вибір пріоритетів.\n💡 Визнач одну сферу для фокусу на цьому тижні.\n✨ Ти маєш силу змінювати!',
+        [CONTEXT_TYPES.BLOCK_ANALYSIS]: '🔍 Розпізнавання блоку - це вже половина перемоги.\n💡 Зроби один маленький крок всупереч страху.\n✨ Твоя сміливість зростає з кожною дією!',
+        [CONTEXT_TYPES.GENERAL]: '🎯 Твоє питання показує силу духу.\n💡 Почни з одного маленького кроку вперед.\n✨ Ти знаєш відповідь, довіряй собі!'
+      };
+
+      return {
+        response: `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${contextFallbacks[contextType] || contextFallbacks[CONTEXT_TYPES.GENERAL]}`,
+        microActions: null,
+        shouldOfferCourse: false
+      };
     }
   },
 
@@ -131,7 +325,6 @@ const todayData = recentData[0]?.fields || {};
       switch (data) {
         case 'ai_continue':
         case 'ai_start_question':
-          // ✅ ВИПРАВЛЕНО: Перевіряємо/запускаємо сесію
           if (!aiMentorSession.isActive(tgId)) {
             aiMentorSession.start(tgId);
             console.log(`[AI MENTOR] ✅ Сесію перезапущено для ${tgId}`);
@@ -176,53 +369,6 @@ const todayData = recentData[0]?.fields || {};
       console.error('[AI MENTOR] ❌ Помилка callback:', error);
       await ctx.reply('❌ Помилка. Спробуй ще раз.', keyboards.mainMenuKeyboard());
       await ctx.answerCbQuery('Помилка');
-    }
-  },
-
-  // ===== ГЕНЕРАЦІЯ AI ВІДПОВІДІ =====
-  async generateAIResponse(question, user, contextType, tgId) {
-    try {
-      const conversationHistory = await conversationService.getAIConversationHistory(tgId, 3);
-      const userName = user['User Name'] || 'Користувач';
-      const systemPrompt = selectPrompt(contextType);
-      
-      let userPrompt = `Користувач: ${userName}\nПитання: "${question}"`;
-      
-      if (conversationHistory.length > 0) {
-        userPrompt += `\n\nКонтекст попередніх діалогів:\n`;
-        conversationHistory.forEach((conv, i) => {
-          userPrompt += `${i+1}. Питання: "${conv.question}"\n   Відповідь: "${conv.response.substring(0, 200)}..."\n`;
-        });
-      }
-      
-      userPrompt += `\n\nДай персоналізовану відповідь з конкретними діями в стилі "Очі в очі".`;
-
-      console.log(`[AI MENTOR] 🔄 Відправляємо запит до OpenAI`);
-      
-      const response = await chat([
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ], 'gpt-4o-mini', 400);
-
-      if (!response?.trim()) {
-        throw new Error('Порожня відповідь від OpenAI');
-      }
-
-      return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${response}`;
-
-    } catch (error) {
-      console.error('[AI MENTOR] ❌ Помилка OpenAI:', error);
-
-      const contextFallbacks = {
-        [CONTEXT_TYPES.GOAL_SETTING]: '🎯 Твоє бажання ставити цілі показує силу.\n💡 Почни з однієї конкретної мети на тиждень.\n✨ Ти вже знаєш що робити - довіряй собі!',
-        [CONTEXT_TYPES.MOTIVATION]: '💪 Твоя енергія всередині тебе!\n💡 Зроби 5-хвилинну прогулянку і подумай над одним кроком.\n✨ Ти сильніший, ніж думаєш!',
-        [CONTEXT_TYPES.MICRO_ACTIONS]: '🎯 Маленькі кроки ведуть до великих результатів.\n💡 Обери одну дію на 15 хвилин і зроби її зараз.\n✨ Дія створює впевненість!',
-        [CONTEXT_TYPES.LIFE_BALANCE]: '⚖️ Баланс - це вибір пріоритетів.\n💡 Визнач одну сферу для фокусу на цьому тижні.\n✨ Ти маєш силу змінювати!',
-        [CONTEXT_TYPES.BLOCK_ANALYSIS]: '🔍 Розпізнавання блоку - це вже половина перемоги.\n💡 Зроби один маленький крок всупереч страху.\n✨ Твоя сміливість зростає з кожною дією!',
-        [CONTEXT_TYPES.GENERAL]: '🎯 Твоє питання показує силу духу.\n💡 Почни з одного маленького кроку вперед.\n✨ Ти знаєш відповідь, довіряй собі!'
-      };
-
-      return `🤖 AI-НАСТАВНИК ВІДПОВІДАЄ:\n\n${contextFallbacks[contextType] || contextFallbacks[CONTEXT_TYPES.GENERAL]}`;
     }
   }
 };

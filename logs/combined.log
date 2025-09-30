@@ -2655,3 +2655,9 @@
 {"level":"info","message":"[CONVERSATION SERVICE] 💾 ЗБЕРЕЖЕННЯ діалогу для 630111093","timestamp":"2025-09-30T07:42:51.108Z"}
 {"Context_Type":"general","Question_length":36,"Response_length":510,"TG_id":"630111093","level":"info","message":"[CONVERSATION SERVICE] 📊 Дані для збереження:","timestamp":"2025-09-30T07:42:51.109Z"}
 {"level":"info","message":"✅ [CONVERSATION SERVICE] Діалог збережено, ID: recOGFHX9lH5EzXeH","timestamp":"2025-09-30T07:42:51.943Z"}
+{"level":"info","message":"[responseService] Отримано 0 записів для 630111093","timestamp":"2025-09-30T11:53:03.397Z"}
+{"level":"info","message":"[CONVERSATION] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T11:53:03.399Z"}
+{"level":"info","message":"✅ [CONVERSATION] Отримано 3 записів","timestamp":"2025-09-30T11:53:03.656Z"}
+{"level":"info","message":"[CONVERSATION] 💾 Збереження діалогу для 630111093","timestamp":"2025-09-30T11:53:10.497Z"}
+{"Context":"motivation","Course":null,"Has_Actions":false,"Has_Goal":false,"Has_State":true,"TG_id":"630111093","level":"info","message":"[CONVERSATION] 📊 Повні дані:","timestamp":"2025-09-30T11:53:10.498Z"}
+{"level":"error","message":"❌ [CONVERSATION] КРИТИЧНА ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T11:53:11.103Z"}
