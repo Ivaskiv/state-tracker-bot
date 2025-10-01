@@ -1,47 +1,52 @@
 // src/controllers/botController.js - ГОЛОВНИЙ РОУТИНГ
 
-import startHandler from './handlers/startHandler.js';
+import registerStartHandlers, {
+  handleText as startText,
+  handleCallback as startCb
+} from './handlers/startHandler.js';
+
 import textHandler from './handlers/textHandler.js';
 import callbackHandler from './handlers/callbackHandler.js';
 import keyboards from '../utils/keyboards.js';
 
 const botController = (bot) => {
   console.log('🤖 [botController] Ініціалізація...');
-  
+
   // ===== MIDDLEWARE ЛОГУВАННЯ =====
   bot.use(async (ctx, next) => {
     const type = ctx.updateType;
     const from = ctx.from?.id;
-    
     console.log(`➡️ ${type} від ${from}`);
-    
     try {
       await next();
     } catch (error) {
       console.error('💥 Middleware error:', error);
-      try {
-        await ctx.reply('❌ Виникла помилка. Спробуй /start');
-      } catch {}
+      try { await ctx.reply('❌ Виникла помилка. Спробуй /start'); } catch {}
     }
   });
-  
+
   // ===== /START =====
-  bot.start(async (ctx) => {
-    await startHandler.handle(ctx);
-  });
-  
+  // ✅ Реєструємо хендлер команди /start через дефолт-експорт
+  registerStartHandlers(bot);
+
   // ===== ТЕКСТ =====
-  bot.on('text', async (ctx) => {
-    // Ігноруємо команди
-    if (ctx.message?.entities?.some(e => e.type === 'bot_command')) return;
-    await textHandler.handle(ctx);
+  bot.on('text', async (ctx, next) => {
+    // Спочатку даємо шанс онбордингу
+    if (await startText(ctx)) return;
+    // Потім — твій основний текстовий хендлер
+    if (await textHandler(ctx)) return;
+    return next();
   });
-  
+
   // ===== CALLBACK =====
-  bot.on('callback_query', async (ctx) => {
-    await callbackHandler.handle(ctx);
+  bot.on('callback_query', async (ctx, next) => {
+    // Спочатку онбординг
+    if (await startCb(ctx)) return;
+    // Потім — глобальні callback-и
+    if (await callbackHandler(ctx)) return;
+    return next();
   });
-  
+
   // ===== ГЛОБАЛЬНІ ПОМИЛКИ =====
   bot.catch(async (err, ctx) => {
     console.error('❌ Global error:', err);
@@ -51,7 +56,7 @@ const botController = (bot) => {
       } catch {}
     }
   });
-  
+
   console.log('✅ [botController] Готовий');
   return { bot };
 };

@@ -43,3 +43,4 @@
 {"level":"error","message":"❌ [CONVERSATION] ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T13:06:35.721Z"}
 {"error":"INVALID_FILTER_BY_FORMULA","level":"error","message":"❌ [CONVERSATION] Помилка генерації звіту: The formula for filtering records is invalid: Unknown field names: date","statusCode":422,"timestamp":"2025-09-30T13:15:41.645Z"}
 {"level":"error","message":"❌ [CONVERSATION] ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T13:17:48.315Z"}
+{"level":"error","message":"❌ [CONVERSATION] ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T13:43:43.430Z"}

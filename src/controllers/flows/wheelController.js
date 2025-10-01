@@ -15,7 +15,6 @@ const wheelController = {
     console.log(`[WHEEL] 🎯 Запит на колесо від ${tgId}`);
     
     try {
-      await typing(ctx, 1000);
       
       const user = await userService.getUserByTelegramId(tgId);
       

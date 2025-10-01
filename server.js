@@ -6,6 +6,7 @@ import { Telegraf, session } from 'telegraf';
 import botController from './src/controllers/botController.js';
 import { testConnection, validateTables } from './src/config/database.js';
 import { startScheduler, stopScheduler } from './src/utils/scheduler.js';
+import { typingMiddleware } from './src/utils/typing.js';
 
 const { TELEGRAM_BOT_TOKEN, NODE_ENV, TZ } = process.env;
 
@@ -31,7 +32,8 @@ bot.use(session({
     ai: null
   }) 
 }));
-
+// ✅ ДОДАТИ 1.10
+bot.use(typingMiddleware());
 // ===== ГЛОБАЛЬНИЙ ERROR HANDLER =====
 bot.catch((err, ctx) => {
   console.error('❌ [bot] Unhandled error:', {

@@ -10,5 +10,28 @@ export const typing = async (ctx, delay = 800) => {
   }
 };
 
-// ВИПРАВИТИ експорт:
+// ===== MIDDLEWARE TYPING (для автоматичного виклику) =====
+export const typingMiddleware = () => {
+  return async (ctx, next) => {
+    // Пропускаємо для callback_query
+    if (ctx.updateType === 'callback_query') {
+      return next();
+    }
+    
+    try {
+      // Показуємо typing тільки для текстових повідомлень
+      if (ctx.chat && ctx.chat.id) {
+        await ctx.telegram.sendChatAction(ctx.chat.id, 'typing');
+        
+        // Коротка затримка для middleware (щоб не сповільнювати)
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+    } catch (error) {
+      // Ігноруємо помилки typing
+    }
+    
+    return next();
+  };
+};
+
 export default typing;

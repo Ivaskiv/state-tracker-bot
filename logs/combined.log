@@ -2675,3 +2675,11 @@
 {"level":"info","message":"[CONVERSATION] 💾 Збереження діалогу для 630111093","timestamp":"2025-09-30T13:17:47.517Z"}
 {"Context":"general","Created_At":"2025-09-30T13:17:47.517Z","Date":"2025-09-30","Has_Actions":true,"Has_Goal":false,"TG_id":"630111093","level":"info","message":"[CONVERSATION] 📊 Дані для збереження:","timestamp":"2025-09-30T13:17:47.517Z"}
 {"level":"error","message":"❌ [CONVERSATION] ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T13:17:48.315Z"}
+{"level":"info","message":"[responseService] Отримано 0 записів для 630111093","timestamp":"2025-09-30T13:43:36.514Z"}
+{"level":"info","message":"[CONVERSATION] 📖 Отримання історії для 630111093, ліміт: 3","timestamp":"2025-09-30T13:43:36.523Z"}
+{"level":"info","message":"✅ [CONVERSATION] Отримано 3 записів","timestamp":"2025-09-30T13:43:36.745Z"}
+{"level":"info","message":"[CONVERSATION] 💾 Збереження діалогу для 630111093","timestamp":"2025-09-30T13:43:42.821Z"}
+{"Context":"life_balance","Created_At":"2025-09-30T13:43:42.821Z","Date":"2025-09-30","Has_Actions":false,"Has_Goal":false,"TG_id":"630111093","level":"info","message":"[CONVERSATION] 📊 Дані для збереження:","timestamp":"2025-09-30T13:43:42.822Z"}
+{"level":"error","message":"❌ [CONVERSATION] ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T13:43:43.430Z"}
+{"level":"info","message":"[responseService] Отримано 12 записів для 630111093","timestamp":"2025-09-30T13:49:49.635Z"}
+{"level":"info","message":"[responseService] Отримано 0 записів для 630111093","timestamp":"2025-09-30T13:50:01.755Z"}

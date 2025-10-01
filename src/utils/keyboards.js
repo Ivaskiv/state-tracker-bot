@@ -30,7 +30,25 @@ const keyboards = {
       }
     };
   },
-
+quickStartInlineKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🤖 AI наставник', callback_data: 'ai_start_question' },
+            { text: '🎯 Колесо балансу', callback_data: 'wheel_start' }
+          ],
+          [
+            { text: '📊 Мій прогрес', callback_data: 'wheel_stats' },
+            { text: '💰 Підписка', callback_data: 'subscription_info' }
+          ],
+          [
+            { text: '🏠 Головне меню', callback_data: 'main_menu' }
+          ]
+        ]
+      }
+    };
+  },
   // ====== ОНБОРДИНГ ======
   onboardingStartKeyboard() {
     return {

@@ -1,76 +1,87 @@
-// src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО
+// src/controllers/flows/mainFlowController.js
 
+// ❌ НЕПРАВИЛЬНО:
+// import userService from '../../auth/services/userService.js';
+
+// ✅ ПРАВИЛЬНО:
 import userService from '../../services/userService.js';
+
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
+import { aiMentorSession } from '../../aiMentor/session.js';
+
+// Контролери
+import wheelController from './wheelController.js';
+import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
+import subscriptionController from '../subscriptionController.js';
+import reportService from '../../services/reportService.js';
+import sessionHandler from '../handlers/sessionHandler.js';
 
 const mainFlowController = {
   
-  // ===== ОБРОБКА /start =====
+  // ===== /start =====
   async handleStart(ctx) {
     const tgId = ctx.from.id;
     const name = ctx.from.first_name || 'Користувач';
     
-    console.log(`[MAIN FLOW] 🚀 Start для ${tgId} (${name})`);
+    console.log(`[MAIN FLOW] 🚀 Start: ${tgId} (${name})`);
 
     try {
-      await typing(ctx, 1000);
+      const user = await userService.getUserByTgId(tgId);
 
-      // Отримуємо користувача
-      let user = null;
-      try {
-        user = await userService.getUserByTelegramId(tgId);
-      } catch (error) {
-        console.warn(`[MAIN FLOW] ⚠️ Помилка отримання користувача ${tgId}:`, error.message);
-      }
-
-      // СЦЕНАРІЙ 1: Користувач не існує - реєстрація
+      // Новий користувач
       if (!user) {
-        console.log(`[MAIN FLOW] 🆕 Новий користувач ${tgId} - запуск реєстрації`);
+        console.log(`[MAIN FLOW] 🆕 Новий: ${tgId}`);
         await this.startRegistration(ctx, name);
         return;
       }
 
-      // СЦЕНАРІЙ 2: Користувач не завершив реєстрацію
+      // Незавершена реєстрація
       if (!user.UserRegistered || !user['User Name'] || !user.Email) {
-        console.log(`[MAIN FLOW] ⚠️ Користувач ${tgId} не завершив реєстрацію`);
+        console.log(`[MAIN FLOW] ⚠️ Незавершена реєстрація: ${tgId}`);
         await this.startRegistration(ctx, name);
         return;
       }
 
-      // СЦЕНАРІЙ 3: Перевіряємо підписку
+      // Перевірка підписки
       const hasAccess = userService.hasActiveAccess(user);
-      console.log(`[MAIN FLOW] 💰 Підписка для ${tgId}: ${hasAccess ? 'АКТИВНА' : 'НЕАКТИВНА'}`);
+      console.log(`[MAIN FLOW] 💰 Підписка ${tgId}: ${hasAccess ? 'ТАК' : 'НІ'}`);
 
       if (!hasAccess) {
         await this.showSubscriptionRequired(ctx, user);
         return;
       }
 
-      // СЦЕНАРІЙ 4: Перевіряємо перше колесо балансу
+      // Активна сесія
+      const activeSession = await sessionHandler.isActiveSession(tgId);
+      if (activeSession) {
+        await sessionHandler.handleBlockedMenu(ctx);
+        return;
+      }
+
+      // Перше колесо
       const hasWheel = await this.checkFirstWheel(tgId);
-      console.log(`[MAIN FLOW] 🎯 Перше колесо для ${tgId}: ${hasWheel ? 'ПРОЙДЕНО' : 'НЕ ПРОЙДЕНО'}`);
+      console.log(`[MAIN FLOW] 🎯 Колесо ${tgId}: ${hasWheel ? 'ТАК' : 'НІ'}`);
 
       if (!hasWheel) {
         await this.showFirstWheel(ctx, user);
         return;
       }
 
-      // СЦЕНАРІЙ 5: Все готово - головне меню
-      console.log(`[MAIN FLOW] ✅ Все готово для ${tgId} - показуємо головне меню`);
+      // Головне меню
+      console.log(`[MAIN FLOW] ✅ Меню: ${tgId}`);
       await this.showMainMenu(ctx, user);
 
     } catch (error) {
-      console.error('[MAIN FLOW] ❌ Помилка handleStart:', error);
-      await ctx.reply('❌ Помилка запуску. Спробуй ще раз /start', keyboards.mainMenuKeyboard());
+      console.error('[MAIN FLOW] ❌ handleStart:', error);
+      await ctx.reply('❌ Помилка. Спробуй /start', keyboards.emergencyKeyboard());
     }
   },
 
-  // ===== ОБРОБКА ТЕКСТУ =====
+  // ===== ТЕКСТ =====
   async handleText(ctx, text, user) {
     const tgId = ctx.from.id;
-    
-    console.log(`[MAIN FLOW] 💬 Обробка команди "${text}" від ${tgId}`);
+    console.log(`[MAIN FLOW] 💬 "${text}" від ${tgId}`);
 
     const hasAccess = userService.hasActiveAccess(user);
 
@@ -80,8 +91,7 @@ const mainFlowController = {
           await this.showFeatureBlocked(ctx, 'AI наставник');
           return;
         }
-        const aiMentorController = await import('../../aiMentor/controllers/aiMentorController.js');
-        await aiMentorController.default.handleAIMentorRequest(ctx);
+        await aiMentorController.handleAIMentorRequest(ctx);
         break;
         
       case '🎯 Колесо балансу':
@@ -89,13 +99,11 @@ const mainFlowController = {
           await this.showFeatureBlocked(ctx, 'Колесо балансу');
           return;
         }
-        const wheelController = await import('./wheelController.js');
-        await wheelController.default.handleRequest(ctx);
+        await wheelController.handleRequest(ctx);
         break;
         
       case '💰 Підписка':
-        const subscriptionController = await import('../subscriptionController.js');
-        await subscriptionController.default.handleSubscriptionInfo(ctx);
+        await subscriptionController.handleSubscriptionInfo(ctx);
         break;
         
       case '💎 Афірмація':
@@ -115,6 +123,7 @@ const mainFlowController = {
           await this.showFeatureBlocked(ctx, 'Щотижневий звіт');
           return;
         }
+        await typing(ctx, 2000);
         await this.generateWeeklyReport(ctx, tgId);
         break;
         
@@ -123,6 +132,7 @@ const mainFlowController = {
           await this.showFeatureBlocked(ctx, 'Щомісячний звіт');
           return;
         }
+        await typing(ctx, 2000);
         await this.generateMonthlyReport(ctx, tgId);
         break;
         
@@ -139,51 +149,79 @@ const mainFlowController = {
         break;
         
       default:
-        console.log(`[MAIN FLOW] ❓ Невідома команда: "${text}"`);
-        await ctx.reply('❓ Не розпізнав команду. Обери з меню нижче:', keyboards.mainMenuKeyboard());
+        console.log(`[MAIN FLOW] ❓ Невідома: "${text}"`);
+        await ctx.reply('❓ Не розпізнав команду', keyboards.mainMenuKeyboard());
     }
   },
 
-  // ===== ОБРОБКА CALLBACK =====
+  // ===== CALLBACK =====
   async handleCallback(ctx, data, user) {
     const tgId = ctx.from.id;
-    
     console.log(`[MAIN FLOW] 📱 Callback: ${data} від ${tgId}`);
 
     try {
       switch (data) {
         case 'main_menu':
-          const currentUser = user || await userService.getUserByTelegramId(tgId);
+          const currentUser = user || await userService.getUserByTgId(tgId);
           await this.showMainMenu(ctx, currentUser);
+          await ctx.answerCbQuery();
+          break;
+          
+        case 'continue_session':
+          const userStep = user?.Answer_Step;
+          
+          if (aiMentorSession.isActive?.(tgId)) {
+            await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
+            await ctx.reply('💬 Продовжуємо діалог. Напиши питання!');
+          } else if (userStep === 'WheelBalance') {
+            await wheelController.handleCallback(ctx, 'wheel_continue');
+          } else if (userStep?.startsWith('Q_m_')) {
+            const dailyController = await import('./dailyController.js');
+            await dailyController.default.handleCallback(ctx, 'start_morning');
+          } else if (userStep?.startsWith('Q_e_')) {
+            const dailyController = await import('./dailyController.js');
+            await dailyController.default.handleCallback(ctx, 'start_evening');
+          }
+          
+          await ctx.answerCbQuery('Продовжуємо');
           break;
           
         case 'my_progress':
-          const progressUser = user || await userService.getUserByTelegramId(tgId);
+          const progressUser = user || await userService.getUserByTgId(tgId);
           await this.showProgress(ctx, progressUser);
+          await ctx.answerCbQuery();
           break;
           
         case 'get_weekly_report':
+          await typing(ctx, 2000);
           await this.generateWeeklyReport(ctx, tgId);
+          await ctx.answerCbQuery();
           break;
           
         case 'get_monthly_report':
+          await typing(ctx, 2000);
           await this.generateMonthlyReport(ctx, tgId);
+          await ctx.answerCbQuery();
           break;
           
         case 'show_affirmation':
           await this.showAffirmation(ctx);
+          await ctx.answerCbQuery();
           break;
           
         case 'help':
           await this.showHelp(ctx);
+          await ctx.answerCbQuery();
           break;
           
         case 'contact':
           await this.showContact(ctx);
+          await ctx.answerCbQuery();
           break;
           
         case 'instructions':
           await this.showInstructions(ctx);
+          await ctx.answerCbQuery();
           break;
           
         default:
@@ -191,19 +229,20 @@ const mainFlowController = {
           await ctx.answerCbQuery('Команда не розпізнана');
       }
     } catch (error) {
-      console.error('[MAIN FLOW] ❌ Помилка callback:', error);
+      console.error('[MAIN FLOW] ❌ Callback:', error);
+      await ctx.answerCbQuery('Помилка');
     }
   },
 
-  // ===== ДОПОМІЖНІ МЕТОДИ =====
+  // ===== ДОПОМІЖНІ =====
 
   async startRegistration(ctx, name) {
     const message = 
       `👋 Привіт, ${name}!\n\n` +
-      `Я твій AI-мотиватор та коуч! Допомагаю:\n\n` +
-      `🎯 Ставити та досягати цілі\n` +
-      `⚖️ Знаходити баланс у житті\n` +
-      `💪 Підтримувати мотивацію\n` +
+      `Я твій AI-коуч! Допомагаю:\n\n` +
+      `🎯 Досягати цілі\n` +
+      `⚖️ Знаходити баланс\n` +
+      `💪 Тримати мотивацію\n` +
       `📈 Відслідковувати прогрес\n\n` +
       `Готова розпочати?`;
 
@@ -214,19 +253,19 @@ const mainFlowController = {
     const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
     
     const message = 
-      `👋 З поверненням, ${userName}!\n\n` +
-      `💡 Для повного доступу потрібна активна підписка:\n\n` +
+      `👋 Привіт, ${userName}!\n\n` +
+      `💡 Для доступу потрібна підписка:\n\n` +
       `🎯 AI коучинг 24/7\n` +
       `📊 Колесо балансу\n` +
-      `📈 Персональна аналітика\n\n` +
-      `💰 Активуй підписку:`;
+      `📈 Аналітика\n\n` +
+      `Активуй підписку:`;
 
     await ctx.reply(message, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🎁 Пробний період 7 днів', callback_data: 'activate_trial' }],
-          [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
-          [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }]
+          [{ text: '🎁 Trial 7 днів', callback_data: 'activate_trial' }],
+          [{ text: '💰 Плани', callback_data: 'subscription_plans' }],
+          [{ text: '🔄 Оновити', callback_data: 'sync_subscription' }]
         ]
       }
     });
@@ -236,20 +275,17 @@ const mainFlowController = {
     const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
     
     const message = 
-      `🎯 ПЕРШЕ КОЛЕСО БАЛАНСУ\n\n` +
-      `Привіт, ${userName}! 👋\n\n` +
-      `Рекомендую почати з колеса балансу 🌀\n` +
-      `Це допоможе AI-наставнику дати тобі максимально ` +
-      `персоналізовані підказки та рекомендації.\n\n` +
-      `📊 8 сфер життя (5–10 хв)\n` +
-      `🎯 Отримаєш інсайти та план дій\n\n` +
-      `Готова почати?`;
+      `🎯 ПЕРШЕ КОЛЕСО\n\n` +
+      `${userName}, щоб персоналізувати AI-наставника, заповни колесо балансу.\n\n` +
+      `📊 8 сфер життя (5-10 хв)\n` +
+      `🎯 Персональні рекомендації\n\n` +
+      `Готова?`;
 
     await ctx.reply(message, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' }],
-          [{ text: '❓ Що це таке?', callback_data: 'wheel_info' }],
+          [{ text: '🎯 Почати', callback_data: 'wheel_start' }],
+          [{ text: '❓ Інфо', callback_data: 'wheel_info' }],
           [{ text: '⏭ Пізніше', callback_data: 'main_menu' }]
         ]
       }
@@ -264,26 +300,29 @@ const mainFlowController = {
       `🏠 Головне меню\n\n` +
       `👋 ${userName}\n` +
       `${status}\n\n` +
-      `Готова до продуктивного дня?`;
+      `Обери дію з меню або очікуй:\n\n` +
+      `🌞 Ранкові питання — щодня о 08:00\n` +
+      `🌙 Вечірні питання — щодня о 21:30\n` +
+      `📊 Щотижневі звіти — щонеділі\n` +
+      `🎯 Щомісячне колесо — 1-го числа\n\n` +
+      `💡 Використовуй AI наставника 24/7`;
 
     await ctx.reply(message, keyboards.mainMenuKeyboard());
     
-    // Оновлюємо активність в фоні
-    userService.updateUser(ctx.from.id, { 
+    userService.updateUserFields(ctx.from.id, { 
       Last_Activity: new Date().toISOString() 
-    }).catch(error => console.warn('Помилка оновлення активності:', error));
+    }).catch(() => {});
   },
 
-  async showFeatureBlocked(ctx, featureName) {
+  async showFeatureBlocked(ctx, name) {
     await ctx.reply(
-      `🚫 ${featureName} недоступний\n\n` +
-      `❌ Потрібна активна підписка.\n\n` +
-      `💰 Активуй підписку:`,
+      `🚫 ${name} недоступний\n\n` +
+      `Потрібна активна підписка.`,
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🎁 Пробний період 7 днів', callback_data: 'activate_trial' }],
-            [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
+            [{ text: '🎁 Trial 7 днів', callback_data: 'activate_trial' }],
+            [{ text: '💰 Плани', callback_data: 'subscription_plans' }],
             [{ text: '🏠 До меню', callback_data: 'main_menu' }]
           ]
         }
@@ -292,17 +331,15 @@ const mainFlowController = {
   },
 
   async showProgress(ctx, user) {
-    await typing(ctx);
-    
     const message = 
       `📊 ТВІЙ ПРОГРЕС\n\n` +
-      `Тут відображається твоя статистика та досягнення.\n\n` +
-      `📈 Дані оновлюються після кожної сесії.`;
+      `Статистика та досягнення.\n\n` +
+      `Дані оновлюються після кожної сесії.`;
 
     await ctx.reply(message, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📊 Колесо балансу', callback_data: 'wheel_stats' }],
+          [{ text: '📊 Колесо', callback_data: 'wheel_stats' }],
           [{ text: '🤖 AI діалоги', callback_data: 'ai_report' }],
           [{ text: '🏠 До меню', callback_data: 'main_menu' }]
         ]
@@ -311,113 +348,99 @@ const mainFlowController = {
   },
 
   async generateWeeklyReport(ctx, tgId) {
-    await typing(ctx, 2000);
-    
     try {
       await ctx.reply('📊 Генерую щотижневий звіт...');
       
-      const reportService = await import('../../services/reportService.js');
-      const report = await reportService.default.generateReport(tgId, 7);
-      
-      const message = `📊 ЩОТИЖНЕВИЙ AI-ЗВІТ\n\n${report}`;
-      
-      await ctx.reply(message, {
+      const report = await reportService.generateReport(tgId, 7);
+      await ctx.reply(`📊 ЩОТИЖНЕВИЙ ЗВІТ\n\n${report}`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📈 Щомісячний звіт', callback_data: 'get_monthly_report' }],
+            [{ text: '📈 Щомісячний', callback_data: 'get_monthly_report' }],
             [{ text: '🏠 До меню', callback_data: 'main_menu' }]
           ]
         }
       });
       
     } catch (error) {
-      console.error('[MAIN FLOW] Помилка щотижневого звіту:', error);
-      await ctx.reply('❌ Помилка генерації звіту. Спробуй пізніше.');
+      console.error('[MAIN FLOW] Помилка звіту:', error);
+      await ctx.reply('❌ Помилка генерації. Спробуй пізніше.');
     }
   },
 
   async generateMonthlyReport(ctx, tgId) {
-    await typing(ctx, 2000);
-    
     try {
       await ctx.reply('📅 Генерую щомісячний звіт...');
       
-      const reportService = await import('../../services/reportService.js');
-      const report = await reportService.default.generateReport(tgId, 30);
-      
-      const message = `📅 ЩОМІСЯЧНИЙ AI-ЗВІТ\n\n${report}`;
-      
-      await ctx.reply(message, {
+      const report = await reportService.generateReport(tgId, 30);
+      await ctx.reply(`📅 ЩОМІСЯЧНИЙ ЗВІТ\n\n${report}`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🎯 Нове колесо балансу', callback_data: 'wheel_start' }],
+            [{ text: '🎯 Нове колесо', callback_data: 'wheel_start' }],
             [{ text: '🏠 До меню', callback_data: 'main_menu' }]
           ]
         }
       });
       
     } catch (error) {
-      console.error('[MAIN FLOW] Помилка щомісячного звіту:', error);
-      await ctx.reply('❌ Помилка генерації звіту. Спробуй пізніше.');
+      console.error('[MAIN FLOW] Помилка звіту:', error);
+      await ctx.reply('❌ Помилка генерації. Спробуй пізніше.');
     }
   },
 
   async showAffirmation(ctx) {
     const affirmations = [
       'Моя енергія створює позитивні зміни',
-      'Я заслуговую на все найкраще прямо зараз', 
-      'Моя рішучість творить нові можливості',
-      'Щодня я впевнено просуваюся до мети',
-      'Дія — це моя мова проти страху',
-      'Кожне рішення прокачує мою рішучість',
+      'Я заслуговую на все найкраще', 
+      'Моя рішучість творить можливості',
+      'Щодня впевнено йду до мети',
+      'Дія — мова проти страху',
+      'Кожне рішення прокачує рішучість',
       'Впевненість і рішучість — мої інструменти'
     ];
     
-    const randomAffirmation = affirmations[Math.floor(Math.random() * affirmations.length)];
-    
-    await ctx.reply(`✨ ${randomAffirmation}`, keyboards.mainMenuKeyboard());
+    const random = affirmations[Math.floor(Math.random() * affirmations.length)];
+    await ctx.reply(`✨ ${random}`, keyboards.mainMenuKeyboard());
   },
 
   async showHelp(ctx) {
     const message = 
       `❓ ДОПОМОГА\n\n` +
-      `При питаннях або технічних проблемах:\n\n` +
-      `📧 Email: nadyastarway@gmail.com\n` +
-      `💬 Telegram: @Nadya2316\n\n` +
-      `⏰ Відповідаємо протягом 2-4 годин у робочі дні.`;
+      `При питаннях:\n\n` +
+      `📧 nadyastarway@gmail.com\n` +
+      `💬 @Nadya2316\n\n` +
+      `⏰ Відповідь 2-4 год у робочі дні`;
         
     await ctx.reply(message, keyboards.mainMenuKeyboard());
   },
 
   async showContact(ctx) {
     const message = 
-      `📞 ЗВ'ЯЗОК З НАМИ\n\n` +
-      `💬 **ТЕХПІДТРИМКА:**\n` +
+      `📞 КОНТАКТИ\n\n` +
+      `💬 ТЕХПІДТРИМКА:\n` +
       `Email: nadyastarway@gmail.com\n` +
-      `Telegram: @Nadya2316 (ментор)\n` +
-      `Telegram: @vira_333 (техпідтримка)\n\n` +
-      `📋 **ПИТАННЯ ПРО ПІДПИСКУ:**\n` +
-      `Пишіть з вказівкою Telegram ID: ${ctx.from.id}\n\n` +
-      `⏰ **ЧАС ВІДПОВІДІ:**\n` +
-      `2-4 години у робочі дні`;
+      `@Nadya2316 (ментор)\n` +
+      `@vira_333 (техпідтримка)\n\n` +
+      `📋 ПІДПИСКА:\n` +
+      `Telegram ID: ${ctx.from.id}\n\n` +
+      `⏰ Відповідь 2-4 год`;
         
     await ctx.reply(message, keyboards.mainMenuKeyboard());
   },
 
   async showInstructions(ctx) {
     const message = 
-      `📝 ЯК КОРИСТУВАТИСЯ\n\n` +
-      `🚀 **ПОЧАТОК:**\n` +
-      `/start → реєстрація → підписка → колесо балансу\n\n` +
-      `📊 **ЩОДНЯ:**\n` +
-      `🌞 Ранкові питання (08:00)\n` +
-      `🌙 Вечірні питання (21:30)\n` +
-      `🤖 AI наставник для підтримки\n\n` +
-      `📈 **АНАЛІТИКА:**\n` +
+      `📝 ІНСТРУКЦІЯ\n\n` +
+      `🚀 ПОЧАТОК:\n` +
+      `/start → реєстрація → підписка → колесо\n\n` +
+      `📊 ЩОДНЯ:\n` +
+      `🌞 Ранкові (08:00)\n` +
+      `🌙 Вечірні (21:30)\n` +
+      `🤖 AI наставник\n\n` +
+      `📈 АНАЛІТИКА:\n` +
       `📊 Щотижневі звіти\n` +
       `📅 Щомісячні звіти\n` +
-      `🎯 Колесо балансу (щомісяця)\n\n` +
-      `💡 Відповідай щиро, використовуй AI наставника`;
+      `🎯 Колесо (щомісяця)\n\n` +
+      `💡 Відповідай щиро`;
         
     await ctx.reply(message, keyboards.mainMenuKeyboard());
   },
@@ -436,7 +459,7 @@ const mainFlowController = {
       
       return records.length > 0;
     } catch (error) {
-      console.error('[MAIN FLOW] Помилка перевірки колеса:', error);
+      console.error('[MAIN FLOW] Помилка колеса:', error);
       return false;
     }
   }
