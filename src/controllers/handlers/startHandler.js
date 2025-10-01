@@ -1,5 +1,4 @@
 // src/controllers/handlers/startHandler.js
-// Централізовано: повідомлення/константи з constants.js, клавіатури з keyboards.js
 
 import userService from '../../services/userService.js';
 import onboardingService from '../../services/onboardingService.js';
@@ -46,7 +45,7 @@ export default function registerStartHandlers(bot) {
       let user = await userService.getUserByTgId(tgId);
       if (!user) {
         user = await userService.ensureUser(tgId, telegramName);
-        await ctx.reply(MESSAGES.WELCOME(telegramName), keyboards.greetingKeyboard());
+        await ctx.reply(MESSAGES.WELCOME(telegramName));
         return;
       }
 
@@ -64,9 +63,9 @@ export default function registerStartHandlers(bot) {
       const endStr = formatDateUA(user.End_Date) || 'скоро';
 
       if (isAccessActive(user)) {
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.quickStartInlineKeyboard());
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr));
       } else {
-        await ctx.reply(MESSAGES.WELCOME_BACK_INACTIVE(name), keyboards.quickStartInlineKeyboard());
+        await ctx.reply(MESSAGES.WELCOME_BACK_INACTIVE(name));
       }
     } catch (e) {
       console.error('[startHandler]/start error:', e);
@@ -176,7 +175,7 @@ export const handleCallback = async (ctx) => {
       if (isAccessActive(user)) {
         const name = user['User Name'] || ctx.from.first_name || 'друже';
         const endStr = formatDateUA(user.End_Date) || 'скоро';
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr));
         return true;
       }
 
@@ -192,7 +191,7 @@ export const handleCallback = async (ctx) => {
         const name = user['User Name'] || ctx.from.first_name || 'друже';
         const fresh = await userService.getUserByTgId(tgId);
         const endStr = formatDateUA(fresh?.End_Date) || computeTrialEndFromNow(7);
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr));
       }
       return true;
     }

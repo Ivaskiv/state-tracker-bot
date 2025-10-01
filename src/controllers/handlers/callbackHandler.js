@@ -11,12 +11,12 @@ import keyboards from '../../utils/keyboards.js';
 
 export const handle = async (ctx) => {
   const userId = ctx.from.id;
-  const data = ctx.callbackQuery?.data;
+  const data = ctx.callbackQuery?.data || '';
 
   console.log(`[callbackHandler] ${data} від ${userId}`);
 
   if (antiSpam.isSpam(userId, data)) {
-    await ctx.answerCbQuery('⏳ Зачекай трохи');
+    await ctx.answerCbQuery('⏳ Зачекай трохи').catch(() => {});
     return true;
   }
   await ctx.answerCbQuery().catch(() => {});
@@ -25,33 +25,50 @@ export const handle = async (ctx) => {
     // 1) онбординг
     if (await startCb(ctx)) return true;
 
-    // 2) підписки
-    if (data.startsWith('subscription_') || data.startsWith('subscribe_') ||
-        data === 'activate_trial' || data === 'sync_subscription' ||
-        data === 'contact_support' || data.startsWith('plan_')) {
+    // 2) явний старт ранкової/вечірньої сесії (ПРІОРИТЕТНО!)
+    if (data === 'start_morning') {
+      await dailyController.startMorningSession(ctx);
+      return true;
+    }
+    if (data === 'start_evening') {
+      await dailyController.startEveningSession(ctx);
+      return true;
+    }
+
+    // 3) підписки
+    if (
+      data.startsWith('subscription_') || data.startsWith('subscribe_') ||
+      data === 'activate_trial' || data === 'sync_subscription' ||
+      data === 'contact_support' || data.startsWith('plan_')
+    ) {
       await subscriptionController.handleCallback(ctx);
       return true;
     }
 
-    // 3) колесо
+    // 4) колесо
     if (data.startsWith('wheel_')) {
       await wheelController.handleCallback(ctx, data);
       return true;
     }
 
-    // 4) AI
+    // 5) AI
     if (data.startsWith('ai_')) {
       await aiMentorController.handleAIMentorCallback(ctx);
       return true;
     }
 
-    // 5) ранкові/вечірні
-    if (data.includes('morning') || data.includes('evening')) {
+    // 6) інші ранкові/вечірні дії (continue_/later_/exit_ тощо)
+    if (
+      data.startsWith('continue_morning') || data.startsWith('later_morning') ||
+      data.startsWith('continue_evening') || data.startsWith('later_evening') ||
+      data === 'exit_morning' || data === 'exit_evening' ||
+      data.includes('morning') || data.includes('evening')
+    ) {
       await dailyController.handleCallback(ctx, data);
       return true;
     }
 
-    // 6) головне/звіти/тощо
+    // 7) головне / звіти / службові
     switch (data) {
       case 'main_menu':
       case 'open_main':

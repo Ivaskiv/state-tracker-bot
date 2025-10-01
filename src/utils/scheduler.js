@@ -1,370 +1,358 @@
-// src/utils/scheduler.js - ФІНАЛЬНА ВЕРСІЯ З УСІМА ФУНКЦІЯМИ
+// src/utils/scheduler.js — чисто, централізовано, без хардкоду текстів/кнопок
 
 import cron from 'node-cron';
+
 import userService from '../services/userService.js';
 import paymentService from '../auth/services/paymentService.js';
 import wheelBalanceController from '../controllers/wheelBalanceController.js';
 import activityTracker from '../services/activityTracker.js';
 import subscriptionController from '../controllers/subscriptionController.js';
-import { CRON_SCHEDULES, SCHEDULE } from '../config/constants.js';
 
+import keyboards from '../utils/keyboards.js';
+import {
+  SCHEDULE,
+  CRON_SCHEDULES,
+  SCHEDULER_MESSAGES
+} from '../config/constants.js';
+
+// ----------------- helpers -----------------
 const jobs = [];
 let isSchedulerStarted = false;
+const activeSessions = new Map();   // { tgId: { type, startTime, reminded } }
+const reminderTimers = new Map();   // { tgId: setTimeout }
+const taskReminders = new Map();    // { tgId: setTimeout[] }
+const executionLocks = new Set();   // дедуп виконань (тип + хвилина)
 
-// Відстеження активних сесій для нагадувань
-const activeSessions = new Map();
-const reminderTimers = new Map();
-const taskReminders = new Map();
-
-// Простий захист від дублювання
-const executionLocks = new Set();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const guardExecution = (type) => {
-  const now = new Date();
-  const key = `${type}_${now.toISOString().slice(0, 16)}`;
-  
+  const key = `${type}_${new Date().toISOString().slice(0, 16)}`; // до хвилини
   if (executionLocks.has(key)) {
     console.log(`[scheduler] ⏭️ Дублювання ${type} пропущено`);
     return false;
   }
-  
   executionLocks.add(key);
-  setTimeout(() => executionLocks.delete(key), 120000);
+  setTimeout(() => executionLocks.delete(key), 120_000);
   return true;
 };
+// ДОДАЙ у верхній частині src/utils/scheduler.js поруч із helpers
 
-// ===== РАНКОВІ НАГАДУВАННЯ =====
+const isAccessActiveFallback = (user) => {
+  if (!user) return false;
+  try {
+    if (typeof userService.hasActiveAccess === 'function') {
+      return !!userService.hasActiveAccess(user);
+    }
+  } catch {}
+  const a = (user['Active_Subscription_Status'] || '');
+  const s = (user['Subscription Status'] || '').toLowerCase();
+  return a.includes('✅') || s === 'active';
+};
+
+// універсальний адаптер: повертає масив активних користувачів { TG_id, ... }
+const fetchActiveUsers = async () => {
+  // 1) якщо метод у сервісі є — використовуємо його
+  if (typeof userService.getActiveUsers === 'function') {
+    return await userService.getActiveUsers();
+  }
+
+  // 2) якщо є getAllUsers — відфільтруємо на стороні Node
+  if (typeof userService.getAllUsers === 'function') {
+    const all = await userService.getAllUsers();
+    return (all || [])
+      .map(u => ({
+        ...u,
+        TG_id: u.TG_id || u['TG_id'] || u['TG_ID'] || u['tg_id']
+      }))
+      .filter(u => !!u.TG_id && isAccessActiveFallback(u));
+  }
+
+  // 3) прямий fallback до Airtable
+  try {
+    const { getBase, tables } = await import('../config/database.js');
+    const base = getBase();
+    const USERS_TBL = tables?.USERS || 'Users';
+
+    // TG_id заповнено + (галочка в Active_Subscription_Status або Subscription Status = active)
+    const filterByFormula =
+      'AND(' +
+        'NOT({TG_id} = ""),' +
+        'OR(' +
+          'FIND("✅", {Active_Subscription_Status}) > 0,' +
+          'LOWER({Subscription Status}) = "active"' +
+        ')' +
+      ')';
+
+    // ВАЖЛИВО: pageSize <= 100 або просто прибрати
+    const records = await base(USERS_TBL)
+      .select({
+        filterByFormula,
+        pageSize: 100
+      })
+      .all();
+
+    const users = records
+      .map(r => r.fields)
+      .map(f => ({
+        ...f,
+        TG_id: f.TG_id || f['TG_id'] || f['TG_ID'] || f['tg_id']
+      }))
+      .filter(u => !!u.TG_id);
+
+    return users;
+  } catch (e) {
+    console.error('[scheduler] ❌ fetchActiveUsers fallback error:', e);
+    return [];
+  }
+};
+
+// ----------------- morning / evening -----------------
 const sendMorningReminders = async (bot) => {
   if (!guardExecution('morning')) return;
-  
-  console.log(`[scheduler] 🌞 Ранкові нагадування - ${new Date().toLocaleString()}`);
-  
+
+  console.log(`[scheduler] 🌞 Ранкові нагадування`);
   try {
-    const users = await userService.getActiveUsers();
-    console.log(`[scheduler] Знайдено ${users.length} активних користувачів`);
-    
+    const users = await fetchActiveUsers();
+    console.log(`[scheduler] Активних користувачів: ${users.length}`);
+
     for (const user of users) {
       const tgId = user['TG_id'];
-      const name = user['User Name'] || 'Користувач';
-      
       if (!tgId) continue;
-      
+
       try {
+        const name = user['User Name'] || 'Користувач';
         const completedToday = await checkMorningCompletion(tgId);
         if (completedToday) {
           console.log(`[scheduler] ✅ ${tgId} вже завершив ранкові питання`);
           continue;
         }
 
-        await sendMorningSession(bot, tgId, name);
-        scheduleSessionReminder(bot, tgId, 'Ранкова рефлексія', 'morning');
-        
-        console.log(`[scheduler] ✅ Ранкове нагадування надіслано ${tgId}`);
-        
-      } catch (userError) {
-        console.error(`[scheduler] ❌ Помилка для користувача ${tgId}:`, userError.message);
+        const text = SCHEDULER_MESSAGES.MORNING_SESSION_START(name);
+        await bot.telegram.sendMessage(
+          tgId,
+          text,
+          keyboards.morningStartInline?.() || undefined // якщо таки потрібні мінімальні інлайн-кнопки
+        );
+
+        // якщо ви принципово без інлайнів — просто не додавайте morningStartInline у keyboards
+        // і тригеріть сесію іншим місцем/контролером
+
+        markSessionActive(tgId, 'morning');
+        scheduleSessionReminder(bot, tgId, SCHEDULER_MESSAGES.MORNING_REMINDER, 'morning');
+
+      } catch (err) {
+        console.error(`[scheduler] ❌ Помилка юзера ${tgId}:`, err);
       }
-      
-      await new Promise(r => setTimeout(r, 1000));
+
+      // легкий троттл, щоб не упертися в rate limit
+      await sleep(250);
     }
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка ранкових нагадувань:', error);
+  } catch (e) {
+    console.error('[scheduler] ❌ Помилка ранкових нагадувань:', e);
   }
 };
 
-// ===== ВЕЧІРНІ НАГАДУВАННЯ =====
 const sendEveningReminders = async (bot) => {
   if (!guardExecution('evening')) return;
-  
-  console.log(`[scheduler] 🌙 Вечірні нагадування - ${new Date().toLocaleString()}`);
-  
+
+  console.log(`[scheduler] 🌙 Вечірні нагадування`);
   try {
-    const users = await userService.getActiveUsers();
-    console.log(`[scheduler] Знайдено ${users.length} активних користувачів`);
-    
+    const users = await fetchActiveUsers();
+    console.log(`[scheduler] Активних користувачів: ${users.length}`);
+
     for (const user of users) {
       const tgId = user['TG_id'];
-      const name = user['User Name'] || 'Користувач';
-      
       if (!tgId) continue;
-      
+
       try {
+        const name = user['User Name'] || 'Користувач';
         const completedToday = await checkEveningCompletion(tgId);
         if (completedToday) {
           console.log(`[scheduler] ✅ ${tgId} вже завершив вечірні питання`);
           continue;
         }
 
+        // опціонально можна перевіряти, чи був ранок
         const hadMorning = await checkMorningCompletion(tgId);
-        
-        let message = '';
-        if (hadMorning) {
-          message = `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🌟`;
-        } else {
-          message = `🌙 Добрий вечір, ${name}!\n\nСьогодні не було ранкової рефлексії, але вечірня допоможе підсумувати день! 💫\n\n📝 Важливо зафіксувати перемоги та досвід.`;
-        }
+        const baseText = SCHEDULER_MESSAGES.EVENING_SESSION_START(name);
+        const note = hadMorning ? '' : `\n\n${SCHEDULER_MESSAGES.EVENING_REMINDER}`;
+        await bot.telegram.sendMessage(
+          tgId,
+          baseText + note,
+          keyboards.eveningStartInline?.() || undefined
+        );
 
-        await bot.telegram.sendMessage(tgId, message, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🌙 Почати вечірню рефлексію', callback_data: 'start_evening' }],
-              [{ text: '⏭ Пізніше', callback_data: 'later_evening' }]
-            ]
-          }
-        });
-        
-        scheduleSessionReminder(bot, tgId, 'Вечірня рефлексія', 'evening');
-        
-        console.log(`[scheduler] ✅ Вечірнє нагадування надіслано ${tgId}`);
-        
-      } catch (userError) {
-        console.error(`[scheduler] ❌ Помилка для користувача ${tgId}:`, userError.message);
+        markSessionActive(tgId, 'evening');
+        scheduleSessionReminder(bot, tgId, SCHEDULER_MESSAGES.EVENING_REMINDER, 'evening');
+
+      } catch (err) {
+        console.error(`[scheduler] ❌ Помилка юзера ${tgId}:`, err);
       }
-      
-      await new Promise(r => setTimeout(r, 1000));
+      await sleep(250);
     }
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка вечірніх нагадувань:', error);
+  } catch (e) {
+    console.error('[scheduler] ❌ Помилка вечірніх нагадувань:', e);
   }
 };
 
-// ===== ВІДПРАВКА РАНКОВОЇ СЕСІЇ =====
-const sendMorningSession = async (bot, tgId, name) => {
-  const message = 
-    `🌞 Доброго ранку, ${name}!\n\n` +
-    `✨ Час для ранкової рефлексії та налаштування на день!\n\n` +
-    `📝 6 коротких питань для фокусу та мотивації`;
-
-  await bot.telegram.sendMessage(tgId, message, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🌞 Почати ранкову рефлексію', callback_data: 'start_morning' }],
-        [{ text: '⏭ Пізніше', callback_data: 'later_morning' }]
-      ]
-    }
-  });
-
-  activeSessions.set(String(tgId), {
-    type: 'morning',
-    startTime: new Date(),
-    reminded: false
-  });
-};
-
-// ===== НАГАДУВАННЯ ЧЕРЕЗ 10 ХВИЛИН =====
-const scheduleSessionReminder = (bot, tgId, sessionName, sessionType) => {
+// ----------------- session reminder (10 хв) -----------------
+const scheduleSessionReminder = (bot, tgId, reminderText, sessionType) => {
   const id = String(tgId);
-  
+
+  // скасовуємо попередній таймер
   if (reminderTimers.has(id)) {
     clearTimeout(reminderTimers.get(id));
     reminderTimers.delete(id);
   }
-  
-  const timer = setTimeout(async () => {
+
+  const t = setTimeout(async () => {
     try {
       const session = activeSessions.get(id);
       if (!session || session.reminded) return;
 
-      const message = 
-        `🔔 Нагадування\n\n` +
-        `${sessionName} ще не завершена.\n\n` +
-        `Продовжимо або залишимо на пізніше?`;
+      await bot.telegram.sendMessage(
+        id,
+        reminderText,
+        keyboards.sessionReminderInline?.(sessionType) || undefined
+      );
 
-      await bot.telegram.sendMessage(id, message, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔁 Продовжити', callback_data: `continue_${sessionType}` }],
-            [{ text: '🚪 Вийти', callback_data: `exit_${sessionType}` }]
-          ]
-        }
-      });
-      
-      if (session) {
-        session.reminded = true;
-      }
-      
-      console.log(`[scheduler] 🔔 Нагадування надіслано ${id} про ${sessionName}`);
-      
-    } catch (error) {
-      console.error('[scheduleSessionReminder] Помилка:', error);
+      session.reminded = true;
+      console.log(`[scheduler] 🔔 Нагадування сесії надіслано ${id}`);
+    } catch (err) {
+      console.error('[scheduler] ❌ Помилка session reminder:', err);
     } finally {
       reminderTimers.delete(id);
     }
   }, 10 * 60 * 1000);
-  
-  reminderTimers.set(id, timer);
+
+  reminderTimers.set(id, t);
 };
 
-// ===== SMART-НАГАДУВАННЯ ПРО ЗАДАЧІ =====
+const markSessionActive = (tgId, type) => {
+  activeSessions.set(String(tgId), { type, startTime: new Date(), reminded: false });
+};
+
+export const markSessionCompleted = (tgId, sessionType) => {
+  const id = String(tgId);
+  const s = activeSessions.get(id);
+  if (s && s.type === sessionType) {
+    activeSessions.delete(id);
+    if (reminderTimers.has(id)) {
+      clearTimeout(reminderTimers.get(id));
+      reminderTimers.delete(id);
+    }
+    console.log(`[scheduler] ✅ Сесію ${sessionType} завершено для ${id}`);
+  }
+};
+
+export const cancelSessionReminder = (tgId) => {
+  const id = String(tgId);
+  if (reminderTimers.has(id)) {
+    clearTimeout(reminderTimers.get(id));
+    reminderTimers.delete(id);
+  }
+  if (activeSessions.has(id)) activeSessions.delete(id);
+  console.log(`[scheduler] 🔕 Нагадування/сесію скасовано для ${id}`);
+};
+
+export const isSessionActive = (tgId) => activeSessions.has(String(tgId));
+export const getActiveSession = (tgId) => activeSessions.get(String(tgId)) || null;
+
+// ----------------- SMART-нагадування про задачі -----------------
 export const scheduleTaskReminders = async (bot, tgId, tasks) => {
   const id = String(tgId);
-  
-  console.log(`[scheduler] 📋 Планування SMART-нагадувань для ${id}`);
-  console.log(`[scheduler] Задач: ${tasks?.length || 0}`);
-  
+
+  // скидаємо старі таймери
   if (taskReminders.has(id)) {
-    const oldTimers = taskReminders.get(id);
-    oldTimers.forEach(timer => clearTimeout(timer));
+    taskReminders.get(id).forEach(clearTimeout);
     taskReminders.delete(id);
   }
-  
-  if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
-    console.log(`[scheduler] ⚠️ Немає задач для планування`);
-    return;
-  }
-  
+
+  if (!Array.isArray(tasks) || tasks.length === 0) return;
+
   const timers = [];
-  
+
   for (const task of tasks) {
-    if (!task.time || task.time === 'будь-коли') continue;
-    
-    try {
-      const timeMatch = task.time.match(/(\d{1,2}):(\d{2})/);
-      if (!timeMatch) {
-        console.log(`[scheduler] ⚠️ Некоректний формат часу: ${task.time}`);
-        continue;
+    // допускаємо формати HH:MM або "будь-коли"
+    if (!task?.time || /будь-?коли/i.test(task.time)) continue;
+
+    const m = String(task.time).match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) continue;
+
+    const [, H, M] = m;
+    const taskTime = new Date();
+    taskTime.setHours(parseInt(H, 10), parseInt(M, 10), 0, 0);
+
+    const reminderAt = new Date(taskTime.getTime() - 5 * 60 * 1000);
+    const dt = reminderAt.getTime() - Date.now();
+    if (dt <= 0) continue;
+
+    const t = setTimeout(async () => {
+      try {
+        const txt = SCHEDULER_MESSAGES.TASK_REMINDER(task);
+        await bot.telegram.sendMessage(
+          id,
+          txt,
+          keyboards.taskReminderInline?.() || undefined
+        );
+        console.log(`[scheduler] ✅ SMART-нагадування: ${id} — ${task.action}`);
+      } catch (err) {
+        console.error('[scheduler] ❌ SMART-нагадування помилка:', err);
       }
-      
-      const [_, hours, minutes] = timeMatch;
-      const taskTime = new Date();
-      taskTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      
-      const reminderTime = new Date(taskTime);
-      reminderTime.setMinutes(reminderTime.getMinutes() - 5);
-      
-      const now = new Date();
-      const msUntilReminder = reminderTime.getTime() - now.getTime();
-      
-      if (msUntilReminder > 0) {
-        const timer = setTimeout(async () => {
-          try {
-            await bot.telegram.sendMessage(id, 
-              `⏰ НАГАДУВАННЯ\n\n` +
-              `Через 5 хв стартує:\n` +
-              `${task.action}\n\n` +
-              `🎯 Результат: ${task.result_metric}\n` +
-              `⏱ Тривалість: ${task.duration_min} хв\n\n` +
-              `💪 Тримай фокус!`,
-              {
-                reply_markup: {
-                  inline_keyboard: [
-                    [{ text: '✅ Готовий', callback_data: 'task_start' }],
-                    [{ text: '⏭ Перенести', callback_data: 'task_reschedule' }]
-                  ]
-                }
-              }
-            );
-            
-            console.log(`[scheduler] ✅ SMART-нагадування надіслано ${id}: ${task.action}`);
-            
-          } catch (error) {
-            console.error('[scheduleTaskReminders] Помилка відправки:', error);
-          }
-        }, msUntilReminder);
-        
-        timers.push(timer);
-        console.log(`[scheduler] ⏰ Заплановано нагадування на ${reminderTime.toLocaleTimeString('uk-UA')}: ${task.action}`);
-      }
-      
-    } catch (parseError) {
-      console.error(`[scheduler] ❌ Помилка парсингу задачі:`, parseError);
-    }
+    }, dt);
+
+    timers.push(t);
   }
-  
-  if (timers.length > 0) {
-    taskReminders.set(id, timers);
-    console.log(`[scheduler] 📌 Збережено ${timers.length} SMART-нагадувань для ${id}`);
-  }
-  
+
+  if (timers.length) taskReminders.set(id, timers);
   scheduleMidDayCheck(bot, id, tasks);
 };
 
-// ===== СЕРЕДНЄ НАГАДУВАННЯ =====
-const scheduleMidDayCheck = (bot, tgId, tasks) => {
-  const id = String(tgId);
-  const threeHours = 3 * 60 * 60 * 1000;
-  
-  const timer = setTimeout(async () => {
-    try {
-      const completedCount = tasks.filter(t => t.completed).length;
-      const totalCount = tasks.length;
-      
-      let message = '';
-      
-      if (completedCount === 0) {
-        message = 
-          `⏰ СЕРЕДИНА ДНЯ\n\n` +
-          `Як справи з планом на день?\n\n` +
-          `📋 Заплановано: ${totalCount} дій\n` +
-          `✅ Виконано: ${completedCount}\n\n` +
-          `💡 Почни з найкоротшої дії — 10 хв. Інерція зробить своє!`;
-      } else if (completedCount < totalCount) {
-        message = 
-          `⏰ СЕРЕДИНА ДНЯ\n\n` +
-          `Хороший темп! 💪\n\n` +
-          `✅ Виконано: ${completedCount}/${totalCount}\n` +
-          `📋 Залишилось: ${totalCount - completedCount}\n\n` +
-          `Продовжуй у тому ж дусі!`;
-      } else {
-        message = 
-          `🎉 ЧУДОВО!\n\n` +
-          `Всі дії виконано: ${totalCount}/${totalCount}\n\n` +
-          `💪 Сильний темп! Тримаємо курс.`;
-      }
-      
-      await bot.telegram.sendMessage(id, message, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📊 Деталі', callback_data: 'show_task_details' }],
-            [{ text: '🔄 Оновити план', callback_data: 'update_tasks' }]
-          ]
-        }
-      });
-      
-      console.log(`[scheduler] 🕐 Середнє нагадування надіслано ${id}`);
-      
-    } catch (error) {
-      console.error('[scheduleMidDayCheck] Помилка:', error);
-    }
-  }, threeHours);
-  
-  if (!taskReminders.has(id)) {
-    taskReminders.set(id, []);
-  }
-  taskReminders.get(id).push(timer);
-  
-  console.log(`[scheduler] 🕐 Заплановано середнє нагадування через 3 год для ${id}`);
-};
-
-// ===== СКАСУВАННЯ TASK-НАГАДУВАНЬ =====
 export const cancelTaskReminders = (tgId) => {
   const id = String(tgId);
-  
   if (taskReminders.has(id)) {
-    const timers = taskReminders.get(id);
-    timers.forEach(timer => clearTimeout(timer));
+    taskReminders.get(id).forEach(clearTimeout);
     taskReminders.delete(id);
     console.log(`[scheduler] 🔕 SMART-нагадування скасовано для ${id}`);
   }
 };
 
-// ===== ПЕРЕВІРКА ЗАВЕРШЕННЯ =====
+const scheduleMidDayCheck = (bot, tgId, tasks) => {
+  const id = String(tgId);
+  const t = setTimeout(async () => {
+    try {
+      const completed = tasks.filter((t) => t.completed).length;
+      const total = tasks.length;
+
+      const txt = SCHEDULER_MESSAGES.MIDDAY_SUMMARY(completed, total);
+      await bot.telegram.sendMessage(id, txt, keyboards.midDayCheckInline?.() || undefined);
+      console.log(`[scheduler] 🕐 Серединне нагадування надіслано ${id}`);
+    } catch (err) {
+      console.error('[scheduler] ❌ MidDay помилка:', err);
+    }
+  }, 3 * 60 * 60 * 1000);
+
+  if (!taskReminders.has(id)) taskReminders.set(id, []);
+  taskReminders.get(id).push(t);
+};
+
+// ----------------- перевірки завершення (Airtable) -----------------
 const checkMorningCompletion = async (tgId) => {
   try {
     const { getBase, tables } = await import('../config/database.js');
     const base = getBase();
     const today = new Date().toISOString().split('T')[0];
-    
-    const records = await base(tables.RESPONSES)
+
+    const recs = await base(tables.RESPONSES)
       .select({
         filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${today}", {Q_m_6} != "")`,
         maxRecords: 1
       })
       .firstPage();
-    
-    return records.length > 0;
-  } catch (error) {
-    console.error('[checkMorningCompletion] Помилка:', error);
+
+    return recs.length > 0;
+  } catch (e) {
+    console.error('[checkMorningCompletion] ❌', e);
     return false;
   }
 };
@@ -374,327 +362,230 @@ const checkEveningCompletion = async (tgId) => {
     const { getBase, tables } = await import('../config/database.js');
     const base = getBase();
     const today = new Date().toISOString().split('T')[0];
-    
-    const records = await base(tables.RESPONSES)
+
+    const recs = await base(tables.RESPONSES)
       .select({
         filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${today}", {Q_e_5} != "")`,
         maxRecords: 1
       })
       .firstPage();
-    
-    return records.length > 0;
-  } catch (error) {
-    console.error('[checkEveningCompletion] Помилка:', error);
+
+    return recs.length > 0;
+  } catch (e) {
+    console.error('[checkEveningCompletion] ❌', e);
     return false;
   }
 };
 
-// ===== ✅ ЩОДЕННА ФІНАЛІЗАЦІЯ О 23:59 =====
+// ----------------- фіналізація / щотижневе / щомісячне / підписки -----------------
 const finalizeDailyStats = async () => {
   if (!guardExecution('daily_finalization')) return;
-  
-  console.log(`[scheduler] 🌙 Фіналізація дня - ${new Date().toLocaleString()}`);
-  
+
+  console.log('[scheduler] 🌙 Фіналізація дня');
   try {
-    const users = await userService.getActiveUsers();
-    
+    const users = await fetchActiveUsers();
     for (const user of users) {
       const tgId = user['TG_id'];
       if (!tgId) continue;
-      
       try {
         await activityTracker.finalizeDay(tgId);
-        console.log(`[scheduler] ✅ День фіналізовано для ${tgId}`);
-      } catch (error) {
-        console.error(`[scheduler] ❌ Помилка фіналізації для ${tgId}:`, error);
+      } catch (e) {
+        console.error(`[scheduler] ❌ Фіналізація ${tgId}:`, e);
       }
-      
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(100);
     }
-    
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка щоденної фіналізації:', error);
+  } catch (e) {
+    console.error('[scheduler] ❌ Фіналізація дня помилка:', e);
   }
 };
 
-// ===== ✅ ЩОТИЖНЕВА ПЕРЕВІРКА АКТИВНОСТІ =====
 const checkWeeklyActivity = async (bot) => {
   if (!guardExecution('weekly_activity')) return;
-  
-  console.log(`[scheduler] 📊 Щотижнева перевірка активності - ${new Date().toLocaleString()}`);
-  
+
+  console.log('[scheduler] 📊 Щотижнева активність');
   try {
-    const users = await userService.getActiveUsers();
-    
+    const users = await fetchActiveUsers();
     for (const user of users) {
       const tgId = user['TG_id'];
       if (!tgId) continue;
-      
+
       try {
         await activityTracker.checkWeeklyCompletionRate(tgId);
-        
         const trigger = await activityTracker.checkInactivityTriggers(tgId);
-        
-        if (trigger && trigger.showOffer) {
+
+        if (trigger?.showOffer) {
           await bot.telegram.sendMessage(tgId, trigger.message);
-          await new Promise(r => setTimeout(r, 2000));
-          
-          await subscriptionController.offerService({ 
-            from: { id: tgId },
-            reply: (msg, kb) => bot.telegram.sendMessage(tgId, msg, kb)
-          }, trigger.problemType, trigger);
-          
-          console.log(`[scheduler] 💡 Пропозицію показано ${tgId}: ${trigger.problemType}`);
+          await sleep(300);
+          // невеликий адаптер під інтерфейс subscriptionController
+          await subscriptionController.offerService(
+            { from: { id: tgId }, reply: (msg, kb) => bot.telegram.sendMessage(tgId, msg, kb) },
+            trigger.problemType,
+            trigger
+          );
         }
-        
-      } catch (userError) {
-        console.error(`[scheduler] ❌ Помилка перевірки активності ${tgId}:`, userError);
+      } catch (e) {
+        console.error(`[scheduler] ❌ Активність ${tgId}:`, e);
       }
-      
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(150);
     }
-    
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка щотижневої перевірки:', error);
+  } catch (e) {
+    console.error('[scheduler] ❌ Щотижнева активність помилка:', e);
   }
 };
 
-// ===== ЩОТИЖНЕВІ ЗВІТИ =====
 const sendWeeklyReports = async (bot) => {
-  if (!guardExecution('weekly')) return;
-  
-  console.log(`[scheduler] 📊 Щотижневі звіти - ${new Date().toLocaleString()}`);
-  
+  if (!guardExecution('weekly_reports')) return;
+
+  console.log('[scheduler] 📊 Щотижневі звіти');
   try {
-    const users = await userService.getActiveUsers();
-    
+    const users = await fetchActiveUsers();
     for (const user of users) {
       const tgId = user['TG_id'];
-      const name = user['User Name'] || 'Користувач';
-      
       if (!tgId) continue;
-      
-      try {
-        const message = 
-          `📊 ЩОТИЖНЕВИЙ ЗВІТ\n\n` +
-          `Привіт, ${name}! 📈\n\n` +
-          `Час проаналізувати тиждень та скоригувати стратегію на наступний.\n\n` +
-          `⏱ Займе 5 хвилин`;
 
-        await bot.telegram.sendMessage(tgId, message, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📊 Почати щотижневий аналіз', callback_data: 'start_weekly' }],
-              [{ text: '⏭ Пізніше', callback_data: 'later_weekly' }]
-            ]
-          }
-        });
-        
-        console.log(`[scheduler] ✅ Щотижневий звіт надіслано ${tgId}`);
-        
-      } catch (userError) {
-        console.error(`[scheduler] ❌ Помилка щотижневого звіту для ${tgId}:`, userError.message);
+      try {
+        await bot.telegram.sendMessage(
+          tgId,
+          SCHEDULER_MESSAGES.WEEKLY_PROMPT,
+          keyboards.weeklyReportInline?.() || undefined
+        );
+      } catch (e) {
+        console.error(`[scheduler] ❌ Weekly ${tgId}:`, e);
       }
-      
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(150);
     }
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка щотижневих звітів:', error);
+  } catch (e) {
+    console.error('[scheduler] ❌ Щотижневі звіти помилка:', e);
   }
 };
 
-// ===== ЩОМІСЯЧНІ ЗВІТИ =====
 const sendMonthlyReports = async (bot) => {
   if (!guardExecution('monthly')) return;
-  
-  console.log(`[scheduler] 📅 Щомісячні звіти та колесо балансу - ${new Date().toLocaleString()}`);
-  
+
+  console.log('[scheduler] 📅 Щомісячні звіти + колесо');
   try {
-    const sentReminders = await wheelBalanceController.checkMonthlyWheelNeed(bot);
-    console.log(`[scheduler] ✅ Надіслано ${sentReminders} щомісячних нагадувань про колесо`);
-    
-    const expiredCount = await paymentService.checkExpiringSubscriptions(bot);
-    console.log(`[scheduler] ✅ Надіслано ${expiredCount} нагадувань про підписки`);
-    
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка щомісячних операцій:', error);
+    const sent = await wheelBalanceController.checkMonthlyWheelNeed(bot);
+    console.log(`[scheduler] ✅ Wheel reminders: ${sent}`);
+
+    const exp = await paymentService.checkExpiringSubscriptions(bot);
+    console.log(`[scheduler] ✅ Sub expirations: ${exp}`);
+  } catch (e) {
+    console.error('[scheduler] ❌ Щомісячні операції помилка:', e);
   }
 };
 
-// ===== ПЕРЕВІРКА ПІДПИСОК =====
 const checkExpiredSubscriptions = async () => {
   if (!guardExecution('subscription_check')) return;
-  
-  console.log(`[scheduler] 💰 Перевірка закінчених підписок - ${new Date().toLocaleString()}`);
-  
+
+  console.log('[scheduler] 💰 Перевірка підписок');
   try {
-    const deactivated = await paymentService.deactivateExpiredSubscriptions();
-    console.log(`[scheduler] ✅ Деактивовано ${deactivated} закінчених підписок`);
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка перевірки підписок:', error);
+    const n = await paymentService.deactivateExpiredSubscriptions();
+    console.log(`[scheduler] ✅ Деактивовано: ${n}`);
+  } catch (e) {
+    console.error('[scheduler] ❌ Перевірка підписок помилка:', e);
   }
 };
 
-// ===== УПРАВЛІННЯ СЕСІЯМИ =====
-export const markSessionCompleted = (tgId, sessionType) => {
-  const id = String(tgId);
-  const session = activeSessions.get(id);
-  
-  if (session && session.type === sessionType) {
-    activeSessions.delete(id);
-    
-    if (reminderTimers.has(id)) {
-      clearTimeout(reminderTimers.get(id));
-      reminderTimers.delete(id);
-    }
-    
-    console.log(`[scheduler] ✅ Сесія ${sessionType} завершена для ${id}`);
-  }
-};
-
-export const cancelSessionReminder = (tgId) => {
-  const id = String(tgId);
-  
-  if (reminderTimers.has(id)) {
-    clearTimeout(reminderTimers.get(id));
-    reminderTimers.delete(id);
-    console.log(`[scheduler] 🔕 Нагадування скасовано для ${id}`);
-  }
-  
-  if (activeSessions.has(id)) {
-    activeSessions.delete(id);
-    console.log(`[scheduler] 🚪 Сесія завершена для ${id}`);
-  }
-};
-
-export const isSessionActive = (tgId) => {
-  return activeSessions.has(String(tgId));
-};
-
-export const getActiveSession = (tgId) => {
-  return activeSessions.get(String(tgId)) || null;
-};
-
-// ===== ЗАПУСК ПЛАНУВАЛЬНИКА =====
+// ----------------- запуск / зупинка -----------------
 export const startScheduler = (bot) => {
   if (isSchedulerStarted) {
-    console.log('[scheduler] ⏭️ Scheduler вже запущено');
+    console.log('[scheduler] ⏭️ Уже запущено');
     return;
   }
 
-  console.log('[scheduler] 🚀 Запуск оптимізованого scheduler...');
-  console.log(`[scheduler] Timezone: ${SCHEDULE.TIMEZONE}`);
-  console.log(`[scheduler] Ранок: ${SCHEDULE.MORNING_TIME}`);
-  console.log(`[scheduler] Вечір: ${SCHEDULE.EVENING_TIME}`);
+  console.log('[scheduler] 🚀 Старт');
+  console.log(`[scheduler] TZ: ${SCHEDULE.TIMEZONE}`);
+  console.log(`[scheduler] Ранок: ${SCHEDULE.MORNING_TIME} -> ${CRON_SCHEDULES.MORNING_QUESTIONS}`);
+  console.log(`[scheduler] Вечір: ${SCHEDULE.EVENING_TIME} -> ${CRON_SCHEDULES.EVENING_QUESTIONS}`);
 
   try {
-    const morningJob = cron.schedule(CRON_SCHEDULES.MORNING_QUESTIONS, () => {
-      sendMorningReminders(bot);
-    }, {
-      timezone: SCHEDULE.TIMEZONE,
-      scheduled: true
-    });
-    
-    const eveningJob = cron.schedule(CRON_SCHEDULES.EVENING_QUESTIONS, () => {
-      sendEveningReminders(bot);
-    }, {
-      timezone: SCHEDULE.TIMEZONE,
-      scheduled: true
-    });
+    const morningJob = cron.schedule(
+      CRON_SCHEDULES.MORNING_QUESTIONS,
+      () => sendMorningReminders(bot),
+      { timezone: SCHEDULE.TIMEZONE, scheduled: true }
+    );
 
-    const weeklyJob = cron.schedule('0 19 * * 0', () => {
-      sendWeeklyReports(bot);
-    }, {
-      timezone: SCHEDULE.TIMEZONE,
-      scheduled: true
-    });
+    const eveningJob = cron.schedule(
+      CRON_SCHEDULES.EVENING_QUESTIONS,
+      () => sendEveningReminders(bot),
+      { timezone: SCHEDULE.TIMEZONE, scheduled: true }
+    );
 
-    // ✅ ЩОТИЖНЕВА ПЕРЕВІРКА АКТИВНОСТІ
-    const weeklyActivityJob = cron.schedule('0 20 * * 0', () => {
-      checkWeeklyActivity(bot);
-    }, {
-      timezone: SCHEDULE.TIMEZONE,
-      scheduled: true
-    });
+    const weeklyJob = cron.schedule(
+      CRON_SCHEDULES.WEEKLY_REPORTS,
+      () => sendWeeklyReports(bot),
+      { timezone: SCHEDULE.TIMEZONE, scheduled: true }
+    );
 
-    const monthlyJob = cron.schedule(CRON_SCHEDULES.MONTHLY_WHEEL_CHECK, () => {
-      sendMonthlyReports(bot);
-    }, {
-      timezone: SCHEDULE.TIMEZONE,
-      scheduled: true
-    });
+    const weeklyActivityJob = cron.schedule(
+      CRON_SCHEDULES.WEEKLY_ACTIVITY,
+      () => checkWeeklyActivity(bot),
+      { timezone: SCHEDULE.TIMEZONE, scheduled: true }
+    );
 
-    const subscriptionJob = cron.schedule(CRON_SCHEDULES.SUBSCRIPTION_CHECK, () => {
-      checkExpiredSubscriptions();
-    }, {
-      timezone: SCHEDULE.TIMEZONE,
-      scheduled: true
-    });
+    const monthlyJob = cron.schedule(
+      CRON_SCHEDULES.MONTHLY_WHEEL_CHECK,
+      () => sendMonthlyReports(bot),
+      { timezone: SCHEDULE.TIMEZONE, scheduled: true }
+    );
 
-    // ✅ ЩОДЕННА ФІНАЛІЗАЦІЯ О 23:59
-    const dailyFinalizationJob = cron.schedule('59 23 * * *', () => {
-      finalizeDailyStats();
-    }, {
-      timezone: SCHEDULE.TIMEZONE,
-      scheduled: true
-    });
+    const subscriptionJob = cron.schedule(
+      CRON_SCHEDULES.SUBSCRIPTION_CHECK,
+      () => checkExpiredSubscriptions(),
+      { timezone: SCHEDULE.TIMEZONE, scheduled: true }
+    );
+
+    const dailyFinalizationJob = cron.schedule(
+      CRON_SCHEDULES.DAILY_FINALIZATION,
+      () => finalizeDailyStats(),
+      { timezone: SCHEDULE.TIMEZONE, scheduled: true }
+    );
 
     jobs.push(
-      morningJob, 
-      eveningJob, 
-      weeklyJob, 
+      morningJob,
+      eveningJob,
+      weeklyJob,
       weeklyActivityJob,
-      monthlyJob, 
+      monthlyJob,
       subscriptionJob,
       dailyFinalizationJob
     );
-    
+
     isSchedulerStarted = true;
 
-    console.log('✅ [scheduler] Оптимізований scheduler запущено');
-    console.log(`📅 [scheduler] Ранкові: ${CRON_SCHEDULES.MORNING_QUESTIONS}`);
-    console.log(`📅 [scheduler] Вечірні: ${CRON_SCHEDULES.EVENING_QUESTIONS}`);
-    console.log(`📅 [scheduler] Щотижневі звіти: неділя 19:00`);
-    console.log(`📅 [scheduler] Щотижнева активність: неділя 20:00`);
-    console.log(`📅 [scheduler] Щомісячні: 1 число 10:00`);
-    console.log(`📅 [scheduler] Підписки: ${CRON_SCHEDULES.SUBSCRIPTION_CHECK}`);
-    console.log(`📅 [scheduler] Фіналізація дня: 23:59`);
-    console.log(`📅 [scheduler] ✅ SMART-нагадування увімкнено`);
-    
-  } catch (error) {
-    console.error('[scheduler] ❌ Помилка запуску scheduler:', error);
+    console.log('✅ [scheduler] Запущено');
+    console.log(`📅 Ранкові: ${CRON_SCHEDULES.MORNING_QUESTIONS}`);
+    console.log(`📅 Вечірні: ${CRON_SCHEDULES.EVENING_QUESTIONS}`);
+    console.log(`📅 Weekly: ${CRON_SCHEDULES.WEEKLY_REPORTS}, activity: ${CRON_SCHEDULES.WEEKLY_ACTIVITY}`);
+    console.log(`📅 Monthly: ${CRON_SCHEDULES.MONTHLY_WHEEL_CHECK}`);
+    console.log(`📅 Subs: ${CRON_SCHEDULES.SUBSCRIPTION_CHECK}`);
+    console.log(`📅 Daily finalization: ${CRON_SCHEDULES.DAILY_FINALIZATION}`);
+  } catch (e) {
+    console.error('[scheduler] ❌ Помилка старту:', e);
   }
 };
 
-// ===== ЗУПИНКА ПЛАНУВАЛЬНИКА =====
 export const stopScheduler = () => {
-  console.log('[scheduler] 🛑 Зупинка scheduler...');
-  
-  jobs.forEach((job, index) => {
+  console.log('[scheduler] 🛑 Зупинка…');
+
+  jobs.forEach((j, i) => {
     try {
-      job.destroy();
-      console.log(`[scheduler] ✅ Зупинено задачу ${index + 1}`);
-    } catch (error) {
-      console.error(`[scheduler] ❌ Помилка зупинки задачі ${index + 1}:`, error);
+      j.destroy();
+      console.log(`[scheduler] ✅ Зупинено задачу #${i + 1}`);
+    } catch (e) {
+      console.error(`[scheduler] ❌ Помилка зупинки #${i + 1}:`, e);
     }
   });
-  
-  reminderTimers.forEach((timer, id) => {
-    clearTimeout(timer);
-    console.log(`[scheduler] 🔕 Скасовано нагадування для ${id}`);
-  });
-  
-  taskReminders.forEach((timers, id) => {
-    timers.forEach(timer => clearTimeout(timer));
-    console.log(`[scheduler] 🔕 Скасовано SMART-нагадування для ${id}`);
-  });
-  
+
+  reminderTimers.forEach(clearTimeout);
+  taskReminders.forEach((arr) => arr.forEach(clearTimeout));
+
   jobs.length = 0;
   isSchedulerStarted = false;
   executionLocks.clear();
   activeSessions.clear();
   reminderTimers.clear();
   taskReminders.clear();
-  
-  console.log('[scheduler] ✅ Scheduler зупинено');
+
+  console.log('[scheduler] ✅ Зупинено');
 };

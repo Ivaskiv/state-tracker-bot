@@ -28,7 +28,7 @@ const handleWheelBalance = async (ctx) => {
     const userName = ctx.from.first_name || 'Користувач';
     
     // Отримуємо дату реєстрації користувача
-    const user = await userService.getUserByTelegramId(tgId);
+    const user = await userService.getUserByTgId(tgId);
     const registrationDate = user?.['Registration Date'] || user?.Created_Date || new Date().toISOString();
     
     console.log(`🎯 [wheelController] Запуск колеса для ${tgId}, реєстрація: ${registrationDate}`);
@@ -68,7 +68,7 @@ const handleWheelBalanceRequest = async (ctx) => {
   try {
     console.log(`🎯 [wheelBalanceController] Запит на колесо від ${tgId}`);
     
-    const user = await userService.getUserByTelegramId(tgId);
+    const user = await userService.getUserByTgId(tgId);
 
     if (!hasActiveAccessOrSession(ctx, user)) {
       console.log(`🎯 [wheelBalanceController] ❌ Немає доступу для ${tgId}`);
@@ -202,7 +202,7 @@ const handleWheelBalanceAnswer = async (ctx, score) => {
   console.log(`🎯 [wheelBalanceController] 📊 Оцінка ${score} від ${tgId}`);
 
   try {
-    const user = await userService.getUserByTelegramId(tgId);
+    const user = await userService.getUserByTgId(tgId);
     const step = user?.Answer_Step;
     
     if (step !== 'WheelBalance') {
@@ -249,7 +249,7 @@ const handleWheelCallback = async (ctx) => {
     if (data === 'wheel_start' || data === 'wheel_restart' || data === 'wheel_start_new') {
       console.log(`🎯 [wheelBalanceController] 🚀 ЗАПУСК НОВОГО КОЛЕСА`);
       
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       
       if (!hasActiveAccessOrSession(ctx, user)) {
         await ctx.answerCbQuery('Потрібна активна підписка');
@@ -273,7 +273,7 @@ const handleWheelCallback = async (ctx) => {
 
       if (!activeWheel) {
         console.log(`🎯 [wheelBalanceController] ❌ Активне колесо не знайдено для ${tgId}`);
-        const user = await userService.getUserByTelegramId(tgId);
+        const user = await userService.getUserByTgId(tgId);
         const start = await wheelBalanceService.startWheelBalance(tgId, user?.['User Name']);
         await userService.updateUserStep(tgId, 'WheelBalance');
         

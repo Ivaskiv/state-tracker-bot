@@ -253,23 +253,62 @@ export const NOTE_FIELDS = [
 ];
 
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
+// ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '08:00',
+  MORNING_TIME: '18:12',
   EVENING_TIME: '21:30',
-  MORNING_HOUR: 8,
-  MORNING_MINUTE: 0,
-  EVENING_HOUR: 21,
-  EVENING_MINUTE: 30,
-  TIMEZONE: 'Europe/Kyiv'
+  TIMEZONE: 'Europe/Kyiv' 
 });
 
+// утиліта для розбору HH:MM
+const parseHm = (t) => {
+  const [h, m] = String(t).split(':').map(n => parseInt(n, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) throw new Error(`Bad time: ${t}`);
+  return { h, m };
+};
+
+const { h: MH, m: MM } = parseHm(SCHEDULE.MORNING_TIME);
+const { h: EH, m: EM } = parseHm(SCHEDULE.EVENING_TIME);
+
+// cron: формат "M H * * *"
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: `0 8 * * *`,
-  EVENING_QUESTIONS: `30 21 * * *`,
+  MORNING_QUESTIONS: `${MM} ${MH} * * *`,
+  EVENING_QUESTIONS: `${EM} ${EH} * * *`,
+  WEEKLY_REPORTS: '0 19 * * 0',
+  WEEKLY_ACTIVITY: '0 20 * * 0',
+  MONTHLY_WHEEL_CHECK: '0 10 1 * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
-  MONTHLY_WHEEL_CHECK: '0 10 1 * *'
+  DAILY_FINALIZATION: '59 23 * * *'
 });
+// ===== SCHEDULER ПОВІДОМЛЕННЯ =====
+// export const SCHEDULER_MESSAGES = Object.freeze({
+//   MORNING_SESSION_START: (name) =>
+//     `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
+//   EVENING_SESSION_START: (name) =>
+//     `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
+//   MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!',
+//   EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!'
+// });
 
+
+export const SCHEDULER_MESSAGES = Object.freeze({
+  MORNING_SESSION_START: (name) =>
+    `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
+  EVENING_SESSION_START: (name) =>
+    `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
+  MORNING_REMINDER: '🔔 Нагадування: ранкова сесія ще не завершена.',
+  EVENING_REMINDER: '🔔 Нагадування: вечірня сесія ще не завершена.',
+  WEEKLY_PROMPT:
+    '📊 ЩОТИЖНЕВИЙ ЗВІТ\n\nЧас проаналізувати тиждень і скоригувати стратегію. ⏱ Займе кілька хвилин.',
+  MIDDAY_SUMMARY: (done, total) => {
+    if (total === 0) return '⏰ СЕРЕДИНА ДНЯ\n\nНа сьогодні дій не заплановано.';
+    if (done === 0) return `⏰ СЕРЕДИНА ДНЯ\n\nЗаплановано: ${total}\n✅ Виконано: 0\n\nПочни з найкоротшої дії — 10 хв.`;
+    if (done < total) return `⏰ СЕРЕДИНА ДНЯ\n\n✅ Виконано: ${done}/${total}\nПродовжуй у тому ж дусі! 💪`;
+    return `🎉 ЧУДОВО!\n\nВсі дії виконано: ${total}/${total}\nТримаємо курс!`;
+  },
+  TASK_REMINDER: (task) =>
+    `⏰ НАГАДУВАННЯ\n\nЧерез 5 хв стартує:\n${task.action}\n\n🎯 Результат: ${task.result_metric}\n⏱ Тривалість: ${task.duration_min} хв\n\n💪 Тримай фокус!`
+});
 // ===== ПОВІДОМЛЕННЯ =====
 export const MESSAGES = Object.freeze({
   WELCOME: (name) => 
@@ -287,18 +326,21 @@ export const MESSAGES = Object.freeze({
 WELCOME_BACK_ACTIVE: (name, endStr) =>
     `👋 З поверненням, ${name}!\n` +
     `✅ Підписка активна до ${endStr}.\n\n` +
-    `Далі все працює так:\n` +
+    `Продовжуємо ...\n\n`+
+    `Нагадую, що  ⬇️\n` +
     `• 🌞 Ранкові питання надсилатиму о ${SCHEDULE.MORNING_TIME} — сфокусуємо день\n` +
     `• 🌙 Вечірню рефлексію — о ${SCHEDULE.EVENING_TIME} — підсумуємо\n\n` +
     `У будь-який момент ти можеш:\n` +
     `• 🤖 AI наставник — запитай і отримай план\n` +
     `• 🎯 Колесо балансу — щомісячний аудит\n` +
-    `• 📊 Мій прогрес — статистика`,
-        
+    `• 📊 Мій прогрес — статистика\n\n`+
+    `Використовуй головне меню внизу.`,
+
   WELCOME_BACK_INACTIVE: (name) =>
-    `👋 З поверненням, ${name}!\n` +
+    `👋 З поверненням, ${name}!\n\n` +
     `❗ Підписка не активна. Щоб користуватися усіма функціями — активуй або продовж.\n\n` +
-    `Натисни «💰 Підписка» нижче, або обери інший розділ з меню.`,
+    `Натисни «💰 Підписка» нижче, або обери інший розділ з меню.\n\n`+
+    `Використовуй головне меню внизу.`,
   
   ASK_NAME: 'Як до тебе звертатись?\n\nВведи ім\'я (2–50 символів).',
   ASK_EMAIL: 'Вкажи свій e-mail (для надсилання звітів).\nАбо пропусти.',
@@ -603,16 +645,6 @@ export const GENERAL_AFFIRMATIONS = [
   'Кожне рішення прокачує рішучість',
   'Впевненість і рішучість — мої інструменти'
 ];
-
-// ===== SCHEDULER ПОВІДОМЛЕННЯ =====
-export const SCHEDULER_MESSAGES = Object.freeze({
-  MORNING_SESSION_START: (name) =>
-    `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
-  EVENING_SESSION_START: (name) =>
-    `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
-  MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!',
-  EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!'
-});
 
 // ===== МЕНЮ =====
 export const MENU_BUTTONS = Object.freeze({

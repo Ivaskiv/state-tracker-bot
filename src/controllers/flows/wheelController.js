@@ -16,7 +16,7 @@ const wheelController = {
     
     try {
       
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       
       // Перевіряємо доступ
       if (!userService.hasActiveAccess(user)) {
@@ -273,7 +273,7 @@ const wheelController = {
     const tgId = ctx.from.id;
     
     try {
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       
       if (!userService.hasActiveAccess(user)) {
         await ctx.answerCbQuery('Потрібна активна підписка');
@@ -308,7 +308,7 @@ const wheelController = {
         console.log(`[WHEEL] ❌ Активне колесо не знайдено для ${tgId}`);
         
         // Запускаємо нове колесо
-        const user = await userService.getUserByTelegramId(tgId);
+        const user = await userService.getUserByTgId(tgId);
         const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
         const startResult = await wheelBalanceService.startWheelBalance(tgId, userName);
         await userService.updateUserStep(tgId, 'WheelBalance');
@@ -419,7 +419,7 @@ const wheelController = {
     }
     
     try {
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       const step = user?.Answer_Step;
       
       if (step !== 'WheelBalance') {

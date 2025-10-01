@@ -2683,3 +2683,4 @@
 {"level":"error","message":"❌ [CONVERSATION] ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T13:43:43.430Z"}
 {"level":"info","message":"[responseService] Отримано 12 записів для 630111093","timestamp":"2025-09-30T13:49:49.635Z"}
 {"level":"info","message":"[responseService] Отримано 0 записів для 630111093","timestamp":"2025-09-30T13:50:01.755Z"}
+{"level":"info","message":"[responseService] Отримано 12 записів для 630111093","timestamp":"2025-10-01T13:58:59.277Z"}

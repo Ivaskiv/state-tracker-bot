@@ -26,7 +26,7 @@ export const activateTrialSubscription = async (tgId, days = 7) => {
     const id = String(tgId);
     console.log(`[paymentService] 🧪 АКТИВАЦІЯ TRIAL для ${id} на ${days} днів`);
     
-    const user = await userService.getUserByTelegramId(id);
+    const user = await userService.getUserByTgId(id);
     if (!user) {
       console.error(`[paymentService] ❌ Користувача ${id} не знайдено`);
       return false;
@@ -94,7 +94,7 @@ export const activatePaidSubscription = async (tgId, planKey, planName, amount, 
     const id = String(tgId);
     console.log(`[paymentService] 💳 Активація платної підписки ${planKey} для ${id}`);
     
-    const user = await userService.getUserByTelegramId(id);
+    const user = await userService.getUserByTgId(id);
     if (!user) {
       console.error(`[paymentService] ❌ Користувача ${id} не знайдено`);
       return false;
@@ -203,7 +203,7 @@ export const deactivateExpiredSubscriptions = async () => {
   try {
     console.log('[paymentService] 🔍 Деактивація прострочених підписок');
     
-    const users = await userService.getActiveUsers();
+    const users = await fetchActiveUsers();
     const todayStr = new Date().toISOString().split('T')[0];
 
     let deactivated = 0;

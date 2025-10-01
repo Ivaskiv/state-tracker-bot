@@ -89,7 +89,7 @@ const dailyController = {
     try {
       console.log(`[DAILY] 🌞 Початок ранкової сесії для ${tgId}`);
 
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       if (!user || !userService.hasActiveAccess(user)) {
         await ctx.reply('Потрібна активна підписка для ранкової рефлексії.');
         return;
@@ -122,7 +122,7 @@ const dailyController = {
     try {
       console.log(`[DAILY] 🌙 Початок вечірньої сесії для ${tgId}`);
 
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       if (!user || !userService.hasActiveAccess(user)) {
         await ctx.reply('Потрібна активна підписка для вечірньої рефлексії.');
         return;

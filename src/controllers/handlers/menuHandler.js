@@ -1,236 +1,158 @@
-// src/controllers/handlers/menuHandler.js - ОБРОБКА КОМАНД МЕНЮ
+// src/controllers/handlers/menuHandler.js — меню без інлайн-кнопок, усе через головне меню
 
 import keyboards from '../../utils/keyboards.js';
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
-import wheelBalanceController from '../wheelBalanceController.js';
+// ВАЖЛИВО: беремо актуальний контролер колеса з flows/, а не старий wheelBalanceController
+import wheelController from '../flows/wheelController.js';
+
+import {
+  MENU_BUTTONS,
+  MENU_TEXTS,
+  GENERAL_AFFIRMATIONS,
+  MESSAGES
+} from '../../config/constants.js';
 
 const handleCommand = async (ctx, user, text, hasAccess) => {
   console.log(`[menuHandler] Команда: "${text}", доступ: ${hasAccess}`);
 
   switch (text) {
-    case '🤖 AI наставник':
+    // ===== AI НАСТАВНИК =====
+    case MENU_BUTTONS.AI_MENTOR: {
       if (!hasAccess) {
         await showFeatureBlocked(ctx, 'AI наставник');
         return;
       }
       await aiMentorController.handleAIMentorRequest(ctx);
       break;
-      
-    case '🎯 Колесо балансу':
+    }
+
+    // ===== КОЛЕСО БАЛАНСУ =====
+    case MENU_BUTTONS.WHEEL: {
       if (!hasAccess) {
         await showFeatureBlocked(ctx, 'Колесо балансу');
         return;
       }
-      await wheelBalanceController.handleWheelBalanceRequest(ctx);
+      await wheelController.handleRequest(ctx);
       break;
-      
-    case '💰 Підписка':
-      await showSubscriptionMenu(ctx, user);
+    }
+
+    // ===== ПІДПИСКА =====
+    case MENU_BUTTONS.SUBSCRIPTION: {
+      await showSubscriptionInfo(ctx, user);
       break;
-      
-    case '💎 Афірмація':
+    }
+
+    // ===== АФІРМАЦІЯ =====
+    case MENU_BUTTONS.AFFIRMATION: {
       const affirmation = getRandomAffirmation();
       await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
       break;
-      
-    case '📊 Мій прогрес':
+    }
+
+    // ===== МІЙ ПРОГРЕС =====
+    case MENU_BUTTONS.PROGRESS: {
       if (!hasAccess) {
         await showFeatureBlocked(ctx, 'Прогрес');
         return;
       }
-      await showProgress(ctx, user);
+      await showProgress(ctx);
       break;
-      
-    case '📈 Щотижневий звіт':
+    }
+
+    // ===== ЩОТИЖНЕВИЙ ЗВІТ =====
+    case MENU_BUTTONS.WEEKLY_REPORT: {
       if (!hasAccess) {
         await showFeatureBlocked(ctx, 'Щотижневий звіт');
         return;
       }
       await startWeeklyReport(ctx);
       break;
-      
-    case '📈 Щомісячний звіт':
+    }
+
+    // ===== ЩОМІСЯЧНИЙ ЗВІТ =====
+    case MENU_BUTTONS.MONTHLY_REPORT: {
       if (!hasAccess) {
         await showFeatureBlocked(ctx, 'Щомісячний звіт');
         return;
       }
       await startMonthlyReport(ctx);
       break;
-      
-    case '❓ Допомога':
-      await showHelp(ctx);
+    }
+
+    // ===== ДОПОМОГА =====
+    case MENU_BUTTONS.INSTRUCTIONS: {
+      await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.mainMenuKeyboard());
       break;
-      
-    case "📞 Зв'язок з нами":
-      await showContact(ctx);
+    }
+
+    // ===== ЗВʼЯЗОК =====
+    case MENU_BUTTONS.CONTACT: {
+      await ctx.reply(MENU_TEXTS.CONTACT, keyboards.mainMenuKeyboard());
       break;
-      
-    case '📝 Інструкції':
-      await showInstructions(ctx);
+    }
+
+    // ===== НЕВІДОМА КОМАНДА =====
+    default: {
+      await ctx.reply('❓ Не розпізнав команду. Скористайся головним меню внизу.', keyboards.mainMenuKeyboard());
       break;
-      
-    default:
-      // Невідома команда - показуємо меню
-      await ctx.reply(
-        '❓ Не розпізнав команду. Обери з меню нижче:',
-        keyboards.mainMenuKeyboard()
-      );
+    }
   }
 };
 
-// Блокування функції
+// ===== Повідомлення про заблоковану функцію (без інлайн-кнопок) =====
 const showFeatureBlocked = async (ctx, featureName) => {
   await ctx.reply(
-    `🚫 ${featureName} недоступний\n\n` +
-    `❌ Потрібна активна підписка.\n\n` +
-    `💰 Активуй підписку:`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🎁 Пробний період 7 днів', callback_data: 'activate_trial' }],
-          [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
-          [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-        ]
-      }
-    }
+    MESSAGES.FEATURE_BLOCKED(featureName, MENU_BUTTONS.SUBSCRIPTION),
+    keyboards.mainMenuKeyboard()
   );
 };
 
-// Меню підписки
-const showSubscriptionMenu = async (ctx, user) => {
+// ===== Підписка (лише інформування, дія — через головне меню) =====
+const showSubscriptionInfo = async (ctx, user) => {
   const status = user?.['Active_Subscription_Status'] || '❌ Неактивна';
-  
-  await ctx.reply(`💰 ПІДПИСКА:\n\n${status}`, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '📋 Детальна інформація', callback_data: 'subscription_info' }],
-        [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
-        [{ text: '💰 Плани підписки', callback_data: 'subscription_plans' }],
-        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-      ]
-    }
-  });
+  await ctx.reply(
+    `💰 ПІДПИСКА\n\nСтатус: ${status}\n\nВикористай пункт «${MENU_BUTTONS.SUBSCRIPTION}» у нижньому меню для деталей та оновлення.`,
+    keyboards.mainMenuKeyboard()
+  );
 };
 
-// Прогрес
-const showProgress = async (ctx, user) => {
-  await ctx.reply('📊 ПРОГРЕС\n\nТут буде статистика твого прогресу...', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '📊 Колесо балансу', callback_data: 'wheel_stats' }],
-        [{ text: '🤖 AI діалоги', callback_data: 'ai_report' }],
-        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-      ]
-    }
-  });
+// ===== Прогрес (без інлайн-кнопок) =====
+const showProgress = async (ctx) => {
+  await ctx.reply(
+    `📊 ПРОГРЕС\n\nСтатистика оновлюється після кожної сесії.\nКористуйся розділами з головного меню внизу.`,
+    keyboards.mainMenuKeyboard()
+  );
 };
 
-// Щотижневий звіт
+// ===== Щотижневий звіт =====
 const startWeeklyReport = async (ctx) => {
-  const message = 
+  const msg =
     `📊 ЩОТИЖНЕВИЙ ЗВІТ\n\n` +
-    `Час проаналізувати тиждень та скоригувати стратегію.\n\n` +
-    `⏱ Займе 5 хвилин`;
-
-  await ctx.reply(message, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '📊 Почати аналіз', callback_data: 'start_weekly' }],
-        [{ text: '📈 Готовий звіт', callback_data: 'get_weekly_report' }],
-        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-      ]
-    }
-  });
+    `Час проаналізувати тиждень і скоригувати стратегію.\n` +
+    `Використай головне меню для подальших дій.`;
+  await ctx.reply(msg, keyboards.mainMenuKeyboard());
 };
 
-// Щомісячний звіт
+// ===== Щомісячний звіт =====
 const startMonthlyReport = async (ctx) => {
-  const message = 
+  const msg =
     `📅 ЩОМІСЯЧНИЙ ЗВІТ\n\n` +
-    `Глибокий аналіз місяця та колесо балансу.\n\n` +
-    `⏱ Займе 10-15 хвилин`;
-
-  await ctx.reply(message, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '📅 Почати аналіз', callback_data: 'start_monthly' }],
-        [{ text: '🎯 Нове колесо балансу', callback_data: 'wheel_start' }],
-        [{ text: '📊 Готовий звіт', callback_data: 'get_monthly_report' }],
-        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-      ]
-    }
-  });
+    `Глибокий аналіз місяця та «Колесо балансу».\n` +
+    `Використай головне меню для подальших дій.`;
+  await ctx.reply(msg, keyboards.mainMenuKeyboard());
 };
 
-// Допомога
-const showHelp = async (ctx) => {
-  const message = 
-    `❓ ДОПОМОГА\n\n` +
-    `При питаннях або технічних проблемах:\n\n` +
-    `📧 Email: nadyastarway@gmail.com\n` +
-    `💬 Telegram: @Nadya2316\n\n` +
-    `⏰ Відповідаємо протягом 2-4 годин у робочі дні.`;
-    
-  await ctx.reply(message, keyboards.mainMenuKeyboard());
-};
-
-// Контакти
-const showContact = async (ctx) => {
-  const message = 
-    `📞 ЗВ'ЯЗОК З НАМИ\n\n` +
-    `💬 **ТЕХПІДТРИМКА:**\n` +
-    `Email: nadyastarway@gmail.com\n` +
-    `Telegram: @Nadya2316 (ментор)\n` +
-    `Telegram: @vira_333 (техпідтримка)\n\n` +
-    `📋 **ПИТАННЯ ПРО ПІДПИСКУ:**\n` +
-    `Пишіть з вказівкою Telegram ID: ${ctx.from.id}\n\n` +
-    `⏰ **ЧАС ВІДПОВІДІ:**\n` +
-    `2-4 години у робочі дні`;
-    
-  await ctx.reply(message, keyboards.mainMenuKeyboard());
-};
-
-// Інструкції
-const showInstructions = async (ctx) => {
-  const message = 
-    `📝 ЯК КОРИСТУВАТИСЯ\n\n` +
-    `🚀 **ПОЧАТОК:**\n` +
-    `/start → реєстрація → підписка → колесо балансу\n\n` +
-    `📊 **ЩОДНЯ:**\n` +
-    `🌞 Ранкові питання (08:00)\n` +
-    `🌙 Вечірні питання (21:30)\n` +
-    `🤖 AI наставник для підтримки\n\n` +
-    `📈 **АНАЛІТИКА:**\n` +
-    `📊 Щотижневі звіти\n` +
-    `📅 Щомісячні звіти\n` +
-    `🎯 Колесо балансу (щомісяця)\n\n` +
-    `💡 Відповідай щиро, використовуй AI наставника`;
-    
-  await ctx.reply(message, keyboards.mainMenuKeyboard());
-};
-
-// Випадкова афірмація
+// ===== Випадкова афірмація зі сховища констант =====
 const getRandomAffirmation = () => {
-  const affirmations = [
-    'Моя енергія створює позитивні зміни',
-    'Я заслуговую на все найкраще прямо зараз', 
-    'Моя рішучість творить нові можливості',
-    'Щодня я впевнено просуваюся до мети',
-    'Дія — це моя мова проти страху',
-    'Кожне рішення прокачує мою рішучість',
-    'Впевненість і рішучість — мої інструменти'
-  ];
-  return affirmations[Math.floor(Math.random() * affirmations.length)];
+  const i = Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length);
+  return GENERAL_AFFIRMATIONS[i];
 };
 
-export default { 
+export default {
   handleCommand,
   showFeatureBlocked,
-  showSubscriptionMenu,
+  showSubscriptionInfo,
   showProgress,
   startWeeklyReport,
-  startMonthlyReport,
-  showHelp,
-  showContact,
-  showInstructions
+  startMonthlyReport
 };

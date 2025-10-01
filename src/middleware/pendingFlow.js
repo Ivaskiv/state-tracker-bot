@@ -7,7 +7,7 @@
 
 // async function isFlowActive(tgId) {
 //   try {
-//     const user = await userService.getUserByTelegramId(tgId);
+//     const user = await userService.getUserByTgId(tgId);
 //     const step = user?.Answer_Step;
 //     return Boolean(step && step !== 'sys_idle' && step !== ANSWER_STEPS.COMPLETED);
 //   } catch (e) {

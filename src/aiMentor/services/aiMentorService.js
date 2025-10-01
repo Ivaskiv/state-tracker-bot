@@ -384,7 +384,7 @@ async function generatePersonalizedAdvice(question, tgId) {
   try {
     console.log(`[aiMentorService] Генерація поради для питання: "${question}"`);
     
-    const user = await userService.getUserByTelegramId(tgId);
+    const user = await userService.getUserByTgId(tgId);
     const recentRecords = await responseService.getUserRecords(tgId, 14);
     
     const userContext = recentRecords.slice(0, 3).map(r => ({

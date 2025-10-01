@@ -330,6 +330,70 @@ const keyboards = {
       }
     };
   },
+  morningStartInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🌞 Почати ранкову рефлексію', callback_data: 'start_morning' }]
+        ]
+      }
+    };
+  },
+
+  eveningStartInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🌙 Почати вечірню рефлексію', callback_data: 'start_evening' }]
+        ]
+      }
+    };
+  },
+
+  sessionReminderInline(sessionType) {
+    const continueCb = sessionType === 'morning' ? 'continue_morning' : 'continue_evening';
+    const exitCb = sessionType === 'morning' ? 'exit_morning' : 'exit_evening';
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔁 Продовжити', callback_data: continueCb }],
+          [{ text: '🚪 Вийти', callback_data: exitCb }]
+        ]
+      }
+    };
+  },
+
+  weeklyReportInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📊 Почати щотижневий аналіз', callback_data: 'start_weekly' }]
+        ]
+      }
+    };
+  },
+
+  midDayCheckInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📊 Деталі', callback_data: 'show_task_details' }],
+          [{ text: '🔄 Оновити план', callback_data: 'update_tasks' }]
+        ]
+      }
+    };
+  },
+
+  taskReminderInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✅ Готовий', callback_data: 'task_start' }],
+          [{ text: '⏭ Перенести', callback_data: 'task_reschedule' }]
+        ]
+      }
+    };
+  },
 
   // ====== УТИЛІТАРНІ ======
   removeKeyboard() {

@@ -116,7 +116,7 @@ class DailyQuestionsController {
     try {
       console.log(`🌞 [MORNING] Початок ранкової сесії для ${tgId}`);
 
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       if (!user || !userService.hasActiveAccess(user)) {
         return ctx.reply('Потрібна активна підписка для ранкової рефлексії.');
       }
@@ -148,7 +148,7 @@ class DailyQuestionsController {
     try {
       console.log(`🌙 [EVENING] Початок вечірньої сесії для ${tgId}`);
 
-      const user = await userService.getUserByTelegramId(tgId);
+      const user = await userService.getUserByTgId(tgId);
       if (!user || !userService.hasActiveAccess(user)) {
         return ctx.reply('Потрібна активна підписка для вечірньої рефлексії.');
       }
@@ -215,7 +215,7 @@ class DailyQuestionsController {
   // Обробка відповідей на ранкові питання
   async handleMorningAnswer(ctx, text) {
     const tgId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(tgId);
+    const user = await userService.getUserByTgId(tgId);
     const currentStep = user?.Answer_Step;
 
     if (!currentStep || !currentStep.startsWith('Q_m_')) {
@@ -250,7 +250,7 @@ class DailyQuestionsController {
   // Обробка відповідей на вечірні питання
   async handleEveningAnswer(ctx, text) {
     const tgId = ctx.from.id;
-    const user = await userService.getUserByTelegramId(tgId);
+    const user = await userService.getUserByTgId(tgId);
     const currentStep = user?.Answer_Step;
 
     if (!currentStep || !currentStep.startsWith('Q_e_')) {
