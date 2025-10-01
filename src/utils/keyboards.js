@@ -1,6 +1,7 @@
 // src/utils/keyboards.js
+// Єдине джерело клавіатур. Використовуємо централізовані константи.
 
-import { TIMEZONES } from '../config/constants.js';
+import { TIMEZONES, SUBSCRIPTION_PLANS, MENU_BUTTONS } from '../config/constants.js';
 
 // ===== ІМЕНОВАНИЙ ЕКСПОРТ: кнопка після реєстрації =====
 export const afterRegistrationKeyboard = () => ({
@@ -15,14 +16,16 @@ export const afterRegistrationKeyboard = () => ({
 const keyboards = {
   // ====== ГОЛОВНЕ МЕНЮ ======
   mainMenuKeyboard() {
+    // Використовуємо підписи з MENU_BUTTONS, щоб не хардкодити тексти
+    const M = MENU_BUTTONS;
     return {
       reply_markup: {
         keyboard: [
-          [{ text: '🤖 AI наставник' }, { text: '🎯 Колесо балансу' }],
+          [{ text: M.AI_MENTOR }, { text: M.WHEEL }],
           [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
-          [{ text: '💎 Афірмація' }, { text: '📊 Мій прогрес' }],
-          [{ text: '💰 Підписка' }, { text: '❓ Допомога' }],
-          [{ text: '📝 Інструкції' }, { text: '📞 Зв\'язок з нами' }]
+          [{ text: M.AFFIRMATION }, { text: M.PROGRESS }],
+          [{ text: M.SUBSCRIPTION }, { text: '❓ Допомога' }],
+          [{ text: M.INSTRUCTIONS }, { text: M.CONTACT }]
         ],
         resize_keyboard: true,
         one_time_keyboard: false,
@@ -30,7 +33,8 @@ const keyboards = {
       }
     };
   },
-quickStartInlineKeyboard() {
+
+  quickStartInlineKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
@@ -42,20 +46,19 @@ quickStartInlineKeyboard() {
             { text: '📊 Мій прогрес', callback_data: 'wheel_stats' },
             { text: '💰 Підписка', callback_data: 'subscription_info' }
           ],
-          [
-            { text: '🏠 Головне меню', callback_data: 'main_menu' }
-          ]
+          [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
         ]
       }
     };
   },
+
   // ====== ОНБОРДИНГ ======
-  onboardingStartKeyboard() {
+  greetingKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '✅ Почати', callback_data: 'onboarding_start' }],
-          [{ text: 'ℹ️ Про бота', callback_data: 'onboarding_about' }]
+          [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }],
+          [{ text: 'ℹ️ Про бота', callback_data: 'about_bot' }]
         ]
       }
     };
@@ -87,54 +90,113 @@ quickStartInlineKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
-          ...TIMEZONES.map((tz) => [{ text: tz.label, callback_data: `tz_${tz.slug}` }]),
+          ...TIMEZONES.slice(0, 10).map((tz) => [{ text: tz.label, callback_data: `tz_${tz.slug}` }]),
           [{ text: '🔙 Назад', callback_data: 'back_timezone' }]
         ]
       }
     };
   },
 
-  timezoneConfirmedKeyboard() {
+  // ====== ПІДПИСКИ ======
+  subscriptionKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🌍 Змінити TZ', callback_data: 'change_tz' }],
-          [{ text: '🔙 Назад', callback_data: 'back_timezone' }],
-          [{ text: '➡️ Далі', callback_data: 'go_plan' }]
+          [{ text: '💰 Інформація про підписку', callback_data: 'subscription_info' }],
+          [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
+          [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }],
+          [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
+          [{ text: '🏠 До меню', callback_data: 'main_menu' }]
         ]
       }
     };
   },
 
-  onboardingPlanKeyboard() {
+  subscriptionInfoActiveKeyboard(expiringSoon = false) {
+    const buttons = [];
+    if (expiringSoon) {
+      buttons.push([{ text: '🔄 Продовжити підписку', callback_data: 'renew_subscription' }]);
+    }
+    buttons.push(
+      [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
+      [{ text: '📞 Звʼязатися з підтримкою', callback_data: 'contact_support' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+    );
+    return { reply_markup: { inline_keyboard: buttons } };
+  },
+
+  subscriptionInfoInactiveKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🧪 Пробний 7 днів — 0€', callback_data: 'pick_plan_trial_7d' }],
-          [{ text: '🎯 Тиждень 7€', callback_data: 'pick_plan_week_7' }],
-          [{ text: '📅 Місяць 30€', callback_data: 'pick_plan_month_30' }],
-          [{ text: '🗓️ Рік 300€', callback_data: 'pick_plan_year_300' }]
+          [{ text: '💳 Оформити підписку', callback_data: 'subscription_plans' }],
+          [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
+          [{ text: '📞 Звʼязатися з підтримкою', callback_data: 'contact_support' }],
+          [{ text: '🏠 До меню', callback_data: 'main_menu' }]
         ]
       }
     };
   },
 
-  onboardingPlanConfirmKeyboard(planValue) {
+  // ЄДИНИЙ варіант списку планів (без дубльованої функції)
+  subscriptionPlansKeyboard() {
+    // Використаємо SUBSCRIPTION_PLANS з констант — підписи стандартизовані
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '✅ Підтвердити', callback_data: `pay_${planValue}` }],
-          [{ text: '🔙 Назад', callback_data: 'back_plan' }]
+          [{ text: SUBSCRIPTION_PLANS.TRIAL.name, callback_data: 'plan_free' }],
+          [{ text: SUBSCRIPTION_PLANS.WEEK.name, callback_data: 'plan_week' }],
+          [{ text: SUBSCRIPTION_PLANS.MONTH.name, callback_data: 'plan_month' }],
+          [{ text: SUBSCRIPTION_PLANS.YEAR.name, callback_data: 'plan_year' }]
         ]
       }
     };
   },
 
-  onboardingWheelStartKeyboard() {
+  subscriptionPaymentKeyboard(paymentLink) {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🎯 Почати колесо', callback_data: 'wheel_start' }]
+          [{ text: '🔗 Перейти до оплати', url: paymentLink }],
+          [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
+          [{ text: '📞 Підтримка', callback_data: 'contact_support' }],
+          [{ text: '🔙 Назад', callback_data: 'subscription_plans' }]
+        ]
+      }
+    };
+  },
+
+  subscriptionRenewalKeyboard(paymentLink) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔗 Перейти до оплати', url: paymentLink }],
+          [{ text: '🔄 Перевірити оплату', callback_data: 'sync_subscription' }],
+          [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
+        ]
+      }
+    };
+  },
+
+  subscriptionExpiringKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 Продовжити на тиждень — 7€', callback_data: 'renew_week' }],
+          [{ text: '🔄 Продовжити на місяць — 30€', callback_data: 'renew_month' }],
+          [{ text: '🔄 Продовжити на рік — 300€', callback_data: 'renew_year' }],
+          [{ text: '📞 Звʼязатися з підтримкою', callback_data: 'contact_support' }]
+        ]
+      }
+    };
+  },
+
+  subscriptionSupportKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
+          [{ text: '🔙 Назад до підписки', callback_data: 'subscription_info' }]
         ]
       }
     };
@@ -190,7 +252,7 @@ quickStartInlineKeyboard() {
     };
   },
 
-aiMentorControlKeyboard() {
+  aiMentorControlKeyboard() {
     return {
       reply_markup: {
         inline_keyboard: [
@@ -208,6 +270,7 @@ aiMentorControlKeyboard() {
       }
     };
   },
+
   // ====== ПИТАННЯ-ВІДПОВІДІ ======
   continueAnswersKeyboard() {
     return {
@@ -231,201 +294,15 @@ aiMentorControlKeyboard() {
     };
   },
 
-  // ====== ПІДПИСКА ======
-  subscriptionKeyboard() {
+  // ====== КУРСИ ======
+  courseOfferKeyboard(problemType, title, price) {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '💰 Інформація про підписку', callback_data: 'subscription_info' }],
-          [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
-          [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact_support' }],
-          [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }],
-          [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-        ]
-      }
-    };
-  },
-
-  supportKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '📞 Технічна підтримка', callback_data: 'contact_support' }],
-          [{ text: '💰 Питання про підписку', callback_data: 'subscription_info' }],
-          [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
-        ]
-      }
-    };
-  },
-
-  // ====== УТИЛІТАРНІ ======
-  removeKeyboard() {
-    return {
-      reply_markup: { remove_keyboard: true }
-    };
-  },
-
-  forceUpdateKeyboard() {
-    return {
-      reply_markup: {
-        keyboard: [
-          [{ text: '🤖 AI наставник' }, { text: '🎯 Колесо балансу' }],
-          [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
-          [{ text: '💎 Афірмація' }, { text: '📊 Мій прогрес' }],
-          [{ text: '💰 Підписка' }, { text: '❓ Допомога' }],
-          [{ text: '📝 Інструкції' }, { text: '📞 Зв\'язок з нами' }]
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: false,
-        is_persistent: true
-      }
-    };
-  },
-
-  greetingKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }],
-          [{ text: 'ℹ️ Про бота', callback_data: 'about_bot' }]
-        ]
-      }
-    };
-  },
-
-  subscriptionPlansKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🧪 Пробний 7 днів — 0€', callback_data: 'plan_free' }],
-          [{ text: '🎯 Тиждень — 7€', callback_data: 'plan_week' }],
-          [{ text: '📅 Місяць — 30€', callback_data: 'plan_month' }],
-          [{ text: '🗓️ Рік — 300€', callback_data: 'plan_year' }]
-        ]
-      }
-    };
-  },
-
-  skipKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '⏭️ Пропустити', callback_data: 'skip_step' }]
-        ]
-      }
-    };
-  },
-
-  confirmNameKeyboard(/* name */) {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✅ Залишити', callback_data: 'keep_name' }],
-          [{ text: '✏️ Змінити',  callback_data: 'change_name' }]
-        ]
-      }
-    };
-  },
-  // ====== ПІДПИСКИ - РОЗШИРЕНІ ======
-  subscriptionInfoActiveKeyboard(expiringSoon = false) {
-    const buttons = [];
-    
-    if (expiringSoon) {
-      buttons.push([{ text: '🔄 Продовжити підписку', callback_data: 'renew_subscription' }]);
-    }
-    
-    buttons.push(
-      [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
-      [{ text: '📞 Звʼязатися з підтримкою', callback_data: 'contact_support' }]
-    );
-    
-    return { reply_markup: { inline_keyboard: buttons } };
-  },
-
-  subscriptionInfoInactiveKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '💳 Оформити підписку', callback_data: 'subscription_plans' }],
-          [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
-          [{ text: '📞 Звʼязатися з підтримкою', callback_data: 'contact_support' }]
-        ]
-      }
-    };
-  },
-
-  subscriptionPlansKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '7€ — Тиждень', callback_data: 'subscribe_week' }],
-          [{ text: '30€ — Місяць', callback_data: 'subscribe_month' }],
-          [{ text: '300€ — Рік', callback_data: 'subscribe_year' }],
-          [{ text: '📞 Підтримка', callback_data: 'contact_support' }],
-          [{ text: '🔙 Назад', callback_data: 'subscription_info' }]
-        ]
-      }
-    };
-  },
-
-  subscriptionPaymentKeyboard(paymentLink) {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔗 Перейти до оплати', url: paymentLink }],
-          [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
-          [{ text: '📞 Підтримка', callback_data: 'contact_support' }],
-          [{ text: '🔙 Назад', callback_data: 'subscription_plans' }]
-        ]
-      }
-    };
-  },
-
-  subscriptionRenewalKeyboard(paymentLink) {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔗 Перейти до оплати', url: paymentLink }],
-          [{ text: '🔄 Перевірити оплату', callback_data: 'sync_subscription' }],
-          [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
-        ]
-      }
-    };
-  },
-
-  subscriptionExpiringKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 Продовжити на тиждень — 7€', callback_data: 'renew_week' }],
-          [{ text: '🔄 Продовжити на місяць — 30€', callback_data: 'renew_month' }],
-          [{ text: '🔄 Продовжити на рік — 300€', callback_data: 'renew_year' }],
-          [{ text: '📞 Звʼязатися з підтримкою', callback_data: 'contact_support' }]
-        ]
-      }
-    };
-  },
-
-  subscriptionSupportKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 Я вже оплатив', callback_data: 'sync_subscription' }],
-          [{ text: '🔙 Назад до підписки', callback_data: 'subscription_info' }]
-        ]
-      }
-    };
-  },
-
-  // ====== КУРСИ ТА ПРОПОЗИЦІЇ ======
-  courseOfferKeyboard(problemType, offerTitle, price) {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: `📚 Курс "${offerTitle}" — ${price}€`, callback_data: `buy_course_${problemType}` }],
-          [{ text: `👥 Консультація з Надею — 150€`, callback_data: 'book_consultation' }],
-          [{ text: '⏭ Подумаю', callback_data: 'dismiss_offer' }],
-          [{ text: '💬 Продовжити без курсу', callback_data: 'ai_continue' }]
+          [{ text: `📚 "${title}" — ${price}€`, callback_data: `buy_course_${problemType}` }],
+          [{ text: '👥 Консультація (150€)', callback_data: 'book_consultation' }],
+          [{ text: '💬 Продовжити без курсу', callback_data: 'ai_continue' }],
+          [{ text: '⏭ Подумаю', callback_data: 'dismiss_offer' }]
         ]
       }
     };
@@ -454,50 +331,16 @@ aiMentorControlKeyboard() {
     };
   },
 
-  dismissOfferKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🤖 AI наставник', callback_data: 'ai_continue' }],
-          [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-        ]
-      }
-    };
+  // ====== УТИЛІТАРНІ ======
+  removeKeyboard() {
+    return { reply_markup: { remove_keyboard: true } };
   },
-  aiMentorControlKeyboard() {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '💬 Продовжити діалог', callback_data: 'ai_continue' }],
-        [
-          { text: '📊 Звіт за тиждень', callback_data: 'ai_report' },
-          { text: '🎯 Режим цілей', callback_data: 'ai_goals' }
-        ],
-        [
-          { text: '👍 Корисно', callback_data: 'rate_helpful' },
-          { text: '👎 Не дуже', callback_data: 'rate_not_helpful' }
-        ],
-        [{ text: '🚪 Вийти', callback_data: 'ai_exit' }]
-      ]
-    }
-  };
-},
 
-courseOfferKeyboard(problemType, title, price) {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: `📚 "${title}" — ${price}€`, callback_data: `buy_course_${problemType}` }],
-        [{ text: '👥 Консультація (150€)', callback_data: 'book_consultation' }],
-        [{ text: '💬 Продовжити без курсу', callback_data: 'ai_continue' }],
-        [{ text: '⏭ Подумаю', callback_data: 'dismiss_offer' }]
-      ]
-    }
-  };
-},
+  forceUpdateKeyboard() {
+    return this.mainMenuKeyboard();
+  },
 
-
-  // Додаємо також в default-об’єкт для зручності
+  // Експортуємо також іменований afterRegistrationKeyboard
   afterRegistrationKeyboard
 };
 

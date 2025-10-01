@@ -1,7 +1,7 @@
-// src/controllers/handlers/callbackHandler.js - ВИПРАВЛЕНО: ВСІ КНОПКИ МЕНЮ
+// src/controllers/handlers/callbackHandler.js - Колбеки через централізовані хендлери/меню
 
 import antiSpam from '../../utils/antiSpam.js';
-import startHandler from './startHandler.js';
+import { handleCallback as startCb } from './startHandler.js';
 import subscriptionController from '../subscriptionController.js';
 import wheelController from '../flows/wheelController.js';
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
@@ -12,95 +12,72 @@ import keyboards from '../../utils/keyboards.js';
 export const handle = async (ctx) => {
   const userId = ctx.from.id;
   const data = ctx.callbackQuery?.data;
-  
+
   console.log(`[callbackHandler] ${data} від ${userId}`);
-  
-  // Анті-спам
+
   if (antiSpam.isSpam(userId, data)) {
     await ctx.answerCbQuery('⏳ Зачекай трохи');
-    return;
+    return true;
   }
-  
-  // Завжди відповідаємо на callback
   await ctx.answerCbQuery().catch(() => {});
-  
+
   try {
-    // 1. ОНБОРДИНГ
-    if (await startHandler.handleCallback(ctx)) return;
-    
-    // 2. ПІДПИСКИ
-    if (data.startsWith('subscription_') || data.startsWith('subscribe_') || 
-        data === 'activate_trial' || data === 'sync_subscription' || 
+    // 1) онбординг
+    if (await startCb(ctx)) return true;
+
+    // 2) підписки
+    if (data.startsWith('subscription_') || data.startsWith('subscribe_') ||
+        data === 'activate_trial' || data === 'sync_subscription' ||
         data === 'contact_support' || data.startsWith('plan_')) {
       await subscriptionController.handleCallback(ctx);
-      return;
+      return true;
     }
-    
-    // 3. КОЛЕСО БАЛАНСУ
+
+    // 3) колесо
     if (data.startsWith('wheel_')) {
       await wheelController.handleCallback(ctx, data);
-      return;
+      return true;
     }
-    
-    // 4. AI НАСТАВНИК
+
+    // 4) AI
     if (data.startsWith('ai_')) {
       await aiMentorController.handleAIMentorCallback(ctx);
-      return;
+      return true;
     }
-    
-    // 5. ЩОДЕННІ СЕСІЇ
+
+    // 5) ранкові/вечірні
     if (data.includes('morning') || data.includes('evening')) {
       await dailyController.handleCallback(ctx, data);
-      return;
+      return true;
     }
-    
-    // ✅ 6. ГОЛОВНЕ МЕНЮ ТА ВСІ КНОПКИ
+
+    // 6) головне/звіти/тощо
     switch (data) {
       case 'main_menu':
       case 'open_main':
         await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
         await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
-        break;
-        
+        return true;
+
       case 'my_progress':
-        await mainFlowController.handleCallback(ctx, 'my_progress');
-        break;
-        
       case 'get_weekly_report':
-        await mainFlowController.handleCallback(ctx, 'get_weekly_report');
-        break;
-        
       case 'get_monthly_report':
-        await mainFlowController.handleCallback(ctx, 'get_monthly_report');
-        break;
-        
       case 'show_affirmation':
-        await mainFlowController.handleCallback(ctx, 'show_affirmation');
-        break;
-        
       case 'help':
-        await mainFlowController.handleCallback(ctx, 'help');
-        break;
-        
       case 'contact':
-        await mainFlowController.handleCallback(ctx, 'contact');
-        break;
-        
       case 'instructions':
-        await mainFlowController.handleCallback(ctx, 'instructions');
-        break;
-        
       case 'continue_session':
-        await mainFlowController.handleCallback(ctx, 'continue_session');
-        break;
-        
+        await mainFlowController.handleCallback(ctx, data);
+        return true;
+
       default:
         console.log(`[callbackHandler] ❓ Невідомий callback: ${data}`);
+        return false;
     }
-    
   } catch (error) {
     console.error('[callbackHandler] Помилка:', error);
     await ctx.reply('❌ Помилка. Спробуй ще раз.');
+    return true;
   }
 };
 

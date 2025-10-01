@@ -284,16 +284,17 @@ export const MESSAGES = Object.freeze({
     `📈 Відслідковувати прогрес\n\n` +
     `Залишити ім'я "${userName}" або ввести інше?`,
 
-  WELCOME_BACK_ACTIVE: (name, endStr) =>
+WELCOME_BACK_ACTIVE: (name, endStr) =>
     `👋 З поверненням, ${name}!\n` +
     `✅ Підписка активна до ${endStr}.\n\n` +
-    `Що далі? Обери дію нижче:\n` +
-    `• 🌞 Ранкові питання — сфокусуй день\n` +
-    `• 🌙 Вечірня рефлексія — підсумуй\n` +
+    `Далі все працює так:\n` +
+    `• 🌞 Ранкові питання надсилатиму о ${SCHEDULE.MORNING_TIME} — сфокусуємо день\n` +
+    `• 🌙 Вечірню рефлексію — о ${SCHEDULE.EVENING_TIME} — підсумуємо\n\n` +
+    `У будь-який момент ти можеш:\n` +
     `• 🤖 AI наставник — запитай і отримай план\n` +
     `• 🎯 Колесо балансу — щомісячний аудит\n` +
     `• 📊 Мій прогрес — статистика`,
-    
+        
   WELCOME_BACK_INACTIVE: (name) =>
     `👋 З поверненням, ${name}!\n` +
     `❗ Підписка не активна. Щоб користуватися усіма функціями — активуй або продовж.\n\n` +
@@ -613,6 +614,16 @@ export const SCHEDULER_MESSAGES = Object.freeze({
   EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!'
 });
 
+// ===== МЕНЮ =====
+export const MENU_BUTTONS = Object.freeze({
+  AI_MENTOR: '🤖 AI наставник',
+  WHEEL: '🎯 Колесо балансу',
+  SUBSCRIPTION: '💰 Підписка',
+  PROGRESS: '📊 Мій прогрес',
+  AFFIRMATION: '💎 Афірмація',
+  INSTRUCTIONS: '📝 Інструкції',
+  CONTACT: '📞 Зв\'язок'
+});
 console.log('✅ [constants] Централізовані константи завантажено');
 console.log(`   • Ранкових питань: ${MORNING_QUESTIONS.length}`);
 console.log(`   • Вечірніх питань: ${EVENING_QUESTIONS.length}`);

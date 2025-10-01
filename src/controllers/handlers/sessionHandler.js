@@ -1,16 +1,14 @@
-// src/controllers/handlers/sessionHandler.js - УПРАВЛІННЯ СЕСІЯМИ
+// src/controllers/handlers/sessionHandler.js - управління сесіями через централізовані сервіси
 
 import { aiMentorSession } from '../../aiMentor/session.js';
 
-// Перевірка активних сесій
 const isActiveSession = async (tgId) => {
   try {
-    const userService = await import('../../services/userService.js');
-    const user = await userService.default.getUserByTelegramId(tgId);
+    const userService = (await import('../../services/userService.js')).default;
+    const user = await userService.getUserByTgId(tgId);
     const step = user?.Answer_Step;
-    
     return (
-      aiMentorSession.isActive(tgId) ||
+      aiMentorSession.isActive?.(tgId) ||
       step === 'WheelBalance' ||
       (step && (step.startsWith('Q_m_') || step.startsWith('Q_e_')))
     );
@@ -20,30 +18,24 @@ const isActiveSession = async (tgId) => {
   }
 };
 
-// Блокування меню під час сесій
 const handleBlockedMenu = async (ctx) => {
   const tgId = ctx.from.id;
   let sessionType = 'сесія';
-  
+
   try {
-    const userService = await import('../../services/userService.js');
-    const user = await userService.default.getUserByTelegramId(tgId);
+    const userService = (await import('../../services/userService.js')).default;
+    const user = await userService.getUserByTgId(tgId);
     const step = user?.Answer_Step;
-    
-    if (aiMentorSession.isActive(tgId)) {
-      sessionType = 'AI наставник';
-    } else if (step === 'WheelBalance') {
-      sessionType = 'колесо балансу';
-    } else if (step && step.startsWith('Q_m_')) {
-      sessionType = 'ранкова рефлексія';
-    } else if (step && step.startsWith('Q_e_')) {
-      sessionType = 'вечірня рефлексія';
-    }
+
+    if (aiMentorSession.isActive?.(tgId)) sessionType = 'AI наставник';
+    else if (step === 'WheelBalance') sessionType = 'колесо балансу';
+    else if (step?.startsWith('Q_m_')) sessionType = 'ранкова рефлексія';
+    else if (step?.startsWith('Q_e_')) sessionType = 'вечірня рефлексія';
   } catch (error) {
     console.error('[handleBlockedMenu] Помилка:', error);
   }
 
-  const message = 
+  const message =
     `⚠️ Зараз іде ${sessionType}\n\n` +
     `Завершимо поточну сесію?`;
 
@@ -57,49 +49,43 @@ const handleBlockedMenu = async (ctx) => {
   });
 };
 
-// Обробка контролю сесій
 const handleSessionControl = async (ctx, data) => {
   const tgId = ctx.from.id;
-  
+
   try {
-    const userService = await import('../../services/userService.js');
-    const user = await userService.default.getUserByTelegramId(tgId);
+    const userService = (await import('../../services/userService.js')).default;
+    const user = await userService.getUserByTgId(tgId);
     const step = user?.Answer_Step;
 
     if (data === 'continue_session') {
-      if (aiMentorSession.isActive(tgId)) {
-        const keyboards = await import('../../utils/keyboards.js');
-        await ctx.reply('💬 Продовжуємо діалог з AI наставником. Напиши своє питання!', keyboards.default.aiMentorControlKeyboard());
+      if (aiMentorSession.isActive?.(tgId)) {
+        const keyboards = (await import('../../utils/keyboards.js')).default;
+        await ctx.reply('💬 Продовжуємо діалог з AI наставником. Напиши своє питання!', keyboards.aiMentorControlKeyboard());
       } else if (step === 'WheelBalance') {
         await ctx.reply('🎯 Продовжуємо колесо балансу...');
-      } else if (step && step.startsWith('Q_m_')) {
-        const dailyController = await import('../dailyQuestionsController.js');
-        const questionNumber = parseInt(step.split('_')[2]);
-        await dailyController.default.askMorningQuestion(ctx, questionNumber);
-      } else if (step && step.startsWith('Q_e_')) {
-        const dailyController = await import('../dailyQuestionsController.js');
-        const questionNumber = parseInt(step.split('_')[2]);
-        await dailyController.default.askEveningQuestion(ctx, questionNumber);
+      } else if (step?.startsWith('Q_m_')) {
+        const dailyController = (await import('../flows/dailyController.js')).default;
+        const qnum = parseInt(step.split('_')[2], 10);
+        await dailyController.askMorningQuestion?.(ctx, qnum);
+      } else if (step?.startsWith('Q_e_')) {
+        const dailyController = (await import('../flows/dailyController.js')).default;
+        const qnum = parseInt(step.split('_')[2], 10);
+        await dailyController.askEveningQuestion?.(ctx, qnum);
       }
-      
     } else if (data === 'exit_session') {
-      if (aiMentorSession.isActive(tgId)) {
-        aiMentorSession.end(tgId);
-      }
-      
-      await userService.default.updateUserActivity(tgId);
-      const keyboards = await import('../../utils/keyboards.js');
-      await ctx.reply('🏠 Повернулися до головного меню', keyboards.default.mainMenuKeyboard());
+      if (aiMentorSession.isActive?.(tgId)) aiMentorSession.end?.(tgId);
+      await userService.updateUserActivity?.(tgId);
+      const keyboards = (await import('../../utils/keyboards.js')).default;
+      await ctx.reply('🏠 Повернулися до головного меню', keyboards.mainMenuKeyboard());
     }
-    
   } catch (error) {
     console.error('[handleSessionControl] Помилка:', error);
-    const keyboards = await import('../../utils/keyboards.js');
-    await ctx.reply('❌ Помилка. Повертаємося до меню.', keyboards.default.mainMenuKeyboard());
+    const keyboards = (await import('../../utils/keyboards.js')).default;
+    await ctx.reply('❌ Помилка. Повертаємося до меню.', keyboards.mainMenuKeyboard());
   }
 };
 
-export default { 
+export default {
   isActiveSession,
   handleBlockedMenu,
   handleSessionControl

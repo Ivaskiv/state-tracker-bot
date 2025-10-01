@@ -1,5 +1,5 @@
 // src/controllers/handlers/startHandler.js
-// ВИПРАВЛЕНО: використання правильних методів userService
+// Централізовано: повідомлення/константи з constants.js, клавіатури з keyboards.js
 
 import userService from '../../services/userService.js';
 import onboardingService from '../../services/onboardingService.js';
@@ -17,9 +17,7 @@ const formatDateUA = (dateLike) => {
     if (!dateLike) return null;
     const d = (dateLike instanceof Date) ? dateLike : new Date(dateLike);
     return isNaN(d.getTime()) ? null : d.toLocaleDateString('uk-UA');
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 };
 
 const computeTrialEndFromNow = (days = 7) => {
@@ -31,7 +29,7 @@ const computeTrialEndFromNow = (days = 7) => {
 const isAccessActive = (user) => {
   if (!user) return false;
   if (typeof userService.hasActiveAccess === 'function') {
-    try { return !!userService.hasActiveAccess(user); } catch { /* noop */ }
+    try { return !!userService.hasActiveAccess(user); } catch {}
   }
   const a = (user['Active_Subscription_Status'] || '');
   const s = (user['Subscription Status'] || '').toLowerCase();
@@ -45,12 +43,10 @@ export default function registerStartHandlers(bot) {
       const tgId = ctx.from.id;
       const telegramName = ctx.from.first_name || ctx.from.username || 'Користувач';
 
-      // ✅ ВИПРАВЛЕНО: використовуємо getUserByTgId замість getUserByTelegramId
       let user = await userService.getUserByTgId(tgId);
-      
       if (!user) {
         user = await userService.ensureUser(tgId, telegramName);
-        await ctx.reply('👋 Привіт! Давай зареєструємось: натисни «Почати».', keyboards.greetingKeyboard?.() || undefined);
+        await ctx.reply(MESSAGES.WELCOME(telegramName), keyboards.greetingKeyboard());
         return;
       }
 
@@ -68,28 +64,21 @@ export default function registerStartHandlers(bot) {
       const endStr = formatDateUA(user.End_Date) || 'скоро';
 
       if (isAccessActive(user)) {
-        const text = typeof MESSAGES.WELCOME_BACK_ACTIVE === 'function'
-          ? MESSAGES.WELCOME_BACK_ACTIVE(name, endStr)
-          : `👋 З поверненням, ${name}!\n✅ Підписка активна до ${endStr}.\nПродовжимо?`;
-        await ctx.reply(text, keyboards.quickStartInlineKeyboard?.() || keyboards.mainMenuKeyboard());
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.quickStartInlineKeyboard());
       } else {
-        const text = typeof MESSAGES.WELCOME_BACK_INACTIVE === 'function'
-          ? MESSAGES.WELCOME_BACK_INACTIVE(name)
-          : `👋 З поверненням, ${name}!\n❗ Підписка не активна. Активуй, щоб користуватись усім.`;
-        await ctx.reply(text, keyboards.quickStartInlineKeyboard?.() || keyboards.subscriptionPlansKeyboard());
+        await ctx.reply(MESSAGES.WELCOME_BACK_INACTIVE(name), keyboards.quickStartInlineKeyboard());
       }
     } catch (e) {
       console.error('[startHandler]/start error:', e);
-      await ctx.reply(MESSAGES.ERROR_GENERIC || '❌ Сталася помилка. Спробуй ще раз /start');
+      await ctx.reply(MESSAGES.ERROR_GENERIC);
     }
   });
 }
 
+// ---------- онбординг: перше привітання ----------
 const startOnboarding = async (ctx, user) => {
   const userName = user['User Name'] || 'Користувач';
-  const message = MESSAGES.ONBOARDING_NAME_CHOICE(userName);
-
-  await ctx.reply(message, {
+  await ctx.reply(MESSAGES.ONBOARDING_NAME_CHOICE(userName), {
     reply_markup: {
       inline_keyboard: [
         [{ text: `✅ Залишити "${userName}"`, callback_data: 'use_telegram_name' }],
@@ -99,52 +88,35 @@ const startOnboarding = async (ctx, user) => {
   });
 };
 
+// ---------- текст під час онбордингу ----------
 export const handleText = async (ctx) => {
   const tgId = ctx.from.id;
   const text = ctx.message?.text?.trim();
 
-  console.log(`[startHandler] handleText(${tgId}): "${text}"`);
-
   const user = await userService.getUserByTgId(tgId);
-  if (!user || user.UserRegistered) {
-    console.log('[startHandler] ❌ Не онбординг');
-    return false;
-  }
+  if (!user || user.UserRegistered) return false;
 
   const step = user.Answer_Step;
-  console.log(`[startHandler] Крок: ${step}`);
 
   try {
     if (step === ANSWER_STEPS.OB_NAME) {
       const result = await onboardingService.handleNameStep(tgId, text);
-      if (result.error) {
-        await ctx.reply(result.message);
-      } else {
-        await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
-      }
+      if (result.error) await ctx.reply(result.message);
+      else await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
       return true;
     }
-
     if (step === ANSWER_STEPS.OB_EMAIL) {
       const result = await onboardingService.handleEmailStep(tgId, text);
-      if (result.error) {
-        await ctx.reply(result.message, keyboards.emailInputKeyboard());
-      } else {
-        await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
-      }
+      if (result.error) await ctx.reply(result.message, keyboards.emailInputKeyboard());
+      else await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
       return true;
     }
-
     if (step === ANSWER_STEPS.OB_PHONE) {
       const result = await onboardingService.handlePhoneStep(tgId, text);
-      if (result.error) {
-        await ctx.reply(result.message, keyboards.phoneInputKeyboard());
-      } else {
-        await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
-      }
+      if (result.error) await ctx.reply(result.message, keyboards.phoneInputKeyboard());
+      else await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
       return true;
     }
-
     return false;
   } catch (error) {
     console.error('[startHandler] ❌ Помилка handleText:', error);
@@ -153,11 +125,10 @@ export const handleText = async (ctx) => {
   }
 };
 
+// ---------- callback-и під час онбордингу ----------
 export const handleCallback = async (ctx) => {
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery?.data;
-
-  console.log(`[startHandler] handleCallback(${tgId}): ${data}`);
 
   const user = await userService.getUserByTgId(tgId);
   if (!user) return false;
@@ -200,35 +171,28 @@ export const handleCallback = async (ctx) => {
       return true;
     }
 
+    // Trial: ідемпотентно
     if (data === 'plan_free' || data === 'activate_trial') {
       if (isAccessActive(user)) {
         const name = user['User Name'] || ctx.from.first_name || 'друже';
         const endStr = formatDateUA(user.End_Date) || 'скоро';
-        const text = typeof MESSAGES.WELCOME_BACK_ACTIVE === 'function'
-          ? MESSAGES.WELCOME_BACK_ACTIVE(name, endStr)
-          : `👋 З поверненням, ${name}!\n✅ Підписка активна до ${endStr}.\nПродовжимо?`;
-        await ctx.reply(text, keyboards.mainMenuKeyboard());
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
         return true;
       }
 
       const result = await onboardingService.handlePlanStep(tgId, 'TRIAL');
-
       if (result?.success && result?.trial) {
         const fresh = await userService.getUserByTgId(tgId);
         const endDateFromService = formatDateUA(result.endDate);
         const endDateFromUser = formatDateUA(fresh?.End_Date);
         const endDateStr = endDateFromService || endDateFromUser || computeTrialEndFromNow(7);
-
         const message = REGISTRATION_SUCCESS_TEMPLATE.replace('{END_DATE}', endDateStr);
         await ctx.reply(message, keyboards.mainMenuKeyboard());
       } else {
         const name = user['User Name'] || ctx.from.first_name || 'друже';
         const fresh = await userService.getUserByTgId(tgId);
         const endStr = formatDateUA(fresh?.End_Date) || computeTrialEndFromNow(7);
-        const text = typeof MESSAGES.WELCOME_BACK_ACTIVE === 'function'
-          ? MESSAGES.WELCOME_BACK_ACTIVE(name, endStr)
-          : `👋 З поверненням, ${name}!\n✅ Доступ активний до ${endStr}.\nПродовжимо?`;
-        await ctx.reply(text, keyboards.mainMenuKeyboard());
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
       }
       return true;
     }
