@@ -1,4 +1,4 @@
-// src/controllers/handlers/callbackHandler.js - CALLBACK З АНТІ-СПАМОМ
+// src/controllers/handlers/callbackHandler.js - ВИПРАВЛЕНО: ВСІ КНОПКИ МЕНЮ
 
 import antiSpam from '../../utils/antiSpam.js';
 import startHandler from './startHandler.js';
@@ -6,6 +6,7 @@ import subscriptionController from '../subscriptionController.js';
 import wheelController from '../flows/wheelController.js';
 import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
 import dailyController from '../flows/dailyController.js';
+import mainFlowController from '../flows/mainFlowController.js';
 import keyboards from '../../utils/keyboards.js';
 
 export const handle = async (ctx) => {
@@ -53,13 +54,49 @@ export const handle = async (ctx) => {
       return;
     }
     
-    // 6. ГОЛОВНЕ МЕНЮ
-    if (data === 'main_menu') {
-      await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
-      return;
+    // ✅ 6. ГОЛОВНЕ МЕНЮ ТА ВСІ КНОПКИ
+    switch (data) {
+      case 'main_menu':
+      case 'open_main':
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
+        await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+        break;
+        
+      case 'my_progress':
+        await mainFlowController.handleCallback(ctx, 'my_progress');
+        break;
+        
+      case 'get_weekly_report':
+        await mainFlowController.handleCallback(ctx, 'get_weekly_report');
+        break;
+        
+      case 'get_monthly_report':
+        await mainFlowController.handleCallback(ctx, 'get_monthly_report');
+        break;
+        
+      case 'show_affirmation':
+        await mainFlowController.handleCallback(ctx, 'show_affirmation');
+        break;
+        
+      case 'help':
+        await mainFlowController.handleCallback(ctx, 'help');
+        break;
+        
+      case 'contact':
+        await mainFlowController.handleCallback(ctx, 'contact');
+        break;
+        
+      case 'instructions':
+        await mainFlowController.handleCallback(ctx, 'instructions');
+        break;
+        
+      case 'continue_session':
+        await mainFlowController.handleCallback(ctx, 'continue_session');
+        break;
+        
+      default:
+        console.log(`[callbackHandler] ❓ Невідомий callback: ${data}`);
     }
-    
-    console.log(`[callbackHandler] ❓ Невідомий callback: ${data}`);
     
   } catch (error) {
     console.error('[callbackHandler] Помилка:', error);

@@ -1,5 +1,5 @@
 // src/controllers/handlers/startHandler.js
-// ВИПРАВЛЕНО: повідомлення TRIAL + оптимізація, без дубльованих export’ів
+// ВИПРАВЛЕНО: використання правильних методів userService
 
 import userService from '../../services/userService.js';
 import onboardingService from '../../services/onboardingService.js';
@@ -16,7 +16,6 @@ const formatDateUA = (dateLike) => {
   try {
     if (!dateLike) return null;
     const d = (dateLike instanceof Date) ? dateLike : new Date(dateLike);
-    // Якщо не валідна дата — повернемо null, щоб не ламати повідомлення.
     return isNaN(d.getTime()) ? null : d.toLocaleDateString('uk-UA');
   } catch {
     return null;
@@ -30,13 +29,10 @@ const computeTrialEndFromNow = (days = 7) => {
 };
 
 const isAccessActive = (user) => {
-  // універсальна перевірка активності доступу
   if (!user) return false;
-  // якщо є зручний метод у сервісі — скористаємося ним
   if (typeof userService.hasActiveAccess === 'function') {
     try { return !!userService.hasActiveAccess(user); } catch { /* noop */ }
   }
-  // запасна евристика по полях:
   const a = (user['Active_Subscription_Status'] || '');
   const s = (user['Subscription Status'] || '').toLowerCase();
   return a.includes('✅') || s === 'active';
@@ -49,28 +45,25 @@ export default function registerStartHandlers(bot) {
       const tgId = ctx.from.id;
       const telegramName = ctx.from.first_name || ctx.from.username || 'Користувач';
 
-      // якщо юзера немає — делегуємо у твій онбординг (мінімальне вітання)
-      let user = await userService.getUserByTelegramId(tgId);
+      // ✅ ВИПРАВЛЕНО: використовуємо getUserByTgId замість getUserByTelegramId
+      let user = await userService.getUserByTgId(tgId);
+      
       if (!user) {
-        // ensureUser створить запис; далі — стандартний онбординг
         user = await userService.ensureUser(tgId, telegramName);
         await ctx.reply('👋 Привіт! Давай зареєструємось: натисни «Почати».', keyboards.greetingKeyboard?.() || undefined);
         return;
       }
 
-      // Якщо ім’я у Users = TG_id → оновлюємо на людське
       if (user['User Name'] === String(tgId)) {
         await userService.updateUserFields(tgId, { 'User Name': telegramName });
         user['User Name'] = telegramName;
       }
 
-      // Якщо не пройдений онбординг — запуск онбордингу
       if (!user.UserRegistered) {
         await startOnboarding(ctx, user);
         return;
       }
 
-      // Повернення: активна/неактивна підписка
       const name = user['User Name'] || telegramName;
       const endStr = formatDateUA(user.End_Date) || 'скоро';
 
@@ -92,17 +85,9 @@ export default function registerStartHandlers(bot) {
   });
 }
 
-// ---------- онбординг: перше привітання ----------
 const startOnboarding = async (ctx, user) => {
   const userName = user['User Name'] || 'Користувач';
-  const message =
-    `👋 Привіт, ${userName}!\n\n` +
-    `Я твій AI-мотиватор та коуч! Допомагаю:\n\n` +
-    `🎯 Ставити та досягати цілі\n` +
-    `⚖️ Знаходити баланс у житті\n` +
-    `💪 Підтримувати мотивацію\n` +
-    `📈 Відслідковувати прогрес\n\n` +
-    `Залишити ім'я "${userName}" або ввести інше?`;
+  const message = MESSAGES.ONBOARDING_NAME_CHOICE(userName);
 
   await ctx.reply(message, {
     reply_markup: {
@@ -114,7 +99,6 @@ const startOnboarding = async (ctx, user) => {
   });
 };
 
-// ---------- текст під час онбордингу ----------
 export const handleText = async (ctx) => {
   const tgId = ctx.from.id;
   const text = ctx.message?.text?.trim();
@@ -169,7 +153,6 @@ export const handleText = async (ctx) => {
   }
 };
 
-// ---------- callback-и під час онбордингу ----------
 export const handleCallback = async (ctx) => {
   const tgId = ctx.from.id;
   const data = ctx.callbackQuery?.data;
@@ -180,7 +163,6 @@ export const handleCallback = async (ctx) => {
   if (!user) return false;
 
   try {
-    // підтвердження імені
     if (data === 'use_telegram_name') {
       await userService.updateUserFields(tgId, {
         Status: USER_STATUS.REGISTERED,
@@ -190,7 +172,6 @@ export const handleCallback = async (ctx) => {
       return true;
     }
 
-    // введення іншого імені
     if (data === 'enter_custom_name' || data === 'start_registration') {
       await userService.updateUserFields(tgId, {
         Status: USER_STATUS.REGISTERED,
@@ -200,7 +181,6 @@ export const handleCallback = async (ctx) => {
       return true;
     }
 
-    // пропуски
     if (data === 'skip_email') {
       await onboardingService.handleEmailStep(tgId, null, true);
       await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
@@ -213,7 +193,6 @@ export const handleCallback = async (ctx) => {
       return true;
     }
 
-    // таймзона
     if (data.startsWith('tz_')) {
       const tzSlug = data.slice(3);
       await onboardingService.handleTimezoneStep(tgId, tzSlug);
@@ -221,9 +200,7 @@ export const handleCallback = async (ctx) => {
       return true;
     }
 
-    // ===== TRIAL: ідемпотентна активація + коректне повідомлення =====
     if (data === 'plan_free' || data === 'activate_trial') {
-      // якщо доступ уже активний — не дублюємо підписку і не шлемо trial-повідомлення
       if (isAccessActive(user)) {
         const name = user['User Name'] || ctx.from.first_name || 'друже';
         const endStr = formatDateUA(user.End_Date) || 'скоро';
@@ -237,7 +214,6 @@ export const handleCallback = async (ctx) => {
       const result = await onboardingService.handlePlanStep(tgId, 'TRIAL');
 
       if (result?.success && result?.trial) {
-        // кращий пріоритет: дата з сервісу → оновлений юзер → запасний "через 7 днів"
         const fresh = await userService.getUserByTgId(tgId);
         const endDateFromService = formatDateUA(result.endDate);
         const endDateFromUser = formatDateUA(fresh?.End_Date);
@@ -245,11 +221,7 @@ export const handleCallback = async (ctx) => {
 
         const message = REGISTRATION_SUCCESS_TEMPLATE.replace('{END_DATE}', endDateStr);
         await ctx.reply(message, keyboards.mainMenuKeyboard());
-
-        // Можеш додатково перевести у завершений онбординг:
-        // await userService.updateUserFields(tgId, { Answer_Step: ANSWER_STEPS.OB_DONE, UserRegistered: true });
       } else {
-        // якщо сервіс повернув "вже активовано" або інший стан
         const name = user['User Name'] || ctx.from.first_name || 'друже';
         const fresh = await userService.getUserByTgId(tgId);
         const endStr = formatDateUA(fresh?.End_Date) || computeTrialEndFromNow(7);
@@ -261,7 +233,6 @@ export const handleCallback = async (ctx) => {
       return true;
     }
 
-    // платні плани — поки вручну
     if (['plan_week', 'plan_month', 'plan_year'].includes(data)) {
       await ctx.reply('💳 Для оплати зверніться до підтримки: nadyastarway@gmail.com');
       return true;

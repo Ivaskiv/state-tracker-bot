@@ -1,11 +1,6 @@
-// src/controllers/flows/mainFlowController.js
+// src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО: ОБРОБКА ВСІХ КНОПОК
 
-// ❌ НЕПРАВИЛЬНО:
-// import userService from '../../auth/services/userService.js';
-
-// ✅ ПРАВИЛЬНО:
 import userService from '../../services/userService.js';
-
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
 import { aiMentorSession } from '../../aiMentor/session.js';
@@ -29,21 +24,18 @@ const mainFlowController = {
     try {
       const user = await userService.getUserByTgId(tgId);
 
-      // Новий користувач
       if (!user) {
         console.log(`[MAIN FLOW] 🆕 Новий: ${tgId}`);
         await this.startRegistration(ctx, name);
         return;
       }
 
-      // Незавершена реєстрація
       if (!user.UserRegistered || !user['User Name'] || !user.Email) {
         console.log(`[MAIN FLOW] ⚠️ Незавершена реєстрація: ${tgId}`);
         await this.startRegistration(ctx, name);
         return;
       }
 
-      // Перевірка підписки
       const hasAccess = userService.hasActiveAccess(user);
       console.log(`[MAIN FLOW] 💰 Підписка ${tgId}: ${hasAccess ? 'ТАК' : 'НІ'}`);
 
@@ -52,14 +44,12 @@ const mainFlowController = {
         return;
       }
 
-      // Активна сесія
       const activeSession = await sessionHandler.isActiveSession(tgId);
       if (activeSession) {
         await sessionHandler.handleBlockedMenu(ctx);
         return;
       }
 
-      // Перше колесо
       const hasWheel = await this.checkFirstWheel(tgId);
       console.log(`[MAIN FLOW] 🎯 Колесо ${tgId}: ${hasWheel ? 'ТАК' : 'НІ'}`);
 
@@ -68,7 +58,6 @@ const mainFlowController = {
         return;
       }
 
-      // Головне меню
       console.log(`[MAIN FLOW] ✅ Меню: ${tgId}`);
       await this.showMainMenu(ctx, user);
 
@@ -162,6 +151,7 @@ const mainFlowController = {
     try {
       switch (data) {
         case 'main_menu':
+        case 'open_main':
           const currentUser = user || await userService.getUserByTgId(tgId);
           await this.showMainMenu(ctx, currentUser);
           await ctx.answerCbQuery();
