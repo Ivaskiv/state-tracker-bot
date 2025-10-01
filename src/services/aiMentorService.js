@@ -1,10 +1,10 @@
 // src/aiMentor/services/aiMentorService.js - ФІНАЛЬНА ВЕРСІЯ З ЗБЕРЕЖЕННЯМ
 
-import { chat } from '../../services/openaiClient.js';
-import userService from '../../services/userService.js';
-import responseService from '../../dialogue/services/responseService.js';
-import activityTracker from '../../services/activityTracker.js';
-import { AI_MENTOR_PROMPTS, AI_MENTOR_CONFIG } from '../../config/constants.js';
+import { chat } from './openaiClient.js';
+import userService from './userService.js';
+import responseService from '../dialogue/services/responseService.js';
+import activityTracker from './activityTracker.js';
+import { AI_MENTOR_PROMPTS, AI_MENTOR_CONFIG } from '../config/constants.js';
 
 const systemPrompt = AI_MENTOR_PROMPTS.SYSTEM_PROMPT;
 
@@ -135,7 +135,7 @@ async function generateMicroActions(focusGoal, state, tgId) {
 // ===== ЗБЕРЕЖЕННЯ AI ДІАЛОГУ =====
 async function saveAIConversation(tgId, question, aiResponse, contextType = 'advice') {
   try {
-    const { getBase, tables } = await import('../../config/database.js');
+    const { getBase, tables } = await import('../config/database.js');
     const base = getBase();
     
     await base(tables.AI_CONVERSATIONS || 'AI_Conversations').create({
@@ -156,7 +156,7 @@ async function saveAIConversation(tgId, question, aiResponse, contextType = 'adv
 
 const saveGeneratedActionsToConversation = async (tgId, actionsData) => {
   try {
-    const { getBase, tables } = await import('../../config/database.js');
+    const { getBase, tables } = await import('../config/database.js');
     const base = getBase();
     const today = new Date().toISOString().split('T')[0];
     

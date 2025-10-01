@@ -2,9 +2,9 @@
 
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
-import { aiMentorSession } from '../session.js';
+import { aiMentorSession } from '../../utils/session.js';
 import { chat } from '../../services/openaiClient.js';
-import conversationService from '../services/conversationService.js';
+import conversationService from '../../services/conversationService.js';
 import responseService from '../../dialogue/services/responseService.js';
 import activityTracker from '../../services/activityTracker.js';
 import { 

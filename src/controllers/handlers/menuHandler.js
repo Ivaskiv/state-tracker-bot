@@ -1,7 +1,7 @@
 // src/controllers/handlers/menuHandler.js — меню без інлайн-кнопок, усе через головне меню
 
 import keyboards from '../../utils/keyboards.js';
-import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
+import aiMentorController from '../flows/aiMentorController.js';
 // ВАЖЛИВО: беремо актуальний контролер колеса з flows/, а не старий wheelBalanceController
 import wheelController from '../flows/wheelController.js';
 

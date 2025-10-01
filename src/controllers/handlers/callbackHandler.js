@@ -4,7 +4,7 @@ import antiSpam from '../../utils/antiSpam.js';
 import { handleCallback as startCb } from './startHandler.js';
 import subscriptionController from '../subscriptionController.js';
 import wheelController from '../flows/wheelController.js';
-import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
+import aiMentorController from '../flows/aiMentorController.js';
 import dailyController from '../flows/dailyController.js';
 import mainFlowController from '../flows/mainFlowController.js';
 import keyboards from '../../utils/keyboards.js';

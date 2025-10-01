@@ -3,12 +3,12 @@
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
-import { aiMentorSession } from '../../aiMentor/session.js';
+import { aiMentorSession } from '../../utils/session.js';
 import { CONTACTS } from '../../config/constants.js';
 
 // Контролери
 import wheelController from './wheelController.js';
-import aiMentorController from '../../aiMentor/controllers/aiMentorController.js';
+import aiMentorController from './aiMentorController.js';
 import subscriptionController from '../subscriptionController.js';
 import reportService from '../../services/reportService.js';
 import sessionHandler from '../handlers/sessionHandler.js';

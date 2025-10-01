@@ -1,13 +1,10 @@
-// src/utils/scheduler.js — чисто, централізовано, без хардкоду текстів/кнопок
+// src/utils/scheduler.js — ВИПРАВЛЕНІ ІМПОРТИ
 
 import cron from 'node-cron';
-
 import userService from '../services/userService.js';
-import paymentService from '../auth/services/paymentService.js';
-import wheelBalanceController from '../controllers/wheelBalanceController.js';
-import activityTracker from '../services/activityTracker.js';
 import subscriptionController from '../controllers/subscriptionController.js';
-
+import activityTracker from '../services/activityTracker.js';
+import wheelBalanceService from '../services/wheelBalanceService.js'; // ✅ ПРАВИЛЬНИЙ ШЛЯХ
 import keyboards from '../utils/keyboards.js';
 import {
   SCHEDULE,
@@ -15,18 +12,22 @@ import {
   SCHEDULER_MESSAGES
 } from '../config/constants.js';
 
+// ❌ ВИДАЛИТИ ЦІ РЯДКИ:
+// import wheelBalanceController from '../controllers/wheelBalanceController.js';
+// import paymentService from '../auth/services/paymentService.js';
+
 // ----------------- helpers -----------------
 const jobs = [];
 let isSchedulerStarted = false;
-const activeSessions = new Map();   // { tgId: { type, startTime, reminded } }
-const reminderTimers = new Map();   // { tgId: setTimeout }
-const taskReminders = new Map();    // { tgId: setTimeout[] }
-const executionLocks = new Set();   // дедуп виконань (тип + хвилина)
+const activeSessions = new Map();
+const reminderTimers = new Map();
+const taskReminders = new Map();
+const executionLocks = new Set();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const guardExecution = (type) => {
-  const key = `${type}_${new Date().toISOString().slice(0, 16)}`; // до хвилини
+  const key = `${type}_${new Date().toISOString().slice(0, 16)}`;
   if (executionLocks.has(key)) {
     console.log(`[scheduler] ⏭️ Дублювання ${type} пропущено`);
     return false;
@@ -35,7 +36,6 @@ const guardExecution = (type) => {
   setTimeout(() => executionLocks.delete(key), 120_000);
   return true;
 };
-// ДОДАЙ у верхній частині src/utils/scheduler.js поруч із helpers
 
 const isAccessActiveFallback = (user) => {
   if (!user) return false;
@@ -49,14 +49,11 @@ const isAccessActiveFallback = (user) => {
   return a.includes('✅') || s === 'active';
 };
 
-// універсальний адаптер: повертає масив активних користувачів { TG_id, ... }
 const fetchActiveUsers = async () => {
-  // 1) якщо метод у сервісі є — використовуємо його
   if (typeof userService.getActiveUsers === 'function') {
     return await userService.getActiveUsers();
   }
 
-  // 2) якщо є getAllUsers — відфільтруємо на стороні Node
   if (typeof userService.getAllUsers === 'function') {
     const all = await userService.getAllUsers();
     return (all || [])
@@ -67,13 +64,11 @@ const fetchActiveUsers = async () => {
       .filter(u => !!u.TG_id && isAccessActiveFallback(u));
   }
 
-  // 3) прямий fallback до Airtable
   try {
     const { getBase, tables } = await import('../config/database.js');
     const base = getBase();
     const USERS_TBL = tables?.USERS || 'Users';
 
-    // TG_id заповнено + (галочка в Active_Subscription_Status або Subscription Status = active)
     const filterByFormula =
       'AND(' +
         'NOT({TG_id} = ""),' +
@@ -83,7 +78,6 @@ const fetchActiveUsers = async () => {
         ')' +
       ')';
 
-    // ВАЖЛИВО: pageSize <= 100 або просто прибрати
     const records = await base(USERS_TBL)
       .select({
         filterByFormula,
@@ -131,11 +125,8 @@ const sendMorningReminders = async (bot) => {
         await bot.telegram.sendMessage(
           tgId,
           text,
-          keyboards.morningStartInline?.() || undefined // якщо таки потрібні мінімальні інлайн-кнопки
+          keyboards.morningStartInline?.() || undefined
         );
-
-        // якщо ви принципово без інлайнів — просто не додавайте morningStartInline у keyboards
-        // і тригеріть сесію іншим місцем/контролером
 
         markSessionActive(tgId, 'morning');
         scheduleSessionReminder(bot, tgId, SCHEDULER_MESSAGES.MORNING_REMINDER, 'morning');
@@ -144,7 +135,6 @@ const sendMorningReminders = async (bot) => {
         console.error(`[scheduler] ❌ Помилка юзера ${tgId}:`, err);
       }
 
-      // легкий троттл, щоб не упертися в rate limit
       await sleep(250);
     }
   } catch (e) {
@@ -172,7 +162,6 @@ const sendEveningReminders = async (bot) => {
           continue;
         }
 
-        // опціонально можна перевіряти, чи був ранок
         const hadMorning = await checkMorningCompletion(tgId);
         const baseText = SCHEDULER_MESSAGES.EVENING_SESSION_START(name);
         const note = hadMorning ? '' : `\n\n${SCHEDULER_MESSAGES.EVENING_REMINDER}`;
@@ -199,7 +188,6 @@ const sendEveningReminders = async (bot) => {
 const scheduleSessionReminder = (bot, tgId, reminderText, sessionType) => {
   const id = String(tgId);
 
-  // скасовуємо попередній таймер
   if (reminderTimers.has(id)) {
     clearTimeout(reminderTimers.get(id));
     reminderTimers.delete(id);
@@ -258,11 +246,10 @@ export const cancelSessionReminder = (tgId) => {
 export const isSessionActive = (tgId) => activeSessions.has(String(tgId));
 export const getActiveSession = (tgId) => activeSessions.get(String(tgId)) || null;
 
-// ----------------- SMART-нагадування про задачі -----------------
+// ----------------- SMART-нагадування -----------------
 export const scheduleTaskReminders = async (bot, tgId, tasks) => {
   const id = String(tgId);
 
-  // скидаємо старі таймери
   if (taskReminders.has(id)) {
     taskReminders.get(id).forEach(clearTimeout);
     taskReminders.delete(id);
@@ -273,7 +260,6 @@ export const scheduleTaskReminders = async (bot, tgId, tasks) => {
   const timers = [];
 
   for (const task of tasks) {
-    // допускаємо формати HH:MM або "будь-коли"
     if (!task?.time || /будь-?коли/i.test(task.time)) continue;
 
     const m = String(task.time).match(/^(\d{1,2}):(\d{2})$/);
@@ -336,7 +322,7 @@ const scheduleMidDayCheck = (bot, tgId, tasks) => {
   taskReminders.get(id).push(t);
 };
 
-// ----------------- перевірки завершення (Airtable) -----------------
+// ----------------- перевірки завершення -----------------
 const checkMorningCompletion = async (tgId) => {
   try {
     const { getBase, tables } = await import('../config/database.js');
@@ -416,7 +402,6 @@ const checkWeeklyActivity = async (bot) => {
         if (trigger?.showOffer) {
           await bot.telegram.sendMessage(tgId, trigger.message);
           await sleep(300);
-          // невеликий адаптер під інтерфейс subscriptionController
           await subscriptionController.offerService(
             { from: { id: tgId }, reply: (msg, kb) => bot.telegram.sendMessage(tgId, msg, kb) },
             trigger.problemType,
@@ -464,10 +449,12 @@ const sendMonthlyReports = async (bot) => {
 
   console.log('[scheduler] 📅 Щомісячні звіти + колесо');
   try {
-    const sent = await wheelBalanceController.checkMonthlyWheelNeed(bot);
+    // ✅ ВИКОРИСТОВУЄМО wheelBalanceService замість wheelBalanceController
+    const sent = await wheelBalanceService.sendMonthlyWheelReminders(bot);
     console.log(`[scheduler] ✅ Wheel reminders: ${sent}`);
 
-    const exp = await paymentService.checkExpiringSubscriptions(bot);
+    // ✅ ВИКОРИСТОВУЄМО subscriptionController замість paymentService
+    const exp = await subscriptionController.sendExpirationReminders(bot);
     console.log(`[scheduler] ✅ Sub expirations: ${exp}`);
   } catch (e) {
     console.error('[scheduler] ❌ Щомісячні операції помилка:', e);
@@ -479,6 +466,8 @@ const checkExpiredSubscriptions = async () => {
 
   console.log('[scheduler] 💰 Перевірка підписок');
   try {
+    // ✅ Динамічний імпорт для уникнення циклічних залежностей
+    const { default: paymentService } = await import('../auth/services/paymentService.js');
     const n = await paymentService.deactivateExpiredSubscriptions();
     console.log(`[scheduler] ✅ Деактивовано: ${n}`);
   } catch (e) {
@@ -565,13 +554,16 @@ export const startScheduler = (bot) => {
   }
 };
 
+// ✅ ВИПРАВЛЕНО: j.stop() замість j.destroy()
 export const stopScheduler = () => {
   console.log('[scheduler] 🛑 Зупинка…');
 
   jobs.forEach((j, i) => {
     try {
-      j.destroy();
-      console.log(`[scheduler] ✅ Зупинено задачу #${i + 1}`);
+      if (j && typeof j.stop === 'function') {
+        j.stop(); // ✅ ПРАВИЛЬНИЙ МЕТОД для node-cron
+        console.log(`[scheduler] ✅ Зупинено задачу #${i + 1}`);
+      }
     } catch (e) {
       console.error(`[scheduler] ❌ Помилка зупинки #${i + 1}:`, e);
     }

@@ -1,6 +1,6 @@
 // src/controllers/handlers/sessionHandler.js - управління сесіями через централізовані сервіси
 
-import { aiMentorSession } from '../../aiMentor/session.js';
+import { aiMentorSession } from '../../utils/session.js';
 
 const isActiveSession = async (tgId) => {
   try {
