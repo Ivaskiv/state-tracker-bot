@@ -1,7 +1,7 @@
 // src/aiMentor/services/conversationService.js - ПОВНА ВЕРСІЯ
 
 import { getBase, tables } from '../../config/database.js';
-import { CONTEXT_TYPES } from '../../config/aiMentorPrompts.js';
+import { CONTEXT_TYPES } from '../../config/constants.js';
 import logger from '../../utils/logger.js';
 
 const base = getBase();

@@ -1,4 +1,4 @@
-// src/config/constants.js - ЦЕНТРАЛІЗОВАНІ КОНСТАНТИ (ФІНАЛЬНА ВЕРСІЯ)
+// src/config/constants.js - ЦЕНТРАЛІЗОВАНІ КОНСТАНТИ (ПОВНА ВЕРСІЯ)
 
 // ===== ЧАСОВІ ЗОНИ =====
 export const TIMEZONES = [
@@ -24,13 +24,11 @@ export const TIMEZONES = [
   { label: 'Europe/Helsinki (UTC+3)', slug: 'Europe/Helsinki' },
 ];
 
-// Повертає ПОВНИЙ лейбл для Airtable single select по slug
 export const getTzLabel = (slug) => {
   const tz = TIMEZONES.find(t => t.slug === slug);
   return tz ? tz.label : `${slug} (UTC+0)`;
 };
 
-// Alias для зворотної сумісності
 export const parseTz = getTzLabel;
 
 // ===== ПЛАНИ ПІДПИСКИ =====
@@ -64,10 +62,29 @@ export const SUBSCRIPTION_PLANS = Object.freeze({
     description: 'Максимальна економія та підтримка протягом року'
   }
 });
+
+// ===== СТАТУСИ =====
+export const USER_STATUS = Object.freeze({
+  NEW: 'New User',
+  REGISTERED: 'Registered User',
+  ACTIVE: 'Active User'
+});
+
+export const SUBSCRIPTION_STATUS = Object.freeze({
+  NEW: 'New',
+  ACTIVE: 'Active',
+  PAUSED: 'Paused',
+  EXPIRED: 'Expired',
+  PAID: 'Paid',
+  PENDING: 'Pending',
+  EMPTY: 'Empty',
+  DECLINED: 'Declined',
+  APPROVED: 'Approved'
+});
+
+// ===== КРОКИ ВІДПОВІДЕЙ =====
 export const CURRENT_ACTIVITY = Object.freeze({
   IDLE: 'idle',
-
-  // Онбординг
   OB_NAME: 'ob_name',
   OB_EMAIL: 'ob_email',
   OB_PHONE: 'ob_phone',
@@ -75,36 +92,19 @@ export const CURRENT_ACTIVITY = Object.freeze({
   OB_PLAN: 'ob_plan',
   PAYMENT_PENDING: 'payment_pending',
   COMPLETED: 'completed',
-
-  // Меню/режими
-  WHEEL: 'WheelBalance',        // legacy назва збережена
+  WHEEL: 'WheelBalance',
   AI_MENTOR: 'ai_mentor',
   WEEKLY: 'weekly_report',
   MONTHLY: 'monthly_report',
   SUBSCRIPTION: 'subscription',
-
-  // Ранкові/вечірні кроки
   Q_M_1: 'Q_m_1', Q_M_2: 'Q_m_2', Q_M_3: 'Q_m_3',
   Q_M_4: 'Q_m_4', Q_M_5: 'Q_m_5', Q_M_6: 'Q_m_6',
   Q_E_1: 'Q_e_1', Q_E_2: 'Q_e_2', Q_E_3: 'Q_e_3', Q_E_4: 'Q_e_4', Q_E_5: 'Q_e_5',
 });
 
-// Для меню (якщо потрібно)
-export const MENU_TO_ACTIVITY = Object.freeze({
-  '🤖 AI наставник': CURRENT_ACTIVITY.AI_MENTOR,
-  '🎯 Колесо балансу': CURRENT_ACTIVITY.WHEEL,
-  '📅 Щотижневий': CURRENT_ACTIVITY.WEEKLY,
-  '🗓 Щомісячний': CURRENT_ACTIVITY.MONTHLY,
-  '💰 Підписка': CURRENT_ACTIVITY.SUBSCRIPTION,
-});
-
-// ===== КРОКИ ВІДПОВІДЕЙ / ОНБОРДИНГУ =====
 export const ANSWER_STEPS = Object.freeze({
-  // Основні кроки
   BEGIN: 'Begin_answer',
   COMPLETED: 'completed',
-
-  // Онбординг
   OB_PITCH: 'ob_pitch',
   OB_NAME: 'ob_name',
   OB_EMAIL: 'ob_email',
@@ -115,30 +115,21 @@ export const ANSWER_STEPS = Object.freeze({
   OB_PAYMENT_SUCCESS: 'ob_payment_success',
   OB_REMINDERS_INTRO: 'ob_reminders_intro',
   OB_DONE: 'ob_done',
-
-  // Динамічні ранкові питання
   MORNING_1: 'Q_m_1',
   MORNING_2: 'Q_m_2',
   MORNING_3: 'Q_m_3',
   MORNING_4: 'Q_m_4',
   MORNING_5: 'Q_m_5',
   MORNING_6: 'Q_m_6',
-  
-  // Динамічні вечірні питання
   EVENING_1: 'Q_e_1',
   EVENING_2: 'Q_e_2',
   EVENING_3: 'Q_e_3',
   EVENING_4: 'Q_e_4',
   EVENING_5: 'Q_e_5',
-
-  // Колесо балансу
   WHEEL_BALANCE_ACTIVE: 'WheelBalance',
-
-  // AI наставник
   AI_MENTOR_ACTIVE: 'ai_mentor_active'
 });
 
-// Alias для зворотної сумісності
 export const ONBOARDING_STEPS = Object.freeze({
   NAME: ANSWER_STEPS.OB_NAME,
   EMAIL: ANSWER_STEPS.OB_EMAIL,
@@ -159,25 +150,6 @@ export const OB_STEPS = Object.freeze({
   PAYMENT_SUCCESS: ANSWER_STEPS.OB_PAYMENT_SUCCESS,
   REMINDERS_INTRO: ANSWER_STEPS.OB_REMINDERS_INTRO,
   DONE: ANSWER_STEPS.OB_DONE,
-});
-
-// ===== СТАТУСИ КОРИСТУВАЧА =====
-export const USER_STATUS = Object.freeze({
-  NEW: 'New User',
-  REGISTERED: 'Registered User',
-  ACTIVE: 'Active User'
-});
-
-export const SUBSCRIPTION_STATUS = Object.freeze({
-  NEW: 'New',
-  ACTIVE: 'Active',
-  PAUSED: 'Paused',
-  EXPIRED: 'Expired',
-  PAID: 'Paid',
-  PENDING: 'Pending',
-  EMPTY: 'Empty',
-  DECLINED: 'Declined',
-  APPROVED: 'Approved'
 });
 
 // ===== ЗАПИТАННЯ =====
@@ -214,7 +186,6 @@ export const QUESTIONS = {
       field: 'Q_m_6'
     }
   ],
-
   evening: [
     {
       text: 'Що наповнило мене енергією сьогодні?',
@@ -244,7 +215,6 @@ export const QUESTIONS = {
   ]
 };
 
-// Для сумісності
 export const MORNING_QUESTIONS = QUESTIONS.morning.map(q => q.text);
 export const EVENING_QUESTIONS = QUESTIONS.evening.map(q => q.text);
 
@@ -293,31 +263,18 @@ export const SCHEDULE = Object.freeze({
   TIMEZONE: 'Europe/Kyiv'
 });
 
-// ===== CRON РОЗКЛАДИ =====
 export const CRON_SCHEDULES = Object.freeze({
-  MORNING_QUESTIONS: `0 8 * * *`,      // 08:00
-  EVENING_QUESTIONS: `30 21 * * *`,    // 21:30
-  SUBSCRIPTION_CHECK: '0 10 * * *',    // 10:00 щодня
-  MONTHLY_WHEEL_CHECK: '0 10 1 * *'    // 10:00 1-го числа
+  MORNING_QUESTIONS: `0 8 * * *`,
+  EVENING_QUESTIONS: `30 21 * * *`,
+  SUBSCRIPTION_CHECK: '0 10 * * *',
+  MONTHLY_WHEEL_CHECK: '0 10 1 * *'
 });
 
-// ===== ПОВІДОМЛЕННЯ ПЛАНУВАЛЬНИКА =====
-export const SCHEDULER_MESSAGES = Object.freeze({
-  MORNING_SESSION_START: (name) =>
-    `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
-  EVENING_SESSION_START: (name) =>
-    `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
-  MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!',
-  EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!'
-});
-
-// ===== ТЕКСТИ ПОВІДОМЛЕНЬ =====
+// ===== ПОВІДОМЛЕННЯ =====
 export const MESSAGES = Object.freeze({
-  // Вітання
   WELCOME: (name) => 
     `👋 Привіт, ${name}!\n\nЯ твій AI-мотиватор і коуч!\n\nДопомагаю:\n🎯 Ставити цілі\n⚖️ Знаходити баланс\n💪 Підтримувати мотивацію\n\nГотова розпочати?`,
   
-  // ✅ ДОДАНО: Онбординг - вибір імені
   ONBOARDING_NAME_CHOICE: (userName) =>
     `👋 Привіт, ${userName}!\n\n` +
     `Я твій AI-мотиватор та коуч! Допомагаю:\n\n` +
@@ -327,7 +284,7 @@ export const MESSAGES = Object.freeze({
     `📈 Відслідковувати прогрес\n\n` +
     `Залишити ім'я "${userName}" або ввести інше?`,
 
-WELCOME_BACK_ACTIVE: (name, endStr) =>
+  WELCOME_BACK_ACTIVE: (name, endStr) =>
     `👋 З поверненням, ${name}!\n` +
     `✅ Підписка активна до ${endStr}.\n\n` +
     `Що далі? Обери дію нижче:\n` +
@@ -335,34 +292,45 @@ WELCOME_BACK_ACTIVE: (name, endStr) =>
     `• 🌙 Вечірня рефлексія — підсумуй\n` +
     `• 🤖 AI наставник — запитай і отримай план\n` +
     `• 🎯 Колесо балансу — щомісячний аудит\n` +
-    `• 📊 Мій прогрес — статистика`,  
+    `• 📊 Мій прогрес — статистика`,
     
-WELCOME_BACK_INACTIVE: (name) =>
+  WELCOME_BACK_INACTIVE: (name) =>
     `👋 З поверненням, ${name}!\n` +
     `❗ Підписка не активна. Щоб користуватися усіма функціями — активуй або продовж.\n\n` +
     `Натисни «💰 Підписка» нижче, або обери інший розділ з меню.`,
   
-  // Онбординг
   ASK_NAME: 'Як до тебе звертатись?\n\nВведи ім\'я (2–50 символів).',
-  
   ASK_EMAIL: 'Вкажи свій e-mail (для надсилання звітів).\nАбо пропусти.',
-  
   ASK_PHONE: 'Залиш номер телефону (для зв\'язку).\nАбо пропусти.',
-  
   ASK_TIMEZONE: '⚠️ ВАЖЛИВО: Обери свій часовий пояс!\n\nЯ надсилатиму ранкові питання о 08:00 за твоїм місцевим часом.\n\n🌍 Твій часовий пояс:',
-  
   ASK_PLAN: 'Обери план доступу.\nМожеш почати з безкоштовного пробного тижня.',
-  
   TRIAL_ACTIVATED: '🎉 Реєстрацію завершено!\n🧪 Пробний доступ активовано на 7 днів.\n\nГотова почати?',
   
-  // Помилки
   ERROR_GENERIC: '❌ Виникла помилка. Спробуй ще раз /start',
   ERROR_NAME: 'Ім\'я має бути від 2 до 50 символів. Введи ще раз.',
   ERROR_EMAIL: 'Схоже, email некоректний. Введи інший або пропусти.',
   ERROR_PHONE: 'Виглядає як некоректний номер. Введи у форматі +380XXXXXXXXX або пропусти.'
 });
 
-// ===== МЕНЮ ТЕКСТИ =====
+export const REGISTRATION_SUCCESS_TEMPLATE =
+`✅ Реєстрація успішна!
+🧪 Пробний доступ активовано до {END_DATE}.
+
+Користуйся кнопками меню внизу:
+• 🤖 AI наставник — відповіді та мікро-дії
+• 🎯 Колесо балансу — щомісячний аудит
+• 📈 Звіти — щотижневий і щомісячний
+• 💎 Афірмація 
+• 📊 Мій прогрес 
+• 💰 Підписка
+
+🔔 Нагадування:
+• 🌞 Ранкові питання — о ${SCHEDULE.MORNING_TIME}
+• 🌙 Вечірні питання — о ${SCHEDULE.EVENING_TIME}
+• 📈 Щотижневий звіт — щонеділі ввечері
+• 📅 Щомісячний звіт 
+• повторне «колесо» — 1 числа кожного місяця`;
+
 export const MENU_TEXTS = Object.freeze({
   HELP: `❓ ДОПОМОГА ТА КОНТАКТИ\n\nЯкщо виникли питання — пишіть на nadyastarway@gmail.com\nАбо перегляньте інструкції у головному меню.`,
   
@@ -404,37 +372,16 @@ export const AI_MENTOR_CONFIG = Object.freeze({
   RESPONSE_TIMEOUT: 30000
 });
 
-// ===== НАЛАШТУВАННЯ =====
-export const CONFIG = Object.freeze({
-  ANTI_SPAM_TTL_MS: 3000,
-  NAME_MIN_LENGTH: 2,
-  NAME_MAX_LENGTH: 50,
-  EMAIL_MAX_LENGTH: 100,
-  PHONE_REGEX: /^\+380\d{9}$/,
-  DEFAULT_TIMEZONE: 'Europe/Kiev (UTC+3)'
-});
-// ===== РЕЄСТРАЦІЯ: ГОТОВЕ ПОВІДОМЛЕННЯ =====
-export const REGISTRATION_SUCCESS_TEMPLATE =
-`✅ Реєстрація успішна!
-🧪 Пробний доступ активовано до {END_DATE}.
+export const CONTEXT_TYPES = {
+  GOAL_SETTING: 'goal_setting',
+  MOTIVATION: 'motivation',
+  MICRO_ACTIONS: 'micro_actions',
+  LIFE_BALANCE: 'life_balance',
+  BLOCK_ANALYSIS: 'block_analysis',
+  GENERAL: 'general'
+};
 
-Користуйся кнопками меню внизу:
-• 🤖 AI наставник — відповіді та мікро-дії
-• 🎯 Колесо балансу — щомісячний аудит
-• 📈 Звіти — щотижневий і щомісячний
-• 💎 Афірмація 
-• 📊 Мій прогрес 
-• 💰 Підписка
-
-🔔 Нагадування:
-• 🌞 Ранкові питання — о ${SCHEDULE.MORNING_TIME}
-• 🌙 Вечірні питання — о ${SCHEDULE.EVENING_TIME}
-• 📈 Щотижневий звіт — щонеділі ввечері
-• 📅 Щомісячний звіт 
-• повторне «колесо» — 1 числа кожного місяця`;
-
-
-// ===== КУРСИ ТА ПРОПОЗИЦІЇ ПОСЛУГ =====
+// ===== КУРСИ =====
 export const COURSE_OFFERS = Object.freeze({
   low_activity: {
     title: "Система 21",
@@ -478,7 +425,6 @@ export const CONSULTATION_OFFER = Object.freeze({
   ]
 });
 
-// ===== ТРИГЕРИ БЕЗДІЯЛЬНОСТІ =====
 export const ACTIVITY_TRIGGERS = Object.freeze({
   MISSED_DAYS_THRESHOLD: 2,
   INACTIVE_HOURS_THRESHOLD: 48,
@@ -501,22 +447,7 @@ export const PROBLEM_DESCRIPTIONS = Object.freeze({
   [PROBLEM_TYPES.STATE_MASTERY]: 'управлінні станом та енергією'
 });
 
-// ===== КОНТАКТИ =====
-export const CONTACTS = Object.freeze({
-  MENTOR_EMAIL: 'nadyastarway@gmail.com',
-  MENTOR_TELEGRAM: '@Nadya2316',
-  TECH_SUPPORT_TELEGRAM: '@vira_333',
-  SUPPORT_RESPONSE_TIME: '2–4 години у робочі дні'
-});
-
-// ===== WAYFORPAY ЛІНКИ =====
-export const WAYFORPAY_LINKS = Object.freeze({
-  WEEK:  'https://secure.wayforpay.com/button/b96923b913d29',
-  MONTH: 'https://secure.wayforpay.com/button/b8df87678cd43',
-  YEAR:  'https://secure.wayforpay.com/button/bf28701123683'
-});
-
-// ===== ПОВІДОМЛЕННЯ ПІДПИСОК =====
+// ===== ПІДПИСКИ =====
 export const SUBSCRIPTION_MESSAGES = Object.freeze({
   INFO_ACTIVE: (plan, start, end) => 
     `✅ Активна\n📋 План: ${plan}\n🚀 Початок: ${start}\n📅 Діє до: ${end}`,
@@ -560,14 +491,14 @@ export const SUBSCRIPTION_MESSAGES = Object.freeze({
   SUPPORT: (tgId) =>
     `📞 ЗВʼЯЗОК З ПІДТРИМКОЮ\n\n` +
     `💬 Про підписку:\n` +
-    `• Email: ${CONTACTS.MENTOR_EMAIL}\n` +
-    `• Telegram: ${CONTACTS.MENTOR_TELEGRAM} (ментор)\n` +
-    `• Telegram: ${CONTACTS.TECH_SUPPORT_TELEGRAM} (техпідтримка)\n\n` +
+    `• Email: nadyastarway@gmail.com\n` +
+    `• Telegram: @Nadya2316 (ментор)\n` +
+    `• Telegram: @vira_333 (техпідтримка)\n\n` +
     `📋 Що написати:\n` +
     `• Твій Telegram ID: ${tgId}\n` +
     `• Проблема з оплатою або активацією\n` +
     `• Скрін чеку (якщо є)\n\n` +
-    `⏰ Час відповіді: ${CONTACTS.SUPPORT_RESPONSE_TIME}\n\n` +
+    `⏰ Час відповіді: 2-4 години у робочі дні\n\n` +
     `💡 Швидке рішення:\n` +
     `Натисни «🔄 Я вже оплатив» для автоматичної перевірки`,
   
@@ -578,7 +509,6 @@ export const SUBSCRIPTION_MESSAGES = Object.freeze({
     `💰 Продовж підписку зараз, щоб не втратити доступ до всіх функцій!`
 });
 
-// ===== ПОВІДОМЛЕННЯ КУРСІВ =====
 export const COURSE_MESSAGES = Object.freeze({
   OFFER: (offerTitle, price, description, benefit, triggerMessage) =>
     `💡 ПЕРСОНАЛЬНА РЕКОМЕНДАЦІЯ\n\n` +
@@ -596,8 +526,8 @@ export const COURSE_MESSAGES = Object.freeze({
     `📚 КУРС: ${title}\n\n` +
     `💰 Вартість: ${price}€\n\n` +
     `📧 Для оформлення:\n` +
-    `Напиши на email: ${CONTACTS.MENTOR_EMAIL}\n` +
-    `або Telegram: ${CONTACTS.MENTOR_TELEGRAM}\n\n` +
+    `Напиши на email: nadyastarway@gmail.com\n` +
+    `або Telegram: @Nadya2316\n\n` +
     `📋 Вкажи:\n` +
     `• Твій Telegram ID: ${tgId}\n` +
     `• Назву курсу: ${title}\n\n` +
@@ -610,8 +540,8 @@ export const COURSE_MESSAGES = Object.freeze({
     `📋 Що включено:\n` +
     `${CONSULTATION_OFFER.benefits.map(b => `• ${b}`).join('\n')}\n\n` +
     `📧 Запис:\n` +
-    `Email: ${CONTACTS.MENTOR_EMAIL}\n` +
-    `Telegram: ${CONTACTS.MENTOR_TELEGRAM}\n\n` +
+    `Email: nadyastarway@gmail.com\n` +
+    `Telegram: @Nadya2316\n\n` +
     `📋 Вкажи:\n` +
     `• Твій Telegram ID: ${tgId}\n` +
     `• Бажаний час консультації\n` +
@@ -621,11 +551,67 @@ export const COURSE_MESSAGES = Object.freeze({
     '✅ Добре! Якщо передумаєш — я завжди тут.\n\n💪 Продовжуємо рухатись вперед своїми силами!'
 });
 
-// ===== ЛОГУВАННЯ =====
+// ===== КОНТАКТИ =====
+export const CONTACTS = Object.freeze({
+  MENTOR_EMAIL: 'nadyastarway@gmail.com',
+  MENTOR_TELEGRAM: '@Nadya2316',
+  TECH_SUPPORT_TELEGRAM: '@vira_333',
+  SUPPORT_RESPONSE_TIME: '2–4 години у робочі дні'
+});
 
-console.log('✅ [constants] Курси та пропозиції завантажено');
-console.log(`   • Курсів: ${Object.keys(COURSE_OFFERS).length}`);
-console.log(`   • Тригерів: ${Object.keys(ACTIVITY_TRIGGERS).length}`);
+// ===== WAYFORPAY =====
+export const WAYFORPAY_LINKS = Object.freeze({
+  WEEK:  'https://secure.wayforpay.com/button/b96923b913d29',
+  MONTH: 'https://secure.wayforpay.com/button/b8df87678cd43',
+  YEAR:  'https://secure.wayforpay.com/button/bf28701123683'
+});
+
+// ===== КОНФІГУРАЦІЯ =====
+export const CONFIG = Object.freeze({
+  ANTI_SPAM_TTL_MS: 3000,
+  NAME_MIN_LENGTH: 2,
+  NAME_MAX_LENGTH: 50,
+  EMAIL_MAX_LENGTH: 100,
+  PHONE_REGEX: /^\+380\d{9}$/,
+  DEFAULT_TIMEZONE: 'Europe/Kiev (UTC+3)'
+});
+
+// ===== АФІРМАЦІЇ =====
+export const MORNING_AFFIRMATIONS = [
+  "Моє бачення — мій вибір. Моя сила — в мені. Я вже йду своїм шляхом.",
+  "Кожне рішення прокачує мою рішучість. Використовуй її щодня.",
+  "Впевненість і рішучість — мої інструменти досягнення цілей. Прокачуй їх.",
+  "Дія — це твоя мова проти страху. Починай зараз.",
+  "Рішення — це м'яз. Тренуй його сьогодні."
+];
+
+export const EVENING_AFFIRMATIONS = [
+  "Я вдячна цьому дню. Я стала сильнішою. Я обираю рухатися далі — до себе справжньої.",
+  "Кожна дія сьогодні наблизила мене до моїх цілей.",
+  "Я аналізую день, бачу прогрес та коригую стратегію для завтра.",
+  "Сьогоднішня дія — завтра моя реальність.",
+  "Не чекай натхнення. Створюй його діями."
+];
+
+export const GENERAL_AFFIRMATIONS = [
+  'Моя енергія створює позитивні зміни',
+  'Я заслуговую на все найкраще',
+  'Моя рішучість творить можливості',
+  'Щодня впевнено йду до мети',
+  'Дія — мова проти страху',
+  'Кожне рішення прокачує рішучість',
+  'Впевненість і рішучість — мої інструменти'
+];
+
+// ===== SCHEDULER ПОВІДОМЛЕННЯ =====
+export const SCHEDULER_MESSAGES = Object.freeze({
+  MORNING_SESSION_START: (name) =>
+    `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
+  EVENING_SESSION_START: (name) =>
+    `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
+  MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!',
+  EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!'
+});
 
 console.log('✅ [constants] Централізовані константи завантажено');
 console.log(`   • Ранкових питань: ${MORNING_QUESTIONS.length}`);

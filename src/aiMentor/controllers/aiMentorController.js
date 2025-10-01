@@ -1,4 +1,4 @@
-// src/aiMentor/controllers/aiMentorController.js - ПОВНА ОПТИМІЗАЦІЯ
+// src/aiMentor/controllers/aiMentorController.js - З КОНСТАНТАМИ
 
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
@@ -7,7 +7,78 @@ import { chat } from '../../services/openaiClient.js';
 import conversationService from '../services/conversationService.js';
 import responseService from '../../dialogue/services/responseService.js';
 import activityTracker from '../../services/activityTracker.js';
-import { CONTEXT_TYPES, analyzeQuestionContext, selectPrompt, analyzeCourseNeed } from '../../config/aiMentorPrompts.js';
+import { 
+  CONTEXT_TYPES, 
+  AI_MENTOR_PROMPTS,
+  COURSE_OFFERS
+} from '../../config/constants.js';
+
+// ===== АНАЛІЗ КОНТЕКСТУ ПИТАННЯ =====
+const analyzeQuestionContext = (question) => {
+  const q = question.toLowerCase();
+  
+  if (q.includes('ціль') || q.includes('хочу досягти') || q.includes('планую')) {
+    return CONTEXT_TYPES.GOAL_SETTING;
+  }
+  if (q.includes('мотивація') || q.includes('натхнення') || q.includes('сили немає')) {
+    return CONTEXT_TYPES.MOTIVATION;
+  }
+  if (q.includes('що робити') || q.includes('як діяти') || q.includes('кроки')) {
+    return CONTEXT_TYPES.MICRO_ACTIONS;
+  }
+  if (q.includes('баланс') || q.includes('сфери життя') || q.includes('все встигти')) {
+    return CONTEXT_TYPES.LIFE_BALANCE;
+  }
+  if (q.includes('страх') || q.includes('блок') || q.includes('не можу') || q.includes('заважає')) {
+    return CONTEXT_TYPES.BLOCK_ANALYSIS;
+  }
+  
+  return CONTEXT_TYPES.GENERAL;
+};
+
+// ===== АНАЛІЗ ПОТРЕБИ В КУРСІ =====
+const analyzeCourseNeed = (question, conversationHistory = []) => {
+  const q = question.toLowerCase();
+  
+  // Тригери для різних курсів
+  const courseTriggers = {
+    state_mastery: ['тривога', 'апатія', 'нестабільний стан', 'поганий настрій', 'втомлююсь'],
+    low_activity: ['відкладаю', 'не виконую', 'лінь', 'немає дисципліни', 'прокрастинація'],
+    no_goals: ['немає цілей', 'не знаю що хочу', 'плутаюсь', 'немає стратегії'],
+    fear: ['страх', 'боюсь', 'хаос', 'паніка', 'тривога']
+  };
+  
+  for (const [problemType, triggers] of Object.entries(courseTriggers)) {
+    const hasMatchingTriggers = triggers.some(trigger => q.includes(trigger));
+    if (hasMatchingTriggers && COURSE_OFFERS[problemType]) {
+      const offer = COURSE_OFFERS[problemType];
+      return {
+        course: offer,
+        problemType: problemType,
+        reason: `Твоє питання показує, що ${offer.title} може допомогти подолати цю ситуацію.`
+      };
+    }
+  }
+  
+  return null;
+};
+
+// ===== ВИБІР ПРОМПТУ =====
+const selectPrompt = (contextType) => {
+  const basePrompt = AI_MENTOR_PROMPTS.SYSTEM_PROMPT;
+  
+  const specificPrompts = {
+    [CONTEXT_TYPES.GOAL_SETTING]: `Користувач працює над постановкою цілей. Дай конкретні кроки.`,
+    [CONTEXT_TYPES.MOTIVATION]: `Користувач потребує мотивації. Активізуй внутрішню силу.`,
+    [CONTEXT_TYPES.MICRO_ACTIONS]: `Генеруй конкретні мікро-дії для досягнення цілі.`,
+    [CONTEXT_TYPES.LIFE_BALANCE]: `Допоможи з балансом різних сфер життя.`,
+    [CONTEXT_TYPES.BLOCK_ANALYSIS]: `Допоможи проаналізувати та подолати блоки.`
+  };
+  
+  const specificPrompt = specificPrompts[contextType] || '';
+  
+  return `${basePrompt}\n\n${specificPrompt}`;
+};
 
 const aiMentorController = {
 
@@ -80,143 +151,139 @@ const aiMentorController = {
   },
 
   // ===== ОБРОБКА ПИТАННЯ =====
-// src/aiMentor/controllers/aiMentorController.js - ВИПРАВЛЕННЯ
-
-async handleAIMentorQuestion(ctx, question) {
-  const tgId = String(ctx.from.id);
-  
-  try {
-    console.log(`[AI MENTOR] 💬 Питання від ${tgId}: "${question.substring(0, 50)}..."`);
-
-    if (!aiMentorSession.isActive(tgId)) {
-      console.log(`[AI MENTOR] ⚠️ Сесія неактивна для ${tgId} - запускаємо заново`);
-      aiMentorSession.start(tgId);
-    }
-
-    const user = await userService.getUserByTgId(tgId);
-    if (!user || !userService.hasActiveAccess(user)) {
-      aiMentorSession.end(tgId);
-      await ctx.reply('🤖 Потрібна активна підписка', {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }]
-          ]
-        }
-      });
-      return;
-    }
-
-    await ctx.telegram.sendChatAction(ctx.chat.id, 'typing');
-
-    // ✅ ОТРИМУЄМО КОНТЕКСТ
-    const recentData = await responseService.getUserRecords(tgId, 1);
-    const todayData = recentData[0]?.fields || {};
+  async handleAIMentorQuestion(ctx, question) {
+    const tgId = String(ctx.from.id);
     
-    const conversationHistory = await conversationService.getAIConversationHistory(tgId, 3);
+    try {
+      console.log(`[AI MENTOR] 💬 Питання від ${tgId}: "${question.substring(0, 50)}..."`);
 
-    const contextType = analyzeQuestionContext(question);
-    console.log(`[AI MENTOR] 🔍 Контекст: ${contextType}`);
-
-    const needsMicroActions = this.shouldGenerateMicroActions(question, contextType);
-
-    // ✅ ГЕНЕРУЄМО ВІДПОВІДЬ
-    const responseData = await this.generateAIResponse(
-      question, 
-      user, 
-      contextType, 
-      tgId, 
-      todayData,
-      conversationHistory,
-      needsMicroActions
-    );
-
-    const courseNeed = analyzeCourseNeed(question, conversationHistory);
-
-    // ✅ ЗБЕРІГАЄМО ДІАЛОГ З ПРАВИЛЬНОЮ СТРУКТУРОЮ
-    const conversationRecord = await conversationService.saveAIConversation(tgId, {
-      userName: user['User Name'],
-      question,
-      response: responseData.response,
-      contextType,
-      userGoal: todayData.Q_m_4 || todayData.Q_m_3 || '',
-      userState: todayData.Q_m_5 || '',
-      userQualities: todayData.Q_m_2 || '',
-      generatedActions: responseData.microActions || null,
-      courseSuggested: courseNeed?.course?.title || null,
-      conversationLength: question.length + responseData.response.length,
-      hasMicroActions: !!responseData.microActions,
-      sessionId: aiMentorSession.get(tgId)?.sessionId || null
-    });
-
-    console.log(`[AI MENTOR] 📊 Діалог збережено, ID: ${conversationRecord?.id || 'none'}`);
-
-    // ✅ ЗБЕРІГАЄМО МІКРО-ДІЇ З ПОСИЛАННЯМ НА ДІАЛОГ
-    if (responseData.microActions && Array.isArray(responseData.microActions) && responseData.microActions.length > 0) {
-      console.log(`[AI MENTOR] 📝 Підготовка ${responseData.microActions.length} мікро-дій до збереження`);
-      
-      const savedActions = await activityTracker.saveMicroActions(
-        tgId, 
-        responseData.microActions, 
-        conversationRecord?.id
-      );
-      
-      if (savedActions && savedActions.length > 0) {
-        console.log(`[AI MENTOR] ✅ Збережено ${savedActions.length} мікро-дій з посиланням на діалог ${conversationRecord?.id}`);
-        
-        // Додаємо підтвердження в повідомлення
-        const actionsText = responseData.microActions
-          .map((a, i) => `${i + 1}. ${a.action} (${a.time || 'будь-коли'})`)
-          .join('\n');
-        
-        await ctx.reply(
-          `✅ Зафіксовано ${savedActions.length} мікро-дій:\n\n${actionsText}\n\n💡 Відмічай виконані дії командою /progress`,
-          { disable_notification: true }
-        );
+      if (!aiMentorSession.isActive(tgId)) {
+        console.log(`[AI MENTOR] ⚠️ Сесія неактивна для ${tgId} - запускаємо заново`);
+        aiMentorSession.start(tgId);
       }
-    } else {
-      console.log(`[AI MENTOR] ℹ️ Мікро-дії не згенеровано або масив порожній`);
-    }
 
-    // Відправляємо основну відповідь
-    await ctx.reply(responseData.response, keyboards.aiMentorControlKeyboard());
-    
-    // Пропозиція курсу (якщо потрібно)
-    if (courseNeed && responseData.shouldOfferCourse) {
-      await new Promise(r => setTimeout(r, 2000));
+      const user = await userService.getUserByTgId(tgId);
+      if (!user || !userService.hasActiveAccess(user)) {
+        aiMentorSession.end(tgId);
+        await ctx.reply('🤖 Потрібна активна підписка', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💰 Переглянути плани', callback_data: 'subscription_plans' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      await ctx.telegram.sendChatAction(ctx.chat.id, 'typing');
+
+      // ✅ ОТРИМУЄМО КОНТЕКСТ
+      const recentData = await responseService.getUserRecords(tgId, 1);
+      const todayData = recentData[0]?.fields || {};
       
-      const courseMessage = 
-        `💡 ПЕРСОНАЛЬНА РЕКОМЕНДАЦІЯ\n\n` +
-        `${courseNeed.reason}\n\n` +
-        `📚 Курс "${courseNeed.course.title}" — ${courseNeed.course.price}€\n` +
-        `${courseNeed.course.description}\n\n` +
-        `Або персональна консультація з Надею — 60 хв, 150€`;
+      const conversationHistory = await conversationService.getAIConversationHistory(tgId, 3);
+
+      const contextType = analyzeQuestionContext(question);
+      console.log(`[AI MENTOR] 🔍 Контекст: ${contextType}`);
+
+      const needsMicroActions = this.shouldGenerateMicroActions(question, contextType);
+
+      // ✅ ГЕНЕРУЄМО ВІДПОВІДЬ
+      const responseData = await this.generateAIResponse(
+        question, 
+        user, 
+        contextType, 
+        tgId, 
+        todayData,
+        conversationHistory,
+        needsMicroActions
+      );
+
+      const courseNeed = analyzeCourseNeed(question, conversationHistory);
+
+      // ✅ ЗБЕРІГАЄМО ДІАЛОГ З ПРАВИЛЬНОЮ СТРУКТУРОЮ
+      const conversationRecord = await conversationService.saveAIConversation(tgId, {
+        userName: user['User Name'],
+        question,
+        response: responseData.response,
+        contextType,
+        userGoal: todayData.Q_m_4 || todayData.Q_m_3 || '',
+        userState: todayData.Q_m_5 || '',
+        userQualities: todayData.Q_m_2 || '',
+        generatedActions: responseData.microActions || null,
+        courseSuggested: courseNeed?.course?.title || null,
+        conversationLength: question.length + responseData.response.length,
+        hasMicroActions: !!responseData.microActions,
+        sessionId: aiMentorSession.get(tgId)?.sessionId || null
+      });
+
+      console.log(`[AI MENTOR] 📊 Діалог збережено, ID: ${conversationRecord?.id || 'none'}`);
+
+      // ✅ ЗБЕРІГАЄМО МІКРО-ДІЇ З ПОСИЛАННЯМ НА ДІАЛОГ
+      if (responseData.microActions && Array.isArray(responseData.microActions) && responseData.microActions.length > 0) {
+        console.log(`[AI MENTOR] 📝 Підготовка ${responseData.microActions.length} мікро-дій до збереження`);
+        
+        const savedActions = await activityTracker.saveMicroActions(
+          tgId, 
+          responseData.microActions, 
+          conversationRecord?.id
+        );
+        
+        if (savedActions && savedActions.length > 0) {
+          console.log(`[AI MENTOR] ✅ Збережено ${savedActions.length} мікро-дій з посиланням на діалог ${conversationRecord?.id}`);
+          
+          const actionsText = responseData.microActions
+            .map((a, i) => `${i + 1}. ${a.action} (${a.time || 'будь-коли'})`)
+            .join('\n');
+          
+          await ctx.reply(
+            `✅ Зафіксовано ${savedActions.length} мікро-дій:\n\n${actionsText}\n\n💡 Відмічай виконані дії командою /progress`,
+            { disable_notification: true }
+          );
+        }
+      } else {
+        console.log(`[AI MENTOR] ℹ️ Мікро-дії не згенеровано або масив порожній`);
+      }
+
+      // Відправляємо основну відповідь
+      await ctx.reply(responseData.response, keyboards.aiMentorControlKeyboard());
       
-      await ctx.reply(courseMessage, keyboards.courseOfferKeyboard(
-        courseNeed.problemType || 'general',
-        courseNeed.course.title,
-        courseNeed.course.price
-      ));
+      // Пропозиція курсу (якщо потрібно)
+      if (courseNeed && responseData.shouldOfferCourse) {
+        await new Promise(r => setTimeout(r, 2000));
+        
+        const courseMessage = 
+          `💡 ПЕРСОНАЛЬНА РЕКОМЕНДАЦІЯ\n\n` +
+          `${courseNeed.reason}\n\n` +
+          `📚 Курс "${courseNeed.course.title}" — ${courseNeed.course.price}€\n` +
+          `${courseNeed.course.description}\n\n` +
+          `Або персональна консультація з Надею — 60 хв, 150€`;
+        
+        await ctx.reply(courseMessage, keyboards.courseOfferKeyboard(
+          courseNeed.problemType || 'general',
+          courseNeed.course.title,
+          courseNeed.course.price
+        ));
+      }
+
+      console.log(`[AI MENTOR] ✅ Відповідь надіслано для ${tgId}`);
+
+      aiMentorSession.updateActivity(tgId);
+      
+      // ✅ ІНКРЕМЕНТУЄМО AI ВЗАЄМОДІЇ
+      await activityTracker.incrementAIInteractions(tgId);
+
+    } catch (error) {
+      console.error('[AI MENTOR] ❌ Помилка питання:', error);
+      console.error('[AI MENTOR] Stack:', error.stack);
+      await ctx.reply('❌ Помилка при обробці питання. Спробуй ще раз.');
     }
+  },
 
-    console.log(`[AI MENTOR] ✅ Відповідь надіслано для ${tgId}`);
-
-    aiMentorSession.updateActivity(tgId);
-    
-    // ✅ ІНКРЕМЕНТУЄМО AI ВЗАЄМОДІЇ
-    await activityTracker.incrementAIInteractions(tgId);
-
-  } catch (error) {
-    console.error('[AI MENTOR] ❌ Помилка питання:', error);
-    console.error('[AI MENTOR] Stack:', error.stack);
-    await ctx.reply('❌ Помилка при обробці питання. Спробуй ще раз.');
-  }
-},
-
-// ===== ВИЗНАЧЕННЯ ЧИ ПОТРІБНІ МІКРО-ДІЇ =====
+  // ===== ВИЗНАЧЕННЯ ЧИ ПОТРІБНІ МІКРО-ДІЇ =====
   shouldGenerateMicroActions(question, contextType) {
     const q = question.toLowerCase();
     
-    // Ключові слова що вказують на потребу мікро-дій
     const actionKeywords = [
       'що робити', 'як діяти', 'з чого почати', 'план', 'кроки',
       'як досягти', 'допоможи', 'потрібна порада', 'не знаю що',
@@ -239,10 +306,8 @@ async handleAIMentorQuestion(ctx, question) {
       const userName = user['User Name'] || 'Користувач';
       const systemPrompt = selectPrompt(contextType);
       
-      // ✅ ПОБУДОВА КОНТЕКСТНОГО PROMPT
       let userPrompt = `Користувач: ${userName}\nПитання: "${question}"\n\n`;
       
-      // Додаємо контекст з сьогоднішніх відповідей
       if (todayData.Q_m_4) {
         userPrompt += `🎯 Головна ціль на сьогодні: "${todayData.Q_m_4}"\n`;
       }
@@ -259,7 +324,6 @@ async handleAIMentorQuestion(ctx, question) {
         userPrompt += `✨ Самоідентифікація: "${todayData.Q_m_1}"\n`;
       }
       
-      // Додаємо історію діалогів
       if (conversationHistory.length > 0) {
         userPrompt += `\n📚 Контекст попередніх діалогів:\n`;
         conversationHistory.forEach((conv, i) => {
@@ -268,7 +332,6 @@ async handleAIMentorQuestion(ctx, question) {
         });
       }
       
-      // ✅ ЗАПИТ НА МІКРО-ДІЇ ЯКЩО ПОТРІБНО
       if (needsMicroActions) {
         userPrompt += `\n\n🎯 ВАЖЛИВО: Після відповіді створи 2-3 КОНКРЕТНІ МІКРО-ДІЇ у форматі JSON:\n`;
         userPrompt += `{"microActions": [{"action": "конкретна дія", "time": "HH:MM-HH:MM", "duration_min": 15, "result_metric": "результат", "priority": "висока"}]}\n`;
@@ -288,7 +351,6 @@ async handleAIMentorQuestion(ctx, question) {
         throw new Error('Порожня відповідь від OpenAI');
       }
 
-      // ✅ ПАРСИМО МІКРО-ДІЇ ЯКЩО Є
       let microActions = null;
       let cleanResponse = response;
       
@@ -308,7 +370,6 @@ async handleAIMentorQuestion(ctx, question) {
         }
       }
 
-      // ✅ ВИЗНАЧАЄМО ЧИ ПРОПОНУВАТИ КУРС
       const shouldOfferCourse = conversationHistory.length >= 2 && 
                                contextType !== CONTEXT_TYPES.GENERAL;
 
@@ -339,102 +400,96 @@ async handleAIMentorQuestion(ctx, question) {
   },
 
   // ===== ОБРОБКА CALLBACK =====
+  async handleAIMentorCallback(ctx) {
+    const tgId = String(ctx.from.id);
+    const data = ctx.callbackQuery.data;
 
-async handleAIMentorCallback(ctx) {
-  const tgId = String(ctx.from.id);
-  const data = ctx.callbackQuery.data;
+    try {
+      console.log(`[AI MENTOR] 📱 Callback: ${data} від ${tgId}`);
 
-  try {
-    console.log(`[AI MENTOR] 📱 Callback: ${data} від ${tgId}`);
-
-    switch (data) {
-      case 'ai_continue':
-      case 'ai_start_question':
-        if (!aiMentorSession.isActive(tgId)) {
-          aiMentorSession.start(tgId);
-          console.log(`[AI MENTOR] ✅ Сесію перезапущено для ${tgId}`);
-        }
-        
-        // ✅ ПРИХОВУЄМО INLINE КЛАВІАТУРУ
-        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
-        
-        await ctx.reply(
-          '💬 Напиши своє питання, і я дам персональну пораду в стилі "Очі в очі"!',
-          { 
-            reply_markup: { remove_keyboard: true } // ✅ Прибираємо клавіатуру
+      switch (data) {
+        case 'ai_continue':
+        case 'ai_start_question':
+          if (!aiMentorSession.isActive(tgId)) {
+            aiMentorSession.start(tgId);
+            console.log(`[AI MENTOR] ✅ Сесію перезапущено для ${tgId}`);
           }
-        );
-        await ctx.answerCbQuery('Продовжуємо діалог');
-        break;
-        
-      case 'ai_exit':
-        // Приховуємо клавіатуру при виході
-        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
-        
-        aiMentorSession.end(tgId);
-        await ctx.reply(
-          '👋 Дякую за спілкування! Пам\'ятай: дія - це мова проти страху.\n\nПовертаємося до меню.',
-          keyboards.mainMenuKeyboard()
-        );
-        await ctx.answerCbQuery('Вихід з AI-наставника');
-        console.log(`[AI MENTOR] 🚪 Користувач ${tgId} вийшов`);
-        break;
-        
-      case 'ai_report':
-        const report = await conversationService.generateAIConversationReport(tgId, 7);
-        await ctx.reply(report, keyboards.aiMentorControlKeyboard());
-        await ctx.answerCbQuery('Звіт згенеровано');
-        break;
-        
-      case 'ai_goals':
-        // Приховуємо попередню клавіатуру
-        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
-        
-        await ctx.reply(
-          '🎯 РЕЖИМ РОБОТИ З ЦІЛЯМИ\n\n' +
-          'Розкажи про свою ціль, і я допоможу:\n' +
-          '• Сформулювати її чітко\n' +
-          '• Розбити на кроки\n' +
-          '• Створити план дій\n' +
-          '• Подолати блоки\n\n' +
-          'Опиши свою ціль 👇',
-          { reply_markup: { remove_keyboard: true } }
-        );
-        await ctx.answerCbQuery('Режим цілей активовано');
-        break;
-        
-      case 'rate_helpful':
-      case 'rate_not_helpful':
-        // Зберігаємо рейтинг
-        const rating = data === 'rate_helpful' ? 'helpful' : 'not_helpful';
-        
-        // Отримуємо останній діалог
-        const lastConversation = await conversationService.getAIConversationHistory(tgId, 1);
-        if (lastConversation.length > 0) {
-          await conversationService.updateResponseRating(lastConversation[0].id, rating);
-        }
-        
-        // Приховуємо кнопки рейтингу
-        await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
-        
-        const thankYouMessage = rating === 'helpful' 
-          ? '👍 Дякую за відгук! Рада, що було корисно.'
-          : '👎 Дякую за чесність. Спробую краще розуміти твої потреби.';
-        
-        await ctx.reply(thankYouMessage, { reply_markup: { remove_keyboard: true } });
-        await ctx.answerCbQuery('Відгук збережено');
-        break;
-        
-      default:
-        console.log(`[AI MENTOR] ❓ Невідомий callback: ${data}`);
-        await ctx.answerCbQuery('Команда не розпізнана');
-    }
+          
+          await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
+          
+          await ctx.reply(
+            '💬 Напиши своє питання, і я дам персональну пораду в стилі "Очі в очі"!',
+            { 
+              reply_markup: { remove_keyboard: true }
+            }
+          );
+          await ctx.answerCbQuery('Продовжуємо діалог');
+          break;
+          
+        case 'ai_exit':
+          await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
+          
+          aiMentorSession.end(tgId);
+          await ctx.reply(
+            '👋 Дякую за спілкування! Пам\'ятай: дія - це мова проти страху.\n\nПовертаємося до меню.',
+            keyboards.mainMenuKeyboard()
+          );
+          await ctx.answerCbQuery('Вихід з AI-наставника');
+          console.log(`[AI MENTOR] 🚪 Користувач ${tgId} вийшов`);
+          break;
+          
+        case 'ai_report':
+          const report = await conversationService.generateAIConversationReport(tgId, 7);
+          await ctx.reply(report, keyboards.aiMentorControlKeyboard());
+          await ctx.answerCbQuery('Звіт згенеровано');
+          break;
+          
+        case 'ai_goals':
+          await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
+          
+          await ctx.reply(
+            '🎯 РЕЖИМ РОБОТИ З ЦІЛЯМИ\n\n' +
+            'Розкажи про свою ціль, і я допоможу:\n' +
+            '• Сформулювати її чітко\n' +
+            '• Розбити на кроки\n' +
+            '• Створити план дій\n' +
+            '• Подолати блоки\n\n' +
+            'Опиши свою ціль 👇',
+            { reply_markup: { remove_keyboard: true } }
+          );
+          await ctx.answerCbQuery('Режим цілей активовано');
+          break;
+          
+        case 'rate_helpful':
+        case 'rate_not_helpful':
+          const rating = data === 'rate_helpful' ? 'helpful' : 'not_helpful';
+          
+          const lastConversation = await conversationService.getAIConversationHistory(tgId, 1);
+          if (lastConversation.length > 0) {
+            await conversationService.updateResponseRating(lastConversation[0].id, rating);
+          }
+          
+          await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
+          
+          const thankYouMessage = rating === 'helpful' 
+            ? '👍 Дякую за відгук! Рада, що було корисно.'
+            : '👎 Дякую за чесність. Спробую краще розуміти твої потреби.';
+          
+          await ctx.reply(thankYouMessage, { reply_markup: { remove_keyboard: true } });
+          await ctx.answerCbQuery('Відгук збережено');
+          break;
+          
+        default:
+          console.log(`[AI MENTOR] ❓ Невідомий callback: ${data}`);
+          await ctx.answerCbQuery('Команда не розпізнана');
+      }
 
-  } catch (error) {
-    console.error('[AI MENTOR] ❌ Помилка callback:', error);
-    await ctx.reply('❌ Помилка. Спробуй ще раз.', keyboards.mainMenuKeyboard());
-    await ctx.answerCbQuery('Помилка');
+    } catch (error) {
+      console.error('[AI MENTOR] ❌ Помилка callback:', error);
+      await ctx.reply('❌ Помилка. Спробуй ще раз.', keyboards.mainMenuKeyboard());
+      await ctx.answerCbQuery('Помилка');
+    }
   }
-}};
+};
 
 export default aiMentorController;
