@@ -1,9 +1,10 @@
-// src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО: ОБРОБКА ВСІХ КНОПОК
+// src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО
 
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
 import { aiMentorSession } from '../../aiMentor/session.js';
+import { CONTACTS } from '../../config/constants.js';
 
 // Контролери
 import wheelController from './wheelController.js';
@@ -11,6 +12,17 @@ import aiMentorController from '../../aiMentor/controllers/aiMentorController.js
 import subscriptionController from '../subscriptionController.js';
 import reportService from '../../services/reportService.js';
 import sessionHandler from '../handlers/sessionHandler.js';
+
+// ===== КОНСТАНТИ =====
+const AFFIRMATIONS = [
+  'Моя енергія створює позитивні зміни',
+  'Я заслуговую на все найкраще',
+  'Моя рішучість творить можливості',
+  'Щодня впевнено йду до мети',
+  'Дія — мова проти страху',
+  'Кожне рішення прокачує рішучість',
+  'Впевненість і рішучість — мої інструменти'
+];
 
 const mainFlowController = {
   
@@ -44,12 +56,6 @@ const mainFlowController = {
         return;
       }
 
-      const activeSession = await sessionHandler.isActiveSession(tgId);
-      if (activeSession) {
-        await sessionHandler.handleBlockedMenu(ctx);
-        return;
-      }
-
       const hasWheel = await this.checkFirstWheel(tgId);
       console.log(`[MAIN FLOW] 🎯 Колесо ${tgId}: ${hasWheel ? 'ТАК' : 'НІ'}`);
 
@@ -63,7 +69,7 @@ const mainFlowController = {
 
     } catch (error) {
       console.error('[MAIN FLOW] ❌ handleStart:', error);
-      await ctx.reply('❌ Помилка. Спробуй /start', keyboards.emergencyKeyboard());
+      await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard());
     }
   },
 
@@ -378,17 +384,7 @@ const mainFlowController = {
   },
 
   async showAffirmation(ctx) {
-    const affirmations = [
-      'Моя енергія створює позитивні зміни',
-      'Я заслуговую на все найкраще', 
-      'Моя рішучість творить можливості',
-      'Щодня впевнено йду до мети',
-      'Дія — мова проти страху',
-      'Кожне рішення прокачує рішучість',
-      'Впевненість і рішучість — мої інструменти'
-    ];
-    
-    const random = affirmations[Math.floor(Math.random() * affirmations.length)];
+    const random = AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)];
     await ctx.reply(`✨ ${random}`, keyboards.mainMenuKeyboard());
   },
 
@@ -396,9 +392,9 @@ const mainFlowController = {
     const message = 
       `❓ ДОПОМОГА\n\n` +
       `При питаннях:\n\n` +
-      `📧 nadyastarway@gmail.com\n` +
-      `💬 @Nadya2316\n\n` +
-      `⏰ Відповідь 2-4 год у робочі дні`;
+      `📧 ${CONTACTS.MENTOR_EMAIL}\n` +
+      `💬 ${CONTACTS.MENTOR_TELEGRAM}\n\n` +
+      `⏰ ${CONTACTS.SUPPORT_RESPONSE_TIME}`;
         
     await ctx.reply(message, keyboards.mainMenuKeyboard());
   },
@@ -407,12 +403,12 @@ const mainFlowController = {
     const message = 
       `📞 КОНТАКТИ\n\n` +
       `💬 ТЕХПІДТРИМКА:\n` +
-      `Email: nadyastarway@gmail.com\n` +
-      `@Nadya2316 (ментор)\n` +
-      `@vira_333 (техпідтримка)\n\n` +
+      `Email: ${CONTACTS.MENTOR_EMAIL}\n` +
+      `${CONTACTS.MENTOR_TELEGRAM} (ментор)\n` +
+      `${CONTACTS.TECH_SUPPORT_TELEGRAM} (техпідтримка)\n\n` +
       `📋 ПІДПИСКА:\n` +
       `Telegram ID: ${ctx.from.id}\n\n` +
-      `⏰ Відповідь 2-4 год`;
+      `⏰ ${CONTACTS.SUPPORT_RESPONSE_TIME}`;
         
     await ctx.reply(message, keyboards.mainMenuKeyboard());
   },
