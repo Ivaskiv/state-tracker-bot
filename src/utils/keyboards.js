@@ -1,14 +1,9 @@
-// src/utils/keyboards.js - ОПТИМІЗОВАНА ВЕРСІЯ З УНІВЕРСАЛЬНИМИ ФУНКЦІЯМИ
+// src/utils/keyboards.js - ОПТИМІЗОВАНА ВЕРСІЯ
 
 import { TIMEZONES, SUBSCRIPTION_PLANS } from '../config/constants.js';
 
-// ===== УНІВЕРСАЛЬНІ ГЕНЕРАТОРИ КЛАВІАТУР =====
+// ===== УНІВЕРСАЛЬНІ ГЕНЕРАТОРИ =====
 
-/**
- * Універсальна функція для кнопки "Пропустити"
- * @param {string} field - назва поля (email, phone, тощо)
- * @param {boolean} withBack - додати кнопку "Назад"
- */
 const skipKeyboard = (field, withBack = false) => {
   const buttons = [[{ text: `⏭️ Пропустити ${field}`, callback_data: `skip_${field}` }]];
   if (withBack) {
@@ -17,11 +12,6 @@ const skipKeyboard = (field, withBack = false) => {
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
-/**
- * Універсальна функція для дій з об'єктом (старт/продовжити/вийти)
- * @param {string} entity - назва сутності (morning, evening, wheel, ai)
- * @param {Array} actions - масив дій ['start', 'continue', 'exit']
- */
 const actionKeyboard = (entity, actions = ['start', 'exit']) => {
   const icons = {
     start: '▶️',
@@ -45,11 +35,6 @@ const actionKeyboard = (entity, actions = ['start', 'exit']) => {
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
-/**
- * Універсальна функція для навігації назад/до меню
- * @param {string} backTo - callback для кнопки "Назад"
- * @param {boolean} withMainMenu - додати кнопку "До меню"
- */
 const navigationKeyboard = (backTo = null, withMainMenu = true) => {
   const buttons = [];
   
@@ -64,11 +49,6 @@ const navigationKeyboard = (backTo = null, withMainMenu = true) => {
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
-/**
- * Універсальна функція для меню з опціями
- * @param {Array} options - масив об'єктів {text, callback_data}
- * @param {boolean} withNavigation - додати навігацію
- */
 const menuKeyboard = (options, withNavigation = true) => {
   const buttons = options.map(opt => [{
     text: opt.text,
@@ -85,18 +65,74 @@ const menuKeyboard = (options, withNavigation = true) => {
 // ===== ОСНОВНІ КЛАВІАТУРИ =====
 
 const keyboards = {
-  // ====== ГОЛОВНЕ МЕНЮ ======
+  // ====== 🏠 ГОЛОВНЕ МЕНЮ (4 КНОПКИ) ======
   mainMenuKeyboard() {
     return {
       reply_markup: {
         keyboard: [
           [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }],
-          [{ text: '📊 Звіти' }, { text: '💰 Підписка' }],
-          [{ text: '❓ Допомога' }]
+          [{ text: '📊 Звіти' }, { text: 'ℹ️ Інформація' }]
         ],
         resize_keyboard: true,
         one_time_keyboard: false,
         is_persistent: true
+      }
+    };
+  },
+
+  // ====== 📊 ЗВІТИ (INLINE МЕНЮ) ======
+  reportsMenuInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📊 Щотижневий звіт', callback_data: 'get_weekly_report' }],
+          [{ text: '📅 Щомісячний звіт', callback_data: 'get_monthly_report' }],
+          [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+        ]
+      }
+    };
+  },
+
+  // ====== ℹ️ ІНФОРМАЦІЯ (INLINE МЕНЮ) ======
+  infoMenuInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💰 Підписка', callback_data: 'subscription_info' }],
+          [{ text: '📈 Мій прогрес', callback_data: 'my_progress' }],
+          [{ text: '📞 Зв\'язок', callback_data: 'contact' }],
+          [{ text: '❓ Допомога', callback_data: 'help' }],
+          [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+        ]
+      }
+    };
+  },
+
+  // ====== 📞 ЗВ'ЯЗОК (INLINE МЕНЮ) ======
+  contactMenuInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📝 Інструкції', callback_data: 'instructions' }],
+          [{ text: '📞 Підтримка', callback_data: 'contact_support' }],
+          [{ text: '💎 Афірмація', callback_data: 'show_affirmation' }],
+          [{ text: '🔙 Назад', callback_data: 'info_menu' }]
+        ]
+      }
+    };
+  },
+
+  // ====== 💰 ПІДПИСКА (INLINE МЕНЮ) ======
+  subscriptionMenuInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📋 Статус підписки', callback_data: 'subscription_status' }],
+          [{ text: '💳 Оформити/Продовжити', callback_data: 'subscription_plans' }],
+          [{ text: '📈 Мій прогрес', callback_data: 'my_progress' }],
+          [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
+          [{ text: '🔙 Назад', callback_data: 'info_menu' }]
+        ]
       }
     };
   },
@@ -123,26 +159,7 @@ const keyboards = {
     ], false);
   },
 
-  // ====== МЕНЮ ЗВІТІВ ======
-  reportsMenuInline() {
-    return menuKeyboard([
-      { text: '📊 Щотижневий', callback_data: 'get_weekly_report' },
-      { text: '📅 Щомісячний', callback_data: 'get_monthly_report' },
-      { text: '📈 Моя статистика', callback_data: 'my_progress' },
-      { text: '🎯 Статистика колеса', callback_data: 'wheel_stats' }
-    ]);
-  },
-
-  // ====== МЕНЮ ДОПОМОГИ ======
-  helpMenuInline() {
-    return menuKeyboard([
-      { text: '📝 Інструкції', callback_data: 'instructions' },
-      { text: '📞 Підтримка', callback_data: 'contact' },
-      { text: '💎 Афірмація', callback_data: 'show_affirmation' }
-    ]);
-  },
-
-  // ====== ОНБОРДИНГ (З УНІВЕРСАЛЬНИМИ ФУНКЦІЯМИ) ======
+  // ====== ОНБОРДИНГ ======
   greetingKeyboard() {
     return {
       reply_markup: {
@@ -153,7 +170,6 @@ const keyboards = {
     };
   },
 
-  // Використовуємо універсальну функцію skipKeyboard
   emailInputKeyboard() {
     return skipKeyboard('email');
   },
@@ -172,7 +188,7 @@ const keyboards = {
     };
   },
 
-  // ====== ПІДПИСКИ ======
+  // ====== ПІДПИСКИ (ДЕТАЛЬНІ ЕКРАНИ) ======
   subscriptionInfoActiveKeyboard(expiringSoon = false) {
     const options = [];
     
@@ -271,7 +287,7 @@ const keyboards = {
     };
   },
 
-  // ====== ЩОДЕННІ ПИТАННЯ (З УНІВЕРСАЛЬНОЮ ФУНКЦІЄЮ) ======
+  // ====== ЩОДЕННІ ПИТАННЯ ======
   morningStartInline() {
     return actionKeyboard('morning', ['start', 'later']);
   },
@@ -314,7 +330,7 @@ const keyboards = {
     return navigationKeyboard(null, true);
   },
 
-  // Експортуємо універсальні функції для використання в інших місцях
+  // Експортуємо універсальні функції
   utils: {
     skipKeyboard,
     actionKeyboard,
@@ -324,6 +340,4 @@ const keyboards = {
 };
 
 export default keyboards;
-
-// Експортуємо також окремі утиліти
 export { skipKeyboard, actionKeyboard, navigationKeyboard, menuKeyboard };

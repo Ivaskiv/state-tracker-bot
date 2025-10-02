@@ -1,6 +1,5 @@
 // src/controllers/handlers/textHandler.js - ОПТИМІЗОВАНИЙ
 
-import { MENU_TEXTS } from '../../config/constants.js';
 import userService from '../../services/userService.js';
 import menuHandler from './menuHandler.js';
 import keyboards from '../../utils/keyboards.js';
@@ -36,33 +35,94 @@ export const handle = async (ctx) => {
 
     const hasAccess = userService.hasActiveAccess(user);
 
-    // ===== НОВІ ОБ'ЄДНАНІ КНОПКИ =====
+    // ===== НОВІ КНОПКИ ГОЛОВНОГО МЕНЮ =====
     
-    // 📊 Звіти та прогрес
-    if (text === '📊 Звіти та прогрес' || text === '📊 Звіти') {
-      if (!hasAccess) {
-        await menuHandler.showFeatureBlocked(ctx, 'Звіти та прогрес');
+    switch (text) {
+      // 🤖 AI Наставник
+      case '🤖 AI Наставник':
+        if (!hasAccess) {
+          await menuHandler.showFeatureBlocked(ctx, 'AI Наставник');
+          return true;
+        }
+        const aiMentorController = (await import('../flows/aiMentorController.js')).default;
+        await aiMentorController.handleAIMentorRequest(ctx);
         return true;
-      }
-      await ctx.reply(
-        '📊 ЗВІТИ ТА ПРОГРЕС\n\nОбери розділ:',
-        keyboards.reportsMenuInline()
-      );
-      return true;
-    }
 
-    // ❓ Допомога та підтримка
-    if (text === '❓ Допомога та підтримка' || text === '❓ Допомога') {
-      await ctx.reply(
-        '❓ ДОПОМОГА\n\nОбери розділ:',
-        keyboards.helpMenuInline()
-      );
-      return true;
-    }
+      // 🎯 Колесо балансу
+      case '🎯 Колесо балансу':
+        if (!hasAccess) {
+          await menuHandler.showFeatureBlocked(ctx, 'Колесо балансу');
+          return true;
+        }
+        const wheelController = (await import('../flows/wheelController.js')).default;
+        await wheelController.handleRequest(ctx);
+        return true;
 
-    // ===== ДЕЛЕГУЄМО РЕШТУ В menuHandler =====
-    await menuHandler.handleCommand(ctx, user, text, hasAccess);
-    return true;
+      // 📊 Звіти
+      case '📊 Звіти':
+        if (!hasAccess) {
+          await menuHandler.showFeatureBlocked(ctx, 'Звіти');
+          return true;
+        }
+        await ctx.reply(
+          '📊 ЗВІТИ\n\nОбери тип звіту:',
+          keyboards.reportsMenuInline()
+        );
+        return true;
+
+      // ℹ️ Інформація
+      case 'ℹ️ Інформація':
+        await ctx.reply(
+          'ℹ️ ІНФОРМАЦІЯ\n\nОбери розділ:',
+          keyboards.infoMenuInline()
+        );
+        return true;
+
+      // ===== ЗАСТАРІЛІ КНОПКИ (зворотна сумісність) =====
+      case '💰 Підписка':
+        await ctx.reply(
+          '💰 ПІДПИСКА\n\nОбери дію:',
+          keyboards.subscriptionMenuInline()
+        );
+        return true;
+
+      case '❓ Допомога':
+        await ctx.reply(
+          '📞 ЗВ\'ЯЗОК ТА ДОПОМОГА\n\nОбери розділ:',
+          keyboards.contactMenuInline()
+        );
+        return true;
+
+      case '💎 Афірмація':
+        const GENERAL_AFFIRMATIONS = [
+          'Моя енергія створює позитивні зміни',
+          'Я заслуговую на все найкраще',
+          'Моя рішучість творить можливості',
+          'Щодня впевнено йду до мети',
+          'Дія — мова проти страху'
+        ];
+        const affirmation = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
+        await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
+        return true;
+
+      case '📈 Щотижневий звіт':
+      case '📈 Щомісячний звіт':
+      case '📊 Мій прогрес':
+        if (!hasAccess) {
+          await menuHandler.showFeatureBlocked(ctx, 'Звіти');
+          return true;
+        }
+        await menuHandler.handleCommand(ctx, user, text, hasAccess);
+        return true;
+
+      default:
+        console.log(`[textHandler] ❓ Невідома команда: "${text}"`);
+        await ctx.reply(
+          '❓ Не розпізнав команду. Використовуй головне меню внизу 👇',
+          keyboards.mainMenuKeyboard()
+        );
+        return true;
+    }
 
   } catch (error) {
     console.error('[textHandler] Помилка:', error);
