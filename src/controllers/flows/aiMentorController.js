@@ -1,17 +1,17 @@
 // src/aiMentor/controllers/aiMentorController.js - З КОНСТАНТАМИ
 
-import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { aiMentorSession } from '../../utils/session.js';
 import { chat } from '../../services/openaiClient.js';
 import conversationService from '../../services/conversationService.js';
-import responseService from '../../dialogue/services/responseService.js';
+import responseService from '../../services/responseService.js';
 import activityTracker from '../../services/activityTracker.js';
 import { 
   CONTEXT_TYPES, 
   AI_MENTOR_PROMPTS,
   COURSE_OFFERS
 } from '../../config/constants.js';
+import userService from '../../services/userService.js';
 
 // ===== АНАЛІЗ КОНТЕКСТУ ПИТАННЯ =====
 const analyzeQuestionContext = (question) => {

@@ -1,6 +1,5 @@
 // src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО
 
-import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
 import { aiMentorSession } from '../../utils/session.js';
@@ -11,7 +10,7 @@ import wheelController from './wheelController.js';
 import aiMentorController from './aiMentorController.js';
 import subscriptionController from '../subscriptionController.js';
 import reportService from '../../services/reportService.js';
-import sessionHandler from '../handlers/sessionHandler.js';
+import userService from '../../services/userService.js';
 
 // ===== КОНСТАНТИ =====
 const AFFIRMATIONS = [

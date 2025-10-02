@@ -1,14 +1,17 @@
-// server.js — ОПТИМІЗОВАНИЙ ЗАПУСК З ВАЛІДАЦІЄЮ
+// server.js — ДОДАТИ WEBHOOK ENDPOINT
+
 import dotenv from 'dotenv';
 dotenv.config();
 
+import express from 'express'; // ✅ ДОДАТИ
 import { Telegraf, session } from 'telegraf';
 import botController from './src/controllers/botController.js';
 import { testConnection, validateTables } from './src/config/database.js';
 import { startScheduler, stopScheduler } from './src/utils/scheduler.js';
 import { typingMiddleware } from './src/utils/typing.js';
+import webhookController from './src/api/webhookController.js'; // ✅ ДОДАТИ
 
-const { TELEGRAM_BOT_TOKEN, NODE_ENV, TZ } = process.env;
+const { TELEGRAM_BOT_TOKEN, NODE_ENV, TZ, PORT } = process.env;
 
 // ===== ПЕРЕВІРКА ENV =====
 if (!TELEGRAM_BOT_TOKEN) {
@@ -19,12 +22,26 @@ if (!TELEGRAM_BOT_TOKEN) {
 console.log('🚀 [server] Запуск бота...');
 console.log(`🟢 MODE=${NODE_ENV || 'development'} | TZ=${TZ || 'Europe/Kiev'}`);
 
+// ===== EXPRESS SERVER ДЛЯ WEBHOOK ===== ✅ ДОДАТИ
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Webhook endpoint
+app.post('/api/wayforpay/webhook', webhookController.handleWayForPayWebhook);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+const PORT_NUMBER = parseInt(PORT || '3000', 10);
+
 // ===== ІНІЦІАЛІЗАЦІЯ БОТА =====
 const bot = new Telegraf(TELEGRAM_BOT_TOKEN, {
   handlerTimeout: 15_000,
 });
 
-// ===== SESSION MIDDLEWARE =====
 bot.use(session({ 
   defaultSession: () => ({
     wheel: null,
@@ -32,9 +49,9 @@ bot.use(session({
     ai: null
   }) 
 }));
-// ✅ ДОДАТИ 1.10
+
 bot.use(typingMiddleware());
-// ===== ГЛОБАЛЬНИЙ ERROR HANDLER =====
+
 bot.catch((err, ctx) => {
   console.error('❌ [bot] Unhandled error:', {
     error: err.message,
@@ -113,6 +130,12 @@ bot.catch((err, ctx) => {
       allowedUpdates: ['message', 'callback_query'],
     });
     
+    // 7️⃣ ЗАПУСК EXPRESS SERVER ✅ ДОДАТИ
+    app.listen(PORT_NUMBER, () => {
+      console.log(`🌐 [server] Express server запущено на порту ${PORT_NUMBER}`);
+      console.log(`🔗 [server] Webhook URL: http://localhost:${PORT_NUMBER}/api/wayforpay/webhook`);
+    });
+    
     console.log('');
     console.log('═══════════════════════════════════════');
     console.log('✅ БОТ УСПІШНО ЗАПУЩЕНО');
@@ -120,6 +143,7 @@ bot.catch((err, ctx) => {
     console.log(`📱 Режим: ${NODE_ENV || 'development'}`);
     console.log(`🌍 Часова зона: ${TZ || 'Europe/Kiev'}`);
     console.log(`🤖 Bot ID: @${(await bot.telegram.getMe()).username}`);
+    console.log(`🌐 Webhook port: ${PORT_NUMBER}`);
     console.log('═══════════════════════════════════════');
     console.log('');
     
@@ -144,7 +168,6 @@ const shutdown = (signal) => async () => {
   console.log('═══════════════════════════════════════');
   
   try {
-    // 1️⃣ Зупинка scheduler
     console.log('⏰ [shutdown] Зупинка планувальника...');
     try {
       stopScheduler();
@@ -153,7 +176,6 @@ const shutdown = (signal) => async () => {
       console.warn('⚠️ [shutdown] Помилка зупинки планувальника:', schedulerError.message);
     }
     
-    // 2️⃣ Зупинка бота
     console.log('🤖 [shutdown] Зупинка бота...');
     await bot.stop(signal);
     console.log('✅ [shutdown] Бот зупинено');
@@ -177,11 +199,9 @@ const shutdown = (signal) => async () => {
   }
 };
 
-// ===== ОБРОБНИКИ СИГНАЛІВ =====
 process.once('SIGINT', shutdown('SIGINT'));
 process.once('SIGTERM', shutdown('SIGTERM'));
 
-// ===== ОБРОБКА НЕПЕРЕХОПЛЕНИХ ПОМИЛОК =====
 process.on('unhandledRejection', (reason, promise) => {
   console.error('');
   console.error('🔴 [process] Unhandled Rejection:');
@@ -198,14 +218,12 @@ process.on('uncaughtException', (error) => {
   console.error('Stack:', error.stack);
   console.error('');
   
-  // Для критичних помилок - зупиняємо процес
   if (error.code === 'EADDRINUSE' || error.code === 'ECONNREFUSED') {
     console.error('💀 [process] Критична помилка - завершення процесу');
     process.exit(1);
   }
 });
 
-// ===== ОБРОБКА WARNING =====
 process.on('warning', (warning) => {
   console.warn('⚠️ [process] Warning:', warning.name);
   console.warn('Message:', warning.message);
@@ -214,7 +232,6 @@ process.on('warning', (warning) => {
   }
 });
 
-// ===== ІНФОРМАЦІЯ ПРО ПРОЦЕС =====
 console.log('📋 [process] Node.js версія:', process.version);
 console.log('💾 [process] Пам\'ять:', {
   heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,

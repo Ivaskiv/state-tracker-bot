@@ -1,9 +1,9 @@
 // src/dialogue/services/responseService.js - З ІНТЕГРАЦІЄЮ activityTracker
 
-import { getBase, tables } from '../../config/database.js';
-import logger from '../../utils/logger.js';
-import userService from '../../services/userService.js';
-import activityTracker from '../../services/activityTracker.js';
+import { getBase, tables } from '../config/database.js';
+import logger from '../utils/logger.js';
+import userService from './userService.js';
+import activityTracker from './activityTracker.js';
 
 const base = getBase();
 
@@ -96,10 +96,8 @@ const responseService = {
       logger.info(`[responseService] Збережено ранкову відповідь ${questionNumber} для ${tgId}`);
       
       // ✅ ОНОВЛЮЄМО last_activity_ts після КОЖНОЇ відповіді
-      await userService.updateUserFields(tgId, {
-        last_activity_ts: new Date().toISOString()
-      }).catch(err => logger.error('[responseService] Помилка оновлення last_activity_ts:', err));
-      
+await userService.updateUserActivity(tgId)
+  .catch(err => logger.error('[responseService] Помилка оновлення активності:', err));      
       return true;
       
     } catch (error) {

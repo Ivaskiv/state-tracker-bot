@@ -1,7 +1,7 @@
 // src/services/activityTracker.js - ПОВНА ВЕРСІЯ З АНАЛІЗОМ
 
 import userService from './userService.js';
-import responseService from '../dialogue/services/responseService.js';
+import responseService from './responseService.js';
 import { getBase, tables } from '../config/database.js';
 import { ACTIVITY_TRIGGERS } from '../config/constants.js';
 
@@ -140,9 +140,7 @@ export const finalizeDay = async (tgId) => {
     }
     
     // Оновлюємо last_activity_ts
-    await userService.updateUserFields(tgId, {
-      last_activity_ts: new Date().toISOString()
-    });
+await userService.updateUserActivity(tgId);
     
     console.log(`[activityTracker] ✅ День фіналізовано`);
     

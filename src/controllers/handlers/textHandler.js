@@ -1,4 +1,4 @@
-// src/controllers/handlers/textHandler.js - РОУТИНГ ТЕКСТУ ЧЕРЕЗ ЦЕНТРАЛЬНІ КОНСТАНТИ/МЕНЮ
+// src/controllers/handlers/textHandler.js - ОПТИМІЗОВАНИЙ
 
 import { MENU_TEXTS } from '../../config/constants.js';
 import userService from '../../services/userService.js';
@@ -21,7 +21,7 @@ export const handle = async (ctx) => {
 
     const step = user.Answer_Step;
 
-    // Якщо активні ранкові/вечірні/колесо — делегуємо спеціальним потокам
+    // ===== АКТИВНІ СЕСІЇ (пріоритет) =====
     if (step === 'WheelBalance') {
       const wheelController = (await import('../flows/wheelController.js')).default;
       await wheelController.handleText?.(ctx, text);
@@ -35,6 +35,32 @@ export const handle = async (ctx) => {
     }
 
     const hasAccess = userService.hasActiveAccess(user);
+
+    // ===== НОВІ ОБ'ЄДНАНІ КНОПКИ =====
+    
+    // 📊 Звіти та прогрес
+    if (text === '📊 Звіти та прогрес' || text === '📊 Звіти') {
+      if (!hasAccess) {
+        await menuHandler.showFeatureBlocked(ctx, 'Звіти та прогрес');
+        return true;
+      }
+      await ctx.reply(
+        '📊 ЗВІТИ ТА ПРОГРЕС\n\nОбери розділ:',
+        keyboards.reportsMenuInline()
+      );
+      return true;
+    }
+
+    // ❓ Допомога та підтримка
+    if (text === '❓ Допомога та підтримка' || text === '❓ Допомога') {
+      await ctx.reply(
+        '❓ ДОПОМОГА\n\nОбери розділ:',
+        keyboards.helpMenuInline()
+      );
+      return true;
+    }
+
+    // ===== ДЕЛЕГУЄМО РЕШТУ В menuHandler =====
     await menuHandler.handleCommand(ctx, user, text, hasAccess);
     return true;
 

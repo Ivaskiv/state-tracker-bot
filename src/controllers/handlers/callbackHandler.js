@@ -22,6 +22,57 @@ export const handle = async (ctx) => {
   await ctx.answerCbQuery().catch(() => {});
 
   try {
+    if (data === 'main_menu' || data === 'open_main') {
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
+      await ctx.reply('🏠 Головне меню:', keyboards.mainMenuKeyboard());
+      await ctx.answerCbQuery();
+      return true;
+    }
+
+    // Звіти та прогрес
+    if (data === 'get_weekly_report') {
+      await menuHandler.startWeeklyReport(ctx);
+      await ctx.answerCbQuery();
+      return true;
+    }
+
+    if (data === 'get_monthly_report') {
+      await menuHandler.startMonthlyReport(ctx);
+      await ctx.answerCbQuery();
+      return true;
+    }
+
+    if (data === 'my_progress') {
+      await menuHandler.showProgress(ctx);
+      await ctx.answerCbQuery();
+      return true;
+    }
+
+    if (data === 'wheel_stats') {
+      await wheelController.handleCallback(ctx, 'wheel_stats');
+      await ctx.answerCbQuery();
+      return true;
+    }
+
+    // Допомога
+    if (data === 'instructions') {
+      await ctx.editMessageText(MENU_TEXTS.INSTRUCTIONS, keyboards.helpMenuInline());
+      await ctx.answerCbQuery();
+      return true;
+    }
+
+    if (data === 'contact') {
+      await ctx.editMessageText(MENU_TEXTS.CONTACT, keyboards.helpMenuInline());
+      await ctx.answerCbQuery();
+      return true;
+    }
+
+    if (data === 'show_affirmation') {
+      const affirmation = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
+      await ctx.editMessageText(`✨ ${affirmation}`, keyboards.helpMenuInline());
+      await ctx.answerCbQuery();
+      return true;
+    }
     // 1) онбординг
     if (await startCb(ctx)) return true;
 

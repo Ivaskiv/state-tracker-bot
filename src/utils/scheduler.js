@@ -1,7 +1,6 @@
 // src/utils/scheduler.js — ВИПРАВЛЕНІ ІМПОРТИ
 
 import cron from 'node-cron';
-import userService from '../services/userService.js';
 import subscriptionController from '../controllers/subscriptionController.js';
 import activityTracker from '../services/activityTracker.js';
 import wheelBalanceService from '../services/wheelBalanceService.js'; // ✅ ПРАВИЛЬНИЙ ШЛЯХ
@@ -11,6 +10,7 @@ import {
   CRON_SCHEDULES,
   SCHEDULER_MESSAGES
 } from '../config/constants.js';
+import userService from '../services/userService.js';
 
 // ❌ ВИДАЛИТИ ЦІ РЯДКИ:
 // import wheelBalanceController from '../controllers/wheelBalanceController.js';

@@ -44,3 +44,11 @@
 {"error":"INVALID_FILTER_BY_FORMULA","level":"error","message":"❌ [CONVERSATION] Помилка генерації звіту: The formula for filtering records is invalid: Unknown field names: date","statusCode":422,"timestamp":"2025-09-30T13:15:41.645Z"}
 {"level":"error","message":"❌ [CONVERSATION] ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T13:17:48.315Z"}
 {"level":"error","message":"❌ [CONVERSATION] ПОМИЛКА: Unknown field name: \"Date\"","statusCode":422,"tgId":"630111093","timestamp":"2025-09-30T13:43:43.430Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:46:06.284Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:47:44.331Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:50:13.145Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:50:49.149Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:51:27.318Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:51:59.779Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:52:07.198Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T19:42:38.821Z"}

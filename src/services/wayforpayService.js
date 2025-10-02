@@ -1,4 +1,4 @@
-// src/services/wayforpayService.js - ВИПРАВЛЕНО WAYFORPAY ІНТЕГРАЦІЮ ВІДПОВІДНО ДО ТЗ
+// src/services/wayforpayService.js - ПОВНА ВЕРСІЯ З УСІЄЮ ЛОГІКОЮ
 
 import crypto from 'crypto';
 import { SUBSCRIPTION_PLANS } from '../config/constants.js';
@@ -11,7 +11,7 @@ const WAYFORPAY_CONFIG = {
   returnUrl: process.env.WAYFORPAY_RETURN_URL || process.env.BOT_URL || 'https://t.me/your_bot_name'
 };
 
-// ✅ ГОТОВІ ПОСИЛАННЯ WAYFORPAY З MAKE.COM (З ДОКУМЕНТІВ)
+// ✅ ГОТОВІ ПОСИЛАННЯ WAYFORPAY З MAKE.COM
 const WAYFORPAY_BUTTON_LINKS = {
   WEEK: 'https://secure.wayforpay.com/button/b96923b913d29',
   MONTH: 'https://secure.wayforpay.com/button/b8df87678cd43', 
@@ -36,7 +36,7 @@ const generateSignature = (data, secretKey) => {
   return crypto.createHmac('md5', secretKey).update(signString).digest('hex');
 };
 
-// ✅ СТВОРЕННЯ ЗАПИТУ НА ОПЛАТУ
+// ✅ СТВОРЕННЯ ЗАПИТУ НА ОПЛАТУ (ДЛЯ ПРЯМОЇ ІНТЕГРАЦІЇ)
 const createPaymentRequest = (tgId, planKey, userEmail = null) => {
   const planInfo = SUBSCRIPTION_PLANS[planKey];
   if (!planInfo) {
@@ -227,7 +227,8 @@ const processWebhookData = (webhookData) => {
       startDate,
       endDate: endDate.toISOString(),
       createdDate: createdDate ? new Date(createdDate * 1000).toISOString() : startDate,
-      processingDate: processingDate ? new Date(processingDate * 1000).toISOString() : null
+      processingDate: processingDate ? new Date(processingDate * 1000).toISOString() : null,
+      isApproved: transactionStatus === 'Approved'
     };
 
     console.log(`[wayforpayService] ✅ Оброблені дані:`, JSON.stringify(processedData, null, 2));
@@ -240,9 +241,9 @@ const processWebhookData = (webhookData) => {
 };
 
 // ✅ ГЕНЕРАЦІЯ ВІДПОВІДІ НА WEBHOOK
-const generateWebhookResponse = (status = 'accept', time = null) => {
+const generateWebhookResponse = (orderReference, status = 'accept', time = null) => {
   const response = {
-    orderReference: '',
+    orderReference: orderReference || '',
     status,
     time: time || Math.floor(Date.now() / 1000)
   };

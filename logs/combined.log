@@ -2684,3 +2684,33 @@
 {"level":"info","message":"[responseService] Отримано 12 записів для 630111093","timestamp":"2025-09-30T13:49:49.635Z"}
 {"level":"info","message":"[responseService] Отримано 0 записів для 630111093","timestamp":"2025-09-30T13:50:01.755Z"}
 {"level":"info","message":"[responseService] Отримано 12 записів для 630111093","timestamp":"2025-10-01T13:58:59.277Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 1 для 630111093","timestamp":"2025-10-01T17:46:05.532Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:46:06.284Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 2 для 630111093","timestamp":"2025-10-01T17:47:43.639Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:47:44.331Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 3 для 630111093","timestamp":"2025-10-01T17:50:12.419Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:50:13.145Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 4 для 630111093","timestamp":"2025-10-01T17:50:48.487Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:50:49.149Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 5 для 630111093","timestamp":"2025-10-01T17:51:26.627Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:51:27.318Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 6 для 630111093","timestamp":"2025-10-01T17:51:59.156Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:51:59.779Z"}
+{"level":"info","message":"[responseService] Отримано 1 записів для 630111093","timestamp":"2025-10-01T17:51:59.998Z"}
+{"level":"info","message":"[responseService] Збережено morning афірмацію для 630111093","timestamp":"2025-10-01T17:52:06.500Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T17:52:07.198Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 6 для 630111093","timestamp":"2025-10-01T19:42:31.483Z"}
+{"level":"info","message":"[responseService] Отримано 1 записів для 630111093","timestamp":"2025-10-01T19:42:32.275Z"}
+{"level":"info","message":"[responseService] Збережено morning афірмацію для 630111093","timestamp":"2025-10-01T19:42:38.113Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T19:42:38.821Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-10-01T20:53:03.781Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Колесо створено, ID: recjxDndRsR6xPWjO","timestamp":"2025-10-01T20:53:04.857Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 8","timestamp":"2025-10-01T20:53:12.423Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 9","timestamp":"2025-10-01T20:54:26.712Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 9","timestamp":"2025-10-01T20:55:51.423Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 6","timestamp":"2025-10-01T20:57:29.891Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 6","timestamp":"2025-10-01T20:58:25.429Z"}
+{"level":"info","message":"[responseService] Отримано 1 записів для 630111093","timestamp":"2025-10-01T20:59:00.656Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-10-01T20:59:09.158Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 10","timestamp":"2025-10-01T20:59:55.039Z"}
+{"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 10","timestamp":"2025-10-01T21:00:38.524Z"}

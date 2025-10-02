@@ -1,5 +1,5 @@
 // src/dialogue/services/affirmationService.js
-import { getBase } from '../../config/database.js';
+import { getBase } from '../config/database.js';
 
 const AFFIRMATIONS = 'Affirmations';
 

@@ -15,21 +15,47 @@ export const afterRegistrationKeyboard = () => ({
 
 const keyboards = {
   // ====== ГОЛОВНЕ МЕНЮ ======
-  mainMenuKeyboard() {
-    // Використовуємо підписи з MENU_BUTTONS, щоб не хардкодити тексти
-    const M = MENU_BUTTONS;
+ mainMenuKeyboard() {
     return {
       reply_markup: {
         keyboard: [
-          [{ text: M.AI_MENTOR }, { text: M.WHEEL }],
-          [{ text: '📈 Щотижневий звіт' }, { text: '📈 Щомісячний звіт' }],
-          [{ text: M.AFFIRMATION }, { text: M.PROGRESS }],
-          [{ text: M.SUBSCRIPTION }, { text: '❓ Допомога' }],
-          [{ text: M.INSTRUCTIONS }, { text: M.CONTACT }]
+          [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }],
+          [{ text: '📊 Звіти та прогрес' }, { text: '💰 Підписка' }],
+          [{ text: '❓ Допомога та 📞 підтримка' }], 
+          [{ text: '📝 Інструкції', callback_data: 'instructions' }],
         ],
         resize_keyboard: true,
         one_time_keyboard: false,
         is_persistent: true
+      }
+    };
+  },
+
+  // ====== МЕНЮ ЗВІТІВ ======
+  reportsMenuInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📊 Щотижневий звіт', callback_data: 'get_weekly_report' }],
+          [{ text: '📅 Щомісячний звіт', callback_data: 'get_monthly_report' }],
+          [{ text: '📈 Мій прогрес', callback_data: 'my_progress' }],
+          [{ text: '🎯 Статистика колеса', callback_data: 'wheel_stats' }],
+          [{ text: '🔙 Назад до меню', callback_data: 'main_menu' }]
+        ]
+      }
+    };
+  },
+
+  // ====== МЕНЮ ДОПОМОГИ ======
+  helpMenuInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📝 Інструкції', callback_data: 'instructions' }],
+          [{ text: '📞 Зв\'язатися з підтримкою', callback_data: 'contact' }],
+          [{ text: '💎 Отримати афірмацію', callback_data: 'show_affirmation' }],
+          [{ text: '🔙 Назад до меню', callback_data: 'main_menu' }]
+        ]
       }
     };
   },

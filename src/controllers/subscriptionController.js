@@ -1,7 +1,6 @@
 // src/controllers/subscriptionController.js
 // ФІНАЛЬНА ВЕРСІЯ: підписки + курси з винесеними константами та клавіатурами
 
-import userService from '../services/userService.js';
 import subscriptionService from '../services/subscriptionService.js';
 import keyboards from '../utils/keyboards.js';
 import typing from '../utils/typing.js';
@@ -15,6 +14,7 @@ import {
   SUBSCRIPTION_MESSAGES,
   COURSE_MESSAGES
 } from '../config/constants.js';
+import userService from '../services/userService.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ДОПОМІЖНІ ФУНКЦІЇ
