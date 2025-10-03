@@ -25,24 +25,25 @@ const botController = (bot) => {
     }
   });
 
-  // ===== /START (реєструємо внутрішній хендлер) =====
+  // ===== /START =====
+  // ✅ Реєструємо хендлер команди /start через дефолт-експорт
   registerStartHandlers(bot);
 
   // ===== ТЕКСТ =====
   bot.on('text', async (ctx, next) => {
-    // Спершу даємо шанс онбордингу
+    // Спочатку даємо шанс онбордингу
     if (await startText(ctx)) return;
-    // Потім глобальний текстовий хендлер меню/потоків
-    if (await textHandler.handle(ctx)) return;
+    // Потім — твій основний текстовий хендлер
+    if (await textHandler(ctx)) return;
     return next();
   });
 
   // ===== CALLBACK =====
   bot.on('callback_query', async (ctx, next) => {
-    // Спершу онбординг
+    // Спочатку онбординг
     if (await startCb(ctx)) return;
-    // Потім глобальний callback-хендлер
-    if (await callbackHandler.handle(ctx)) return;
+    // Потім — глобальні callback-и
+    if (await callbackHandler(ctx)) return;
     return next();
   });
 
