@@ -58,7 +58,7 @@ export const createUser = async (tgId, name, timezone = 'Europe/Kiev (UTC+3)') =
     Status: USER_STATUS.NEW,
     'Subscription Status': SUBSCRIPTION_STATUS.NEW,
     Created_At: now,
-    Last_Activity: now,
+    Current_Activity: now,
     Current_Activity: CURRENT_ACTIVITY.IDLE
   };
 
@@ -132,12 +132,18 @@ export const updateUser = async (recordId, fields) => {
   // 1) очищаємо
   const initial = stripReadonly(fields);
 
-  // 2) завжди оновлюємо Last_Activity у правильному форматі
-  initial.Last_Activity = getAirtableDate();
+  // 2) завжди оновлюємо Current_Activity у правильному форматі
+  initial.Current_Activity = getAirtableDate();
 
   // 3) готуємо варіанти з фолбеком назв для поля активності
   const variants = [initial];
-
+if (safe.Current_Activity) {
+  const started = Date.now();
+  const [updated] = await table.update([{ id: recordId, fields: { Current_Activity: safe.Current_Activity } }], { typecast: true });
+  const elapsed = ((Date.now() - started) / 1000).toFixed(2);
+  console.log(`[userRepo] Оновлено Current_Activity за ${elapsed}с`);
+  return updated;
+}
   if ('Current_Activity' in initial) {
     const v1 = withFieldRenamed(initial, 'Current_Activity', 'Current Activity');
     const v2 = withFieldRenamed(initial, 'Current_Activity', 'Current_Activity');

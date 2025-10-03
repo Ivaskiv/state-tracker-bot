@@ -2730,3 +2730,5 @@
 {"level":"info","message":"[responseService] Отримано 1 записів для 630111093","timestamp":"2025-10-03T12:06:40.539Z"}
 {"level":"info","message":"[responseService] Збережено morning афірмацію для 630111093","timestamp":"2025-10-03T12:06:45.575Z"}
 {"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-03T12:06:46.203Z"}
+{"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-03T13:11:41.666Z"}
+{"level":"info","message":"[responseService] Отримано 13 записів для 630111093","timestamp":"2025-10-03T13:11:55.257Z"}

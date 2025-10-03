@@ -95,7 +95,7 @@ const responseService = {
       
       logger.info(`[responseService] Збережено ранкову відповідь ${questionNumber} для ${tgId}`);
       
-      // ✅ ОНОВЛЮЄМО last_activity_ts після КОЖНОЇ відповіді
+      // ✅ ОНОВЛЮЄМО current_Activity після КОЖНОЇ відповіді
 await userService.updateUserActivity(tgId)
   .catch(err => logger.error('[responseService] Помилка оновлення активності:', err));      
       return true;
@@ -136,11 +136,10 @@ await userService.updateUserActivity(tgId)
       
       logger.info(`[responseService] Збережено вечірню відповідь ${questionNumber} для ${tgId}`);
       
-      // ✅ ОНОВЛЮЄМО last_activity_ts після КОЖНОЇ відповіді
-      await userService.updateUserFields(tgId, {
-        last_activity_ts: new Date().toISOString()
-      }).catch(err => logger.error('[responseService] Помилка оновлення last_activity_ts:', err));
-      
+      // ✅ ОНОВЛЮЄМО current_Activity після КОЖНОЇ відповіді
+await userService.updateUserActivity(tgId)
+  .catch(err => logger.error('[responseService] Помилка оновлення активності:', err));
+
       // ✅ ЯКЩО ЦЕ ОСТАННЯ ВЕЧІРНЯ ВІДПОВІДЬ (Q_e_5) - ФІНАЛІЗУЄМО ДЕНЬ
       if (questionNumber === 5) {
         logger.info(`[responseService] 🌙 Остання вечірня відповідь - фіналізація дня для ${tgId}`);
@@ -189,10 +188,10 @@ await userService.updateUserActivity(tgId)
       
       logger.info(`[responseService] Збережено ${type} афірмацію для ${tgId}`);
       
-      // ✅ ОНОВЛЮЄМО last_activity_ts
-      await userService.updateUserFields(tgId, {
-        last_activity_ts: new Date().toISOString()
-      }).catch(err => logger.error('[responseService] Помилка оновлення last_activity_ts:', err));
+      // ✅ ОНОВЛЮЄМО current_Activity
+      await userService.updateUserActivity(tgId, {
+        current_Activity: new Date().toISOString()
+      }).catch(err => logger.error('[responseService] Помилка оновлення current_Activity:', err));
       
       return true;
       

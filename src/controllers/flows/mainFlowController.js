@@ -298,7 +298,7 @@ const mainFlowController = {
     await ctx.reply(message, keyboards.mainMenuKeyboard());
     
     userService.updateUserFields(ctx.from.id, { 
-      Last_Activity: new Date().toISOString() 
+      Current_Activity: new Date().toISOString() 
     }).catch(() => {});
   },
 

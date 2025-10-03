@@ -83,7 +83,6 @@ export const SUBSCRIPTION_STATUS = Object.freeze({
 });
 
 // ===== КРОКИ ВІДПОВІДЕЙ =====
-// ===== КРОКИ ВІДПОВІДЕЙ =====
 export const CURRENT_ACTIVITY = Object.freeze({
   IDLE: 'idle',
   BEGIN: 'Begin_answer',

@@ -139,7 +139,7 @@ export const finalizeDay = async (tgId) => {
       await updateMissedDays(tgId, false);
     }
     
-    // Оновлюємо last_activity_ts
+    // Оновлюємо current_activity_ts
 await userService.updateUserActivity(tgId);
     
     console.log(`[activityTracker] ✅ День фіналізовано`);
@@ -252,7 +252,7 @@ export const checkInactivityTriggers = async (tgId) => {
     
     const missedDays = user.work_missed_days || 0;
     const lowActivityWeeks = user.work_low_activity_weeks_count || 0;
-    const lastActivity = user.last_activity_ts;
+    const lastActivity = user.current_activity_ts;
     
     // ТРИГЕР 1: Missed_days >= 2
     if (missedDays >= ACTIVITY_TRIGGERS.MISSED_DAYS_THRESHOLD) {
