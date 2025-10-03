@@ -5,7 +5,7 @@ import onboardingService from '../../services/onboardingService.js';
 import keyboards from '../../utils/keyboards.js';
 import {
   MESSAGES,
-  ANSWER_STEPS,
+  CURRENT_ACTIVITY,
   USER_STATUS,
   REGISTRATION_SUCCESS_TEMPLATE
 } from '../../config/constants.js';
@@ -95,22 +95,22 @@ export const handleText = async (ctx) => {
   const user = await userService.getUserByTgId(tgId);
   if (!user || user.UserRegistered) return false;
 
-  const step = user.Answer_Step;
+  const step = user.Current_Activity;
 
   try {
-    if (step === ANSWER_STEPS.OB_NAME) {
+    if (step === CURRENT_ACTIVITY.OB_NAME) {
       const result = await onboardingService.handleNameStep(tgId, text);
       if (result.error) await ctx.reply(result.message, keyboards.emailInputKeyboard());
       else await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
       return true;
     }
-    if (step === ANSWER_STEPS.OB_EMAIL) {
+    if (step === CURRENT_ACTIVITY.OB_EMAIL) {
       const result = await onboardingService.handleEmailStep(tgId, text);
       if (result.error) await ctx.reply(result.message, keyboards.emailInputKeyboard());
       else await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
       return true;
     }
-    if (step === ANSWER_STEPS.OB_PHONE) {
+    if (step === CURRENT_ACTIVITY.OB_PHONE) {
       const result = await onboardingService.handlePhoneStep(tgId, text);
       if (result.error) await ctx.reply(result.message, keyboards.phoneInputKeyboard());
       else await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
@@ -136,7 +136,7 @@ export const handleCallback = async (ctx) => {
     if (data === 'use_telegram_name') {
       await userService.updateUserFields(tgId, {
         Status: USER_STATUS.REGISTERED,
-        Answer_Step: ANSWER_STEPS.OB_EMAIL
+        Current_Activity: CURRENT_ACTIVITY.OB_EMAIL
       });
       await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
       return true;
@@ -145,7 +145,7 @@ export const handleCallback = async (ctx) => {
     if (data === 'enter_custom_name' || data === 'start_registration') {
       await userService.updateUserFields(tgId, {
         Status: USER_STATUS.REGISTERED,
-        Answer_Step: ANSWER_STEPS.OB_NAME
+        Current_Activity: CURRENT_ACTIVITY.OB_NAME
       });
       await ctx.reply(MESSAGES.ASK_NAME);
       return true;

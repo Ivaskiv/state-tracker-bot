@@ -1,9 +1,9 @@
-// src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО
+// src/controllers/flows/mainFlowController.js - ВИПРАВЛЕНО ВСІ ПРОБЛЕМИ
 
 import keyboards from '../../utils/keyboards.js';
 import typing from '../../utils/typing.js';
 import { aiMentorSession } from '../../utils/session.js';
-import { CONTACTS } from '../../config/constants.js';
+import { CONTACTS, GENERAL_AFFIRMATIONS } from '../../config/constants.js';
 
 // Контролери
 import wheelController from './wheelController.js';
@@ -11,17 +11,6 @@ import aiMentorController from './aiMentorController.js';
 import subscriptionController from '../subscriptionController.js';
 import reportService from '../../services/reportService.js';
 import userService from '../../services/userService.js';
-
-// ===== КОНСТАНТИ =====
-const AFFIRMATIONS = [
-  'Моя енергія створює позитивні зміни',
-  'Я заслуговую на все найкраще',
-  'Моя рішучість творить можливості',
-  'Щодня впевнено йду до мети',
-  'Дія — мова проти страху',
-  'Кожне рішення прокачує рішучість',
-  'Впевненість і рішучість — мої інструменти'
-];
 
 const mainFlowController = {
   
@@ -80,6 +69,7 @@ const mainFlowController = {
     const hasAccess = userService.hasActiveAccess(user);
 
     switch (text) {
+      case '🤖 AI Наставник':
       case '🤖 AI наставник':
         if (!hasAccess) {
           await this.showFeatureBlocked(ctx, 'AI наставник');
@@ -104,42 +94,29 @@ const mainFlowController = {
         await this.showAffirmation(ctx);
         break;
         
-      case '📊 Мій прогрес':
+      case '📊 Звіти':
         if (!hasAccess) {
-          await this.showFeatureBlocked(ctx, 'Прогрес');
+          await this.showFeatureBlocked(ctx, 'Звіти');
           return;
         }
-        await this.showProgress(ctx, user);
+        await ctx.reply(
+          '📊 ЗВІТИ\n\nОбери тип звіту:',
+          keyboards.reportsMenuInline()
+        );
         break;
         
-      case '📈 Щотижневий звіт':
-        if (!hasAccess) {
-          await this.showFeatureBlocked(ctx, 'Щотижневий звіт');
-          return;
-        }
-        await typing(ctx, 2000);
-        await this.generateWeeklyReport(ctx, tgId);
+      case 'ℹ️ Інформація про бота':
+        await ctx.reply(
+          'ℹ️ ІНФОРМАЦІЯ\n\nОбери розділ:',
+          keyboards.infoMenuInline()
+        );
         break;
         
-      case '📈 Щомісячний звіт':
-        if (!hasAccess) {
-          await this.showFeatureBlocked(ctx, 'Щомісячний звіт');
-          return;
-        }
-        await typing(ctx, 2000);
-        await this.generateMonthlyReport(ctx, tgId);
-        break;
-        
-      case '❓ Допомога':
-        await this.showHelp(ctx);
-        break;
-        
-      case '📞 Зв\'язок з нами':
-        await this.showContact(ctx);
-        break;
-        
-      case '📝 Інструкції':
-        await this.showInstructions(ctx);
+      case '📞 Зв\'язок':
+        await ctx.reply(
+          '📞 ЗВ\'ЯЗОК\n\nОбери розділ:',
+          keyboards.contactMenuInline()
+        );
         break;
         
       default:
@@ -161,13 +138,20 @@ const mainFlowController = {
           await this.showMainMenu(ctx, currentUser);
           await ctx.answerCbQuery();
           break;
+
+        // ✅ ВИПРАВЛЕНО: subscription_status
+        case 'subscription_status':
+        case 'subscription_info':
+          await subscriptionController.handleSubscriptionInfo(ctx);
+          await ctx.answerCbQuery();
+          break;
           
         case 'continue_session':
-          const userStep = user?.Answer_Step;
+          const userStep = user?.Current_Activity;
           
           if (aiMentorSession.isActive?.(tgId)) {
             await ctx.editMessageReplyMarkup({ inline_keyboard: [] }).catch(() => {});
-            await ctx.reply('💬 Продовжуємо діалог. Напиши питання!');
+            await ctx.reply('💬 Продовжуємо діалог. Напиши питання!', keyboards.mainMenuKeyboard());
           } else if (userStep === 'WheelBalance') {
             await wheelController.handleCallback(ctx, 'wheel_continue');
           } else if (userStep?.startsWith('Q_m_')) {
@@ -180,7 +164,8 @@ const mainFlowController = {
           
           await ctx.answerCbQuery('Продовжуємо');
           break;
-          
+
+        // ✅ ВИПРАВЛЕНО: my_progress
         case 'my_progress':
           const progressUser = user || await userService.getUserByTgId(tgId);
           await this.showProgress(ctx, progressUser);
@@ -203,6 +188,12 @@ const mainFlowController = {
           await this.showAffirmation(ctx);
           await ctx.answerCbQuery();
           break;
+
+        // ✅ ВИПРАВЛЕНО: show_capabilities
+        case 'show_capabilities':
+          await this.showCapabilities(ctx);
+          await ctx.answerCbQuery();
+          break;
           
         case 'help':
           await this.showHelp(ctx);
@@ -210,6 +201,7 @@ const mainFlowController = {
           break;
           
         case 'contact':
+        case 'contact_support':
           await this.showContact(ctx);
           await ctx.answerCbQuery();
           break;
@@ -302,6 +294,7 @@ const mainFlowController = {
       `🎯 Щомісячне колесо — 1-го числа\n\n` +
       `💡 Використовуй AI наставника 24/7`;
 
+    // ✅ КРИТИЧНО: завжди відправляємо з клавіатурою
     await ctx.reply(message, keyboards.mainMenuKeyboard());
     
     userService.updateUserFields(ctx.from.id, { 
@@ -325,6 +318,20 @@ const mainFlowController = {
     );
   },
 
+  // ✅ ДОДАНО: showCapabilities
+  async showCapabilities(ctx) {
+    const message = 
+      `🤖 МОЖЛИВОСТІ БОТА\n\n` +
+      `🎯 AI Наставник — персональна підтримка 24/7\n` +
+      `📊 Колесо балансу — аналіз 8 сфер життя\n` +
+      `📈 Щоденні питання — ранкові та вечірні\n` +
+      `📅 Звіти — щотижневі та щомісячні\n` +
+      `💰 Підписка — гнучкі плани\n\n` +
+      `💡 Використовуй меню внизу для швидкого доступу!`;
+
+    await ctx.reply(message, keyboards.mainMenuKeyboard());
+  },
+
   async showProgress(ctx, user) {
     const message = 
       `📊 ТВІЙ ПРОГРЕС\n\n` +
@@ -344,7 +351,7 @@ const mainFlowController = {
 
   async generateWeeklyReport(ctx, tgId) {
     try {
-      await ctx.reply('📊 Генерую щотижневий звіт...');
+      await ctx.reply('📊 Генерую щотижневий звіт...', keyboards.mainMenuKeyboard());
       
       const report = await reportService.generateReport(tgId, 7);
       await ctx.reply(`📊 ЩОТИЖНЕВИЙ ЗВІТ\n\n${report}`, {
@@ -358,13 +365,13 @@ const mainFlowController = {
       
     } catch (error) {
       console.error('[MAIN FLOW] Помилка звіту:', error);
-      await ctx.reply('❌ Помилка генерації. Спробуй пізніше.');
+      await ctx.reply('❌ Помилка генерації. Спробуй пізніше.', keyboards.mainMenuKeyboard());
     }
   },
 
   async generateMonthlyReport(ctx, tgId) {
     try {
-      await ctx.reply('📅 Генерую щомісячний звіт...');
+      await ctx.reply('📅 Генерую щомісячний звіт...', keyboards.mainMenuKeyboard());
       
       const report = await reportService.generateReport(tgId, 30);
       await ctx.reply(`📅 ЩОМІСЯЧНИЙ ЗВІТ\n\n${report}`, {
@@ -378,12 +385,12 @@ const mainFlowController = {
       
     } catch (error) {
       console.error('[MAIN FLOW] Помилка звіту:', error);
-      await ctx.reply('❌ Помилка генерації. Спробуй пізніше.');
+      await ctx.reply('❌ Помилка генерації. Спробуй пізніше.', keyboards.mainMenuKeyboard());
     }
   },
 
   async showAffirmation(ctx) {
-    const random = AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)];
+    const random = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
     await ctx.reply(`✨ ${random}`, keyboards.mainMenuKeyboard());
   },
 

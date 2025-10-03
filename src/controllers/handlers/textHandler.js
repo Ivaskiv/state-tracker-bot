@@ -1,8 +1,11 @@
-// src/controllers/handlers/textHandler.js — ВИПРАВЛЕНО: клавіатури завжди присутні
+// src/controllers/handlers/textHandler.js — ВИПРАВЛЕНО: підтримка щоденних сесій
 
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { GENERAL_AFFIRMATIONS } from '../../config/constants.js';
+
+// ✅ ІМПОРТ dailyController
+import dailyController from '../flows/dailyController.js';
 
 // ✅ ENUM ДЛЯ ТЕКСТОВИХ КОМАНД (без emoji)
 const TEXT_COMMANDS = {
@@ -26,7 +29,7 @@ const showFeatureBlocked = async (ctx, featureName) => {
   
   await ctx.reply(
     `🔒 "${featureName}" — преміум функція!\n\n💎 Активуй підписку для доступу.`,
-    keyboards.subscriptionPlansKeyboard() // ✅ Клавіатура є!
+    keyboards.subscriptionPlansKeyboard()
   );
 };
 
@@ -53,12 +56,46 @@ export const handle = async (ctx) => {
       console.log(`[textHandler] ❌ Користувач не зареєстрований`);
       await ctx.reply(
         'Спочатку зареєструйся /start', 
-        keyboards.mainMenuKeyboard() // ✅ Клавіатура!
+        keyboards.mainMenuKeyboard()
       );
       return true;
     }
 
-    // ✅ ПЕРЕВІРКА ДОСТУПУ
+    // ✅ КРИТИЧНО: ПЕРЕВІРЯЄМО АКТИВНІ СЕСІЇ ПЕРЕД ОБРОБКОЮ КОМАНД
+    const userStep = user?.Current_Activity;
+    
+    // 1️⃣ ЩОДЕННІ ПИТАННЯ (ранкові Q_m_*)
+    if (userStep?.startsWith('Q_m_')) {
+      console.log(`[textHandler] 🌞 Активна ранкова сесія: ${userStep}`);
+      const handled = await dailyController.handleText(ctx, text, userStep);
+      if (handled) return true;
+    }
+    
+    // 2️⃣ ЩОДЕННІ ПИТАННЯ (вечірні Q_e_*)
+    if (userStep?.startsWith('Q_e_')) {
+      console.log(`[textHandler] 🌙 Активна вечірня сесія: ${userStep}`);
+      const handled = await dailyController.handleText(ctx, text, userStep);
+      if (handled) return true;
+    }
+
+    // 3️⃣ AI НАСТАВНИК
+    const { aiMentorSession } = await import('../../utils/session.js');
+    if (aiMentorSession.isActive?.(tgId)) {
+      console.log(`[textHandler] 🤖 Активна AI сесія`);
+      const aiMentorController = await import('../flows/aiMentorController.js');
+      await aiMentorController.default.handleAIMentorQuestion(ctx, text);
+      return true;
+    }
+
+    // 4️⃣ КОЛЕСО БАЛАНСУ (очікування нотатки)
+    if (userStep === 'WheelBalance' && ctx.session?.wheel?.awaitingNoteFor != null) {
+      console.log(`[textHandler] 🎯 Колесо: очікування нотатки`);
+      const wheelController = await import('../flows/wheelController.js');
+      const handled = await wheelController.default.handleText(ctx, text);
+      if (handled) return true;
+    }
+
+    // ✅ ПЕРЕВІРКА ДОСТУПУ для команд
     const hasAccess = userService.hasActiveAccess(user);
     console.log(`[textHandler] 🔑 hasActiveAccess: ${hasAccess}`);
 
@@ -101,7 +138,7 @@ export const handle = async (ctx) => {
 
       await ctx.reply(
         '📊 ЗВІТИ\n\nОбери тип:', 
-        keyboards.reportsMenuInline() // ✅ Клавіатура!
+        keyboards.reportsMenuInline()
       );
       return true;
     }
@@ -109,7 +146,7 @@ export const handle = async (ctx) => {
     if (normalizedText === TEXT_COMMANDS.INFO || normalizedText.includes('Інформація')) {
       await ctx.reply(
         'ℹ️ ІНФОРМАЦІЯ\n\nОбери:', 
-        keyboards.infoMenuInline() // ✅ Клавіатура!
+        keyboards.infoMenuInline()
       );
       return true;
     }
@@ -117,7 +154,7 @@ export const handle = async (ctx) => {
     if (normalizedText === TEXT_COMMANDS.SUBSCRIPTION || normalizedText.includes('Підписка')) {
       await ctx.reply(
         '💰 ПІДПИСКА\n\nОбери:', 
-        keyboards.subscriptionMenuInline() // ✅ Клавіатура!
+        keyboards.subscriptionMenuInline()
       );
       return true;
     }
@@ -125,7 +162,7 @@ export const handle = async (ctx) => {
     if (normalizedText === TEXT_COMMANDS.CONTACT || normalizedText.includes('Зв\'язок')) {
       await ctx.reply(
         '📞 ЗВ\'ЯЗОК\n\nОбери:', 
-        keyboards.contactMenuInline() // ✅ Клавіатура!
+        keyboards.contactMenuInline()
       );
       return true;
     }
@@ -134,7 +171,7 @@ export const handle = async (ctx) => {
       const affirmation = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
       await ctx.reply(
         `✨ ${affirmation}`, 
-        keyboards.mainMenuKeyboard() // ✅ Клавіатура!
+        keyboards.mainMenuKeyboard()
       );
       return true;
     }
@@ -153,7 +190,7 @@ export const handle = async (ctx) => {
 
       await ctx.reply(
         `📈 ${reportType} звіт\n\nАналіз скоро!`, 
-        keyboards.mainMenuKeyboard() // ✅ Клавіатура!
+        keyboards.mainMenuKeyboard()
       );
       return true;
     }
@@ -165,7 +202,7 @@ export const handle = async (ctx) => {
     console.log(`[textHandler] ❓ Невідома команда: "${text}"`);
     await ctx.reply(
       '❓ Не розпізнав команду. Використовуй меню 👇', 
-      keyboards.mainMenuKeyboard() // ✅ Клавіатура завжди є!
+      keyboards.mainMenuKeyboard()
     );
     return true;
 
@@ -173,7 +210,7 @@ export const handle = async (ctx) => {
     console.error('[textHandler] ❌ Критична помилка:', error);
     await ctx.reply(
       '❌ Помилка. Спробуй /start', 
-      keyboards.mainMenuKeyboard() // ✅ Клавіатура!
+      keyboards.mainMenuKeyboard()
     );
     return true;
   }

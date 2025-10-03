@@ -1,12 +1,8 @@
-// src/controllers/handlers/callbackHandler.js — ВИПРАВЛЕНО: ВСІ клавіатури видимі
+// src/controllers/handlers/callbackHandler.js — ВИПРАВЛЕНО: ВСЕ ПРАЦЮЄ
 
 import antiSpam from '../../utils/antiSpam.js';
 import createCallbackRouter from '../../utils/callbackRouter.js';
-
-// ✅ ІМПОРТ: використовуємо keyboards напряму
 import keyboards from '../../utils/keyboards.js';
-
-// ✅ ІМПОРТ: контролери
 import { handleCallback as startCb } from './startHandler.js';
 import subscriptionController from '../subscriptionController.js';
 import wheelController from '../flows/wheelController.js';
@@ -15,57 +11,35 @@ import dailyController from '../flows/dailyController.js';
 import mainFlowController from '../flows/mainFlowController.js';
 import { GENERAL_AFFIRMATIONS, MENU_TEXTS } from '../../config/constants.js';
 
-// ✅ УНІВЕРСАЛЬНА ФУНКЦІЯ ДЛЯ ВІДПРАВКИ (edit або reply) БЕЗ ПРИХОВУВАННЯ
-const sendMessage = async (ctx, text, keyboard = null, options = {}) => {
+// ✅ ФУНКЦІЯ ДЛЯ ВІДПРАВКИ З ЗБЕРЕЖЕННЯМ МЕНЮ
+const sendMessage = async (ctx, text, keyboard = null) => {
   const isCallback = !!ctx.callbackQuery;
-  
-  // ✅ КРИТИЧНО: завжди зберігаємо клавіатуру
   const replyMarkup = keyboard ? { reply_markup: keyboard } : {};
 
   try {
     if (isCallback) {
-      // Спроба редагувати
       try {
         await ctx.editMessageText(text, replyMarkup);
-      } catch (editError) {
-        // Fallback: reply (клавіатура зберігається!)
-        await ctx.reply(text, replyMarkup);
+      } catch {
+        await ctx.reply(text, { ...replyMarkup, ...keyboards.mainMenuKeyboard() });
       }
     } else {
-      // Звичайний reply
-      await ctx.reply(text, replyMarkup);
+      await ctx.reply(text, { ...replyMarkup, ...keyboards.mainMenuKeyboard() });
     }
   } catch (error) {
     console.error('[callbackHandler] ❌ Помилка sendMessage:', error.message);
-    
-    // ✅ FALLBACK: якщо не вдалось з клавіатурою, спробуємо ще раз
-    try {
-      await ctx.reply(text, replyMarkup);
-    } catch (finalError) {
-      // Тільки в крайньому випадку - без клавіатури
-      console.error('[callbackHandler] ❌ Fallback також провалився:', finalError.message);
-      await ctx.reply(text);
-    }
+    await ctx.reply(text, keyboards.mainMenuKeyboard());
   }
 };
 
-// ✅ СТВОРЮЄМО РОУТЕР З АВТОМАТИЧНИМ answerCbQuery
 const router = createCallbackRouter({ autoAnswer: true });
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📋 РЕЄСТРАЦІЯ ROUTES
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1️⃣ ГОЛОВНЕ МЕНЮ
 // ═══════════════════════════════════════════════════════════════════════════
 router.register(['main_menu', 'open_main'], async (ctx) => {
   console.log('[callbackHandler] 🏠 main_menu');
-  await sendMessage(
-    ctx,
-    '🏠 ГОЛОВНЕ МЕНЮ\n\nОбери дію 👇',
-    keyboards.mainMenuInline()
-  );
+  await ctx.reply('🏠 ГОЛОВНЕ МЕНЮ\n\nОбери дію 👇', keyboards.mainMenuKeyboard());
   return true;
 });
 
@@ -74,11 +48,37 @@ router.register(['main_menu', 'open_main'], async (ctx) => {
 // ═══════════════════════════════════════════════════════════════════════════
 router.register('info_menu', async (ctx) => {
   console.log('[callbackHandler] ℹ️ info_menu');
-  await sendMessage(
-    ctx, 
-    'ℹ️ ІНФОРМАЦІЯ ПРО БОТА\n\nОбери розділ:', 
-    keyboards.infoMenuInline()
-  );
+  await sendMessage(ctx, 'ℹ️ ІНФОРМАЦІЯ ПРО БОТА\n\nОбери розділ:', keyboards.infoMenuInline());
+  return true;
+});
+
+// ✅ НОВИЙ: Можливості бота
+router.register('show_capabilities', async (ctx) => {
+  console.log('[callbackHandler] 📋 show_capabilities');
+  
+  const message = 
+    `🤖 МОЖЛИВОСТІ AI-НАСТАВНИКА\n\n` +
+    `🎯 AI Наставник 24/7\n` +
+    `• Персональні поради та підтримка\n` +
+    `• Мікро-дії для досягнення цілей\n` +
+    `• Аналіз блоків та страхів\n\n` +
+    `🎯 Колесо балансу\n` +
+    `• Оцінка 8 сфер життя\n` +
+    `• AI-аналіз результатів\n` +
+    `• Персональні рекомендації\n\n` +
+    `📊 Аналітика та звіти\n` +
+    `• Щотижневі звіти\n` +
+    `• Щомісячні звіти\n` +
+    `• Відстеження прогресу\n\n` +
+    `🌞 Щоденні питання\n` +
+    `• Ранкові питання о 08:00\n` +
+    `• Вечірні питання о 21:30\n` +
+    `• Автоматичний аналіз\n\n` +
+    `💎 Мотивація\n` +
+    `• Щоденні афірмації\n` +
+    `• Підтримка у складні моменти`;
+  
+  await sendMessage(ctx, message, keyboards.infoMenuInline());
   return true;
 });
 
@@ -87,11 +87,14 @@ router.register('info_menu', async (ctx) => {
 // ═══════════════════════════════════════════════════════════════════════════
 router.register('subscription_info', async (ctx) => {
   console.log('[callbackHandler] 💰 subscription_info');
-  await sendMessage(
-    ctx, 
-    '💰 ПІДПИСКА\n\nОбери дію:', 
-    keyboards.subscriptionMenuInline()
-  );
+  await subscriptionController.handleSubscriptionInfo(ctx);
+  return true;
+});
+
+// ✅ НОВИЙ: Статус підписки
+router.register('subscription_status', async (ctx) => {
+  console.log('[callbackHandler] 📋 subscription_status');
+  await subscriptionController.handleSubscriptionInfo(ctx);
   return true;
 });
 
@@ -100,11 +103,7 @@ router.register('subscription_info', async (ctx) => {
 // ═══════════════════════════════════════════════════════════════════════════
 router.register('contact', async (ctx) => {
   console.log('[callbackHandler] 📞 contact');
-  await sendMessage(
-    ctx, 
-    '📞 ЗВ\'ЯЗОК ТА ДОПОМОГА\n\nОбери розділ:', 
-    keyboards.contactMenuInline()
-  );
+  await sendMessage(ctx, '📞 ЗВ\'ЯЗОК ТА ДОПОМОГА\n\nОбери розділ:', keyboards.contactMenuInline());
   return true;
 });
 
@@ -113,26 +112,29 @@ router.register('contact', async (ctx) => {
 // ═══════════════════════════════════════════════════════════════════════════
 router.register('reports_menu', async (ctx) => {
   console.log('[callbackHandler] 📊 reports_menu');
-  await sendMessage(
-    ctx, 
-    '📊 ЗВІТИ\n\nОбери тип звіту:', 
-    keyboards.reportsMenuInline()
-  );
+  await sendMessage(ctx, '📊 ЗВІТИ\n\nОбери тип звіту:', keyboards.reportsMenuInline());
   return true;
 });
 
-// ✅ Прямі дії зі звітами
-router.register(['get_weekly_report', 'get_monthly_report', 'my_progress'], async (ctx, data) => {
+router.register(['get_weekly_report', 'get_monthly_report'], async (ctx, data) => {
   console.log(`[callbackHandler] 📊 ${data}`);
   try {
     await mainFlowController.handleCallback(ctx, data);
   } catch (error) {
     console.error(`[callbackHandler] ❌ ${data}:`, error);
-    await sendMessage(
-      ctx, 
-      '❌ Помилка. Спробуй пізніше.',
-      keyboards.mainMenuInline()
-    );
+    await sendMessage(ctx, '❌ Помилка. Спробуй пізніше.', keyboards.mainMenuInline());
+  }
+  return true;
+});
+
+// ✅ ВИПРАВЛЕНО: Мій прогрес
+router.register('my_progress', async (ctx) => {
+  console.log('[callbackHandler] 📈 my_progress');
+  try {
+    await mainFlowController.handleCallback(ctx, 'my_progress');
+  } catch (error) {
+    console.error('[callbackHandler] ❌ my_progress:', error);
+    await sendMessage(ctx, '❌ Помилка завантаження прогресу.', keyboards.mainMenuInline());
   }
   return true;
 });
@@ -143,11 +145,7 @@ router.register('wheel_stats', async (ctx) => {
     await wheelController.handleCallback(ctx, 'wheel_stats');
   } catch (error) {
     console.error('[callbackHandler] ❌ wheel_stats:', error);
-    await sendMessage(
-      ctx, 
-      '❌ Помилка статистики.',
-      keyboards.mainMenuInline()
-    );
+    await sendMessage(ctx, '❌ Помилка статистики.', keyboards.mainMenuInline());
   }
   return true;
 });
@@ -157,47 +155,31 @@ router.register('wheel_stats', async (ctx) => {
 // ═══════════════════════════════════════════════════════════════════════════
 router.register('instructions', async (ctx) => {
   console.log('[callbackHandler] 📝 instructions');
-  await sendMessage(
-    ctx, 
-    MENU_TEXTS.INSTRUCTIONS, 
-    keyboards.contactMenuInline()
-  );
+  await sendMessage(ctx, MENU_TEXTS.INSTRUCTIONS, keyboards.contactMenuInline());
   return true;
 });
 
 router.register('contact_support', async (ctx) => {
   console.log('[callbackHandler] 📞 contact_support');
-  await sendMessage(
-    ctx, 
-    MENU_TEXTS.CONTACT, 
-    keyboards.contactMenuInline()
-  );
+  await sendMessage(ctx, MENU_TEXTS.CONTACT, keyboards.contactMenuInline());
   return true;
 });
 
 router.register('show_affirmation', async (ctx) => {
   console.log('[callbackHandler] 💎 show_affirmation');
   const affirmation = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
-  await sendMessage(
-    ctx, 
-    `✨ ${affirmation}`, 
-    keyboards.contactMenuInline()
-  );
+  await sendMessage(ctx, `✨ ${affirmation}`, keyboards.contactMenuInline());
   return true;
 });
 
 router.register('help', async (ctx) => {
   console.log('[callbackHandler] ❓ help');
-  await sendMessage(
-    ctx, 
-    MENU_TEXTS.HELP, 
-    keyboards.contactMenuInline()
-  );
+  await sendMessage(ctx, MENU_TEXTS.HELP, keyboards.contactMenuInline());
   return true;
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 7️⃣ ОНБОРДИНГ (делегуємо в startHandler)
+// 7️⃣ ОНБОРДИНГ
 // ═══════════════════════════════════════════════════════════════════════════
 router.register(
   (data) => [
@@ -215,7 +197,7 @@ router.register(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 8️⃣ ЩОДЕННІ СЕСІЇ (morning/evening)
+// 8️⃣ ЩОДЕННІ СЕСІЇ
 // ═══════════════════════════════════════════════════════════════════════════
 router.register({ prefix: 'start_morning' }, async (ctx) => {
   console.log('[callbackHandler] 🌞 start_morning');
@@ -230,7 +212,7 @@ router.register({ prefix: 'start_evening' }, async (ctx) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 9️⃣ ПІДПИСКИ (subscription_*, subscribe_*, plan_*, renew_*, sync_subscription)
+// 9️⃣ ПІДПИСКИ
 // ═══════════════════════════════════════════════════════════════════════════
 router.register(
   (data) => /^(subscription_|subscribe_|plan_|renew_|sync_subscription|activate_trial)/.test(data),
@@ -242,7 +224,7 @@ router.register(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 🔟 КОЛЕСО БАЛАНСУ (wheel_*)
+// 🔟 КОЛЕСО БАЛАНСУ
 // ═══════════════════════════════════════════════════════════════════════════
 router.register({ prefix: 'wheel_' }, async (ctx, data) => {
   console.log('[callbackHandler] 🎯 wheel_*');
@@ -251,7 +233,7 @@ router.register({ prefix: 'wheel_' }, async (ctx, data) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1️⃣1️⃣ AI НАСТАВНИК (ai_*)
+// 1️⃣1️⃣ AI НАСТАВНИК
 // ═══════════════════════════════════════════════════════════════════════════
 router.register({ prefix: 'ai_' }, async (ctx) => {
   console.log('[callbackHandler] 🤖 ai_*');
@@ -260,7 +242,7 @@ router.register({ prefix: 'ai_' }, async (ctx) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1️⃣2️⃣ ІНШІ DAILY ACTIONS (contains morning/evening keywords)
+// 1️⃣2️⃣ ІНШІ DAILY ACTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 router.register(
   (data) => data.includes('morning') || data.includes('evening'),
@@ -281,7 +263,7 @@ router.register('continue_session', async (ctx) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1️⃣4️⃣ TIMEZONE PAGINATION (tz_page_N)
+// 1️⃣4️⃣ TIMEZONE PAGINATION
 // ═══════════════════════════════════════════════════════════════════════════
 router.register(/^tz_page_\d+$/, async (ctx, data) => {
   const page = parseInt(data.split('_')[2], 10) || 0;
@@ -290,38 +272,26 @@ router.register(/^tz_page_\d+$/, async (ctx, data) => {
   try {
     await ctx.editMessageReplyMarkup(keyboards.timezoneKeyboard(page).reply_markup);
   } catch {
-    await sendMessage(
-      ctx, 
-      'Оберіть часовий пояс:', 
-      keyboards.timezoneKeyboard(page)
-    );
+    await sendMessage(ctx, 'Оберіть часовий пояс:', keyboards.timezoneKeyboard(page));
   }
   return true;
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1️⃣5️⃣ DISMISS/CANCEL (не приховуємо меню!)
+// 1️⃣5️⃣ DISMISS/CANCEL
 // ═══════════════════════════════════════════════════════════════════════════
 router.register(['dismiss_reminder', 'dismiss_offer'], async (ctx) => {
   console.log('[callbackHandler] ⏭ dismiss');
-  await sendMessage(
-    ctx,
-    '✅ Зрозуміло!',
-    keyboards.mainMenuInline() // ✅ Меню залишається
-  );
+  await ctx.reply('✅ Зрозуміло!', keyboards.mainMenuKeyboard());
   return true;
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1️⃣6️⃣ DEFAULT HANDLER (невідомі callbacks)
+// 1️⃣6️⃣ DEFAULT HANDLER
 // ═══════════════════════════════════════════════════════════════════════════
 const defaultHandler = async (ctx, data) => {
   console.log(`[callbackHandler] ❓ Невідомий callback: ${data}`);
-  await sendMessage(
-    ctx, 
-    '❓ Команда не розпізнана. Спробуй ще раз 👇', 
-    keyboards.mainMenuInline() // ✅ Меню завжди є
-  );
+  await ctx.reply('❓ Команда не розпізнана. Спробуй ще раз 👇', keyboards.mainMenuKeyboard());
   return true;
 };
 
@@ -335,7 +305,6 @@ export const handle = async (ctx) => {
   
   console.log(`[callbackHandler] ➡️ callback "${data}" від ${userId}`);
 
-  // ✅ АНТІ-СПАМ
   if (antiSpam.isSpam(userId, data)) {
     try {
       await ctx.answerCbQuery('⏳ Зачекай трохи');
@@ -344,30 +313,22 @@ export const handle = async (ctx) => {
   }
 
   try {
-    // 1️⃣ ПРІОРИТЕТ: onboarding (startHandler)
     if (await startCb(ctx)) {
       return true;
     }
 
-    // 2️⃣ ROUTER
     const handled = await router.handle(ctx);
     if (handled) {
       return true;
     }
 
-    // 3️⃣ DEFAULT FALLBACK
     return await defaultHandler(ctx, data);
 
   } catch (error) {
     console.error('[callbackHandler] ❌ Критична помилка:', error);
     
-    // ✅ Останній fallback — З КЛАВІАТУРОЮ
     try {
-      await sendMessage(
-        ctx, 
-        '❌ Помилка. Спробуй /start або обери дію 👇', 
-        keyboards.mainMenuInline()
-      );
+      await ctx.reply('❌ Помилка. Спробуй /start або обери дію 👇', keyboards.mainMenuKeyboard());
     } catch {}
     
     return true;

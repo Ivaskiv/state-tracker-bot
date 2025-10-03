@@ -1,7 +1,7 @@
 // src/repositories/userRepository.js - ВИПРАВЛЕНО ФОРМАТ ДАТИ + ФОЛБЕК НАЗВ ПОЛІВ
 
 import { getBase, tables } from '../config/database.js';
-import { USER_STATUS, SUBSCRIPTION_STATUS, ANSWER_STEPS } from '../config/constants.js';
+import { USER_STATUS, SUBSCRIPTION_STATUS, CURRENT_ACTIVITY } from '../config/constants.js';
 
 const TABLE = 'USERS';
 
@@ -58,12 +58,13 @@ export const createUser = async (tgId, name, timezone = 'Europe/Kiev (UTC+3)') =
     Status: USER_STATUS.NEW,
     'Subscription Status': SUBSCRIPTION_STATUS.NEW,
     Created_At: now,
-    Last_Activity: now
+    Last_Activity: now,
+    Current_Activity: CURRENT_ACTIVITY.IDLE
   };
 
-  // Прагнемо зберегти початковий статус кроку, якщо в таблиці є поле Answer_Step
+  // Прагнемо зберегти початковий статус кроку, якщо в таблиці є поле Current_Activity
   const tryFields = [
-    { ...baseFields, Answer_Step: ANSWER_STEPS.OB_NAME }, // варіант 1: з Answer_Step
+    { ...baseFields, Current_Activity: CURRENT_ACTIVITY.OB_NAME }, // варіант 1: з Current_Activity
     { ...baseFields }                                     // варіант 2: без нього
   ];
 
@@ -86,7 +87,7 @@ export const createUser = async (tgId, name, timezone = 'Europe/Kiev (UTC+3)') =
       }
       return record;
     } catch (e) {
-      // Якщо невідоме поле (наприклад, Answer_Step), пробуємо наступний варіант без нього
+      // Якщо невідоме поле (наприклад, Current_Activity), пробуємо наступний варіант без нього
       if (e?.statusCode === 422 && /Unknown field name/i.test(e?.message || '')) {
         lastErr = e;
         continue;
@@ -139,7 +140,7 @@ export const updateUser = async (recordId, fields) => {
 
   if ('Current_Activity' in initial) {
     const v1 = withFieldRenamed(initial, 'Current_Activity', 'Current Activity');
-    const v2 = withFieldRenamed(initial, 'Current_Activity', 'Answer_Step');
+    const v2 = withFieldRenamed(initial, 'Current_Activity', 'Current_Activity');
     const v3 = withFieldRenamed(initial, 'Current_Activity', 'Answer Step');
     [v1, v2, v3].forEach((v) => v && variants.push(v));
   }
@@ -168,7 +169,7 @@ export const updateUser = async (recordId, fields) => {
     const safe = { ...initial };
     delete safe.Current_Activity;
     delete safe['Current Activity'];
-    delete safe.Answer_Step;
+    delete safe.Current_Activity;
     delete safe['Answer Step'];
 
     if (Object.keys(safe).length) {

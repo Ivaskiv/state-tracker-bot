@@ -6,7 +6,7 @@ const isActiveSession = async (tgId) => {
   try {
     const userService = (await import('../../services/userService.js')).default;
     const user = await userService.getUserByTgId(tgId);
-    const step = user?.Answer_Step;
+    const step = user?.Current_Activity;
     return (
       aiMentorSession.isActive?.(tgId) ||
       step === 'WheelBalance' ||
@@ -25,7 +25,7 @@ const handleBlockedMenu = async (ctx) => {
   try {
     const userService = (await import('../../services/userService.js')).default;
     const user = await userService.getUserByTgId(tgId);
-    const step = user?.Answer_Step;
+    const step = user?.Current_Activity;
 
     if (aiMentorSession.isActive?.(tgId)) sessionType = 'AI наставник';
     else if (step === 'WheelBalance') sessionType = 'колесо балансу';
@@ -55,7 +55,7 @@ const handleSessionControl = async (ctx, data) => {
   try {
     const userService = (await import('../../services/userService.js')).default;
     const user = await userService.getUserByTgId(tgId);
-    const step = user?.Answer_Step;
+    const step = user?.Current_Activity;
 
     if (data === 'continue_session') {
       if (aiMentorSession.isActive?.(tgId)) {

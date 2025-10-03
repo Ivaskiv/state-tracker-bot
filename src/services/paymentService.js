@@ -46,7 +46,7 @@ export const activateTrialSubscription = async (tgId, days = 7) => {
       'Active Subscription Plan': '🧪 Пробний період',
       'Start_Date': now.toISOString(),
       'End_Date': endISO,
-      Answer_Step: 'completed'
+      Current_Activity: 'completed'
     };
 
     console.log(`[paymentService] 🔄 Оновлюємо користувача:`, Object.keys(trialData));
@@ -109,7 +109,7 @@ export const activatePaidSubscription = async (tgId, planKey, planName, amount, 
       'Active Subscription Plan': planName,
       'Start_Date': now.toISOString(),
       'End_Date': end.toISOString(),
-      Answer_Step: 'completed'
+      Current_Activity: 'completed'
     };
 
     const updated = await userService.updateUser(id, subscriptionData);
@@ -220,7 +220,7 @@ export const deactivateExpiredSubscriptions = async () => {
         
         await userService.updateUser(tgId, {
           'Subscription Status': 'Expired',
-          Answer_Step: 'completed'
+          Current_Activity: 'completed'
         });
         deactivated++;
       }

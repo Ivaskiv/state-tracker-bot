@@ -3,7 +3,7 @@
 // import userService from '../services/userService.js';
 // import responseService from '../dialogue/services/responseService.js';
 // import { chat } from '../services/openaiClient.js';
-// import { QUESTIONS, ANSWER_STEPS } from '../config/constants.js';
+// import { QUESTIONS, CURRENT_ACTIVITY } from '../config/constants.js';
 
 // // Динамічний імпорт для уникнення циклічних залежностей
 // let markSessionCompleted, cancelSessionReminder;
@@ -216,7 +216,7 @@
 //   async handleMorningAnswer(ctx, text) {
 //     const tgId = ctx.from.id;
 //     const user = await userService.getUserByTgId(tgId);
-//     const currentStep = user?.Answer_Step;
+//     const currentStep = user?.Current_Activity;
 
 //     if (!currentStep || !currentStep.startsWith('Q_m_')) {
 //       return false;
@@ -251,7 +251,7 @@
 //   async handleEveningAnswer(ctx, text) {
 //     const tgId = ctx.from.id;
 //     const user = await userService.getUserByTgId(tgId);
-//     const currentStep = user?.Answer_Step;
+//     const currentStep = user?.Current_Activity;
 
 //     if (!currentStep || !currentStep.startsWith('Q_e_')) {
 //       return false;

@@ -1,7 +1,7 @@
 // src/services/userService.js - ФІКС: hasActiveAccess З ЛОГАМИ + ДАТИ + TRUST STATUS
 
 import userRepo from '../repositories/userRepository.js';
-import { USER_STATUS, SUBSCRIPTION_STATUS, ANSWER_STEPS, CONFIG } from '../config/constants.js';
+import { USER_STATUS, SUBSCRIPTION_STATUS, CURRENT_ACTIVITY, CONFIG } from '../config/constants.js';
 
 // ===== КЕШ КОРИСТУВАЧІВ =====
 const userCache = new Map();
@@ -31,7 +31,7 @@ const mapRecord = (record) => {
     Start_Date: f.Start_Date || null, // ✅ З підкресленням як поле в Airtable
     End_Date: f.End_Date || null, // ✅ З підкресленням як поле в Airtable
     'Active_Subscription_Status': f['Active_Subscription_Status'] || '',
-    Answer_Step: f.Answer_Step || ANSWER_STEPS.COMPLETED,
+    Current_Activity: f.Current_Activity || CURRENT_ACTIVITY.COMPLETED,
     Created_At: f.Created_At || null,
     Last_Activity: f.Last_Activity || null,
     'Registration Date': f['Registration Date'] || null
@@ -232,7 +232,6 @@ export const updateUserStep = async (tgId, step) => {
   userCache.delete(String(tgId));
   
   return await updateUserFields(tgId, {
-    Answer_Step: step,
     Current_Activity: step
   });
 };

@@ -14,7 +14,7 @@ export const handleNameStep = async (tgId, text) => {
   
   await userService.updateUserFields(tgId, {
     'User Name': formatName(text),
-    Answer_Step: ONBOARDING_STEPS.EMAIL
+    Current_Activity: ONBOARDING_STEPS.EMAIL
   });
   
   return { success: true, nextStep: ONBOARDING_STEPS.EMAIL };
@@ -23,7 +23,7 @@ export const handleNameStep = async (tgId, text) => {
 export const handleEmailStep = async (tgId, text, isSkip = false) => {
   if (isSkip || !text) {
     await userService.updateUserFields(tgId, {
-      Answer_Step: ONBOARDING_STEPS.PHONE
+      Current_Activity: ONBOARDING_STEPS.PHONE
     });
     return { success: true, nextStep: ONBOARDING_STEPS.PHONE };
   }
@@ -34,7 +34,7 @@ export const handleEmailStep = async (tgId, text, isSkip = false) => {
   
   await userService.updateUserFields(tgId, {
     Email: formatEmail(text),
-    Answer_Step: ONBOARDING_STEPS.PHONE
+    Current_Activity: ONBOARDING_STEPS.PHONE
   });
   
   return { success: true, nextStep: ONBOARDING_STEPS.PHONE };
@@ -43,7 +43,7 @@ export const handleEmailStep = async (tgId, text, isSkip = false) => {
 export const handlePhoneStep = async (tgId, text, isSkip = false) => {
   if (isSkip || !text) {
     await userService.updateUserFields(tgId, {
-      Answer_Step: ONBOARDING_STEPS.TIMEZONE
+      Current_Activity: ONBOARDING_STEPS.TIMEZONE
     });
     return { success: true, nextStep: ONBOARDING_STEPS.TIMEZONE };
   }
@@ -55,7 +55,7 @@ export const handlePhoneStep = async (tgId, text, isSkip = false) => {
   
   await userService.updateUserFields(tgId, {
     Phone: phone,
-    Answer_Step: ONBOARDING_STEPS.TIMEZONE
+    Current_Activity: ONBOARDING_STEPS.TIMEZONE
   });
   
   return { success: true, nextStep: ONBOARDING_STEPS.TIMEZONE };
@@ -66,7 +66,7 @@ export const handleTimezoneStep = async (tgId, tzSlug) => {
   
   await userService.updateUserFields(tgId, {
     'Time Zone': tzLabel,
-    Answer_Step: ONBOARDING_STEPS.PLAN
+    Current_Activity: ONBOARDING_STEPS.PLAN
   });
   
   return { success: true, nextStep: ONBOARDING_STEPS.PLAN };

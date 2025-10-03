@@ -397,7 +397,7 @@ Create an Airtable base with these tables:
 - `End_Date` (Date)
 - `Active_Subscription_Status` (Single line text)
 - `Question Type` (Single select: Morning, Evening)
-- `Answer_Step` (Single line text)
+- `Current_Activity` (Single line text)
 - `Time Zone` (Single line text)
 
 #### Morning_Responses Table

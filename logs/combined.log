@@ -176,7 +176,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:34:53.915Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:34:53.916Z"}
 {"level":"info","message":"💬 Текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:34:53.917Z"}
-{"level":"info","message":"📋 Answer_Step: \"completed\"","timestamp":"2025-09-12T12:34:56.304Z"}
+{"level":"info","message":"📋 Current_Activity: \"completed\"","timestamp":"2025-09-12T12:34:56.304Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:34:56.305Z"}
 {"level":"info","message":"✅ Збігається: false","timestamp":"2025-09-12T12:34:56.305Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:34:56.305Z"}
@@ -186,7 +186,7 @@
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T12:34:56.308Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] Користувач: 630111093","timestamp":"2025-09-12T12:34:56.308Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] Ім'я: Vira","timestamp":"2025-09-12T12:34:56.309Z"}
-{"level":"info","message":"✅ [КОЛЕСО БАЛАНСУ] Встановлено Answer_Step: WheelBalance","timestamp":"2025-09-12T12:34:57.016Z"}
+{"level":"info","message":"✅ [КОЛЕСО БАЛАНСУ] Встановлено Current_Activity: WheelBalance","timestamp":"2025-09-12T12:34:57.016Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T12:34:57.017Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T12:34:57.017Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] Ім'я: Vira","timestamp":"2025-09-12T12:34:57.018Z"}
@@ -207,7 +207,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:45:35.523Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:45:35.525Z"}
 {"level":"info","message":"💬 Текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:45:35.525Z"}
-{"level":"info","message":"📋 Answer_Step: \"WheelBalance\"","timestamp":"2025-09-12T12:45:39.335Z"}
+{"level":"info","message":"📋 Current_Activity: \"WheelBalance\"","timestamp":"2025-09-12T12:45:39.335Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:45:39.335Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T12:45:39.335Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді від 630111093: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:45:39.336Z"}
@@ -226,7 +226,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:45:49.195Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:45:49.195Z"}
 {"level":"info","message":"💬 Текст: \"3\"","timestamp":"2025-09-12T12:45:49.195Z"}
-{"level":"info","message":"📋 Answer_Step: \"WheelBalance\"","timestamp":"2025-09-12T12:45:49.807Z"}
+{"level":"info","message":"📋 Current_Activity: \"WheelBalance\"","timestamp":"2025-09-12T12:45:49.807Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:45:49.808Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T12:45:49.808Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді від 630111093: \"3\"","timestamp":"2025-09-12T12:45:49.808Z"}
@@ -251,7 +251,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:46:13.304Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:46:13.305Z"}
 {"level":"info","message":"💬 Текст: \"3\"","timestamp":"2025-09-12T12:46:13.305Z"}
-{"level":"info","message":"📋 Answer_Step: \"WheelBalance\"","timestamp":"2025-09-12T12:46:13.920Z"}
+{"level":"info","message":"📋 Current_Activity: \"WheelBalance\"","timestamp":"2025-09-12T12:46:13.920Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:46:13.921Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T12:46:13.921Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді від 630111093: \"3\"","timestamp":"2025-09-12T12:46:13.921Z"}
@@ -276,7 +276,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:46:26.566Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:46:26.566Z"}
 {"level":"info","message":"💬 Текст: \"3\"","timestamp":"2025-09-12T12:46:26.567Z"}
-{"level":"info","message":"📋 Answer_Step: \"WheelBalance\"","timestamp":"2025-09-12T12:46:27.116Z"}
+{"level":"info","message":"📋 Current_Activity: \"WheelBalance\"","timestamp":"2025-09-12T12:46:27.116Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:46:27.116Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T12:46:27.116Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді від 630111093: \"3\"","timestamp":"2025-09-12T12:46:27.116Z"}
@@ -301,7 +301,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:46:34.919Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:46:34.919Z"}
 {"level":"info","message":"💬 Текст: \"3\"","timestamp":"2025-09-12T12:46:34.919Z"}
-{"level":"info","message":"📋 Answer_Step: \"WheelBalance\"","timestamp":"2025-09-12T12:46:35.522Z"}
+{"level":"info","message":"📋 Current_Activity: \"WheelBalance\"","timestamp":"2025-09-12T12:46:35.522Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:46:35.522Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T12:46:35.522Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді від 630111093: \"3\"","timestamp":"2025-09-12T12:46:35.522Z"}
@@ -331,7 +331,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:53:29.139Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:53:29.141Z"}
 {"level":"info","message":"💬 Текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:53:29.142Z"}
-{"level":"info","message":"📋 Answer_Step: \"WheelBalance\"","timestamp":"2025-09-12T12:53:32.943Z"}
+{"level":"info","message":"📋 Current_Activity: \"WheelBalance\"","timestamp":"2025-09-12T12:53:32.943Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:53:32.944Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T12:53:32.944Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді від 630111093: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:53:32.945Z"}
@@ -339,7 +339,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:53:39.596Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:53:39.597Z"}
 {"level":"info","message":"💬 Текст: \"5\"","timestamp":"2025-09-12T12:53:39.597Z"}
-{"level":"info","message":"📋 Answer_Step: \"WheelBalance\"","timestamp":"2025-09-12T12:53:40.234Z"}
+{"level":"info","message":"📋 Current_Activity: \"WheelBalance\"","timestamp":"2025-09-12T12:53:40.234Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:53:40.234Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T12:53:40.234Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді від 630111093: \"5\"","timestamp":"2025-09-12T12:53:40.235Z"}
@@ -366,7 +366,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:54:00.727Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:54:00.728Z"}
 {"level":"info","message":"💬 Текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:54:00.729Z"}
-{"level":"info","message":"📋 Answer_Step: \"completed\"","timestamp":"2025-09-12T12:54:01.276Z"}
+{"level":"info","message":"📋 Current_Activity: \"completed\"","timestamp":"2025-09-12T12:54:01.276Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:54:01.277Z"}
 {"level":"info","message":"✅ Збігається: false","timestamp":"2025-09-12T12:54:01.277Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:54:01.277Z"}
@@ -376,7 +376,7 @@
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T12:54:01.278Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] Користувач: 630111093","timestamp":"2025-09-12T12:54:01.279Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] Ім'я: Vira","timestamp":"2025-09-12T12:54:01.279Z"}
-{"level":"info","message":"✅ [КОЛЕСО БАЛАНСУ] Встановлено Answer_Step: WheelBalance","timestamp":"2025-09-12T12:54:01.784Z"}
+{"level":"info","message":"✅ [КОЛЕСО БАЛАНСУ] Встановлено Current_Activity: WheelBalance","timestamp":"2025-09-12T12:54:01.784Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T12:54:01.785Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T12:54:01.785Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] Ім'я: Vira","timestamp":"2025-09-12T12:54:01.785Z"}
@@ -400,7 +400,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T12:54:09.247Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T12:54:09.247Z"}
 {"level":"info","message":"💬 Текст: \"5\"","timestamp":"2025-09-12T12:54:09.248Z"}
-{"level":"info","message":"📋 Answer_Step: \"WheelBalance\"","timestamp":"2025-09-12T12:54:09.846Z"}
+{"level":"info","message":"📋 Current_Activity: \"WheelBalance\"","timestamp":"2025-09-12T12:54:09.846Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:54:09.847Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T12:54:09.847Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді від 630111093: \"5\"","timestamp":"2025-09-12T12:54:09.847Z"}
@@ -431,7 +431,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T13:00:06.323Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T13:00:06.325Z"}
 {"level":"info","message":"💬 Текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T13:00:06.325Z"}
-{"level":"info","message":"📋 Answer_Step: \"Q_m_1\"","timestamp":"2025-09-12T13:00:06.963Z"}
+{"level":"info","message":"📋 Current_Activity: \"Q_m_1\"","timestamp":"2025-09-12T13:00:06.963Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T13:00:06.964Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T13:00:06.964Z"}
 {"level":"info","message":"🚫 [BLOCK] Блокуємо команду \"🎯 Колесо балансу\" при активній сесії","timestamp":"2025-09-12T13:00:06.964Z"}
@@ -439,7 +439,7 @@
 {"level":"info","message":"=== ДІАГНОСТИКА TEXT HANDLER ===","timestamp":"2025-09-12T15:04:52.435Z"}
 {"level":"info","message":"👤 Користувач: 630111093","timestamp":"2025-09-12T15:04:52.442Z"}
 {"level":"info","message":"💬 Текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T15:04:52.442Z"}
-{"level":"info","message":"📋 Answer_Step: \"Q_m_1\"","timestamp":"2025-09-12T15:04:53.649Z"}
+{"level":"info","message":"📋 Current_Activity: \"Q_m_1\"","timestamp":"2025-09-12T15:04:53.649Z"}
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T15:04:53.649Z"}
 {"level":"info","message":"✅ Збігається: true","timestamp":"2025-09-12T15:04:53.649Z"}
 {"level":"info","message":"🚫 [BLOCK] Блокуємо команду \"🎯 Колесо балансу\" при активній сесії","timestamp":"2025-09-12T15:04:53.649Z"}
@@ -480,7 +480,7 @@
 {"level":"info","message":"✅ [MENU] Знайдено обробник для: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T15:34:11.808Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T15:34:11.811Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] Користувач: 630111093","timestamp":"2025-09-12T15:34:11.811Z"}
-{"level":"info","message":"✅ [КОЛЕСО БАЛАНСУ] Встановлено Answer_Step: WheelBalance","timestamp":"2025-09-12T15:34:12.282Z"}
+{"level":"info","message":"✅ [КОЛЕСО БАЛАНСУ] Встановлено Current_Activity: WheelBalance","timestamp":"2025-09-12T15:34:12.282Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T15:34:12.283Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T15:34:12.283Z"}
 {"level":"info","message":"✅ [WHEEL CONTROLLER] Користувач знайдений","timestamp":"2025-09-12T15:34:12.475Z"}
@@ -1263,7 +1263,7 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T18:20:21.560Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-13T18:20:34.900Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-13T18:20:34.901Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-13T18:20:35.670Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-13T18:20:35.670Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-13T18:20:35.716Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"Запустити міні-проєкт Допоможи собі сама... . Який план з мікрокроків на 7 днів?\"","timestamp":"2025-09-13T18:20:40.841Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"Запустити міні-проєкт Допоможи собі сама... . Який план з мікрокроків на 7 днів?\"","timestamp":"2025-09-13T18:20:40.841Z"}
@@ -1301,27 +1301,27 @@
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-15T16:36:38.484Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:36:54.097Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-15T16:36:54.099Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:36:54.752Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:36:54.752Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-15T16:36:54.800Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"Як мені визначити свою головну ціль на рік?\"","timestamp":"2025-09-15T16:37:35.132Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"Як мені визначити свою головну ціль на рік?\"","timestamp":"2025-09-15T16:37:35.133Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:39:24.648Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:39:32.636Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-15T16:39:32.637Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:39:33.209Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:39:33.209Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-15T16:39:33.276Z"}
 {"level":"info","message":"📱 [AI MENTOR CALLBACK] ai_exit для 630111093, AI активна: true","timestamp":"2025-09-15T16:39:53.141Z"}
 {"level":"info","message":"🚪 [AI MENTOR] Користувач 630111093 вийшов з AI-наставника","timestamp":"2025-09-15T16:39:54.170Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:39:57.728Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-15T16:39:57.729Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:39:58.316Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:39:58.316Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-15T16:39:58.462Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"Як знайти своє призначення в житті?\"","timestamp":"2025-09-15T16:40:02.187Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"Як знайти своє призначення в житті?\"","timestamp":"2025-09-15T16:40:02.188Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:42:33.167Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:42:45.913Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-15T16:42:45.914Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:42:46.497Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:42:46.497Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-15T16:42:46.553Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:42:59.751Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:42:59.752Z"}
@@ -1329,28 +1329,28 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:45:54.455Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:45:59.557Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-15T16:45:59.559Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:46:00.147Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:46:00.147Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-15T16:46:00.339Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:46:09.713Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:46:09.713Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:48:37.528Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:48:43.241Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-15T16:48:43.241Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:48:43.823Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:48:43.823Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-15T16:48:43.908Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:48:52.862Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:48:52.863Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:49:00.640Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:49:06.711Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-15T16:49:06.712Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:49:07.378Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:49:07.378Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-15T16:49:07.430Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:49:10.884Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:49:10.885Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:49:15.000Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:49:21.328Z"}
 {"level":"info","message":"🤖 [AI MENTOR REQUEST] Початок для користувача 630111093","timestamp":"2025-09-15T16:49:21.329Z"}
-{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Answer_Step: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:49:22.014Z"}
+{"level":"info","message":"🤖 [AI MENTOR] Сесія запущена, Current_Activity: ai_mentor_active, isActive: true","timestamp":"2025-09-15T16:49:22.014Z"}
 {"level":"info","message":"✅ [AI MENTOR] Інструкції надіслано для 630111093","timestamp":"2025-09-15T16:49:22.203Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:49:24.117Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"Які звички можуть змінити моє життя на краще?\"","timestamp":"2025-09-15T16:49:24.117Z"}
@@ -2721,3 +2721,12 @@
 {"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-10-03T11:46:34.178Z"}
 {"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка скасування: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-03T11:46:34.626Z"}
 {"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка створення: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-03T11:46:34.627Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 1 для 630111093","timestamp":"2025-10-03T12:03:46.252Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 2 для 630111093","timestamp":"2025-10-03T12:04:33.334Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 3 для 630111093","timestamp":"2025-10-03T12:04:57.907Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 4 для 630111093","timestamp":"2025-10-03T12:05:31.918Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 5 для 630111093","timestamp":"2025-10-03T12:06:18.084Z"}
+{"level":"info","message":"[responseService] Збережено ранкову відповідь 6 для 630111093","timestamp":"2025-10-03T12:06:39.382Z"}
+{"level":"info","message":"[responseService] Отримано 1 записів для 630111093","timestamp":"2025-10-03T12:06:40.539Z"}
+{"level":"info","message":"[responseService] Збережено morning афірмацію для 630111093","timestamp":"2025-10-03T12:06:45.575Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-03T12:06:46.203Z"}

@@ -3,7 +3,7 @@
 // import userService from '../services/userService.js';
 // import keyboards from '../utils/keyboards.js';
 // import typing from '../utils/typing.js';
-// import { ANSWER_STEPS, OB_STEPS } from '../config/constants.js';
+// import { CURRENT_ACTIVITY, OB_STEPS } from '../config/constants.js';
 // import path from 'path';
 
 // // ———————————————————————————————————————————————
@@ -177,7 +177,7 @@
 //     }
     
 //     if (res.completed) {
-//       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+//       await userService.updateUserStep(tgId, CURRENT_ACTIVITY.COMPLETED);
 //       await ctx.reply(res.message, keyboards.wheelBalanceCompleteKeyboard());
 //       console.log(`🎯 [wheelBalanceController] ✅ Колесо завершено для ${tgId}`);
 //     } else {
@@ -203,7 +203,7 @@
 
 //   try {
 //     const user = await userService.getUserByTgId(tgId);
-//     const step = user?.Answer_Step;
+//     const step = user?.Current_Activity;
     
 //     if (step !== 'WheelBalance') {
 //       console.log(`🎯 [wheelBalanceController] ❌ Колесо неактивне для ${tgId}, step: ${step}`);
@@ -304,7 +304,7 @@
 
 //     if (data === 'wheel_cancel' || data === 'wheel_exit') {
 //       await wheelBalanceService.cancelActiveWheel(tgId);
-//       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+//       await userService.updateUserStep(tgId, CURRENT_ACTIVITY.COMPLETED);
 
 //       try {
 //         await ctx.editMessageText(
@@ -392,7 +392,7 @@
 //     }
 
 //     if (data === 'wheel_to_menu') {
-//       await userService.updateUserStep(tgId, ANSWER_STEPS.COMPLETED);
+//       await userService.updateUserStep(tgId, CURRENT_ACTIVITY.COMPLETED);
 //       try { 
 //         await ctx.editMessageText(
 //           '🏠 Повертаємося до головного меню.\n\n📈 Твій прогрес збережено. Переглянути результати можна в розділі "📊 Мій прогрес".'

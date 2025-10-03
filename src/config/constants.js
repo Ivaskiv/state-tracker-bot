@@ -83,73 +83,64 @@ export const SUBSCRIPTION_STATUS = Object.freeze({
 });
 
 // ===== КРОКИ ВІДПОВІДЕЙ =====
+// ===== КРОКИ ВІДПОВІДЕЙ =====
 export const CURRENT_ACTIVITY = Object.freeze({
   IDLE: 'idle',
+  BEGIN: 'Begin_answer',
+  COMPLETED: 'completed',
+
+  // Облікові дані користувача
   OB_NAME: 'ob_name',
   OB_EMAIL: 'ob_email',
   OB_PHONE: 'ob_phone',
   OB_TZ: 'ob_timezone',
-  OB_PLAN: 'ob_plan',
-  PAYMENT_PENDING: 'payment_pending',
-  COMPLETED: 'completed',
-  WHEEL: 'WheelBalance',
-  AI_MENTOR: 'ai_mentor',
-  WEEKLY: 'weekly_report',
-  MONTHLY: 'monthly_report',
-  SUBSCRIPTION: 'subscription',
-  Q_M_1: 'Q_m_1', Q_M_2: 'Q_m_2', Q_M_3: 'Q_m_3',
-  Q_M_4: 'Q_m_4', Q_M_5: 'Q_m_5', Q_M_6: 'Q_m_6',
-  Q_E_1: 'Q_e_1', Q_E_2: 'Q_e_2', Q_E_3: 'Q_e_3', Q_E_4: 'Q_e_4', Q_E_5: 'Q_e_5',
-});
-
-export const ANSWER_STEPS = Object.freeze({
-  BEGIN: 'Begin_answer',
-  COMPLETED: 'completed',
-  OB_PITCH: 'ob_pitch',
-  OB_NAME: 'ob_name',
-  OB_EMAIL: 'ob_email',
-  OB_PHONE: 'ob_phone',
   OB_TIMEZONE: 'ob_timezone',
   OB_PLAN: 'ob_plan',
+  PAYMENT_PENDING: 'payment_pending',
   OB_PAYMENT_PENDING: 'ob_payment_pending',
   OB_PAYMENT_SUCCESS: 'ob_payment_success',
   OB_REMINDERS_INTRO: 'ob_reminders_intro',
   OB_DONE: 'ob_done',
-  MORNING_1: 'Q_m_1',
-  MORNING_2: 'Q_m_2',
-  MORNING_3: 'Q_m_3',
-  MORNING_4: 'Q_m_4',
-  MORNING_5: 'Q_m_5',
-  MORNING_6: 'Q_m_6',
-  EVENING_1: 'Q_e_1',
-  EVENING_2: 'Q_e_2',
-  EVENING_3: 'Q_e_3',
-  EVENING_4: 'Q_e_4',
-  EVENING_5: 'Q_e_5',
+
+  // Квести / питання
+  Q_M_1: 'Q_m_1', Q_M_2: 'Q_m_2', Q_M_3: 'Q_m_3',
+  Q_M_4: 'Q_m_4', Q_M_5: 'Q_m_5', Q_M_6: 'Q_m_6',
+  Q_E_1: 'Q_e_1', Q_E_2: 'Q_e_2', Q_E_3: 'Q_e_3', Q_E_4: 'Q_e_4', Q_E_5: 'Q_e_5',
+
+  MORNING_1: 'Q_m_1', MORNING_2: 'Q_m_2', MORNING_3: 'Q_m_3',
+  MORNING_4: 'Q_m_4', MORNING_5: 'Q_m_5', MORNING_6: 'Q_m_6',
+  EVENING_1: 'Q_e_1', EVENING_2: 'Q_e_2', EVENING_3: 'Q_e_3', EVENING_4: 'Q_e_4', EVENING_5: 'Q_e_5',
+
+  // Інші активності
+  WHEEL: 'WheelBalance',
   WHEEL_BALANCE_ACTIVE: 'WheelBalance',
-  AI_MENTOR_ACTIVE: 'ai_mentor_active'
+  AI_MENTOR: 'ai_mentor',
+  AI_MENTOR_ACTIVE: 'ai_mentor_active',
+  WEEKLY: 'weekly_report',
+  MONTHLY: 'monthly_report',
+  SUBSCRIPTION: 'subscription',
 });
 
 export const ONBOARDING_STEPS = Object.freeze({
-  NAME: ANSWER_STEPS.OB_NAME,
-  EMAIL: ANSWER_STEPS.OB_EMAIL,
-  PHONE: ANSWER_STEPS.OB_PHONE,
-  TIMEZONE: ANSWER_STEPS.OB_TIMEZONE,
-  PLAN: ANSWER_STEPS.OB_PLAN,
-  COMPLETED: ANSWER_STEPS.COMPLETED
+  NAME: CURRENT_ACTIVITY.OB_NAME,
+  EMAIL: CURRENT_ACTIVITY.OB_EMAIL,
+  PHONE: CURRENT_ACTIVITY.OB_PHONE,
+  TIMEZONE: CURRENT_ACTIVITY.OB_TIMEZONE,
+  PLAN: CURRENT_ACTIVITY.OB_PLAN,
+  COMPLETED: CURRENT_ACTIVITY.COMPLETED
 });
 
 export const OB_STEPS = Object.freeze({
-  PITCH: ANSWER_STEPS.OB_PITCH,
-  NAME: ANSWER_STEPS.OB_NAME,
-  EMAIL: ANSWER_STEPS.OB_EMAIL,
-  PHONE: ANSWER_STEPS.OB_PHONE,
-  TIMEZONE: ANSWER_STEPS.OB_TIMEZONE,
-  PLAN: ANSWER_STEPS.OB_PLAN,
-  PAYMENT_PENDING: ANSWER_STEPS.OB_PAYMENT_PENDING,
-  PAYMENT_SUCCESS: ANSWER_STEPS.OB_PAYMENT_SUCCESS,
-  REMINDERS_INTRO: ANSWER_STEPS.OB_REMINDERS_INTRO,
-  DONE: ANSWER_STEPS.OB_DONE,
+  PITCH: CURRENT_ACTIVITY.OB_PITCH,
+  NAME: CURRENT_ACTIVITY.OB_NAME,
+  EMAIL: CURRENT_ACTIVITY.OB_EMAIL,
+  PHONE: CURRENT_ACTIVITY.OB_PHONE,
+  TIMEZONE: CURRENT_ACTIVITY.OB_TIMEZONE,
+  PLAN: CURRENT_ACTIVITY.OB_PLAN,
+  PAYMENT_PENDING: CURRENT_ACTIVITY.OB_PAYMENT_PENDING,
+  PAYMENT_SUCCESS: CURRENT_ACTIVITY.OB_PAYMENT_SUCCESS,
+  REMINDERS_INTRO: CURRENT_ACTIVITY.OB_REMINDERS_INTRO,
+  DONE: CURRENT_ACTIVITY.OB_DONE,
 });
 
 // ===== ЗАПИТАННЯ =====
@@ -256,7 +247,7 @@ export const NOTE_FIELDS = [
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
   MORNING_TIME: '15:00',
-  EVENING_TIME: '21:30',
+  EVENING_TIME: '15:35',
   TIMEZONE: 'Europe/Kyiv' 
 });
 

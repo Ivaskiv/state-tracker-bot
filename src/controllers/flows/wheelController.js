@@ -442,7 +442,7 @@ async handleStartWheel(ctx) {
     
     try {
       const user = await userService.getUserByTgId(tgId);
-      const step = user?.Answer_Step;
+      const step = user?.Current_Activity;
       
       if (step !== 'WheelBalance') {
         await ctx.reply(
