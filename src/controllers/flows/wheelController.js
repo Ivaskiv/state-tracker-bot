@@ -268,35 +268,58 @@ const wheelController = {
     }
   },
 
-  async handleStartWheel(ctx) {
-    const tgId = ctx.from.id;
+async handleStartWheel(ctx) {
+  const tgId = ctx.from.id;
+  
+  try {
+    const user = await userService.getUserByTgId(tgId);
     
-    try {
-      const user = await userService.getUserByTgId(tgId);
-      
-      if (!userService.hasActiveAccess(user)) {
-        await ctx.answerCbQuery('Потрібна активна підписка');
-        return;
-      }
-      
-      const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
-      const startResult = await wheelBalanceService.startWheelBalance(tgId, userName);
-      await userService.updateUserStep(tgId, 'WheelBalance');
+    if (!userService.hasActiveAccess(user)) {
+      await ctx.answerCbQuery('Потрібна активна підписка');
+      return;
+    }
+    
+    const userName = user?.['User Name'] || ctx.from.first_name || 'Користувач';
+    const startResult = await wheelBalanceService.startWheelBalance(tgId, userName);
+    await userService.updateUserStep(tgId, 'WheelBalance');
 
+    // ✅ ПЕРЕВІРЯЄМО ЧИ ТРЕБА НАДСИЛАТИ ЗОБРАЖЕННЯ
+    if (startResult.withImage) {
+      const imagePath = path.join(process.cwd(), 'src', 'img', 'koleso_balansu.png');
+      
+      try {
+        await ctx.replyWithPhoto(
+          { source: imagePath },
+          {
+            caption: startResult.message,
+            ...startResult.keyboard
+          }
+        );
+        
+        console.log(`[WHEEL] ✅ Колесо запущено З ЗОБРАЖЕННЯМ для ${tgId}`);
+      } catch (imageError) {
+        console.warn(`[WHEEL] ⚠️ Не вдалося надіслати зображення:`, imageError.message);
+        
+        // Fallback - надсилаємо без зображення
+        await ctx.reply(startResult.message, startResult.keyboard);
+        console.log(`[WHEEL] ✅ Колесо запущено БЕЗ зображення для ${tgId}`);
+      }
+    } else {
+      // Без зображення (для continue/restart)
       try {
         await ctx.editMessageText(startResult.message, startResult.keyboard);
       } catch {
         await ctx.reply(startResult.message, startResult.keyboard);
       }
-      
-      await ctx.answerCbQuery('🎯 Колесо запущено');
-      
-    } catch (error) {
-      console.error('[WHEEL] ❌ Помилка handleStartWheel:', error);
-      await ctx.answerCbQuery('Помилка запуску');
     }
-  },
-
+    
+    await ctx.answerCbQuery('🎯 Колесо запущено');
+    
+  } catch (error) {
+    console.error('[WHEEL] ❌ Помилка handleStartWheel:', error);
+    await ctx.answerCbQuery('Помилка запуску');
+  }
+}, 
   async handleContinueWheel(ctx) {
     const tgId = ctx.from.id;
     

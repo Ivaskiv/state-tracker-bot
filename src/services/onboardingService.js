@@ -1,11 +1,12 @@
-// src/services/onboardingService.js - ВСЯ ЛОГІКА ОНБОРДИНГУ
+// src/services/onboardingService.js - ОПТИМІЗОВАНА ВЕРСІЯ
 
 import userService from './userService.js';
 import subscriptionService from './subscriptionService.js';
 import { ONBOARDING_STEPS, MESSAGES, getTzLabel, CONFIG } from '../config/constants.js';
 import { isValidEmail, isValidName, formatPhone, formatEmail, formatName } from '../utils/validators.js';
 
-// ===== ОБРОБКА КРОКІВ =====
+// ===== ОБРОБКА КРОКІВ (БЕЗ ЗМІН) =====
+
 export const handleNameStep = async (tgId, text) => {
   if (!isValidName(text)) {
     return { error: true, message: MESSAGES.ERROR_NAME };
@@ -71,30 +72,80 @@ export const handleTimezoneStep = async (tgId, tzSlug) => {
   return { success: true, nextStep: ONBOARDING_STEPS.PLAN };
 };
 
+// ===== ✅ ОПТИМІЗОВАНА АКТИВАЦІЯ TRIAL =====
+
 export const handlePlanStep = async (tgId, planKey) => {
-  const user = await userService.getUserByTgId(tgId);
-  if (!user) return { error: true, message: MESSAGES.ERROR_GENERIC };
+  console.log(`[onboarding] 🎯 handlePlanStep(${tgId}, ${planKey})`);
   
-  // Фіналізуємо реєстрацію
-  await userService.finalizeRegistration(tgId, {
-    name: user['User Name'],
-    email: user.Email,
-    phone: user.Phone,
-    timezone: user['Time Zone']
-  });
-  
-  if (planKey === 'TRIAL') {
-    // Активуємо trial
-    await userService.activateTrial(tgId, 7);
+  try {
+    const user = await userService.getUserByTgId(tgId);
+    if (!user) {
+      console.error(`[onboarding] ❌ Користувач ${tgId} не знайдений`);
+      return { error: true, message: MESSAGES.ERROR_GENERIC };
+    }
     
-    // Створюємо запис підписки
-    await subscriptionService.createTrialSubscription(tgId, user['User Name']);
+    // 1️⃣ ФІНАЛІЗУЄМО РЕЄСТРАЦІЮ
+    console.log(`[onboarding] 1️⃣ Фіналізація реєстрації...`);
+    await userService.finalizeRegistration(tgId, {
+      name: user['User Name'],
+      email: user.Email,
+      phone: user.Phone,
+      timezone: user['Time Zone']
+    });
     
-    return { success: true, trial: true };
+    if (planKey === 'TRIAL') {
+      console.log(`[onboarding] 2️⃣ Активація TRIAL для ${tgId}...`);
+      
+      // ✅ ПЕРЕВІРЯЄМО ЧИ ВЖЕ Є АКТИВНИЙ TRIAL
+      if (user['Subscription Status'] === 'Active' && user.End_Date) {
+        const endDate = new Date(user.End_Date);
+        if (endDate > new Date()) {
+          console.log(`[onboarding] ℹ️ Trial вже активний до ${endDate.toLocaleDateString('uk-UA')}`);
+          
+          return { 
+            success: true, 
+            trial: true,
+            alreadyActive: true,
+            endDate: user.End_Date 
+          };
+        }
+      }
+      
+      // 2️⃣ АКТИВУЄМО TRIAL (оновлює Users)
+      const trialUser = await userService.activateTrial(tgId, 7);
+      if (!trialUser) {
+        throw new Error('Не вдалося активувати trial в Users');
+      }
+      
+      console.log(`[onboarding] ✅ Trial активовано в Users`);
+      
+      // 3️⃣ СТВОРЮЄМО ЗАПИС ПІДПИСКИ (логування в Subscriptions)
+      try {
+        await subscriptionService.createTrialSubscription(tgId, user['User Name']);
+        console.log(`[onboarding] ✅ Trial запис створено в Subscriptions`);
+      } catch (subError) {
+        console.warn(`[onboarding] ⚠️ Не вдалося створити запис підписки:`, subError.message);
+        // Не критично - головне що Users оновлено
+      }
+      
+      console.log(`[onboarding] 🎉 TRIAL УСПІШНО АКТИВОВАНО`);
+      
+      return { 
+        success: true, 
+        trial: true,
+        endDate: trialUser.End_Date
+      };
+    }
+    
+    // Платні плани - просто повідомляємо
+    console.log(`[onboarding] 💳 Платний план ${planKey} - показуємо інфо`);
+    return { success: true, paid: true, planKey };
+    
+  } catch (error) {
+    console.error('[onboarding] ❌ Критична помилка handlePlanStep:', error);
+    console.error('[onboarding] Stack:', error.stack);
+    return { error: true, message: 'Помилка активації. Спробуй ще раз.' };
   }
-  
-  // Платні плани - показуємо інфо
-  return { success: true, paid: true, planKey };
 };
 
 export default {
@@ -104,3 +155,5 @@ export default {
   handleTimezoneStep,
   handlePlanStep
 };
+
+console.log('✅ [onboarding] Оптимізований сервіс онбордингу ініціалізовано');

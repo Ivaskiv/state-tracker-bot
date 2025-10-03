@@ -2714,3 +2714,7 @@
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 5","timestamp":"2025-10-01T20:59:09.158Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 10","timestamp":"2025-10-01T20:59:55.039Z"}
 {"level":"info","message":"🎯 [wheelBalance] Обробка відповіді 630111093: 10","timestamp":"2025-10-01T21:00:38.524Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-10-03T09:01:34.777Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Колесо створено, ID: recWAocdS2mywuoKv","timestamp":"2025-10-03T09:01:35.471Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка скасування: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-03T09:03:44.741Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка скасування: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-03T09:03:56.077Z"}

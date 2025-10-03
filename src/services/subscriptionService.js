@@ -1,4 +1,4 @@
-// src/services/subscriptionService.js - ПОВНА РЕАЛІЗАЦІЯ З СИНХРОНІЗАЦІЄЮ
+// src/services/subscriptionService.js - ПОКРАЩЕНА ВЕРСІЯ З ЛОГАМИ
 
 import subscriptionRepo from '../repositories/subscriptionRepository.js';
 import userService from './userService.js';
@@ -12,27 +12,40 @@ const addDays = (date, days) => {
 
 // ===== СТВОРЕННЯ TRIAL ПІДПИСКИ =====
 export const createTrialSubscription = async (tgId, userName) => {
+  console.log(`[subscriptionService] 🧪 createTrialSubscription(${tgId})`);
+  
   const plan = SUBSCRIPTION_PLANS.TRIAL;
   const now = new Date();
   const end = addDays(now, plan.duration);
   
-  return await subscriptionRepo.createSubscription(tgId, {
-    userName,
-    planName: plan.name,
-    amount: 0,
-    startDate: now.toISOString(),
-    endDate: end.toISOString(),
-    orderReference: `TRIAL_${tgId}_${Date.now()}`,
-    paymentStatus: 'Approved',
-    status: 'Active'
-  });
+  console.log(`[subscriptionService] Створюємо trial: ${now.toLocaleDateString()} → ${end.toLocaleDateString()}`);
+  
+  try {
+    const subscription = await subscriptionRepo.createSubscription(tgId, {
+      userName,
+      planName: plan.name,
+      amount: 0,
+      startDate: now.toISOString(),
+      endDate: end.toISOString(),
+      orderReference: `TRIAL_${tgId}_${Date.now()}`,
+      paymentStatus: 'Approved',
+      status: 'Active'
+    });
+    
+    console.log(`[subscriptionService] ✅ Trial підписку створено, ID: ${subscription?.id}`);
+    return subscription;
+    
+  } catch (error) {
+    console.error(`[subscriptionService] ❌ Помилка створення trial:`, error);
+    throw error;
+  }
 };
 
 // ===== ПЕРЕВІРКА СТАТУСУ ПІДПИСКИ =====
 export const checkSubscriptionStatus = async (tgId) => {
+  console.log(`[subscriptionService] 🔍 Перевірка статусу для ${tgId}`);
+  
   try {
-    console.log(`[subscriptionService] 🔍 Перевірка статусу для ${tgId}`);
-    
     const subscription = await subscriptionRepo.findActiveSubscription(tgId);
     
     if (!subscription) {
@@ -44,7 +57,7 @@ export const checkSubscriptionStatus = async (tgId) => {
     const now = new Date();
     const isActive = endDate > now;
     
-    console.log(`[subscriptionService] ✅ Підписка ${isActive ? 'активна' : 'закінчилась'} до ${endDate.toLocaleDateString('uk-UA')}`);
+    console.log(`[subscriptionService] ${isActive ? '✅' : '❌'} Підписка ${isActive ? 'активна' : 'закінчилась'} до ${endDate.toLocaleDateString('uk-UA')}`);
     
     return {
       active: isActive,
@@ -60,13 +73,72 @@ export const checkSubscriptionStatus = async (tgId) => {
   }
 };
 
-// ===== СИНХРОНІЗАЦІЯ ПІДПИСКИ З WAYFORPAY =====
+// ===== АКТИВАЦІЯ ПЛАТНОЇ ПІДПИСКИ =====
+export const activatePaidSubscription = async (paymentData) => {
+  const { tgId, planKey, planName, amount, duration, orderReference, userName } = paymentData;
+  
+  console.log(`[subscriptionService] 💳 activatePaidSubscription(${tgId}, ${planKey})`);
+  console.log(`[subscriptionService] План: ${planName}, сума: ${amount}€, тривалість: ${duration} днів`);
+  
+  try {
+    const now = new Date();
+    const end = addDays(now, duration);
+    
+    console.log(`[subscriptionService] Період: ${now.toLocaleDateString()} → ${end.toLocaleDateString()}`);
+    
+    // 1️⃣ СТВОРЮЄМО ПІДПИСКУ
+    console.log(`[subscriptionService] 1️⃣ Створення запису в Subscriptions...`);
+    const subscription = await subscriptionRepo.createSubscription(tgId, {
+      userName: userName || 'Користувач',
+      planName,
+      amount,
+      startDate: now.toISOString(),
+      endDate: end.toISOString(),
+      orderReference,
+      paymentStatus: 'Approved',
+      status: 'Active'
+    });
+    
+    console.log(`[subscriptionService] ✅ Підписку створено, ID: ${subscription?.id}`);
+    
+    // 2️⃣ ОНОВЛЮЄМО КОРИСТУВАЧА
+    console.log(`[subscriptionService] 2️⃣ Оновлення користувача в Users...`);
+    await userService.updateUserFields(tgId, {
+      'Subscription Status': 'Active',
+      'Active Subscription Plan': planName,
+      Start_Date: now.toISOString().split('T')[0],
+      End_Date: end.toISOString().split('T')[0]
+    });
+    
+    console.log(`[subscriptionService] ✅ Користувача оновлено`);
+    console.log(`[subscriptionService] 🎉 ПЛАТНУ ПІДПИСКУ АКТИВОВАНО УСПІШНО`);
+    
+    return {
+      success: true,
+      endDate: end.toISOString(),
+      message: `✅ Підписка "${planName}" активована!\nДіє до: ${end.toLocaleDateString('uk-UA')}`
+    };
+    
+  } catch (error) {
+    console.error('[subscriptionService] ❌ Критична помилка активації:', error);
+    console.error('[subscriptionService] Stack:', error.stack);
+    
+    return {
+      success: false,
+      message: '❌ Помилка активації підписки'
+    };
+  }
+};
+
+// ===== СИНХРОНІЗАЦІЯ ПІДПИСКИ =====
 export const syncUserSubscription = async (tgId) => {
+  console.log(`[subscriptionService] 🔄 syncUserSubscription(${tgId})`);
+  
   try {
     const id = String(tgId);
-    console.log(`[subscriptionService] 🔄 Синхронізація для ${id}`);
     
     // Шукаємо останню схвалену підписку
+    console.log(`[subscriptionService] Пошук активної підписки...`);
     const subscription = await subscriptionRepo.findActiveSubscription(id);
     
     if (!subscription) {
@@ -89,6 +161,9 @@ export const syncUserSubscription = async (tgId) => {
     const now = new Date();
     const isStillActive = endDate > now;
     
+    console.log(`[subscriptionService] Знайдено підписку: ${fields.Plan_Name}`);
+    console.log(`[subscriptionService] Статус: ${isStillActive ? 'Активна' : 'Закінчилась'}`);
+    
     // Оновлюємо користувача
     await userService.updateUserFields(id, {
       'Subscription Status': isStillActive ? 'Active' : 'Expired',
@@ -109,59 +184,14 @@ export const syncUserSubscription = async (tgId) => {
   }
 };
 
-// ===== АКТИВАЦІЯ ПЛАТНОЇ ПІДПИСКИ =====
-export const activatePaidSubscription = async (paymentData) => {
-  try {
-    const { tgId, planKey, planName, amount, duration, orderReference } = paymentData;
-    
-    console.log(`[subscriptionService] 💳 Активація ${planKey} для ${tgId}`);
-    
-    const now = new Date();
-    const end = addDays(now, duration);
-    
-    // Створюємо підписку
-    await subscriptionRepo.createSubscription(tgId, {
-      userName: paymentData.userName || 'Користувач',
-      planName,
-      amount,
-      startDate: now.toISOString(),
-      endDate: end.toISOString(),
-      orderReference,
-      paymentStatus: 'Approved',
-      status: 'Active'
-    });
-    
-    // Оновлюємо користувача
-    await userService.updateUserFields(tgId, {
-      'Subscription Status': 'Active',
-      'Active Subscription Plan': planName,
-      Start_Date: now.toISOString().split('T')[0],
-      End_Date: end.toISOString().split('T')[0]
-    });
-    
-    console.log(`[subscriptionService] ✅ Підписка активована до ${end.toLocaleDateString('uk-UA')}`);
-    
-    return {
-      success: true,
-      endDate: end.toISOString(),
-      message: `✅ Підписка "${planName}" активована!\nДіє до: ${end.toLocaleDateString('uk-UA')}`
-    };
-    
-  } catch (error) {
-    console.error('[subscriptionService] ❌ Помилка активації:', error);
-    return {
-      success: false,
-      message: '❌ Помилка активації підписки'
-    };
-  }
-};
-
 // ===== НАГАДУВАННЯ ПРО ЗАКІНЧЕННЯ =====
 export const getUsersWithExpiringSubscriptions = async (daysAhead = 1) => {
+  console.log(`[subscriptionService] 📅 Пошук підписок що закінчуються через ${daysAhead} дн.`);
+  
   try {
-    console.log(`[subscriptionService] 📅 Пошук підписок що закінчуються через ${daysAhead} дн.`);
-    
     const subscriptions = await subscriptionRepo.findExpiringSubscriptions(daysAhead);
+    
+    console.log(`[subscriptionService] Знайдено ${subscriptions.length} підписок`);
     
     const users = [];
     for (const sub of subscriptions) {
@@ -178,7 +208,7 @@ export const getUsersWithExpiringSubscriptions = async (daysAhead = 1) => {
       }
     }
     
-    console.log(`[subscriptionService] ✅ Знайдено ${users.length} підписок`);
+    console.log(`[subscriptionService] ✅ Підготовлено ${users.length} користувачів для нагадування`);
     return users;
     
   } catch (error) {
@@ -189,9 +219,9 @@ export const getUsersWithExpiringSubscriptions = async (daysAhead = 1) => {
 
 // ===== ДЕАКТИВАЦІЯ ПРОСТРОЧЕНИХ =====
 export const deactivateExpiredSubscriptions = async () => {
+  console.log('[subscriptionService] 🔍 Деактивація прострочених підписок');
+  
   try {
-    console.log('[subscriptionService] 🔍 Деактивація прострочених підписок');
-    
     const deactivated = await subscriptionRepo.deactivateExpiredSubscriptions();
     
     console.log(`[subscriptionService] ✅ Деактивовано: ${deactivated}`);
@@ -212,4 +242,4 @@ export default {
   deactivateExpiredSubscriptions
 };
 
-console.log('✅ [subscriptionService] Subscription service initialized');
+console.log('✅ [subscriptionService] Покращений subscription service ініціалізовано');
