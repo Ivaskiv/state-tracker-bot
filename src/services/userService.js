@@ -1,4 +1,4 @@
-// src/services/userService.js - ОСТАТОЧНА ВИПРАВЛЕНА ВЕРСІЯ
+// src/services/userService.js - ФІКС: hasActiveAccess З ЛОГАМИ + ДАТИ + TRUST STATUS
 
 import userRepo from '../repositories/userRepository.js';
 import { USER_STATUS, SUBSCRIPTION_STATUS, ANSWER_STEPS, CONFIG } from '../config/constants.js';
@@ -36,6 +36,57 @@ const mapRecord = (record) => {
     Last_Activity: f.Last_Activity || null,
     'Registration Date': f['Registration Date'] || null
   };
+};
+
+// ===== ✅ ВИПРАВЛЕНА: hasActiveAccess З ЛОГАМИ + ДАТИ + TRUST STATUS =====
+export const hasActiveAccess = (user) => {
+  if (!user) {
+    console.log(`[userService] ❌ hasActiveAccess: No user`);
+    return false;
+  }
+  
+  const subStatus = (user['Subscription Status'] || '').trim().toLowerCase();
+  const activeStatus = (user['Active_Subscription_Status'] || '').trim();
+  const plan = user['Active Subscription Plan'] || '';
+  
+  // 1) За статусом (довіряємо якщо 'Active' або '✅ Активна' або план з '🧪')
+  const isStatusActive = subStatus === 'active' || 
+                         activeStatus.includes('✅') || 
+                         activeStatus.toLowerCase().includes('активна') ||
+                         plan.includes('🧪 пробний');
+  
+  console.log(`[userService] 🔑 hasActiveAccess: SubStatus="${subStatus}", ActiveStatus="${activeStatus}", Plan="${plan}", isStatusActive=${isStatusActive}`);
+  
+  if (isStatusActive) {
+    console.log(`[userService] ✅ hasActiveAccess: True (status OK)`);
+    return true; // ✅ TRUST STATUS - ігнор дат для trial/active
+  }
+  
+  // 2) Fallback за датою (якщо статус не active, але дати OK)
+  const startDateStr = user.Start_Date;
+  const endDateStr = user.End_Date;
+  if (startDateStr && endDateStr) {
+    try {
+      const start = new Date(startDateStr + 'T00:00:00');
+      const end = new Date(endDateStr + 'T23:59:59'); // ✅ До кінця дня
+      const now = new Date();
+      
+      const isDateActive = now >= start && now <= end;
+      console.log(`[userService] 📅 Dates: Start="${startDateStr}" (${start.toDateString()}), End="${endDateStr}" (${end.toDateString()}), Now="${now.toDateString()}", isDateActive=${isDateActive}`);
+      
+      if (isDateActive) {
+        console.log(`[userService] ✅ hasActiveAccess: True (dates OK)`);
+        return true;
+      }
+    } catch (dateError) {
+      console.error(`[userService] ❌ hasActiveAccess: Date parse error:`, dateError);
+      // Fallback: якщо дати не парсяться - false
+      return false;
+    }
+  }
+  
+  console.log(`[userService] ❌ hasActiveAccess: False (status + dates fail)`);
+  return false;
 };
 
 // ===== ОСНОВНІ ОПЕРАЦІЇ =====
@@ -127,24 +178,6 @@ export const updateUserFields = async (tgId, fields) => {
   }
 };
 
-// ===== ПЕРЕВІРКА ДОСТУПУ =====
-export const hasActiveAccess = (user) => {
-  if (!user) return false;
-  
-  // 1) За статусом
-  if (user['Subscription Status'] === SUBSCRIPTION_STATUS.ACTIVE) return true;
-  
-  // 2) За датою
-  const endDate = user.End_Date; // ✅ З підкресленням
-  if (!endDate) return false;
-  
-  const expiry = new Date(endDate).getTime();
-  const now = Date.now();
-  
-  return expiry > now;
-};
-
-
 export const finalizeRegistration = async (tgId, data) => {
   const now = new Date().toISOString();
   console.log(`[userService] finalizeRegistration(${tgId})...`);
@@ -155,7 +188,7 @@ export const finalizeRegistration = async (tgId, data) => {
     'Time Zone': data.timezone,
     UserRegistered: true,
     'Registration Date': now,
-  Current_Activity: 'completed'
+    Current_Activity: 'completed'
   });
 };
 // ===== АКТИВАЦІЯ TRIAL =====

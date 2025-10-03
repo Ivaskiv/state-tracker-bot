@@ -1,7 +1,9 @@
-// src/services/wheelBalanceService.js - ДОДАНО ЛОГІКУ ЩОМІСЯЧНИХ ПЕРЕВІРОК
+// src/services/wheelBalanceService.js - ДОДАНО ЛОГІКУ ЗОБРАЖЕННЯ + ОПТИМІЗАЦІЯ
+
 import { getBase, tables } from '../config/database.js';
-import { LIFE_SPHERES, SPHERE_FIELDS, NOTE_FIELDS } from '../config/constants.js';
+import { LIFE_SPHERES, SPHERE_FIELDS, NOTE_FIELDS, CONFIG } from '../config/constants.js';
 import logger from '../utils/logger.js';
+import path from 'path';
 import { chat } from './openaiClient.js';
 
 const base = getBase();
@@ -128,7 +130,7 @@ const shouldShowWheelReminder = async (tgId, userRegistrationDate) => {
       .all();
     
     const now = new Date();
-const regDate = userRegistrationDate ? new Date(userRegistrationDate) : new Date();
+    const regDate = userRegistrationDate ? new Date(userRegistrationDate) : new Date();
     
     console.log(`🎯 [wheelBalance] Знайдено ${records.length} записів колеса для ${tgId}`);
     
@@ -298,7 +300,7 @@ const sendMonthlyWheelReminders = async (bot) => {
             `Регулярне заповнення колеса допомагає:\n` +
             `• Відслідковувати прогрес у розвитку\n` +
             `• Підтримувати баланс у всіх сферах\n` +
-            `• Отримувати актуальні рекомендації\n\n` +
+            `• Отримати актуальні рекомендації\n\n` +
             `⏱ Оновимо твій профіль балансу?`;
             
           keyboard = {
@@ -435,7 +437,8 @@ const startWheelBalance = async (tgId, userName) => {
       message,
       keyboard: buildScoreKeyboard(),
       recordId: wheelRecord.id,
-      currentSphere: 0
+      currentSphere: 0,
+      photoPath: path.join(process.cwd(), CONFIG.WHEEL_IMAGE_PATH) // ✅ Шлях до зображення для controller
     };
 
   } catch (error) {

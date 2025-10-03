@@ -1,4 +1,4 @@
-// src/utils/keyboards.js - ОПТИМІЗОВАНА ВЕРСІЯ
+// src/utils/keyboards.js - ОПТИМІЗОВАНА ВЕРСІЯ З TIMEZONE KEYBOARD + НОВЕ ГОЛОВНЕ МЕНЮ
 
 import { TIMEZONES, SUBSCRIPTION_PLANS } from '../config/constants.js';
 
@@ -65,13 +65,14 @@ const menuKeyboard = (options, withNavigation = true) => {
 // ===== ОСНОВНІ КЛАВІАТУРИ =====
 
 const keyboards = {
-  // ====== 🏠 ГОЛОВНЕ МЕНЮ (4 КНОПКИ) ======
+  // ====== 🏠 ГОЛОВНЕ МЕНЮ (6 КНОПОК: AI, КОЛЕСО, ЗВІТИ, ІНФО, ПІДПИСКА, ЗВ'ЯЗОК) ======
   mainMenuKeyboard() {
     return {
       reply_markup: {
         keyboard: [
           [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }],
-          [{ text: '📊 Звіти' }, { text: 'ℹ️ Інформація' }]
+          [{ text: '📊 Звіти' }, { text: 'ℹ️ Інформація про бота' }],
+          [{ text: '💰 Підписка' }, { text: '📞 Зв\'язок' }]
         ],
         resize_keyboard: true,
         one_time_keyboard: false,
@@ -79,7 +80,14 @@ const keyboards = {
       }
     };
   },
-
+mainMenuInline() {
+  return {
+      inline_keyboard: [
+[{ text: 'Інформація', callback_data: 'info_menu' }],
+    [{ text: 'Підписка', callback_data: 'subscription_info' }],
+    [{ text: 'Контакти', callback_data: 'contact' }]      ]
+  };
+},
   // ====== 📊 ЗВІТИ (INLINE МЕНЮ) ======
   reportsMenuInline() {
     return {
@@ -93,36 +101,34 @@ const keyboards = {
     };
   },
 
-  // ====== ℹ️ ІНФОРМАЦІЯ (INLINE МЕНЮ) ======
+  // ====== ℹ️ ІНФОРМАЦІЯ ПРО БОТА (INLINE МЕНЮ) ======
   infoMenuInline() {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '💰 Підписка', callback_data: 'subscription_info' }],
-          [{ text: '📈 Мій прогрес', callback_data: 'my_progress' }],
-          [{ text: '📞 Зв\'язок', callback_data: 'contact' }],
-          [{ text: '❓ Допомога', callback_data: 'help' }],
+          [{ text: '📋 Можливості', callback_data: 'show_capabilities' }],
+          [{ text: '📝 Інструкції', callback_data: 'instructions' }],
           [{ text: '🏠 До меню', callback_data: 'main_menu' }]
         ]
       }
     };
   },
 
-  // ====== 📞 ЗВ'ЯЗОК (INLINE МЕНЮ) ======
+  // ====== 📞 ЗВ'ЯЗОК (INLINE МЕНЮ З ДОПОМОГОЮ) ======
   contactMenuInline() {
     return {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📝 Інструкції', callback_data: 'instructions' }],
           [{ text: '📞 Підтримка', callback_data: 'contact_support' }],
           [{ text: '💎 Афірмація', callback_data: 'show_affirmation' }],
-          [{ text: '🔙 Назад', callback_data: 'info_menu' }]
+          [{ text: '❓ Допомога', callback_data: 'help' }],
+          [{ text: '🔙 Назад', callback_data: 'main_menu' }]
         ]
       }
     };
   },
 
-  // ====== 💰 ПІДПИСКА (INLINE МЕНЮ) ======
+  // ====== 💰 ПІДПИСКА (INLINE МЕНЮ З ПРОГРЕСОМ) ======
   subscriptionMenuInline() {
     return {
       reply_markup: {
@@ -131,7 +137,7 @@ const keyboards = {
           [{ text: '💳 Оформити/Продовжити', callback_data: 'subscription_plans' }],
           [{ text: '📈 Мій прогрес', callback_data: 'my_progress' }],
           [{ text: '🔄 Оновити статус', callback_data: 'sync_subscription' }],
-          [{ text: '🔙 Назад', callback_data: 'info_menu' }]
+          [{ text: '🔙 Назад', callback_data: 'main_menu' }]
         ]
       }
     };
@@ -154,41 +160,39 @@ const keyboards = {
     return menuKeyboard([
       { text: '🤖 AI Наставник', callback_data: 'capability_ai' },
       { text: '🎯 Колесо балансу', callback_data: 'capability_wheel' },
-      { text: '📊 Звіти та аналітика', callback_data: 'capability_reports' },
-      { text: '⏰ Автоматичні нагадування', callback_data: 'capability_schedule' }
+      { text: '📊 Звіти', callback_data: 'capability_reports' },
+      { text: '💰 Підписка', callback_data: 'capability_subscription' },
+      { text: '🏠 До меню', callback_data: 'main_menu' }
     ], false);
   },
 
-  // ====== ОНБОРДИНГ ======
-  greetingKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }]
-        ]
-      }
-    };
+  // ====== ТИМЗОНИ (ПАГІНОВАНО, 5 НА РЯДОК) ======
+  timezoneKeyboard(page = 0, perPage = 5) {
+    const start = page * perPage;
+    const end = start + perPage;
+    const pageTz = TIMEZONES.slice(start, end);
+    const buttons = pageTz.map(tz => [{ text: tz.label, callback_data: `tz_${tz.slug}` }]);
+    
+    const nav = [];
+    if (start > 0) nav.push([{ text: '⬅️ Попередні', callback_data: `tz_page_${page - 1}` }]);
+    if (end < TIMEZONES.length) nav.push([{ text: '➡️ Наступні', callback_data: `tz_page_${page + 1}` }]);
+    if (nav.length > 0) buttons.push(nav[0]);
+    
+    buttons.push([{ text: '🏠 До меню', callback_data: 'main_menu' }]);
+    
+    return { reply_markup: { inline_keyboard: buttons } };
   },
 
+  // ====== EMAIL INPUT ======
   emailInputKeyboard() {
-    return skipKeyboard('email');
+    return skipKeyboard('email', true);
   },
 
+  // ====== PHONE INPUT ======
   phoneInputKeyboard() {
-    return skipKeyboard('phone');
+    return skipKeyboard('phone', true);
   },
 
-  timezoneKeyboard() {
-    return {
-      reply_markup: {
-        inline_keyboard: TIMEZONES.slice(0, 10).map(tz => 
-          [{ text: tz.label, callback_data: `tz_${tz.slug}` }]
-        )
-      }
-    };
-  },
-
-  // ====== ПІДПИСКИ (ДЕТАЛЬНІ ЕКРАНИ) ======
   subscriptionInfoActiveKeyboard(expiringSoon = false) {
     const options = [];
     
@@ -219,7 +223,8 @@ const keyboards = {
           [{ text: SUBSCRIPTION_PLANS.TRIAL.name, callback_data: 'plan_free' }],
           [{ text: SUBSCRIPTION_PLANS.WEEK.name, callback_data: 'plan_week' }],
           [{ text: SUBSCRIPTION_PLANS.MONTH.name, callback_data: 'plan_month' }],
-          [{ text: SUBSCRIPTION_PLANS.YEAR.name, callback_data: 'plan_year' }]
+          [{ text: SUBSCRIPTION_PLANS.YEAR.name, callback_data: 'plan_year' }],
+          [{ text: '🔙 Назад', callback_data: 'subscription_info' }]
         ]
       }
     };

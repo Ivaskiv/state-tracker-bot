@@ -1,4 +1,4 @@
-// src/controllers/handlers/startHandler.js
+// src/controllers/handlers/startHandler.js - ОПТИМІЗОВАНИЙ + reply ДЕ ПОТРІБНО
 
 import userService from '../../services/userService.js';
 import onboardingService from '../../services/onboardingService.js';
@@ -63,13 +63,13 @@ export default function registerStartHandlers(bot) {
       const endStr = formatDateUA(user.End_Date) || 'скоро';
 
       if (isAccessActive(user)) {
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr));
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard()); // ✅ + keyboard
       } else {
-        await ctx.reply(MESSAGES.WELCOME_BACK_INACTIVE(name));
+        await ctx.reply(MESSAGES.WELCOME_BACK_INACTIVE(name), keyboards.mainMenuKeyboard());
       }
     } catch (e) {
       console.error('[startHandler]/start error:', e);
-      await ctx.reply(MESSAGES.ERROR_GENERIC);
+      await ctx.reply(MESSAGES.ERROR_GENERIC, keyboards.mainMenuKeyboard());
     }
   });
 }
@@ -100,7 +100,7 @@ export const handleText = async (ctx) => {
   try {
     if (step === ANSWER_STEPS.OB_NAME) {
       const result = await onboardingService.handleNameStep(tgId, text);
-      if (result.error) await ctx.reply(result.message);
+      if (result.error) await ctx.reply(result.message, keyboards.emailInputKeyboard());
       else await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
       return true;
     }
@@ -119,7 +119,7 @@ export const handleText = async (ctx) => {
     return false;
   } catch (error) {
     console.error('[startHandler] ❌ Помилка handleText:', error);
-    await ctx.reply(MESSAGES.ERROR_GENERIC);
+    await ctx.reply(MESSAGES.ERROR_GENERIC, keyboards.mainMenuKeyboard());
     return true;
   }
 };
@@ -175,7 +175,7 @@ export const handleCallback = async (ctx) => {
       if (isAccessActive(user)) {
         const name = user['User Name'] || ctx.from.first_name || 'друже';
         const endStr = formatDateUA(user.End_Date) || 'скоро';
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr));
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
         return true;
       }
 
@@ -186,25 +186,25 @@ export const handleCallback = async (ctx) => {
         const endDateFromUser = formatDateUA(fresh?.End_Date);
         const endDateStr = endDateFromService || endDateFromUser || computeTrialEndFromNow(7);
         const message = REGISTRATION_SUCCESS_TEMPLATE.replace('{END_DATE}', endDateStr);
-        await ctx.reply(message, keyboards.mainMenuKeyboard());
+        await ctx.reply(message, keyboards.mainMenuKeyboard() || keyboards.afterRegistrationKeyboard());
       } else {
         const name = user['User Name'] || ctx.from.first_name || 'друже';
         const fresh = await userService.getUserByTgId(tgId);
         const endStr = formatDateUA(fresh?.End_Date) || computeTrialEndFromNow(7);
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr));
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
       }
       return true;
     }
 
     if (['plan_week', 'plan_month', 'plan_year'].includes(data)) {
-      await ctx.reply('💳 Для оплати зверніться до підтримки: nadyastarway@gmail.com');
+      await ctx.reply('💳 Для оплати зверніться до підтримки: nadyastarway@gmail.com', keyboards.subscriptionMenuInline());
       return true;
     }
 
     return false;
   } catch (error) {
     console.error('[startHandler] ❌ Помилка callback:', error);
-    await ctx.reply(MESSAGES.ERROR_GENERIC);
+    await ctx.reply(MESSAGES.ERROR_GENERIC, keyboards.mainMenuKeyboard());
     return true;
   }
 };
