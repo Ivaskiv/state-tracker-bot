@@ -54,3 +54,5 @@
 {"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] Помилка оновлення last_activity_ts: Unknown field name: \"last_activity_ts\"","statusCode":422,"timestamp":"2025-10-01T19:42:38.821Z"}
 {"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка скасування: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-03T09:03:44.741Z"}
 {"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка скасування: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-03T09:03:56.077Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка скасування: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-03T11:46:34.626Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка створення: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-03T11:46:34.627Z"}

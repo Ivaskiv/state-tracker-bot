@@ -255,7 +255,7 @@ export const NOTE_FIELDS = [
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '13:00',
+  MORNING_TIME: '15:00',
   EVENING_TIME: '21:30',
   TIMEZONE: 'Europe/Kyiv' 
 });

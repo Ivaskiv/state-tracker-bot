@@ -1,181 +1,180 @@
-// src/controllers/handlers/textHandler.js - ФІКС: TRY-CATCH PER CASE + ЛОГИ REPLY + EMOJI-SAFE
+// src/controllers/handlers/textHandler.js — ВИПРАВЛЕНО: клавіатури завжди присутні
 
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
-import { CURRENT_ACTIVITY, GENERAL_AFFIRMATIONS } from '../../config/constants.js';
+import { GENERAL_AFFIRMATIONS } from '../../config/constants.js';
+
+// ✅ ENUM ДЛЯ ТЕКСТОВИХ КОМАНД (без emoji)
+const TEXT_COMMANDS = {
+  AI_MENTOR: 'AI Наставник',
+  WHEEL: 'Колесо балансу',
+  REPORTS: 'Звіти',
+  INFO: 'Інформація про бота',
+  SUBSCRIPTION: 'Підписка',
+  CONTACT: 'Зв\'язок',
+  AFFIRMATION: 'Афірмація',
+  WEEKLY_REPORT: 'Щотижневий звіт',
+  MONTHLY_REPORT: 'Щомісячний звіт',
+  PROGRESS: 'Мій прогрес',
+  HELP: 'Допомога',
+  INSTRUCTIONS: 'Інструкції',
+};
+
+// ✅ УНІВЕРСАЛЬНА ФУНКЦІЯ ДЛЯ БЛОКОВАНИХ ФІЧ (з клавіатурою!)
+const showFeatureBlocked = async (ctx, featureName) => {
+  console.log(`[textHandler] 🚫 Feature blocked: ${featureName}`);
+  
+  await ctx.reply(
+    `🔒 "${featureName}" — преміум функція!\n\n💎 Активуй підписку для доступу.`,
+    keyboards.subscriptionPlansKeyboard() // ✅ Клавіатура є!
+  );
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🎯 ГОЛОВНИЙ ОБРОБНИК ТЕКСТУ
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export const handle = async (ctx) => {
   const tgId = ctx.from.id;
   const rawText = ctx.message?.text || '';
-  const text = rawText.trim().replace(/\s+/g, ' ').toLowerCase(); // ✅ Lowercase NORM
-  if (!text) return false;
+  const text = rawText.trim();
 
-  console.log(`[textHandler] 🔍 RAW: "${rawText}" → NORM: "${text}" від ${tgId}`);
+  if (!text) {
+    return false; // Не текст — пропускаємо
+  }
+
+  console.log(`[textHandler] 💬 Текст від ${tgId}: "${text}"`);
 
   try {
+    // ✅ ОТРИМУЄМО КОРИСТУВАЧА
     const user = await userService.getUserByTgId(tgId);
-    console.log(`[textHandler] 👤 User: ${user?.['User Name']}, Registered: ${user?.UserRegistered}`);
-
+    
     if (!user || !user.UserRegistered) {
-      console.log(`[textHandler] ❌ Не зареєстрований`);
-      await ctx.reply('Спочатку зареєструйся /start', keyboards.mainMenuKeyboard());
+      console.log(`[textHandler] ❌ Користувач не зареєстрований`);
+      await ctx.reply(
+        'Спочатку зареєструйся /start', 
+        keyboards.mainMenuKeyboard() // ✅ Клавіатура!
+      );
       return true;
     }
 
-    const step = user.Answer_Step || user.Current_Activity;
-    console.log(`[textHandler] 📍 Step: ${step}`);
+    // ✅ ПЕРЕВІРКА ДОСТУПУ
+    const hasAccess = userService.hasActiveAccess(user);
+    console.log(`[textHandler] 🔑 hasActiveAccess: ${hasAccess}`);
 
-    // ===== АКТИВНІ СЕСІЇ =====
-    if (step === CURRENT_ACTIVITY.WHEEL) {
-      console.log(`[textHandler] 🔄 Wheel активна`);
-      try {
-        const wheelController = (await import('../flows/wheelController.js')).default;
-        await wheelController.handleText?.(ctx, rawText);
-        console.log(`[textHandler] ✅ Wheel OK`);
-      } catch (e) {
-        console.error(`[textHandler] ❌ Wheel FAIL:`, e);
-        await ctx.reply('🎯 Колесо: Скоро! Перевір підписку.', keyboards.subscriptionMenuInline());
-      }
-      return true;
-    }
+    // ✅ НОРМАЛІЗАЦІЯ ТЕКСТУ (видаляємо emoji)
+    const normalizedText = text
+      .replace(/[🤖🎯📊ℹ️💰📞💎📈📝❓]/g, '')
+      .trim();
 
-    if (step?.startsWith('Q_m_') || step?.startsWith('Q_e_')) {
-      console.log(`[textHandler] 🔄 Daily активна`);
-      try {
-        const dailyController = (await import('../flows/dailyController.js')).default;
-        await dailyController.handleText?.(ctx, rawText, step);
-        console.log(`[textHandler] ✅ Daily OK`);
-      } catch (e) {
-        console.error(`[textHandler] ❌ Daily FAIL:`, e);
-        await ctx.reply('📅 Daily: Продовж пізніше.', keyboards.mainMenuKeyboard());
-      }
-      return true;
-    }
+    // ════════════════════════════════════════════════════════════════════════
+    // 🎯 ОБРОБКА КОМАНД
+    // ════════════════════════════════════════════════════════════════════════
 
-    // ✅ ЯВНИЙ ВИКЛИК + ЛОГ
-    const hasAccess = userService.hasActiveAccess(user); // Без ?.
-    console.log(`[textHandler] 🔑 hasActiveAccess call result: ${hasAccess} (явний виклик)`);
-
-    const showFeatureBlocked = async (feature) => {
-      const blockMsg = `🔒 "${feature}" - преміум! Активуй TRIAL.`;
-      console.log(`[textHandler] 🚫 Block → Reply: ${blockMsg}`);
-      await ctx.reply(blockMsg, keyboards.subscriptionPlansKeyboard());
-    };
-
-    // ===== ОБРОБКА (LOWERCASE CASE) =====
-    let matched = false;
-    switch (true) {
-      case text.includes('ai наставник'):
-        console.log(`[textHandler] ✅ MATCH: AI (includes)`);
-        matched = true;
-        try {
-          if (!hasAccess) return await showFeatureBlocked('AI Наставник');
-          const aiMentorController = (await import('../flows/aiMentorController.js')).default;
-          await aiMentorController.handleAIMentorRequest(ctx);
-          console.log(`[textHandler] ✅ AI reply OK`);
-        } catch (e) {
-          console.error(`[textHandler] ❌ AI FAIL:`, e);
-          await ctx.reply('🤖 AI: Скоро!', keyboards.subscriptionMenuInline());
-        }
-        break;
-
-      case text.includes('колесо балансу'):
-        console.log(`[textHandler] ✅ MATCH: Колесо (includes)`);
-        matched = true;
-try {
-  if (!hasAccess) return await showFeatureBlocked('AI Наставник');
-  const aiMentorController = (await import('../flows/aiMentorController.js')).default;
-  await aiMentorController.handleAIMentorRequest(ctx);
-} catch(e) {
-  await ctx.reply('🤖 AI: Скоро!', keyboards.subscriptionMenuInline());
-}        break;
-
-      case text.includes('звіти'):
-        console.log(`[textHandler] ✅ MATCH: Звіти (includes)`);
-        matched = true;
-        try {
-          if (!hasAccess) return await showFeatureBlocked('Звіти');
-          console.log(`[textHandler] 📊 Reply: Меню звітів`);
-          await ctx.reply('📊 ЗВІТИ\n\nОбери тип:', keyboards.reportsMenuInline());
-        } catch (e) {
-          console.error(`[textHandler] ❌ Звіти FAIL:`, e);
-          await ctx.reply('📊 Звіти: Скоро!', keyboards.subscriptionMenuInline());
-        }
-        break;
-
-      case text.includes('інформація про бота'):
-        console.log(`[textHandler] ✅ MATCH: Інфо (includes)`);
-        matched = true;
-        try {
-          console.log(`[textHandler] ℹ️ Reply: Меню інфо`);
-          await ctx.reply('ℹ️ ІНФОРМАЦІЯ\n\nОбери:', keyboards.infoMenuInline());
-        } catch (e) {
-          console.error(`[textHandler] ❌ Інфо FAIL:`, e);
-          await ctx.reply('ℹ️ Інфо: Скоро!', keyboards.mainMenuKeyboard());
-        }
-        break;
-
-      case text.includes('підписка'):
-        console.log(`[textHandler] ✅ MATCH: Підписка (includes)`);
-        matched = true;
-        try {
-          console.log(`[textHandler] 💰 Reply: Меню підписки`);
-          await ctx.reply('💰 ПІДПИСКА\n\nОбери:', keyboards.subscriptionMenuInline());
-        } catch (e) {
-          console.error(`[textHandler] ❌ Підписка FAIL:`, e);
-          await ctx.reply('💰 Підписка: Активуй TRIAL!', keyboards.subscriptionPlansKeyboard());
-        }
-        break;
-
-      case text.includes('зв\'язок'):
-        console.log(`[textHandler] ✅ MATCH: Зв\'язок (includes)`);
-        matched = true;
-        try {
-          console.log(`[textHandler] 📞 Reply: Меню зв\'язку`);
-          await ctx.reply('📞 ЗВ\'ЯЗОК\n\nОбери:', keyboards.contactMenuInline());
-        } catch (e) {
-          console.error(`[textHandler] ❌ Зв\'язок FAIL:`, e);
-          await ctx.reply('📞 Зв\'язок: @Nadya2316', keyboards.mainMenuKeyboard());
-        }
-        break;
-
-      case text.includes('афірмація'):
-        console.log(`[textHandler] ✅ MATCH: Афірмація (includes)`);
-        matched = true;
-        try {
-          const affirmation = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
-          console.log(`[textHandler] ✨ Reply: Афірмація`);
-          await ctx.reply(`✨ ${affirmation}`, keyboards.mainMenuKeyboard());
-        } catch (e) {
-          console.error(`[textHandler] ❌ Афірмація FAIL:`, e);
-          await ctx.reply('✨ Афірмація: "Ти сильна!"', keyboards.mainMenuKeyboard());
-        }
-        break;
-
-      case text.includes('щотижневий звіт') || text.includes('щомісячний звіт') || text.includes('мій прогрес'):
-        console.log(`[textHandler] ✅ MATCH: Звіт/Прогрес (includes): ${text}`);
-        matched = true;
-        try {
-          if (!hasAccess) return await showFeatureBlocked('Звіти');
-          const reportType = text.includes('щотижневий') ? 'Щотижневий' : text.includes('щомісячний') ? 'Щомісячний' : 'Мій прогрес';
-          console.log(`[textHandler] 📈 Reply: ${reportType}`);
-          await ctx.reply(`📈 ${reportType} ЗВІТ\n\nАналіз скоро!`, keyboards.mainMenuKeyboard());
-        } catch (e) {
-          console.error(`[textHandler] ❌ Звіт FAIL:`, e);
-          await ctx.reply('📈 Звіт: Скоро!', keyboards.subscriptionMenuInline());
-        }
-        break;
-
-
-      default:
-        console.log(`[textHandler] ❓ NO MATCH: "${text}"`);
-        await ctx.reply('❓ Не розпізнав. Використовуй меню 👇', keyboards.mainMenuKeyboard());
+    if (normalizedText === TEXT_COMMANDS.AI_MENTOR || normalizedText.includes('Наставник')) {
+      if (!hasAccess) {
+        await showFeatureBlocked(ctx, 'AI Наставник');
         return true;
+      }
+
+      const aiMentorController = await import('../flows/aiMentorController.js');
+      await aiMentorController.default.handleAIMentorRequest(ctx);
+      return true;
     }
+
+    if (normalizedText === TEXT_COMMANDS.WHEEL || normalizedText.includes('Колесо')) {
+      if (!hasAccess) {
+        await showFeatureBlocked(ctx, 'Колесо балансу');
+        return true;
+      }
+
+      const wheelController = await import('../flows/wheelController.js');
+      await wheelController.default.handleRequest(ctx);
+      return true;
+    }
+
+    if (normalizedText === TEXT_COMMANDS.REPORTS || normalizedText.includes('Звіти')) {
+      if (!hasAccess) {
+        await showFeatureBlocked(ctx, 'Звіти');
+        return true;
+      }
+
+      await ctx.reply(
+        '📊 ЗВІТИ\n\nОбери тип:', 
+        keyboards.reportsMenuInline() // ✅ Клавіатура!
+      );
+      return true;
+    }
+
+    if (normalizedText === TEXT_COMMANDS.INFO || normalizedText.includes('Інформація')) {
+      await ctx.reply(
+        'ℹ️ ІНФОРМАЦІЯ\n\nОбери:', 
+        keyboards.infoMenuInline() // ✅ Клавіатура!
+      );
+      return true;
+    }
+
+    if (normalizedText === TEXT_COMMANDS.SUBSCRIPTION || normalizedText.includes('Підписка')) {
+      await ctx.reply(
+        '💰 ПІДПИСКА\n\nОбери:', 
+        keyboards.subscriptionMenuInline() // ✅ Клавіатура!
+      );
+      return true;
+    }
+
+    if (normalizedText === TEXT_COMMANDS.CONTACT || normalizedText.includes('Зв\'язок')) {
+      await ctx.reply(
+        '📞 ЗВ\'ЯЗОК\n\nОбери:', 
+        keyboards.contactMenuInline() // ✅ Клавіатура!
+      );
+      return true;
+    }
+
+    if (normalizedText === TEXT_COMMANDS.AFFIRMATION || normalizedText.includes('Афірмація')) {
+      const affirmation = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
+      await ctx.reply(
+        `✨ ${affirmation}`, 
+        keyboards.mainMenuKeyboard() // ✅ Клавіатура!
+      );
+      return true;
+    }
+
+    if (normalizedText.includes('Щотижневий') || normalizedText.includes('Щомісячний') || normalizedText.includes('прогрес')) {
+      if (!hasAccess) {
+        await showFeatureBlocked(ctx, 'Звіти');
+        return true;
+      }
+
+      const reportType = normalizedText.includes('Щотижневий') 
+        ? 'Щотижневий' 
+        : normalizedText.includes('Щомісячний') 
+          ? 'Щомісячний' 
+          : 'Мій прогрес';
+
+      await ctx.reply(
+        `📈 ${reportType} звіт\n\nАналіз скоро!`, 
+        keyboards.mainMenuKeyboard() // ✅ Клавіатура!
+      );
+      return true;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ❓ НЕВІДОМА КОМАНДА
+    // ════════════════════════════════════════════════════════════════════════
+
+    console.log(`[textHandler] ❓ Невідома команда: "${text}"`);
+    await ctx.reply(
+      '❓ Не розпізнав команду. Використовуй меню 👇', 
+      keyboards.mainMenuKeyboard() // ✅ Клавіатура завжди є!
+    );
+    return true;
 
   } catch (error) {
-    console.error('[textHandler] ❌ GLOBAL error:', error);
-    await ctx.reply('❌ Помилка. /start', keyboards.mainMenuKeyboard());
+    console.error('[textHandler] ❌ Критична помилка:', error);
+    await ctx.reply(
+      '❌ Помилка. Спробуй /start', 
+      keyboards.mainMenuKeyboard() // ✅ Клавіатура!
+    );
     return true;
   }
 };

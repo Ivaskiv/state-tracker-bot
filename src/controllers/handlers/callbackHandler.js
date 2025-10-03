@@ -1,183 +1,375 @@
-// src/controllers/handlers/callbackHandler.js
+// src/controllers/handlers/callbackHandler.js — ВИПРАВЛЕНО: ВСІ клавіатури видимі
+
 import antiSpam from '../../utils/antiSpam.js';
 import createCallbackRouter from '../../utils/callbackRouter.js';
-import sendModule from '../../utils/send.js';
-const send = (sendModule && (typeof sendModule === 'function')) ? sendModule : (sendModule && sendModule.send) ? sendModule.send : null;
 
+// ✅ ІМПОРТ: використовуємо keyboards напряму
+import keyboards from '../../utils/keyboards.js';
+
+// ✅ ІМПОРТ: контролери
 import { handleCallback as startCb } from './startHandler.js';
 import subscriptionController from '../subscriptionController.js';
 import wheelController from '../flows/wheelController.js';
 import aiMentorController from '../flows/aiMentorController.js';
 import dailyController from '../flows/dailyController.js';
 import mainFlowController from '../flows/mainFlowController.js';
-import keyboards from '../../utils/keyboards.js';
 import { GENERAL_AFFIRMATIONS, MENU_TEXTS } from '../../config/constants.js';
 
-// Створюємо роутер
-const router = createCallbackRouter({ autoAnswer: false });
+// ✅ УНІВЕРСАЛЬНА ФУНКЦІЯ ДЛЯ ВІДПРАВКИ (edit або reply) БЕЗ ПРИХОВУВАННЯ
+const sendMessage = async (ctx, text, keyboard = null, options = {}) => {
+  const isCallback = !!ctx.callbackQuery;
+  
+  // ✅ КРИТИЧНО: завжди зберігаємо клавіатуру
+  const replyMarkup = keyboard ? { reply_markup: keyboard } : {};
 
-// ---------- ROUTES ----------
-
-// 1) main menu
-router.register(['main_menu', 'open_main'], async (ctx) => {
   try {
-    if (send) {
-      await send(
-        ctx,
-        '🏠 ГОЛОВНЕ МЕНЮ\n\nОбери дію нижче 👇',
-        keyboards.mainMenuInline(),
-        { allow_edit_fallback: true }
-      );
+    if (isCallback) {
+      // Спроба редагувати
+      try {
+        await ctx.editMessageText(text, replyMarkup);
+      } catch (editError) {
+        // Fallback: reply (клавіатура зберігається!)
+        await ctx.reply(text, replyMarkup);
+      }
     } else {
-      await ctx.reply(
-        '🏠 ГОЛОВНЕ МЕНЮ\n\nОбери дію нижче 👇',
-        { reply_markup: keyboards.mainMenuInline() }
-      );
+      // Звичайний reply
+      await ctx.reply(text, replyMarkup);
     }
-    return true;
-  } catch (e) {
-    console.error('[callbackHandler][main_menu] error', e);
+  } catch (error) {
+    console.error('[callbackHandler] ❌ Помилка sendMessage:', error.message);
+    
+    // ✅ FALLBACK: якщо не вдалось з клавіатурою, спробуємо ще раз
+    try {
+      await ctx.reply(text, replyMarkup);
+    } catch (finalError) {
+      // Тільки в крайньому випадку - без клавіатури
+      console.error('[callbackHandler] ❌ Fallback також провалився:', finalError.message);
+      await ctx.reply(text);
+    }
+  }
+};
+
+// ✅ СТВОРЮЄМО РОУТЕР З АВТОМАТИЧНИМ answerCbQuery
+const router = createCallbackRouter({ autoAnswer: true });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📋 РЕЄСТРАЦІЯ ROUTES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1️⃣ ГОЛОВНЕ МЕНЮ
+// ═══════════════════════════════════════════════════════════════════════════
+router.register(['main_menu', 'open_main'], async (ctx) => {
+  console.log('[callbackHandler] 🏠 main_menu');
+  await sendMessage(
+    ctx,
+    '🏠 ГОЛОВНЕ МЕНЮ\n\nОбери дію 👇',
+    keyboards.mainMenuInline()
+  );
+  return true;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2️⃣ ІНФОРМАЦІЙНЕ МЕНЮ
+// ═══════════════════════════════════════════════════════════════════════════
+router.register('info_menu', async (ctx) => {
+  console.log('[callbackHandler] ℹ️ info_menu');
+  await sendMessage(
+    ctx, 
+    'ℹ️ ІНФОРМАЦІЯ ПРО БОТА\n\nОбери розділ:', 
+    keyboards.infoMenuInline()
+  );
+  return true;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3️⃣ ПІДПИСКА
+// ═══════════════════════════════════════════════════════════════════════════
+router.register('subscription_info', async (ctx) => {
+  console.log('[callbackHandler] 💰 subscription_info');
+  await sendMessage(
+    ctx, 
+    '💰 ПІДПИСКА\n\nОбери дію:', 
+    keyboards.subscriptionMenuInline()
+  );
+  return true;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4️⃣ КОНТАКТИ
+// ═══════════════════════════════════════════════════════════════════════════
+router.register('contact', async (ctx) => {
+  console.log('[callbackHandler] 📞 contact');
+  await sendMessage(
+    ctx, 
+    '📞 ЗВ\'ЯЗОК ТА ДОПОМОГА\n\nОбери розділ:', 
+    keyboards.contactMenuInline()
+  );
+  return true;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5️⃣ ЗВІТИ
+// ═══════════════════════════════════════════════════════════════════════════
+router.register('reports_menu', async (ctx) => {
+  console.log('[callbackHandler] 📊 reports_menu');
+  await sendMessage(
+    ctx, 
+    '📊 ЗВІТИ\n\nОбери тип звіту:', 
+    keyboards.reportsMenuInline()
+  );
+  return true;
+});
+
+// ✅ Прямі дії зі звітами
+router.register(['get_weekly_report', 'get_monthly_report', 'my_progress'], async (ctx, data) => {
+  console.log(`[callbackHandler] 📊 ${data}`);
+  try {
+    await mainFlowController.handleCallback(ctx, data);
+  } catch (error) {
+    console.error(`[callbackHandler] ❌ ${data}:`, error);
+    await sendMessage(
+      ctx, 
+      '❌ Помилка. Спробуй пізніше.',
+      keyboards.mainMenuInline()
+    );
+  }
+  return true;
+});
+
+router.register('wheel_stats', async (ctx) => {
+  console.log('[callbackHandler] 🎯 wheel_stats');
+  try {
+    await wheelController.handleCallback(ctx, 'wheel_stats');
+  } catch (error) {
+    console.error('[callbackHandler] ❌ wheel_stats:', error);
+    await sendMessage(
+      ctx, 
+      '❌ Помилка статистики.',
+      keyboards.mainMenuInline()
+    );
+  }
+  return true;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6️⃣ ДОПОМОГА / АФІРМАЦІЇ / ІНСТРУКЦІЇ
+// ═══════════════════════════════════════════════════════════════════════════
+router.register('instructions', async (ctx) => {
+  console.log('[callbackHandler] 📝 instructions');
+  await sendMessage(
+    ctx, 
+    MENU_TEXTS.INSTRUCTIONS, 
+    keyboards.contactMenuInline()
+  );
+  return true;
+});
+
+router.register('contact_support', async (ctx) => {
+  console.log('[callbackHandler] 📞 contact_support');
+  await sendMessage(
+    ctx, 
+    MENU_TEXTS.CONTACT, 
+    keyboards.contactMenuInline()
+  );
+  return true;
+});
+
+router.register('show_affirmation', async (ctx) => {
+  console.log('[callbackHandler] 💎 show_affirmation');
+  const affirmation = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
+  await sendMessage(
+    ctx, 
+    `✨ ${affirmation}`, 
+    keyboards.contactMenuInline()
+  );
+  return true;
+});
+
+router.register('help', async (ctx) => {
+  console.log('[callbackHandler] ❓ help');
+  await sendMessage(
+    ctx, 
+    MENU_TEXTS.HELP, 
+    keyboards.contactMenuInline()
+  );
+  return true;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7️⃣ ОНБОРДИНГ (делегуємо в startHandler)
+// ═══════════════════════════════════════════════════════════════════════════
+router.register(
+  (data) => [
+    'use_telegram_name', 
+    'enter_custom_name', 
+    'skip_email', 
+    'skip_phone', 
+    'activate_trial', 
+    'plan_free'
+  ].some(p => data.includes(p)),
+  async (ctx) => {
+    console.log('[callbackHandler] 🔄 Делегуємо в startHandler');
+    return await startCb(ctx);
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8️⃣ ЩОДЕННІ СЕСІЇ (morning/evening)
+// ═══════════════════════════════════════════════════════════════════════════
+router.register({ prefix: 'start_morning' }, async (ctx) => {
+  console.log('[callbackHandler] 🌞 start_morning');
+  await dailyController.startMorningSession(ctx);
+  return true;
+});
+
+router.register({ prefix: 'start_evening' }, async (ctx) => {
+  console.log('[callbackHandler] 🌙 start_evening');
+  await dailyController.startEveningSession(ctx);
+  return true;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9️⃣ ПІДПИСКИ (subscription_*, subscribe_*, plan_*, renew_*, sync_subscription)
+// ═══════════════════════════════════════════════════════════════════════════
+router.register(
+  (data) => /^(subscription_|subscribe_|plan_|renew_|sync_subscription|activate_trial)/.test(data),
+  async (ctx) => {
+    console.log('[callbackHandler] 💰 Subscription callback');
+    await subscriptionController.handleCallback(ctx);
     return true;
   }
-});
+);
 
-// 2) info menu
-router.register('info_menu', async (ctx) => {
-  if (send) await send(ctx, 'ℹ️ ІНФОРМАЦІЯ ПРО БОТА\n\nОбери розділ:', keyboards.infoMenuInline());
-  else await ctx.reply('ℹ️ ІНФОРМАЦІЯ ПРО БОТА\n\nОбери розділ:', keyboards.infoMenuInline());
-  return true;
-});
-
-// 3) subscription menu
-router.register('subscription_info', async (ctx) => {
-  if (send) await send(ctx, '💰 ПІДПИСКА\n\nОбери дію:', keyboards.subscriptionMenuInline());
-  else await ctx.reply('💰 ПІДПИСКА\n\nОбери дію:', keyboards.subscriptionMenuInline());
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔟 КОЛЕСО БАЛАНСУ (wheel_*)
+// ═══════════════════════════════════════════════════════════════════════════
+router.register({ prefix: 'wheel_' }, async (ctx, data) => {
+  console.log('[callbackHandler] 🎯 wheel_*');
+  await wheelController.handleCallback(ctx, data);
   return true;
 });
 
-// 4) contact
-router.register('contact', async (ctx) => {
-  if (send) await send(ctx, '📞 ЗВ\'ЯЗОК ТА ДОПОМОГА\n\nОбери розділ:', keyboards.contactMenuInline());
-  else await ctx.reply('📞 ЗВ\'ЯЗОК ТА ДОПОМОГА\n\nОбери розділ:', keyboards.contactMenuInline());
+// ═══════════════════════════════════════════════════════════════════════════
+// 1️⃣1️⃣ AI НАСТАВНИК (ai_*)
+// ═══════════════════════════════════════════════════════════════════════════
+router.register({ prefix: 'ai_' }, async (ctx) => {
+  console.log('[callbackHandler] 🤖 ai_*');
+  await aiMentorController.handleAIMentorCallback(ctx);
   return true;
 });
 
-// 5) reports
-router.register('reports_menu', async (ctx) => {
-  if (send) await send(ctx, '📊 ЗВІТИ\n\nОбери тип звіту:', keyboards.reportsMenuInline());
-  else await ctx.reply('📊 ЗВІТИ\n\nОбери тип звіту:', keyboards.reportsMenuInline());
-  return true;
-});
-
-// 6) direct report actions
-['get_weekly_report','get_monthly_report','my_progress'].forEach((action) => {
-  router.register(action, async (ctx) => {
-    try { await mainFlowController.handleCallback(ctx, action); } catch(e) { console.error(e); }
-    return true;
-  });
-});
-router.register('wheel_stats', async (ctx) => {
-  try { await wheelController.handleCallback(ctx, 'wheel_stats'); } catch(e) { console.error(e); }
-  return true;
-});
-
-// 7) help/contact/affirmation/instructions
-router.register('instructions', async (ctx) => {
-  if (send) await send(ctx, MENU_TEXTS.INSTRUCTIONS, keyboards.contactMenuInline(), { allow_edit_fallback: true });
-  else await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.contactMenuInline());
-  return true;
-});
-router.register('contact_support', async (ctx) => {
-  if (send) await send(ctx, MENU_TEXTS.CONTACT, keyboards.contactMenuInline(), { allow_edit_fallback: true });
-  else await ctx.reply(MENU_TEXTS.CONTACT, keyboards.contactMenuInline());
-  return true;
-});
-router.register('show_affirmation', async (ctx) => {
-  const affirmation = GENERAL_AFFIRMATIONS[Math.floor(Math.random() * GENERAL_AFFIRMATIONS.length)];
-  if (send) await send(ctx, `✨ ${affirmation}`, keyboards.contactMenuInline(), { allow_edit_fallback: true });
-  else await ctx.reply(`✨ ${affirmation}`, keyboards.contactMenuInline());
-  return true;
-});
-router.register('help', async (ctx) => {
-  if (send) await send(ctx, MENU_TEXTS.HELP, keyboards.contactMenuInline(), { allow_edit_fallback: true });
-  else await ctx.reply(MENU_TEXTS.HELP, keyboards.contactMenuInline());
-  return true;
-});
-
-// 8) onboard
+// ═══════════════════════════════════════════════════════════════════════════
+// 1️⃣2️⃣ ІНШІ DAILY ACTIONS (contains morning/evening keywords)
+// ═══════════════════════════════════════════════════════════════════════════
 router.register(
-  (data) => false, // поки пропускаємо, не блокує інші callback
-  async (ctx) => false
-);
-// 9) daily sessions (prefix matching)
-router.register({ prefix: 'start_morning' }, async (ctx) => { await dailyController.startMorningSession(ctx); return true; });
-router.register({ prefix: 'start_evening' }, async (ctx) => { await dailyController.startEveningSession(ctx); return true; });
-
-// 10) subscriptions (prefix)
-router.register((d) => d.startsWith('subscription_') || d.startsWith('subscribe_') || d === 'activate_trial' || d === 'sync_subscription' || d.startsWith('plan_') || d.startsWith('renew_'),
-  async (ctx) => { await subscriptionController.handleCallback(ctx); return true; }
+  (data) => data.includes('morning') || data.includes('evening'),
+  async (ctx, data) => {
+    console.log('[callbackHandler] 📅 daily action');
+    await dailyController.handleCallback(ctx, data);
+    return true;
+  }
 );
 
-// 11) wheel (prefix)
-router.register({ prefix: 'wheel_' }, async (ctx, data) => { await wheelController.handleCallback(ctx, data); return true; });
+// ═══════════════════════════════════════════════════════════════════════════
+// 1️⃣3️⃣ CONTINUE SESSION
+// ═══════════════════════════════════════════════════════════════════════════
+router.register('continue_session', async (ctx) => {
+  console.log('[callbackHandler] 🔁 continue_session');
+  await mainFlowController.handleCallback(ctx, 'continue_session');
+  return true;
+});
 
-// 12) ai (prefix)
-router.register({ prefix: 'ai_' }, async (ctx) => { await aiMentorController.handleAIMentorCallback(ctx); return true; });
-
-// 13) other daily actions (contains morning/evening keywords)
-router.register((d) => d.includes('morning') || d.includes('evening'), async (ctx, data) => { await dailyController.handleCallback(ctx, data); return true; });
-
-// 14) continue session
-router.register('continue_session', async (ctx) => { await mainFlowController.handleCallback(ctx, 'continue_session'); return true; });
-
-// 15) timezone pagination
-router.register(/^tz_page_\d+$/, async (ctx) => {
-  const page = parseInt(ctx.callbackQuery.data.split('_')[2], 10) || 0;
+// ═══════════════════════════════════════════════════════════════════════════
+// 1️⃣4️⃣ TIMEZONE PAGINATION (tz_page_N)
+// ═══════════════════════════════════════════════════════════════════════════
+router.register(/^tz_page_\d+$/, async (ctx, data) => {
+  const page = parseInt(data.split('_')[2], 10) || 0;
+  console.log(`[callbackHandler] 🌍 tz_page_${page}`);
+  
   try {
     await ctx.editMessageReplyMarkup(keyboards.timezoneKeyboard(page).reply_markup);
-  } catch (e) {
-    if (send) await send(ctx, 'Оберіть часовий пояс:', keyboards.timezoneKeyboard(page), { allow_edit_fallback: true });
-    else await ctx.reply('Оберіть часовий пояс:', keyboards.timezoneKeyboard(page));
+  } catch {
+    await sendMessage(
+      ctx, 
+      'Оберіть часовий пояс:', 
+      keyboards.timezoneKeyboard(page)
+    );
   }
   return true;
 });
 
-// 16) default handler
-const defaultHandler = async (ctx) => {
-  console.log(`[callbackHandler] ❓ Невідомий callback: ${ctx.callbackQuery?.data}`);
-  try { await ctx.answerCbQuery('Команда не розпізнана'); } catch (e) {}
+// ═══════════════════════════════════════════════════════════════════════════
+// 1️⃣5️⃣ DISMISS/CANCEL (не приховуємо меню!)
+// ═══════════════════════════════════════════════════════════════════════════
+router.register(['dismiss_reminder', 'dismiss_offer'], async (ctx) => {
+  console.log('[callbackHandler] ⏭ dismiss');
+  await sendMessage(
+    ctx,
+    '✅ Зрозуміло!',
+    keyboards.mainMenuInline() // ✅ Меню залишається
+  );
+  return true;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1️⃣6️⃣ DEFAULT HANDLER (невідомі callbacks)
+// ═══════════════════════════════════════════════════════════════════════════
+const defaultHandler = async (ctx, data) => {
+  console.log(`[callbackHandler] ❓ Невідомий callback: ${data}`);
+  await sendMessage(
+    ctx, 
+    '❓ Команда не розпізнана. Спробуй ще раз 👇', 
+    keyboards.mainMenuInline() // ✅ Меню завжди є
+  );
   return true;
 };
 
-// ---------- MAIN HANDLE ----------
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🎯 ГОЛОВНИЙ ОБРОБНИК
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 export const handle = async (ctx) => {
   const userId = ctx.from?.id;
   const data = ctx.callbackQuery?.data || '';
-  console.log(`[callbackHandler] ${data} від ${userId}`);
+  
+  console.log(`[callbackHandler] ➡️ callback "${data}" від ${userId}`);
 
-  // anti-spam
+  // ✅ АНТІ-СПАМ
   if (antiSpam.isSpam(userId, data)) {
-    try { await ctx.answerCbQuery('⏳ Зачекай трохи'); } catch {}
+    try {
+      await ctx.answerCbQuery('⏳ Зачекай трохи');
+    } catch {}
     return true;
   }
 
   try {
-    // 1) onboard first chance
-    if (await startCb(ctx)) return true;
-
-    // 2) router
-    const handled = await router.handle(ctx);
-    if (handled) return true;
-
-    // 3) default fallback
-    return await defaultHandler(ctx);
-  } catch (error) {
-    console.error('[callbackHandler] Помилка:', error);
-    if (send) {
-      try { await send(ctx, '❌ Помилка. Спробуй ще раз.', keyboards.mainMenuInline(), { allow_edit_fallback: true }); } catch {}
-    } else {
-      try { await ctx.reply('❌ Помилка. Спробуй ще раз.', keyboards.mainMenuInline()); } catch {}
+    // 1️⃣ ПРІОРИТЕТ: onboarding (startHandler)
+    if (await startCb(ctx)) {
+      return true;
     }
+
+    // 2️⃣ ROUTER
+    const handled = await router.handle(ctx);
+    if (handled) {
+      return true;
+    }
+
+    // 3️⃣ DEFAULT FALLBACK
+    return await defaultHandler(ctx, data);
+
+  } catch (error) {
+    console.error('[callbackHandler] ❌ Критична помилка:', error);
+    
+    // ✅ Останній fallback — З КЛАВІАТУРОЮ
+    try {
+      await sendMessage(
+        ctx, 
+        '❌ Помилка. Спробуй /start або обери дію 👇', 
+        keyboards.mainMenuInline()
+      );
+    } catch {}
+    
     return true;
   }
 };
