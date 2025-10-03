@@ -5,9 +5,76 @@ import { USER_STATUS, SUBSCRIPTION_STATUS, CURRENT_ACTIVITY } from '../config/co
 
 const TABLE = 'USERS';
 
-// ✅ ISO без мілісекунд (Airtable любить такий формат для Date/DateTime)
+// формат ISO без мілісекунд
 const getAirtableDate = () => new Date().toISOString().split('.')[0] + 'Z';
 
+// видалити readonly/формульні поля
+const stripReadonly = (fields) => {
+  const f = { ...fields };
+  ['AT_id', 'TG_id', 'Active_Subscription_Status', 'Last Modified Time'].forEach(k => delete f[k]);
+  return f;
+};
+// повертає масив кандидатів для оновлення Current_Activity
+const buildVariants = (fields) => {
+  const variants = [fields];
+  const names = ['Current_Activity', 'Current Activity', 'Answer Step'];
+  names.forEach(name => {
+    if (fields.Current_Activity) {
+      const v = { ...fields, [name]: fields.Current_Activity };
+      delete v.Current_Activity;
+      variants.push(v);
+    }
+  });
+  return variants;
+};
+export const updateUser = async (recordId, fields) => {
+  const base = getBase();
+  const table = base(tables.USERS);
+  const initial = stripReadonly(fields);
+
+  // завжди оновлюємо Current_Activity
+  initial.Current_Activity = getAirtableDate();
+
+  const variants = buildVariants(initial);
+
+  let lastErr = null;
+  for (const candidate of variants) {
+    try {
+      const started = Date.now();
+      const [updated] = await table.update([{ id: recordId, fields: candidate }], { typecast: true });
+      const elapsed = ((Date.now() - started) / 1000).toFixed(2);
+      console.log(`[userRepo] Користувача оновлено за ${elapsed}с`);
+      return updated;
+    } catch (e) {
+      if (e?.statusCode === 422 && /Unknown field name/i.test(e?.message || '')) {
+        lastErr = e;
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  // fallback: оновлюємо без Current_Activity
+  try {
+    const safe = { ...initial };
+    delete safe.Current_Activity;
+    delete safe['Current Activity'];
+    delete safe['Answer Step'];
+
+    if (Object.keys(safe).length === 0) {
+      // нічого оновлювати — повертаємо запис
+      return await table.find(recordId);
+    }
+
+    const started = Date.now();
+    const [updated] = await table.update([{ id: recordId, fields: safe }], { typecast: true });
+    const elapsed = ((Date.now() - started) / 1000).toFixed(2);
+    console.log(`[userRepo] Користувача оновлено (без активності) за ${elapsed}с`);
+    return updated;
+  } catch (e) {
+    throw lastErr || e;
+  }
+};
 // ===== READ =====
 export const findByTgId = async (tgId) => {
   console.log(`[userRepo] Пошук користувача ${tgId}...`);
@@ -102,17 +169,6 @@ export const createUser = async (tgId, name, timezone = 'Europe/Kiev (UTC+3)') =
 
 // ===== UPDATE =====
 
-// допоміжне: прибрати readonly/формульні
-const stripReadonly = (fields) => {
-  const clean = { ...fields };
-  [
-    'AT_id',
-    'TG_id',
-    'Active_Subscription_Status',
-    'Last Modified Time'
-  ].forEach((k) => delete clean[k]);
-  return clean;
-};
 
 // допоміжне: перейменувати ключ у клоні об’єкта
 const withFieldRenamed = (fields, from, to) => {
@@ -124,74 +180,6 @@ const withFieldRenamed = (fields, from, to) => {
   return f;
 };
 
-export const updateUser = async (recordId, fields) => {
-  console.log(`[userRepo] Оновлення користувача ${recordId}...`);
-  const base = getBase();
-  const table = base(tables.USERS);
-
-  // 1) очищаємо
-  const initial = stripReadonly(fields);
-
-  // 2) завжди оновлюємо Current_Activity у правильному форматі
-  initial.Current_Activity = getAirtableDate();
-
-  // 3) готуємо варіанти з фолбеком назв для поля активності
-  const variants = [initial];
-if (safe.Current_Activity) {
-  const started = Date.now();
-  const [updated] = await table.update([{ id: recordId, fields: { Current_Activity: safe.Current_Activity } }], { typecast: true });
-  const elapsed = ((Date.now() - started) / 1000).toFixed(2);
-  console.log(`[userRepo] Оновлено Current_Activity за ${elapsed}с`);
-  return updated;
-}
-  if ('Current_Activity' in initial) {
-    const v1 = withFieldRenamed(initial, 'Current_Activity', 'Current Activity');
-    const v2 = withFieldRenamed(initial, 'Current_Activity', 'Current_Activity');
-    const v3 = withFieldRenamed(initial, 'Current_Activity', 'Answer Step');
-    [v1, v2, v3].forEach((v) => v && variants.push(v));
-  }
-
-  let lastErr = null;
-
-  // 4) пробуємо варіанти з активністю
-  for (const candidate of variants) {
-    try {
-      const started = Date.now();
-      const [updated] = await table.update([{ id: recordId, fields: candidate }], { typecast: true });
-      const elapsed = ((Date.now() - started) / 1000).toFixed(2);
-      console.log(`[userRepo] Користувача оновлено за ${elapsed}с`);
-      return updated;
-    } catch (e) {
-      if (e?.statusCode === 422 && /Unknown field name/i.test(e?.message || '')) {
-        lastErr = e;
-        continue;
-      }
-      throw e;
-    }
-  }
-
-  // 5) якщо всі впали — оновлюємо без поля активності
-  try {
-    const safe = { ...initial };
-    delete safe.Current_Activity;
-    delete safe['Current Activity'];
-    delete safe.Current_Activity;
-    delete safe['Answer Step'];
-
-    if (Object.keys(safe).length) {
-      const started = Date.now();
-      const [updated] = await table.update([{ id: recordId, fields: safe }], { typecast: true });
-      const elapsed = ((Date.now() - started) / 1000).toFixed(2);
-      console.log(`[userRepo] Користувача оновлено (без активності) за ${elapsed}с`);
-      return updated;
-    }
-
-    // нічого оновлювати — повертаємо поточний запис
-    return await table.find(recordId);
-  } catch (e) {
-    throw lastErr || e;
-  }
-};
 
 // ===== BULK READ =====
 export const findActiveUsers = async () => {
@@ -217,6 +205,7 @@ export default {
   findByTgId,
   createUser,
   updateUser,
+  withFieldRenamed,
   findActiveUsers
 };
 

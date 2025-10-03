@@ -241,12 +241,27 @@ export const NOTE_FIELDS = [
   'Spirituality_Notes',
   'Housing_Notes'
 ];
+// ✅ ENUM ДЛЯ ТЕКСТОВИХ КОМАНД (без emoji)
+export const TEXT_COMMANDS = {
+  AI_MENTOR: 'AI Наставник',
+  WHEEL: 'Колесо балансу',
+  REPORTS: 'Звіти',
+  INFO: 'Інформація про бота',
+  SUBSCRIPTION: 'Підписка',
+  CONTACT: 'Зв\'язок',
+  AFFIRMATION: 'Афірмація',
+  WEEKLY_REPORT: 'Щотижневий звіт',
+  MONTHLY_REPORT: 'Щомісячний звіт',
+  PROGRESS: 'Мій прогрес',
+  HELP: 'Допомога',
+  INSTRUCTIONS: 'Інструкції',
+};
 
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '15:00',
-  EVENING_TIME: '15:35',
+  MORNING_TIME: '17:48',
+  EVENING_TIME: '18:00',
   TIMEZONE: 'Europe/Kyiv' 
 });
 
