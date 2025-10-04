@@ -28,16 +28,40 @@ const mapRecord = (record) => {
     Status: f.Status || USER_STATUS.NEW,
     'Subscription Status': f['Subscription Status'] || SUBSCRIPTION_STATUS.NEW,
     'Active Subscription Plan': f['Active Subscription Plan'] || '',
-    Start_Date: f.Start_Date || null, // ✅ З підкресленням як поле в Airtable
-    End_Date: f.End_Date || null, // ✅ З підкресленням як поле в Airtable
+    Start_Date: f.Start_Date || null,
+    End_Date: f.End_Date || null,
     'Active_Subscription_Status': f['Active_Subscription_Status'] || '',
-    Current_Activity: f.Current_Activity || CURRENT_ACTIVITY.COMPLETED,
+    Answer_Step: f.Answer_Step || CURRENT_ACTIVITY.COMPLETED, // ✅ ДОДАТИ
     Created_At: f.Created_At || null,
     Last_Activity: f.Last_Activity || null,
     'Registration Date': f['Registration Date'] || null
   };
 };
 
+// ✅ ДОДАТИ updateUserStep - працює з Answer_Step
+export const updateUserStep = async (tgId, step) => {
+  console.log(`[userService] 🔄 updateUserStep(${tgId}, ${step})`);
+  
+  userCache.delete(String(tgId));
+  
+  return await updateUserFields(tgId, {
+    Answer_Step: step // ✅ пишемо в Answer_Step
+  });
+};
+
+export const finalizeRegistration = async (tgId, data) => {
+  const now = new Date().toISOString();
+  console.log(`[userService] finalizeRegistration(${tgId})...`);
+  return await updateUserFields(tgId, {
+    'User Name': data.name,
+    Email: data.email || null,
+    Phone: data.phone || null,
+    'Time Zone': data.timezone,
+    UserRegistered: true,
+    'Registration Date': now,
+    Answer_Step: CURRENT_ACTIVITY.COMPLETED // ✅ ДОДАТИ
+  });
+};
 // ===== ✅ ВИПРАВЛЕНА: hasActiveAccess З ЛОГАМИ + ДАТИ + TRUST STATUS =====
 export const hasActiveAccess = (user) => {
   if (!user) {
@@ -179,19 +203,6 @@ export const updateUserFields = async (tgId, fields) => {
     throw error;
   }
 };
-export const finalizeRegistration = async (tgId, data) => {
-  const now = new Date().toISOString();
-  console.log(`[userService] finalizeRegistration(${tgId})...`);
-  return await updateUserFields(tgId, {
-    'User Name': data.name,
-    Email: data.email || null,
-    Phone: data.phone || null,
-    'Time Zone': data.timezone,
-    UserRegistered: true,
-    'Registration Date': now,
-    Current_Activity: 'completed'
-  });
-};
 // ===== АКТИВАЦІЯ TRIAL =====
 export const activateTrial = async (tgId, days = 7) => {
   const start = new Date();
@@ -224,17 +235,6 @@ export const getCacheStats = () => {
     size: userCache.size,
     users: Array.from(userCache.keys())
   };
-};
-// ===== ОНОВЛЕННЯ КРОКУ КОРИСТУВАЧА =====
-export const updateUserStep = async (tgId, step) => {
-  console.log(`[userService] 🔄 updateUserStep(${tgId}, ${step})`);
-  
-  // Інвалідуємо індивідуальний кеш
-  userCache.delete(String(tgId));
-  
-  return await updateUserFields(tgId, {
-    Current_Activity: step
-  });
 };
 
 // ===== ОНОВЛЕННЯ АКТИВНОСТІ КОРИСТУВАЧА =====

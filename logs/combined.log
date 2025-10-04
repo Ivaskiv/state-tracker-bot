@@ -2733,3 +2733,9 @@
 {"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-03T13:11:41.666Z"}
 {"level":"info","message":"[responseService] Отримано 13 записів для 630111093","timestamp":"2025-10-03T13:11:55.257Z"}
 {"error":"INVALID_FILTER_BY_FORMULA","level":"error","message":"[responseService] Помилка isSessionCompleted: The formula for filtering records is invalid: Unknown field names: date_response","statusCode":422,"timestamp":"2025-10-04T12:03:04.874Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] ❌ saveMorningAnswer: Unknown field name: \"Last_Activity\"","statusCode":422,"timestamp":"2025-10-04T13:54:19.526Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"[responseService] ❌ saveMorningAnswer: Insufficient permissions to create new select option \"\"2025-10-04T14:01:28.579Z\"\"","statusCode":422,"timestamp":"2025-10-04T14:01:29.030Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"[responseService] ❌ saveMorningAnswer: Insufficient permissions to create new select option \"\"2025-10-04T14:01:41.047Z\"\"","statusCode":422,"timestamp":"2025-10-04T14:01:41.485Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-04T14:10:15.283Z"}
+{"level":"warn","message":"[responseService] ⚠️ Запис Responses не знайдено - створюємо","timestamp":"2025-10-04T14:10:15.521Z"}
+{"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-04T14:10:15.823Z"}

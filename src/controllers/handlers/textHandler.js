@@ -14,19 +14,17 @@ export const handle = async (ctx) => {
   console.log(`[textHandler] 🔍 "${text.substring(0, 30)}..." від ${tgId}`);
 
   try {
-    const user = await userService.getUserByTgId(tgId, { skipCache: true }); // ✅ БЕЗ КЕШУ!
+    const user = await userService.getUserByTgId(tgId, { skipCache: true });
 
     if (!user || !user.UserRegistered) {
       await ctx.reply('Спочатку зареєструйся /start', keyboards.mainMenuKeyboard());
       return true;
     }
 
-    const step = user.Current_Activity;
+    const step = user.Answer_Step; // ✅ Читаємо з Answer_Step
     console.log(`[textHandler] 📍 Step: ${step}`);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 1️⃣ АКТИВНІ СЕСІЇ - ОБРОБКА ВІДПОВІДЕЙ (ПРІОРИТЕТ #1)
-    // ═══════════════════════════════════════════════════════════════════════
+    // АКТИВНІ СЕСІЇ - ОБРОБКА ВІДПОВІДЕЙ
     
     // РАНКОВІ ПИТАННЯ
     if (step?.startsWith('Q_m_')) {
@@ -60,10 +58,7 @@ export const handle = async (ctx) => {
       return true;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 2️⃣ ОБРОБКА КОМАНД МЕНЮ
-    // ═══════════════════════════════════════════════════════════════════════
-    
+    // ОБРОБКА КОМАНД МЕНЮ
     const hasAccess = userService.hasActiveAccess(user);
 
     const showBlock = async (feature) => {
@@ -106,7 +101,6 @@ export const handle = async (ctx) => {
         break;
 
       default:
-        // Не розпізнали - ігноруємо
         return false;
     }
 
@@ -114,10 +108,9 @@ export const handle = async (ctx) => {
 
   } catch (error) {
     console.error('[textHandler] ❌ GLOBAL:', error);
-    console.error('[textHandler] Stack:', error.stack); // ✅ ПОВНИЙ STACK TRACE
+    console.error('[textHandler] Stack:', error.stack);
     await ctx.reply('❌ Помилка обробки.', keyboards.mainMenuKeyboard());
     return true;
   }
 };
-
 export default { handle };
