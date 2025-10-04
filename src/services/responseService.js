@@ -19,8 +19,8 @@ const responseService = {
       
       const records = await base(tables.RESPONSES)
         .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", {Date Response} >= "${fromDateStr}")`,
-          sort: [{ field: 'Date Response', direction: 'desc' }]
+          filterByFormula: `AND({TG_id}="${String(tgId)}", {Date_Response} >= "${fromDateStr}")`,
+          sort: [{ field: 'Date_Response', direction: 'desc' }]
         })
         .all();
       
@@ -42,7 +42,7 @@ const responseService = {
       
       const records = await base(tables.RESPONSES)
         .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date Response})="${today}")`,
+          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
           maxRecords: 1
         })
         .firstPage();
@@ -75,7 +75,7 @@ const responseService = {
       
       const records = await base(tables.RESPONSES)
         .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date Response})="${today}")`,
+          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
           maxRecords: 1
         })
         .firstPage();
@@ -87,7 +87,7 @@ const responseService = {
       } else {
         await base(tables.RESPONSES).create({
           'TG_id': String(tgId),
-          'Date Response': today,
+          'Date_Response': today,
           'User Name': 'Користувач',
           ...updateData
         });
@@ -116,7 +116,7 @@ await userService.updateUserActivity(tgId)
       
       const records = await base(tables.RESPONSES)
         .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date Response})="${today}")`,
+          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
           maxRecords: 1
         })
         .firstPage();
@@ -128,7 +128,7 @@ await userService.updateUserActivity(tgId)
       } else {
         await base(tables.RESPONSES).create({
           'TG_id': String(tgId),
-          'Date Response': today,
+          'Date_Response': today,
           'User Name': 'Користувач',
           ...updateData
         });
@@ -168,7 +168,7 @@ await userService.updateUserActivity(tgId)
       
       const records = await base(tables.RESPONSES)
         .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date Response})="${today}")`,
+          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
           maxRecords: 1
         })
         .firstPage();
@@ -180,7 +180,7 @@ await userService.updateUserActivity(tgId)
       } else {
         await base(tables.RESPONSES).create({
           'TG_id': String(tgId),
-          'Date Response': today,
+          'Date_Response': today,
           'User Name': 'Користувач',
           ...updateData
         });

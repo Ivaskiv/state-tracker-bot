@@ -43,7 +43,7 @@ const botController = (bot) => {
     // Спочатку онбординг
     if (await startCb(ctx)) return;
     // Потім — глобальні callback-и
-    if (await callbackHandler(ctx)) return;
+    if (await callbackHandler.handle(ctx)) return;
     return next();
   });
 
