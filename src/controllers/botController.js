@@ -30,14 +30,14 @@ const botController = (bot) => {
   registerStartHandlers(bot);
 
   // ===== ТЕКСТ =====
-  bot.on('text', async (ctx, next) => {
-    // Спочатку даємо шанс онбордингу
-    if (await startText(ctx)) return;
-    // Потім — твій основний текстовий хендлер
-    if (await textHandler(ctx)) return;
-    return next();
-  });
-
+bot.on('text', async (ctx) => {
+  try {
+    await textHandler.handle(ctx); 
+  } catch (error) {
+    console.error('💥 Middleware error:', error);
+    await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard());
+  }
+});
   // ===== CALLBACK =====
   bot.on('callback_query', async (ctx, next) => {
     // Спочатку онбординг

@@ -331,7 +331,7 @@ const checkMorningCompletion = async (tgId) => {
 
     const recs = await base(tables.RESPONSES)
       .select({
-        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${today}", {Q_m_6} != "")`,
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date_Response})="${today}", {Q_m_6} != "")`,
         maxRecords: 1
       })
       .firstPage();

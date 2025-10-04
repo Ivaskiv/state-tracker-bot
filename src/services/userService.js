@@ -92,30 +92,25 @@ export const hasActiveAccess = (user) => {
 // ===== ОСНОВНІ ОПЕРАЦІЇ =====
 
 // ✅ GET USER З КЕШЕМ
-export const getUserByTgId = async (tgId) => {
+export const getUserByTgId = async (tgId, options) => {
+  const skipCache = options?.skipCache || false;  // ✅
   const cacheKey = String(tgId);
   
-  // Перевіряємо кеш
-  const cached = userCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    console.log(`[userService] 💾 Користувач з кешу: ${tgId}`);
-    return cached.user;
+  if (!skipCache) {
+    const cached = userCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`[userService] 💾 Кеш: ${tgId}`);
+      return cached.user;
+    }
   }
   
-  // Якщо немає в кеші - запитуємо з БД
-  console.log(`[userService] 🔍 getUserByTgId(${tgId}) - запит до БД...`);
+  console.log(`[userService] 🔍 getUserByTgId(${tgId}) - БД...`);
   const record = await userRepo.findByTgId(tgId);
   const user = mapRecord(record);
   
-  // Зберігаємо в кеш якщо знайшли
   if (user) {
-    userCache.set(cacheKey, {
-      user,
-      timestamp: Date.now()
-    });
-    console.log(`[userService] ✅ Користувача ${user['User Name']} додано до кешу`);
-  } else {
-    console.log(`[userService] ❌ Користувача ${tgId} не знайдено`);
+    userCache.set(cacheKey, { user, timestamp: Date.now() });
+    console.log(`[userService] ✅ ${user['User Name']}, Current_Activity: ${user.Current_Activity}`);
   }
   
   return user;
@@ -151,11 +146,13 @@ export const ensureUser = async (tgId, name) => {
 };
 
 // ✅ UPDATE USER З ОЧИЩЕННЯМ КЕШУ
+
 export const updateUserFields = async (tgId, fields) => {
   console.log(`[userService] updateUserFields(${tgId})...`, Object.keys(fields));
   
-  // ✅ ЗАВЖДИ запитуємо свіжі дані з БД (ігноруємо кеш)
+  // ✅ ОЧИЩАЄМО КЕШ ПЕРЕД ОНОВЛЕННЯМ
   userCache.delete(String(tgId));
+  
   const record = await userRepo.findByTgId(tgId);
   const user = mapRecord(record);
   
@@ -168,16 +165,20 @@ export const updateUserFields = async (tgId, fields) => {
     const updated = await userRepo.updateUser(user.id, fields);
     const result = mapRecord(updated);
     
-    console.log(`[userService] ✅ Поля оновлено`);
+    // ✅ ОНОВЛЮЄМО КЕШ ПІСЛЯ ЗБЕРЕЖЕННЯ
+    userCache.set(String(tgId), {
+      user: result,
+      timestamp: Date.now()
+    });
+    
+    console.log(`[userService] ✅ Поля оновлено, кеш оновлено`);
     return result;
   } catch (error) {
     console.error(`[userService] ❌ Помилка оновлення: ${error.message}`);
-    // Очищаємо кеш при помилці
     userCache.delete(String(tgId));
     throw error;
   }
 };
-
 export const finalizeRegistration = async (tgId, data) => {
   const now = new Date().toISOString();
   console.log(`[userService] finalizeRegistration(${tgId})...`);

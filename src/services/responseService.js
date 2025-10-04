@@ -68,96 +68,102 @@ const responseService = {
   /**
    * Збереження ранкової відповіді
    */
-  async saveMorningAnswer(tgId, questionNumber, answer) {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const fieldName = `Q_m_${questionNumber}`;
-      
-      const records = await base(tables.RESPONSES)
-        .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
-          maxRecords: 1
-        })
-        .firstPage();
-      
-      const updateData = { [fieldName]: answer };
-      
-      if (records.length > 0) {
-        await base(tables.RESPONSES).update(records[0].id, updateData);
-      } else {
-        await base(tables.RESPONSES).create({
-          'TG_id': String(tgId),
-          'Date_Response': today,
-          'User Name': 'Користувач',
-          ...updateData
-        });
-      }
-      
-      logger.info(`[responseService] Збережено ранкову відповідь ${questionNumber} для ${tgId}`);
-      
-      // ✅ ОНОВЛЮЄМО current_Activity після КОЖНОЇ відповіді
-await userService.updateUserActivity(tgId)
-  .catch(err => logger.error('[responseService] Помилка оновлення активності:', err));      
-      return true;
-      
-    } catch (error) {
-      logger.error('[responseService] Помилка saveMorningAnswer:', error);
-      throw error;
-    }
-  },
+// src/services/responseService.js - ВИПРАВЛЕНО
 
+async saveMorningAnswer(tgId, questionNumber, answer) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    const fieldName = `Q_m_${questionNumber}`;
+    
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    const updateData = { 
+      [fieldName]: answer,
+      Last_Activity: now
+    };
+    
+    if (records.length > 0) {
+      await base(tables.RESPONSES).update(records[0].id, updateData);
+    } else {
+      await base(tables.RESPONSES).create({
+        'TG_id': String(tgId),
+        'Date_Response': today,
+        'User Name': 'Користувач',
+        Last_Activity: now,
+        ...updateData
+      });
+    }
+    
+    logger.info(`[responseService] ✅ Збережено Q_m_${questionNumber} для ${tgId}`);
+    
+    // ✅ НЕ ВСТАНОВЛЮЄМО Current_Activity ТУТ - це робить dailyController!
+    
+    return true;
+  } catch (error) {
+    logger.error('[responseService] ❌ saveMorningAnswer:', error);
+    throw error;
+  }
+},
   /**
    * Збереження вечірньої відповіді
    */
-  async saveEveningAnswer(tgId, questionNumber, answer) {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const fieldName = `Q_e_${questionNumber}`;
-      
-      const records = await base(tables.RESPONSES)
-        .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
-          maxRecords: 1
-        })
-        .firstPage();
-      
-      const updateData = { [fieldName]: answer };
-      
-      if (records.length > 0) {
-        await base(tables.RESPONSES).update(records[0].id, updateData);
-      } else {
-        await base(tables.RESPONSES).create({
-          'TG_id': String(tgId),
-          'Date_Response': today,
-          'User Name': 'Користувач',
-          ...updateData
-        });
-      }
-      
-      logger.info(`[responseService] Збережено вечірню відповідь ${questionNumber} для ${tgId}`);
-      
-      // ✅ ОНОВЛЮЄМО current_Activity після КОЖНОЇ відповіді
-await userService.updateUserActivity(tgId)
-  .catch(err => logger.error('[responseService] Помилка оновлення активності:', err));
-
-      // ✅ ЯКЩО ЦЕ ОСТАННЯ ВЕЧІРНЯ ВІДПОВІДЬ (Q_e_5) - ФІНАЛІЗУЄМО ДЕНЬ
-      if (questionNumber === 5) {
-        logger.info(`[responseService] 🌙 Остання вечірня відповідь - фіналізація дня для ${tgId}`);
-        
-        // Запускаємо асинхронно, щоб не блокувати відповідь користувачу
-        activityTracker.finalizeDay(tgId).catch(err => {
-          logger.error('[responseService] Помилка finalizeDay:', err);
-        });
-      }
-      
-      return true;
-      
-    } catch (error) {
-      logger.error('[responseService] Помилка saveEveningAnswer:', error);
-      throw error;
+async saveEveningAnswer(tgId, questionNumber, answer) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    const fieldName = `Q_e_${questionNumber}`;
+    
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    const updateData = { 
+      [fieldName]: answer,
+      Current_Activity: now // ✅ ДОДАНО
+    };
+    
+    if (records.length > 0) {
+      await base(tables.RESPONSES).update(records[0].id, updateData);
+    } else {
+      await base(tables.RESPONSES).create({
+        'TG_id': String(tgId),
+        'Date_Response': today,
+        'User Name': 'Користувач',
+        Current_Activity: now,
+        ...updateData
+      });
     }
-  },
-
+    
+    logger.info(`[responseService] ✅ Збережено Q_e_${questionNumber} для ${tgId}`);
+    
+    // ✅ ОНОВЛЮЄМО КОРИСТУВАЧА
+    await userService.updateUserFields(tgId, {
+      Current_Activity: `Q_e_${questionNumber}`,
+      Last_Activity: now
+    });
+    
+    // ✅ ЯКЩО ОСТАННЯ ВІДПОВІДЬ - ФІНАЛІЗАЦІЯ
+    if (questionNumber === 5) {
+      await activityTracker.finalizeDay(tgId).catch(err => 
+        logger.error('[responseService] ❌ finalizeDay:', err)
+      );
+    }
+    
+    return true;
+  } catch (error) {
+    logger.error('[responseService] ❌ saveEveningAnswer:', error);
+    throw error;
+  }
+},
   /**
    * Збереження афірмації
    */

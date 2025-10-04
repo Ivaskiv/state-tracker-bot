@@ -1,10 +1,14 @@
-// src/controllers/flows/dailyController.js - КОНТРОЛЕР ЩОДЕННИХ ПИТАНЬ
+// src/controllers/flows/dailyController.js - ВИПРАВЛЕНО
 
 import userService from '../../services/userService.js';
 import responseService from '../../services/responseService.js';
 import { chat } from '../../services/openaiClient.js';
 import keyboards from '../../utils/keyboards.js';
 import { QUESTIONS } from '../../config/constants.js';
+
+// ✅ ПРАВИЛЬНИЙ ІМПОРТ
+const MORNING_QUESTIONS = QUESTIONS.morning;
+const EVENING_QUESTIONS = QUESTIONS.evening;
 
 // Локальні афірмації
 const MORNING_AFFIRMATIONS = [
@@ -24,26 +28,55 @@ const EVENING_AFFIRMATIONS = [
 ];
 
 const dailyController = {
-  // ===== ОБРОБКА ТЕКСТУ =====
-  async handleText(ctx, text, userStep) {
+  // ═══════════════════════════════════════════════════════════════════════
+  // ОБРОБКА ТЕКСТУ
+  // ═══════════════════════════════════════════════════════════════════════
+  async handleText(ctx, text, step) {
     const tgId = ctx.from.id;
-    console.log(`[DAILY] 💬 Відповідь від ${tgId}, step: ${userStep}`);
-
+    
     try {
-      if (userStep?.startsWith('Q_m_')) {
-        await this.handleMorningAnswer(ctx, text, userStep);
-      } else if (userStep?.startsWith('Q_e_')) {
-        await this.handleEveningAnswer(ctx, text, userStep);
+      const isMorning = step?.startsWith('Q_m_');
+      const isEvening = step?.startsWith('Q_e_');
+      
+      if (!isMorning && !isEvening) {
+        return false;
       }
+      
+      const qNum = parseInt(step.split('_')[2], 10);
+      console.log(`[DAILY] 💬 Відповідь на питання ${qNum}: "${text.substring(0, 50)}..."`);
+      
+      if (isMorning) {
+        await responseService.saveMorningAnswer(tgId, qNum, text);
+        
+        if (qNum < 6) {
+          await this.askMorningQuestion(ctx, qNum + 1);
+        } else {
+          await this.completeMorningSession(ctx);
+        }
+      }
+      
+      if (isEvening) {
+        await responseService.saveEveningAnswer(tgId, qNum, text);
+        
+        if (qNum < 5) {
+          await this.askEveningQuestion(ctx, qNum + 1);
+        } else {
+          await this.completeEveningSession(ctx);
+        }
+      }
+      
       return true;
+      
     } catch (error) {
-      console.error('[DAILY] ❌ Помилка обробки тексту:', error);
-      await ctx.reply('❌ Помилка обробки відповіді. Спробуй ще раз.');
+      console.error('[DAILY] ❌ handleText:', error);
+      await ctx.reply('❌ Помилка збереження. Спробуй ще раз.', keyboards.mainMenuKeyboard());
       return true;
     }
   },
 
-  // ===== ОБРОБКА CALLBACK =====
+  // ═══════════════════════════════════════════════════════════════════════
+  // ОБРОБКА CALLBACK
+  // ═══════════════════════════════════════════════════════════════════════
   async handleCallback(ctx, data) {
     const tgId = ctx.from.id;
     console.log(`[DAILY] 📱 Callback: ${data}`);
@@ -81,43 +114,30 @@ const dailyController = {
     }
   },
 
-  // ===== РАНКОВА СЕСІЯ =====
+  // ═══════════════════════════════════════════════════════════════════════
+  // РАНКОВА СЕСІЯ
+  // ═══════════════════════════════════════════════════════════════════════
   async startMorningSession(ctx) {
     const tgId = ctx.from.id;
-    const userName = ctx.from.first_name || 'Користувач';
-
+    
     try {
       console.log(`[DAILY] 🌞 Початок ранкової сесії для ${tgId}`);
-
-      // ✅ ВИПРАВЛЕНО: getUserByTgId замість getUserByTelegramId
-      const user = await userService.getUserByTgId(tgId);
       
-      if (!user || !userService.hasActiveAccess(user)) {
-        await ctx.reply('Потрібна активна підписка для ранкової рефлексії.');
-        return;
-      }
-
-      // Перевіряємо чи вже завершені ранкові питання
-      const completed = await responseService.isSessionCompleted(tgId, 'morning');
-      if (completed) {
-        await ctx.reply(
-          `🌞 Ти вже завершила ранкову рефлексію сьогодні!\n\n✨ Гарного дня, ${userName}!`,
-          keyboards.mainMenuKeyboard()
-        );
-        return;
-      }
-
-      // Починаємо з першого питання
-      await userService.updateUserStep(tgId, 'Q_m_1');
+      await userService.updateUserFields(tgId, {
+        Current_Activity: 'Q_m_1'
+      });
+      
       await this.askMorningQuestion(ctx, 1);
       
     } catch (error) {
-      console.error('[DAILY] ❌ Помилка startMorningSession:', error);
-      await ctx.reply('❌ Помилка запуску ранкової сесії.');
+      console.error('[DAILY] ❌ startMorningSession:', error);
+      await ctx.reply('❌ Помилка запуску ранкової сесії.', keyboards.mainMenuKeyboard());
     }
   },
 
-  // ===== ВЕЧІРНЯ СЕСІЯ =====
+  // ═══════════════════════════════════════════════════════════════════════
+  // ВЕЧІРНЯ СЕСІЯ
+  // ═══════════════════════════════════════════════════════════════════════
   async startEveningSession(ctx) {
     const tgId = ctx.from.id;
     const userName = ctx.from.first_name || 'Користувач';
@@ -125,7 +145,6 @@ const dailyController = {
     try {
       console.log(`[DAILY] 🌙 Початок вечірньої сесії для ${tgId}`);
 
-      // ✅ ВИПРАВЛЕНО: getUserByTgId замість getUserByTelegramId
       const user = await userService.getUserByTgId(tgId);
       
       if (!user || !userService.hasActiveAccess(user)) {
@@ -133,7 +152,6 @@ const dailyController = {
         return;
       }
 
-      // Перевіряємо чи вже завершені вечірні питання
       const completed = await responseService.isSessionCompleted(tgId, 'evening');
       if (completed) {
         await ctx.reply(
@@ -143,281 +161,183 @@ const dailyController = {
         return;
       }
 
-      // Починаємо з першого питання
-      await userService.updateUserStep(tgId, 'Q_e_1');
+      await userService.updateUserFields(tgId, {
+        Current_Activity: 'Q_e_1'
+      });
+      
       await this.askEveningQuestion(ctx, 1);
       
     } catch (error) {
-      console.error('[DAILY] ❌ Помилка startEveningSession:', error);
+      console.error('[DAILY] ❌ startEveningSession:', error);
       await ctx.reply('❌ Помилка запуску вечірньої сесії.');
     }
   },
 
-  // ===== РАНКОВІ ПИТАННЯ =====
-  async askMorningQuestion(ctx, questionNumber) {
-    const q = QUESTIONS.morning[questionNumber - 1];
-    if (!q) return;
-
-    let message = `🌞 РАНКОВА РЕФЛЕКСІЯ\n\n${questionNumber}/${QUESTIONS.morning.length} ${q.text}`;
-    if (q.hint) message += `\n\n💡 Підказка: ${q.hint}`;
-
-    await ctx.reply(message, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🚪 Вийти із сесії', callback_data: 'exit_morning' }]
-        ]
-      }
-    });
-  },
-
-  // ===== ВЕЧІРНІ ПИТАННЯ =====
-  async askEveningQuestion(ctx, questionNumber) {
-    const q = QUESTIONS.evening[questionNumber - 1];
-    if (!q) return;
-
-    let message = `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ\n\n${questionNumber}/${QUESTIONS.evening.length} ${q.text}`;
-    if (q.hint) message += `\n\n💡 Підказка: ${q.hint}`;
-
-    await ctx.reply(message, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🚪 Вийти із сесії', callback_data: 'exit_evening' }]
-        ]
-      }
-    });
-  },
-
-  // ===== ОБРОБКА РАНКОВИХ ВІДПОВІДЕЙ =====
-  async handleMorningAnswer(ctx, text, userStep) {
+  // ═══════════════════════════════════════════════════════════════════════
+  // РАНКОВІ ПИТАННЯ
+  // ═══════════════════════════════════════════════════════════════════════
+  async askMorningQuestion(ctx, qNum) {
     const tgId = ctx.from.id;
-    const questionNumber = parseInt(userStep.split('_')[2], 10);
-
+    
     try {
-      await responseService.saveMorningAnswer(tgId, questionNumber, text);
-      console.log(`[DAILY] 🌞 Збережено ранкову відповідь ${questionNumber} для ${tgId}`);
-
-      if (questionNumber < QUESTIONS.morning.length) {
-        const nextStep = `Q_m_${questionNumber + 1}`;
-        await userService.updateUserStep(tgId, nextStep);
-        await this.askMorningQuestion(ctx, questionNumber + 1);
-      } else {
-        await this.completeMorningSession(ctx);
+      // ✅ ІНДЕКС МАСИВУ = qNum - 1
+      const question = MORNING_QUESTIONS[qNum - 1];
+      
+      if (!question) {
+        console.error(`[DAILY] ❌ Питання ${qNum} не знайдено`);
+        await ctx.reply('❌ Помилка завантаження питання.', keyboards.mainMenuKeyboard());
+        return;
       }
-    } catch (error) {
-      console.error('[DAILY] ❌ Помилка handleMorningAnswer:', error);
-      await ctx.reply('❌ Помилка збереження відповіді. Спробуй ще раз.');
-    }
-  },
-
-  // ===== ОБРОБКА ВЕЧІРНІХ ВІДПОВІДЕЙ =====
-  async handleEveningAnswer(ctx, text, userStep) {
-    const tgId = ctx.from.id;
-    const questionNumber = parseInt(userStep.split('_')[2], 10);
-
-    try {
-      await responseService.saveEveningAnswer(tgId, questionNumber, text);
-      console.log(`[DAILY] 🌙 Збережено вечірню відповідь ${questionNumber} для ${tgId}`);
-
-      if (questionNumber < QUESTIONS.evening.length) {
-        const nextStep = `Q_e_${questionNumber + 1}`;
-        await userService.updateUserStep(tgId, nextStep);
-        await this.askEveningQuestion(ctx, questionNumber + 1);
-      } else {
-        await this.completeEveningSession(ctx);
-      }
-    } catch (error) {
-      console.error('[DAILY] ❌ Помилка handleEveningAnswer:', error);
-      await ctx.reply('❌ Помилка збереження відповіді. Спробуй ще раз.');
-    }
-  },
-
-// ===== ЗАВЕРШЕННЯ РАНКОВОЇ СЕСІЇ =====
-async completeMorningSession(ctx) {
-  const tgId = ctx.from.id;
-  const userName = ctx.from.first_name || 'Користувач';
-
-  try {
-    console.log(`[DAILY] 🔄 Завершення ранкової сесії для ${tgId}`);
-    
-    // 1️⃣ Генеруємо мікро-дії
-    let microActions = "• Зосередься на головній цілі дня\n• Зроби один крок до мрії\n• Підтримай ресурсний стан";
-    try {
-      microActions = await this.generateDailyMicroActions(tgId, 'morning');
-    } catch (error) {
-      console.error('[DAILY] ⚠️ Помилка генерації мікро-дій:', error.message);
-    }
-    
-    // 2️⃣ Вибираємо афірмацію
-    const affirmation = MORNING_AFFIRMATIONS[Math.floor(Math.random() * MORNING_AFFIRMATIONS.length)];
-
-    // 3️⃣ Зберігаємо афірмацію
-    try {
-      await responseService.saveAffirmation(tgId, 'morning', affirmation);
-    } catch (error) {
-      console.error('[DAILY] ⚠️ Помилка збереження афірмації:', error.message);
-    }
-
-    // 4️⃣ Формуємо повідомлення
-    const message =
-      `🌞 РАНКОВА РЕФЛЕКСІЯ ЗАВЕРШЕНА!\n\n` +
-      `✨ Дякую, ${userName}! Твої відповіді збережено.\n\n` +
-      `🎯 ТВОЯ АФІРМАЦІЯ НА ДЕНЬ:\n"${affirmation}"\n\n` +
-      `💡 РЕКОМЕНДОВАНІ МІКРО-ДІЇ:\n${microActions}\n\n` +
-      `🚀 Продуктивного дня!`;
-
-    // 5️⃣ Надсилаємо повідомлення
-    await ctx.reply(message, keyboards.mainMenuKeyboard());
-
-    // 6️⃣ Оновлюємо статус користувача
-    try {
-      await userService.updateUserActivity(tgId);
-      await userService.updateUserStep(tgId, 'completed'); // ✅ КРИТИЧНО ВАЖЛИВО
-    } catch (error) {
-      console.error('[DAILY] ⚠️ Помилка оновлення статусу:', error.message);
-    }
-
-    // 7️⃣ Позначаємо сесію як завершену в scheduler
-    try {
-      const { markSessionCompleted } = await import('../../utils/scheduler.js');
-      markSessionCompleted(tgId, 'morning');
-    } catch (error) {
-      console.error('[DAILY] ⚠️ Помилка scheduler:', error.message);
-    }
-
-    console.log(`[DAILY] ✅ Ранкова сесія завершена для ${tgId}`);
-    
-  } catch (error) {
-    console.error('[DAILY] ❌ Критична помилка completeMorningSession:', error);
-    console.error('[DAILY] Stack:', error.stack);
-    
-    // Все одно намагаємось оновити статус
-    try {
-      await userService.updateUserStep(tgId, 'completed');
-      const { markSessionCompleted } = await import('../../utils/scheduler.js');
-      markSessionCompleted(tgId, 'morning');
-    } catch {}
-    
-    await ctx.reply(
-      '✅ Відповіді збережено!\n\n❌ Виникла помилка при формуванні звіту, але твої дані в безпеці.',
-      keyboards.mainMenuKeyboard()
-    );
-  }
-},
-// ===== ЗАВЕРШЕННЯ ВЕЧІРНЬОЇ СЕСІЇ =====
-async completeEveningSession(ctx) {
-  const tgId = ctx.from.id;
-  const userName = ctx.from.first_name || 'Користувач';
-
-  try {
-    console.log(`[DAILY] 🔄 Завершення вечірньої сесії для ${tgId}`);
-    
-    // 1️⃣ Генеруємо фідбек
-    let dailyFeedback = "Дякую за чесність у відповідях. Кожен день робить тебе сильнішою.";
-    try {
-      dailyFeedback = await this.generateDailyFeedback(tgId, 'evening');
-    } catch (error) {
-      console.error('[DAILY] ⚠️ Помилка генерації фідбеку:', error.message);
-    }
-    
-    // 2️⃣ Вибираємо афірмацію
-    const affirmation = EVENING_AFFIRMATIONS[Math.floor(Math.random() * EVENING_AFFIRMATIONS.length)];
-
-    // 3️⃣ Зберігаємо афірмацію
-    try {
-      await responseService.saveAffirmation(tgId, 'evening', affirmation);
-    } catch (error) {
-      console.error('[DAILY] ⚠️ Помилка збереження афірмації:', error.message);
-    }
-
-    // 4️⃣ Формуємо повідомлення
-    const message =
-      `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ ЗАВЕРШЕНА!\n\n` +
-      `✨ Дякую, ${userName}! Твій день проаналізовано.\n\n` +
-      `🎯 ТВОЯ АФІРМАЦІЯ НА НІЧ:\n"${affirmation}"\n\n` +
-      `💡 ФІДБЕК ДНЯ:\n${dailyFeedback}\n\n` +
-      `😴 Солодких снів!`;
-
-    // 5️⃣ Надсилаємо повідомлення
-    await ctx.reply(message, keyboards.mainMenuKeyboard());
-
-    // 6️⃣ Оновлюємо статус користувача
-    try {
-      await userService.updateUserActivity(tgId);
-      await userService.updateUserStep(tgId, 'completed'); // ✅ КРИТИЧНО ВАЖЛИВО
-    } catch (error) {
-      console.error('[DAILY] ⚠️ Помилка оновлення статусу:', error.message);
-    }
-
-    // 7️⃣ Позначаємо сесію як завершену в scheduler
-    try {
-      const { markSessionCompleted } = await import('../../utils/scheduler.js');
-      markSessionCompleted(tgId, 'evening');
-    } catch (error) {
-      console.error('[DAILY] ⚠️ Помилка scheduler:', error.message);
-    }
-
-    console.log(`[DAILY] ✅ Вечірня сесія завершена для ${tgId}`);
-    
-  } catch (error) {
-    console.error('[DAILY] ❌ Критична помилка completeEveningSession:', error);
-    console.error('[DAILY] Stack:', error.stack);
-    
-    // Все одно намагаємось оновити статус
-    try {
-      await userService.updateUserStep(tgId, 'completed');
-      const { markSessionCompleted } = await import('../../utils/scheduler.js');
-      markSessionCompleted(tgId, 'evening');
-    } catch {}
-    
-    await ctx.reply(
-      '✅ Відповіді збережено!\n\n❌ Виникла помилка при формуванні звіту, але твої дані в безпеці.',
-      keyboards.mainMenuKeyboard()
-    );
-  }
-},
-  // ===== ГЕНЕРАЦІЯ МІКРО-ДІЙ =====
-  async generateDailyMicroActions(tgId) {
-    try {
-      const records = await responseService.getUserRecords(tgId, 1);
-      if (!records.length)
-        return "• Зосередься на головній цілі дня\n• Зроби один крок до мрії\n• Підтримай ресурсний стан";
-
-      const todayData = records[0].fields;
-      const goal = todayData.Q_m_4 || '';
-      const state = todayData.Q_m_5 || '';
-      const qualities = todayData.Q_m_2 || '';
-
-      const prompt = `
-Створи 3 конкретні мікро-дії на сьогодні для користувача:
-
-Головна ціль дня: "${goal}"
-Поточний стан: "${state}"
-Якості: "${qualities}"
-
-Формат відповіді (лише текст дій):
-- [Дія 1 - для просування до цілі]
-- [Дія 2 - для підтримки стану]
-- [Дія 3 - для розвитку якостей]
-
-Кожна дія має бути конкретною, виконуваною за 15–30 хв і мотивуючою.`;
-
-      const response = await chat(
-        [
-          { role: 'system', content: 'Ти експертний коуч. Генеруй конкретні мікро-дії для досягнення цілей.' },
-          { role: 'user', content: prompt }
-        ],
-        'gpt-4o-mini',
-        200
+      
+      await userService.updateUserFields(tgId, {
+        Current_Activity: `Q_m_${qNum}`
+      });
+      
+      await ctx.reply(
+        `🌞 РАНКОВА РЕФЛЕКСІЯ\n\n${qNum}/6 ${question.text}\n\n💡 Підказка: ${question.hint}`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🚪 Вийти із сесії', callback_data: 'exit_morning' }]
+            ]
+          }
+        }
       );
-
-      return response || "• Зроби один крок до головної цілі\n• Підтримай ресурсний стан\n• Розвивай свої сильні якості";
+      
     } catch (error) {
-      console.error('[DAILY] ❌ Помилка generateDailyMicroActions:', error);
-      return "• Зосередься на головній цілі дня\n• Зроби один крок до мрії\n• Підтримай ресурсний стан";
+      console.error('[DAILY] ❌ askMorningQuestion:', error);
+      await ctx.reply('❌ Помилка запуску питання.', keyboards.mainMenuKeyboard());
     }
   },
 
-  // ===== ГЕНЕРАЦІЯ ВЕЧІРНЬОГО ФІДБЕКУ =====
+  // ═══════════════════════════════════════════════════════════════════════
+  // ВЕЧІРНІ ПИТАННЯ
+  // ═══════════════════════════════════════════════════════════════════════
+  async askEveningQuestion(ctx, qNum) {
+    const tgId = ctx.from.id;
+    
+    try {
+      const question = EVENING_QUESTIONS[qNum - 1];
+      
+      if (!question) {
+        console.error(`[DAILY] ❌ Питання ${qNum} не знайдено`);
+        await ctx.reply('❌ Помилка завантаження питання.', keyboards.mainMenuKeyboard());
+        return;
+      }
+      
+      await userService.updateUserFields(tgId, {
+        Current_Activity: `Q_e_${qNum}`
+      });
+      
+      await ctx.reply(
+        `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ\n\n${qNum}/5 ${question.text}\n\n💡 Підказка: ${question.hint}`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🚪 Вийти із сесії', callback_data: 'exit_evening' }]
+            ]
+          }
+        }
+      );
+      
+    } catch (error) {
+      console.error('[DAILY] ❌ askEveningQuestion:', error);
+      await ctx.reply('❌ Помилка запуску питання.', keyboards.mainMenuKeyboard());
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ЗАВЕРШЕННЯ РАНКОВОЇ СЕСІЇ
+  // ═══════════════════════════════════════════════════════════════════════
+  async completeMorningSession(ctx) {
+    const tgId = ctx.from.id;
+    
+    try {
+      await userService.updateUserFields(tgId, {
+        Current_Activity: 'completed'
+      });
+      
+      const affirmation = MORNING_AFFIRMATIONS[Math.floor(Math.random() * MORNING_AFFIRMATIONS.length)];
+      
+      await ctx.reply(
+        `✅ РАНКОВУ РЕФЛЕКСІЮ ЗАВЕРШЕНО!\n\n✨ ${affirmation}\n\nГарного дня! 🌞`,
+        keyboards.mainMenuKeyboard()
+      );
+      
+      console.log(`[DAILY] ✅ Ранкова сесія завершена для ${tgId}`);
+      
+    } catch (error) {
+      console.error('[DAILY] ❌ completeMorningSession:', error);
+      await ctx.reply('✅ Відповіді збережено!', keyboards.mainMenuKeyboard());
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ЗАВЕРШЕННЯ ВЕЧІРНЬОЇ СЕСІЇ
+  // ═══════════════════════════════════════════════════════════════════════
+  async completeEveningSession(ctx) {
+    const tgId = ctx.from.id;
+    const userName = ctx.from.first_name || 'Користувач';
+
+    try {
+      console.log(`[DAILY] 🔄 Завершення вечірньої сесії для ${tgId}`);
+      
+      let dailyFeedback = "Дякую за чесність у відповідях. Кожен день робить тебе сильнішою.";
+      try {
+        dailyFeedback = await this.generateDailyFeedback(tgId);
+      } catch (error) {
+        console.error('[DAILY] ⚠️ Помилка генерації фідбеку:', error.message);
+      }
+      
+      const affirmation = EVENING_AFFIRMATIONS[Math.floor(Math.random() * EVENING_AFFIRMATIONS.length)];
+
+      try {
+        await responseService.saveAffirmation(tgId, 'evening', affirmation);
+      } catch (error) {
+        console.error('[DAILY] ⚠️ Помилка збереження афірмації:', error.message);
+      }
+
+      const message =
+        `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ ЗАВЕРШЕНА!\n\n` +
+        `✨ Дякую, ${userName}! Твій день проаналізовано.\n\n` +
+        `🎯 ТВОЯ АФІРМАЦІЯ НА НІЧ:\n"${affirmation}"\n\n` +
+        `💡 ФІДБЕК ДНЯ:\n${dailyFeedback}\n\n` +
+        `😴 Солодких снів!`;
+
+      await ctx.reply(message, keyboards.mainMenuKeyboard());
+
+      await userService.updateUserFields(tgId, {
+        Current_Activity: 'completed'
+      });
+
+      try {
+        const { markSessionCompleted } = await import('../../utils/scheduler.js');
+        markSessionCompleted(tgId, 'evening');
+      } catch (error) {
+        console.error('[DAILY] ⚠️ Помилка scheduler:', error.message);
+      }
+
+      console.log(`[DAILY] ✅ Вечірня сесія завершена для ${tgId}`);
+      
+    } catch (error) {
+      console.error('[DAILY] ❌ completeEveningSession:', error);
+      
+      try {
+        await userService.updateUserFields(tgId, {
+          Current_Activity: 'completed'
+        });
+      } catch {}
+      
+      await ctx.reply(
+        '✅ Відповіді збережено!\n\n❌ Виникла помилка при формуванні звіту, але твої дані в безпеці.',
+        keyboards.mainMenuKeyboard()
+      );
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ГЕНЕРАЦІЯ ВЕЧІРНЬОГО ФІДБЕКУ
+  // ═══════════════════════════════════════════════════════════════════════
   async generateDailyFeedback(tgId) {
     try {
       const records = await responseService.getUserRecords(tgId, 1);
@@ -457,16 +377,20 @@ async completeEveningSession(ctx) {
 
       return response || "Твоя перемога сьогодні — доказ твоєї сили. Продовжуй рухатись вперед з вірою в себе.";
     } catch (error) {
-      console.error('[DAILY] ❌ Помилка generateDailyFeedback:', error);
+      console.error('[DAILY] ❌ generateDailyFeedback:', error);
       return "Дякую за чесність у відповідях. Кожен день робить тебе сильнішою.";
     }
   },
 
-  // ===== ВИХІД ІЗ СЕСІЇ =====
+  // ═══════════════════════════════════════════════════════════════════════
+  // ВИХІД ІЗ СЕСІЇ
+  // ═══════════════════════════════════════════════════════════════════════
   async exitSession(ctx, sessionType) {
     const tgId = ctx.from.id;
 
-    await userService.updateUserActivity(tgId);
+    await userService.updateUserFields(tgId, {
+      Current_Activity: 'completed'
+    });
 
     const message =
       sessionType === 'morning'
