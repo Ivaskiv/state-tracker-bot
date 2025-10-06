@@ -2739,3 +2739,93 @@
 {"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-04T14:10:15.283Z"}
 {"level":"warn","message":"[responseService] ⚠️ Запис Responses не знайдено - створюємо","timestamp":"2025-10-04T14:10:15.521Z"}
 {"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-04T14:10:15.823Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-04T16:53:23.231Z"}
+{"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-04T16:53:23.677Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-04T17:03:23.339Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_1 збережено","timestamp":"2025-10-04T17:03:23.976Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_1","timestamp":"2025-10-04T17:03:24.490Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_2 для 630111093","timestamp":"2025-10-04T17:03:36.234Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_2 збережено","timestamp":"2025-10-04T17:03:36.753Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_2","timestamp":"2025-10-04T17:03:37.293Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_3 для 630111093","timestamp":"2025-10-04T17:03:49.921Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_3 збережено","timestamp":"2025-10-04T17:03:50.536Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_3","timestamp":"2025-10-04T17:03:51.003Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_4 для 630111093","timestamp":"2025-10-04T17:04:21.802Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_4 збережено","timestamp":"2025-10-04T17:04:22.720Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_4","timestamp":"2025-10-04T17:04:23.278Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_5 для 630111093","timestamp":"2025-10-04T17:04:35.799Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_5 збережено","timestamp":"2025-10-04T17:04:36.332Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_5","timestamp":"2025-10-04T17:04:37.034Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_6 для 630111093","timestamp":"2025-10-04T17:04:45.745Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_6 збережено","timestamp":"2025-10-04T17:04:46.378Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_6","timestamp":"2025-10-04T17:04:46.878Z"}
+{"level":"info","message":"[responseService] 💾 Збереження affirmation_m для 630111093","timestamp":"2025-10-04T17:04:47.452Z"}
+{"level":"info","message":"[responseService] ✅ Афірмація affirmation_m збережено","timestamp":"2025-10-04T17:04:47.982Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до affirmation_m","timestamp":"2025-10-04T17:04:48.518Z"}
+{"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-04T17:04:48.702Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-04T18:22:16.359Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_1 збережено","timestamp":"2025-10-04T18:22:16.948Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_1","timestamp":"2025-10-04T18:22:17.457Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_2 для 630111093","timestamp":"2025-10-04T18:22:48.865Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_2 збережено","timestamp":"2025-10-04T18:22:49.419Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_2","timestamp":"2025-10-04T18:22:49.910Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_3 для 630111093","timestamp":"2025-10-04T18:23:04.363Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_3 збережено","timestamp":"2025-10-04T18:23:04.862Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_3","timestamp":"2025-10-04T18:23:05.380Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_4 для 630111093","timestamp":"2025-10-04T18:23:17.041Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_4 збережено","timestamp":"2025-10-04T18:23:17.544Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_4","timestamp":"2025-10-04T18:23:18.067Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_5 для 630111093","timestamp":"2025-10-04T18:23:29.140Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_5 збережено","timestamp":"2025-10-04T18:23:29.687Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_5","timestamp":"2025-10-04T18:23:30.183Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_6 для 630111093","timestamp":"2025-10-04T18:23:41.682Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_6 збережено","timestamp":"2025-10-04T18:23:42.176Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_6","timestamp":"2025-10-04T18:23:42.661Z"}
+{"level":"info","message":"[responseService] 💾 Збереження affirmation_m та фіналізація для 630111093","timestamp":"2025-10-04T18:23:43.163Z"}
+{"level":"info","message":"[responseService] ✅ Афірмація збережено, Current_Activity = morning_completed","timestamp":"2025-10-04T18:23:43.678Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до morning_completed","timestamp":"2025-10-04T18:23:44.185Z"}
+{"level":"info","message":"[responseService] Отримано 1 записів для 630111093","timestamp":"2025-10-04T18:23:44.381Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-05T12:52:59.864Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_1 збережено","timestamp":"2025-10-05T12:53:00.437Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_1","timestamp":"2025-10-05T12:53:00.950Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_2 для 630111093","timestamp":"2025-10-05T12:53:06.138Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_2 збережено","timestamp":"2025-10-05T12:53:06.638Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_2","timestamp":"2025-10-05T12:53:07.187Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_3 для 630111093","timestamp":"2025-10-05T12:53:18.290Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_3 збережено","timestamp":"2025-10-05T12:53:18.798Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_3","timestamp":"2025-10-05T12:53:19.304Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_4 для 630111093","timestamp":"2025-10-05T12:53:27.583Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_4 збережено","timestamp":"2025-10-05T12:53:28.069Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_4","timestamp":"2025-10-05T12:53:28.700Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_5 для 630111093","timestamp":"2025-10-05T12:53:33.993Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_5 збережено","timestamp":"2025-10-05T12:53:34.527Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_5","timestamp":"2025-10-05T12:53:35.008Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_6 для 630111093","timestamp":"2025-10-05T12:53:40.776Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_6 збережено","timestamp":"2025-10-05T12:53:41.341Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_m_6","timestamp":"2025-10-05T12:53:41.899Z"}
+{"level":"info","message":"[responseService] 💾 Збереження affirmation_m та фіналізація для 630111093","timestamp":"2025-10-05T12:53:42.391Z"}
+{"level":"info","message":"[responseService] ✅ Афірмація збережено, Current_Activity = morning_completed","timestamp":"2025-10-05T12:53:43.025Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до morning_completed","timestamp":"2025-10-05T12:53:43.539Z"}
+{"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-05T12:53:43.718Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_1 для 630111093","timestamp":"2025-10-05T12:55:37.730Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_e_1 збережено","timestamp":"2025-10-05T12:55:38.248Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_e_1","timestamp":"2025-10-05T12:55:38.788Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_2 для 630111093","timestamp":"2025-10-05T12:56:03.277Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_e_2 збережено","timestamp":"2025-10-05T12:56:03.865Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_e_2","timestamp":"2025-10-05T12:56:04.401Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_3 для 630111093","timestamp":"2025-10-05T12:56:33.077Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_e_3 збережено","timestamp":"2025-10-05T12:56:33.622Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_e_3","timestamp":"2025-10-05T12:56:34.242Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_4 для 630111093","timestamp":"2025-10-05T12:56:55.311Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_e_4 збережено","timestamp":"2025-10-05T12:56:55.796Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_e_4","timestamp":"2025-10-05T12:56:56.309Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_5 для 630111093","timestamp":"2025-10-05T12:57:20.911Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_e_5 збережено","timestamp":"2025-10-05T12:57:21.450Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до Q_e_5","timestamp":"2025-10-05T12:57:21.960Z"}
+{"level":"info","message":"[responseService] 💾 Збереження affirmation_e та фіналізація для 630111093","timestamp":"2025-10-05T12:57:22.450Z"}
+{"level":"info","message":"[responseService] ✅ Афірмація збережено, Current_Activity = evening_completed","timestamp":"2025-10-05T12:57:22.947Z"}
+{"level":"info","message":"[responseService] ✅ Answer_Step оновлено до evening_completed","timestamp":"2025-10-05T12:57:23.458Z"}
+{"level":"info","message":"[responseService] 🎯 Запуск finalizeDay для 630111093","timestamp":"2025-10-05T12:57:23.459Z"}
+{"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-05T12:57:23.649Z"}
+{"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-05T12:57:24.007Z"}
+{"level":"info","message":"[responseService] ✅ finalizeDay завершено для 630111093","timestamp":"2025-10-05T12:57:24.058Z"}

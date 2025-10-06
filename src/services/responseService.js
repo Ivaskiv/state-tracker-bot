@@ -1,172 +1,91 @@
-// src/dialogue/services/responseService.js - З ІНІЦІАЛІЗАЦІЄЮ СЕСІЇ
+// src/dialogue/services/responseService.js
 
 import { getBase, tables } from '../config/database.js';
 import logger from '../utils/logger.js';
 import userService from './userService.js';
 import activityTracker from './activityTracker.js';
+import { QUESTION_PARSERS } from '../config/constants.js';
 
 const base = getBase();
 
 const responseService = {
-  /**
-   * 🆕 ІНІЦІАЛІЗАЦІЯ РАНКОВОЇ СЕСІЇ
-   * Викликається при натисканні кнопки "Почати"
-   */
-  async initMorningSession(tgId) {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toISOString();
-      
-      logger.info(`[responseService] 🌅 Ініціалізація ранкової сесії для ${tgId}`);
-      
-      // 1️⃣ ПЕРЕВІРЯЄМО ЧИ ВЖЕ ІСНУЄ ЗАПИС НА СЬОГОДНІ
-      const records = await base(tables.RESPONSES)
-        .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
-          maxRecords: 1
-        })
-        .firstPage();
-      
-      // 2️⃣ ЯКЩО ЗАПИСУ НЕМАЄ - СТВОРЮЄМО
-      if (records.length === 0) {
-        await base(tables.RESPONSES).create({
-          'TG_id': String(tgId),
-          'Date_Response': today,
-          'User Name': 'Користувач',
-          'Current_Activity': now
-        });
-        logger.info(`[responseService] ✅ Створено новий запис Responses для ${tgId}`);
-      } else {
-        // Якщо запис існує - оновлюємо Current_Activity
-await base(tables.RESPONSES).update(recordId, {
-  'Current_Activity': CURRENT_ACTIVITY.Q_M_1, 
-  'Date_Response': now, 
-});
-        logger.info(`[responseService] ✅ Оновлено існуючий запис Responses для ${tgId}`);
-      }
-      
-      // 3️⃣ ВСТАНОВЛЮЄМО Answer_Step В USERS
-      await userService.updateUserFields(tgId, {
-        Answer_Step: 'Q_m_1',
-        Last_Activity: now
-      });
-      
-      logger.info(`[responseService] ✅ Answer_Step встановлено на Q_m_1`);
-      
-      return true;
-      
-    } catch (error) {
-      logger.error('[responseService] ❌ initMorningSession:', error.message, error.stack);
-      throw error;
-    }
-  },
-
-  /**
-   * 🆕 ІНІЦІАЛІЗАЦІЯ ВЕЧІРНЬОЇ СЕСІЇ
-   * Викликається при натисканні кнопки "Почати"
-   */
-  async initEveningSession(tgId) {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toISOString();
-      
-      logger.info(`[responseService] 🌙 Ініціалізація вечірньої сесії для ${tgId}`);
-      
-      // 1️⃣ ПЕРЕВІРЯЄМО ЧИ ВЖЕ ІСНУЄ ЗАПИС НА СЬОГОДНІ
-      const records = await base(tables.RESPONSES)
-        .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
-          maxRecords: 1
-        })
-        .firstPage();
-      
-      // 2️⃣ ЯКЩО ЗАПИСУ НЕМАЄ - СТВОРЮЄМО
-      if (records.length === 0) {
-        await base(tables.RESPONSES).create({
-          'TG_id': String(tgId),
-          'Date_Response': today,
-          'User Name': 'Користувач',
-          'Current_Activity': now
-        });
-        logger.info(`[responseService] ✅ Створено новий запис Responses для ${tgId}`);
-      } else {
-        // Якщо запис існує - оновлюємо Current_Activity
-        await base(tables.RESPONSES).update(records[0].id, {
-          'Current_Activity': now
-        });
-        logger.info(`[responseService] ✅ Оновлено існуючий запис Responses для ${tgId}`);
-      }
-      
-      // 3️⃣ ВСТАНОВЛЮЄМО Answer_Step В USERS
-      await userService.updateUserFields(tgId, {
-        Answer_Step: 'Q_e_1',
-        Last_Activity: now
-      });
-      
-      logger.info(`[responseService] ✅ Answer_Step встановлено на Q_e_1`);
-      
-      return true;
-      
-    } catch (error) {
-      logger.error('[responseService] ❌ initEveningSession:', error.message, error.stack);
-      throw error;
-    }
-  },
 
   /**
    * Збереження ранкової відповіді
    */
-  async saveMorningAnswer(tgId, questionNumber, answer) {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toISOString();
-      const fieldName = `Q_m_${questionNumber}`;
-      
-      logger.info(`[responseService] 💾 Збереження ${fieldName} для ${tgId}`);
-      
-      // 1️⃣ ЗНАХОДИМО ЗАПИС (має вже існувати після initMorningSession)
-      const records = await base(tables.RESPONSES)
-        .select({
-          filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
-          maxRecords: 1
-        })
-        .firstPage();
-      
-      if (records.length === 0) {
-        logger.warn(`[responseService] ⚠️ Запис Responses не знайдено - створюємо`);
-        await base(tables.RESPONSES).create({
-          'TG_id': String(tgId),
-          'Date_Response': today,
-          'User Name': 'Користувач',
-          [fieldName]: answer,
-          'Current_Activity': now
-        });
-      } else {
-        // 2️⃣ ОНОВЛЮЄМО ВІДПОВІДЬ + Current_Activity
-        await base(tables.RESPONSES).update(records[0].id, {
-          [fieldName]: answer,
-          'Current_Activity': now
-        });
-      }
-      
-      logger.info(`[responseService] ✅ Відповідь ${fieldName} збережено`);
-      
-      // 3️⃣ ОНОВЛЮЄМО Answer_Step В USERS
-      await userService.updateUserFields(tgId, {
-        Answer_Step: `Q_m_${questionNumber}`,
-        Last_Activity: now
-      });
-      
-      logger.info(`[responseService] ✅ Answer_Step оновлено до Q_m_${questionNumber}`);
-      
-      return true;
-      
-    } catch (error) {
-      logger.error('[responseService] ❌ saveMorningAnswer:', error.message, error.stack);
-      throw error;
-    }
-  },
 
+async saveMorningAnswer(tgId, questionNumber, answer) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    const fieldName = `Q_m_${questionNumber}`;
+    
+    logger.info(`[responseService] 💾 Збереження ${fieldName} для ${tgId}`);
+    
+    // 1️⃣ ЗНАХОДИМО ЗАПИС
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    // ✅ ПАРСИМО ВІДПОВІДЬ ЗГІДНО З ТИПОМ ПИТАННЯ
+    let additionalFields = {};
+    
+    if (questionNumber === 3) {
+      // Q_m_3 → Goal_1...Goal_10
+      additionalFields = QUESTION_PARSERS.parseGoals(answer);
+    } else if (questionNumber === 4) {
+      // Q_m_4 → Monthly_Priority_1/2/3 + Daily_Main_Goal
+      additionalFields = QUESTION_PARSERS.parseDailyFocus(answer);
+    } else if (questionNumber === 6) {
+      // Q_m_6 → Daily_Action_1/2/3 або афірмація
+      const parsed = QUESTION_PARSERS.parseActions(answer);
+      if (parsed.affirmation) {
+        additionalFields.affirmation_m = parsed.affirmation;
+      } else {
+        additionalFields = parsed;
+      }
+    } else if (questionNumber === 5) {
+      // Q_m_5 → Daily_State
+      additionalFields = QUESTION_PARSERS.parseState(answer);
+    }
+    
+    // 2️⃣ ОНОВЛЮЄМО АБО СТВОРЮЄМО ЗАПИС
+    const fieldsToUpdate = {
+      [fieldName]: answer,
+      ...additionalFields, // ✅ ДОДАЄМО РОЗПАРСЕНІ ПОЛЯ
+      'Current_Activity': now
+    };
+    
+    if (records.length === 0) {
+      logger.warn(`[responseService] ⚠️ Запис Responses не знайдено - створюємо`);
+      await base(tables.RESPONSES).create({
+        'TG_id': String(tgId),
+        'Date_Response': today,
+        'User Name': 'Користувач',
+        ...fieldsToUpdate
+      });
+    } else {
+      await base(tables.RESPONSES).update(records[0].id, fieldsToUpdate);
+    }
+    
+    logger.info(`[responseService] ✅ Відповідь ${fieldName} збережено + додаткові поля:`, Object.keys(additionalFields));
+    
+    // 3️⃣ ОНОВЛЮЄМО Answer_Step В USERS
+    await userService.updateUserFields(tgId, {
+      Answer_Step: `Q_m_${questionNumber}`,
+      Last_Activity: now
+    });
+    
+    return true;
+    
+  } catch (error) {
+    logger.error('[responseService] ❌ saveMorningAnswer:', error.message, error.stack);
+    throw error;
+  }
+},
   /**
    * Збереження вечірньої відповіді
    */
@@ -175,10 +94,11 @@ await base(tables.RESPONSES).update(recordId, {
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toISOString();
       const fieldName = `Q_e_${questionNumber}`;
+      const currentActivity = `Q_e_${questionNumber}`;
       
       logger.info(`[responseService] 💾 Збереження ${fieldName} для ${tgId}`);
       
-      // 1️⃣ ЗНАХОДИМО ЗАПИС (має вже існувати після initEveningSession)
+      // Знаходимо запис (має вже існувати після initEveningSession)
       const records = await base(tables.RESPONSES)
         .select({
           filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
@@ -187,41 +107,24 @@ await base(tables.RESPONSES).update(recordId, {
         .firstPage();
       
       if (records.length === 0) {
-        logger.warn(`[responseService] ⚠️ Запис Responses не знайдено - створюємо`);
-        await base(tables.RESPONSES).create({
-          'TG_id': String(tgId),
-          'Date_Response': today,
-          'User Name': 'Користувач',
-          [fieldName]: answer,
-          'Current_Activity': now
-        });
-      } else {
-        // 2️⃣ ОНОВЛЮЄМО ВІДПОВІДЬ + Current_Activity
-        await base(tables.RESPONSES).update(records[0].id, {
-          [fieldName]: answer,
-          'Current_Activity': now
-        });
+        throw new Error('Запис Responses не знайдено. Спочатку викличте initEveningSession');
       }
+      
+      // Оновлюємо відповідь + Current_Activity
+      await base(tables.RESPONSES).update(records[0].id, {
+        [fieldName]: answer,
+        'Current_Activity': currentActivity
+      });
       
       logger.info(`[responseService] ✅ Відповідь ${fieldName} збережено`);
       
-      // 3️⃣ ОНОВЛЮЄМО Answer_Step В USERS
+      // Оновлюємо Answer_Step в Users
       await userService.updateUserFields(tgId, {
-        Answer_Step: `Q_e_${questionNumber}`,
+        Answer_Step: currentActivity,
         Last_Activity: now
       });
       
-      logger.info(`[responseService] ✅ Answer_Step оновлено до Q_e_${questionNumber}`);
-      
-      // 4️⃣ ФІНАЛІЗАЦІЯ (тільки для останнього питання!)
-      if (questionNumber === 5) {
-        logger.info(`[responseService] 🎯 Остання вечірня відповідь - запуск finalizeDay`);
-        
-        // Фіналізуємо асинхронно
-        activityTracker.finalizeDay(tgId)
-          .then(() => logger.info(`[responseService] ✅ finalizeDay завершено для ${tgId}`))
-          .catch(err => logger.error('[responseService] ❌ finalizeDay:', err));
-      }
+      logger.info(`[responseService] ✅ Answer_Step оновлено до ${currentActivity}`);
       
       return true;
       
@@ -232,17 +135,18 @@ await base(tables.RESPONSES).update(recordId, {
   },
 
   /**
-   * Збереження афірмації
+   * Збереження афірмації та фіналізація сесії (об'єднаний метод)
    */
-  async saveAffirmation(tgId, type, affirmation) {
+  async saveAffirmationAndFinalize(tgId, type, affirmation) {
     try {
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toISOString();
       const fieldName = type === 'morning' ? 'affirmation_m' : 'affirmation_e';
+      const completedActivity = type === 'morning' ? 'morning_completed' : 'evening_completed';
       
-      logger.info(`[responseService] 💾 Збереження ${fieldName} для ${tgId}`);
+      logger.info(`[responseService] 💾 Збереження ${fieldName} та фіналізація для ${tgId}`);
       
-      // 1️⃣ ЗНАХОДИМО ЗАПИС
+      // Знаходимо запис
       const records = await base(tables.RESPONSES)
         .select({
           filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
@@ -251,35 +155,37 @@ await base(tables.RESPONSES).update(recordId, {
         .firstPage();
       
       if (records.length === 0) {
-        logger.warn(`[responseService] ⚠️ Запис Responses не знайдено - створюємо`);
-        await base(tables.RESPONSES).create({
-          'TG_id': String(tgId),
-          'Date_Response': today,
-          'User Name': 'Користувач',
-          [fieldName]: affirmation,
-        });
-      } else {
-        // 2️⃣ ОНОВЛЮЄМО АФІРМАЦІЮ + Current_Activity
-        await base(tables.RESPONSES).update(records[0].id, {
-          [fieldName]: affirmation,
-        });
+        throw new Error('Запис Responses не знайдено');
       }
       
-      logger.info(`[responseService] ✅ Афірмація ${fieldName} збережено`);
+      // Оновлюємо афірмацію + встановлюємо завершення одразу
+      await base(tables.RESPONSES).update(records[0].id, {
+        [fieldName]: affirmation,
+        'Current_Activity': completedActivity
+      });
       
-      // 3️⃣ ОНОВЛЮЄМО Answer_Step В USERS
-      const step = type === 'morning' ? 'affirmation_m' : 'affirmation_e';
+      logger.info(`[responseService] ✅ Афірмація збережено, Current_Activity = ${completedActivity}`);
+      
+      // Оновлюємо Users
       await userService.updateUserFields(tgId, {
-        Answer_Step: step,
+        Answer_Step: completedActivity,
         Last_Activity: now
       });
       
-      logger.info(`[responseService] ✅ Answer_Step оновлено до ${step}`);
+      logger.info(`[responseService] ✅ Answer_Step оновлено до ${completedActivity}`);
+      
+      // Для вечора - викликаємо finalizeDay
+      if (type === 'evening') {
+        logger.info(`[responseService] 🎯 Запуск finalizeDay для ${tgId}`);
+        activityTracker.finalizeDay(tgId)
+          .then(() => logger.info(`[responseService] ✅ finalizeDay завершено для ${tgId}`))
+          .catch(err => logger.error('[responseService] ❌ finalizeDay:', err));
+      }
       
       return true;
       
     } catch (error) {
-      logger.error('[responseService] ❌ saveAffirmation:', error.message, error.stack);
+      logger.error('[responseService] ❌ saveAffirmationAndFinalize:', error.message, error.stack);
       throw error;
     }
   },
@@ -328,9 +234,11 @@ await base(tables.RESPONSES).update(recordId, {
       const record = records[0].fields;
       
       if (sessionType === 'morning') {
-        return !!(record.Q_m_6 || record.affirmation_m);
+        // Перевіряємо чи Current_Activity = morning_completed
+        return record.Current_Activity === 'morning_completed';
       } else if (sessionType === 'evening') {
-        return !!(record.Q_e_5 || record.affirmation_e);
+        // Перевіряємо чи Current_Activity = evening_completed
+        return record.Current_Activity === 'evening_completed';
       }
       
       return false;

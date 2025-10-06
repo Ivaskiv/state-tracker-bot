@@ -1,4 +1,4 @@
-// src/utils/scheduler.js — ВИПРАВЛЕНІ ІМПОРТИ
+// src/utils/scheduler.js 
 
 import cron from 'node-cron';
 import subscriptionController from '../controllers/subscriptionController.js';
@@ -11,10 +11,6 @@ import {
   SCHEDULER_MESSAGES
 } from '../config/constants.js';
 import userService from '../services/userService.js';
-
-// ❌ ВИДАЛИТИ ЦІ РЯДКИ:
-// import wheelBalanceController from '../controllers/wheelBalanceController.js';
-// import paymentService from '../auth/services/paymentService.js';
 
 // ----------------- helpers -----------------
 const jobs = [];
@@ -188,16 +184,46 @@ const sendEveningReminders = async (bot) => {
 const scheduleSessionReminder = (bot, tgId, reminderText, sessionType) => {
   const id = String(tgId);
 
+  // Скасовуємо попереднє нагадування
   if (reminderTimers.has(id)) {
     clearTimeout(reminderTimers.get(id));
     reminderTimers.delete(id);
+    console.log(`[scheduler] 🔕 Скасовано попереднє нагадування для ${id}`);
   }
 
   const t = setTimeout(async () => {
     try {
       const session = activeSessions.get(id);
-      if (!session || session.reminded) return;
+      
+      // ✅ ПЕРЕВІРКА 1: Чи сесія ще активна?
+      if (!session) {
+        console.log(`[scheduler] ℹ️ Сесія для ${id} вже не активна, нагадування скасовано`);
+        reminderTimers.delete(id);
+        return;
+      }
+      
+      // ✅ ПЕРЕВІРКА 2: Чи вже надіслано нагадування?
+      if (session.reminded) {
+        console.log(`[scheduler] ℹ️ Нагадування для ${id} вже надіслано`);
+        reminderTimers.delete(id);
+        return;
+      }
 
+      // ✅ ПЕРЕВІРКА 3: Чи користувач завершив сесію (перевірка Answer_Step)
+      try {
+        const user = await userService.getUserByTgId(id);
+        if (user?.Answer_Step === 'completed' || user?.Answer_Step === ANSWER_STEPS.COMPLETED) {
+          console.log(`[scheduler] ✅ Користувач ${id} вже завершив сесію, нагадування скасовано`);
+          activeSessions.delete(id);
+          reminderTimers.delete(id);
+          return;
+        }
+      } catch (userCheckError) {
+        console.error(`[scheduler] ⚠️ Помилка перевірки користувача ${id}:`, userCheckError);
+        // Продовжуємо - краще надіслати зайве нагадування, ніж пропустити
+      }
+
+      // Надсилаємо нагадування
       await bot.telegram.sendMessage(
         id,
         reminderText,
@@ -206,16 +232,17 @@ const scheduleSessionReminder = (bot, tgId, reminderText, sessionType) => {
 
       session.reminded = true;
       console.log(`[scheduler] 🔔 Нагадування сесії надіслано ${id}`);
+      
     } catch (err) {
       console.error('[scheduler] ❌ Помилка session reminder:', err);
     } finally {
       reminderTimers.delete(id);
     }
-  }, 10 * 60 * 1000);
+  }, 10 * 60 * 1000); // 10 хвилин
 
   reminderTimers.set(id, t);
+  console.log(`[scheduler] ⏰ Заплановано нагадування для ${id} через 10 хв`);
 };
-
 const markSessionActive = (tgId, type) => {
   activeSessions.set(String(tgId), { type, startTime: new Date(), reminded: false });
 };

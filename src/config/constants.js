@@ -255,8 +255,8 @@ export const NOTE_FIELDS = [
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '17:27',
-  EVENING_TIME: '18:30',
+  MORNING_TIME: '11:59',
+  EVENING_TIME: '12:04',
   TIMEZONE: 'Europe/Kyiv' 
 });
 
@@ -657,6 +657,69 @@ export const MENU_BUTTONS = Object.freeze({
   INSTRUCTIONS: '📝 Інструкції',
   CONTACT: '📞 Зв\'язок'
 });
+
+// ===== ПАРСЕРИ ДЛЯ ІСНУЮЧИХ ПОЛІВ =====
+export const QUESTION_PARSERS = {
+  // Q_m_3: "Мої 10 цілей на рік" → масив Goal_1...Goal_10
+  parseGoals: (text) => {
+    const lines = text.split('\n').filter(l => l.trim());
+    const goals = {};
+    
+    lines.forEach((line, index) => {
+      if (index < 10) {
+        const cleaned = line.replace(/^\d+[\.\)]\s*/, '').trim();
+        goals[`Goal_${index + 1}`] = cleaned;
+      }
+    });
+    
+    return goals;
+  },
+
+  // Q_m_4: "На що зосереджуюся сьогодні?" → Monthly_Priority_1/2/3 + Daily_Main_Goal
+  parseDailyFocus: (text) => {
+    const lines = text.split('\n').filter(l => l.trim());
+    const result = {
+      Daily_Main_Goal: lines[0] || text.substring(0, 200), // перша ціль - головна
+      Monthly_Priority_1: lines[0] || '',
+      Monthly_Priority_2: lines[1] || '',
+      Monthly_Priority_3: lines[2] || ''
+    };
+    
+    return result;
+  },
+
+  // Q_m_6: "Чому я гідна цього?" → Daily_Action_1/2/3
+  parseActions: (text) => {
+    // Якщо це афірмація - повертаємо як є
+    if (text.length < 100 && !text.includes('\n')) {
+      return { affirmation: text };
+    }
+    
+    // Якщо це список дій
+    const lines = text.split('\n').filter(l => l.trim());
+    return {
+      Daily_Action_1: lines[0] || '',
+      Daily_Action_2: lines[1] || '',
+      Daily_Action_3: lines[2] || ''
+    };
+  },
+
+  // Q_m_5: "Мій стан" → використовуємо існуюче поле
+  parseState: (text) => {
+    return { Daily_State: text };
+  }
+};
+
+// ===== НОВІ ПИТАННЯ (ОПЦІОНАЛЬНО) =====
+export const EXTENDED_MORNING_QUESTIONS = [
+  {
+    id: 7,
+    text: "Який мій стан сьогодні? (впевненість/рішучість/сила/легкість)",
+    field: 'Q_m_7',
+    hint: 'Обери найближчий стан або опиши своїми словами',
+    optional: true // можна пропустити якщо вже відповіли в Q_m_5
+  }
+];
 console.log('✅ [constants] Централізовані константи завантажено');
 console.log(`   • Ранкових питань: ${MORNING_QUESTIONS.length}`);
 console.log(`   • Вечірніх питань: ${EVENING_QUESTIONS.length}`);
