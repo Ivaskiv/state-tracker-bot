@@ -8,7 +8,8 @@ import keyboards from '../utils/keyboards.js';
 import {
   SCHEDULE,
   CRON_SCHEDULES,
-  SCHEDULER_MESSAGES
+  SCHEDULER_MESSAGES,
+  ANSWER_STEPS 
 } from '../config/constants.js';
 import userService from '../services/userService.js';
 
@@ -163,23 +164,32 @@ const sendMorningReminders = async (bot) => {
 const sendEveningReminders = async (bot) => {
   if (!guardExecution('evening')) return;
 
-  console.log(`[scheduler] 🌙 Вечірні нагадування`);
+  console.log(`[scheduler] 🌙 ========== ВЕЧІРНІ НАГАДУВАННЯ ==========`);
+  console.log(`[scheduler] 🕐 Поточний час: ${new Date().toLocaleString('uk-UA', { timeZone: SCHEDULE.TIMEZONE })}`);
+  
   try {
     const users = await fetchActiveUsers();
-    console.log(`[scheduler] Активних користувачів: ${users.length}`);
+    console.log(`[scheduler] 👥 Активних користувачів: ${users.length}`);
 
     for (const user of users) {
       const tgId = user['TG_id'];
-      if (!tgId) continue;
+      if (!tgId) {
+        console.log(`[scheduler] ⚠️ Пропущено користувача без TG_id`);
+        continue;
+      }
 
       try {
         const name = user['User Name'] || 'Користувач';
+        
+        console.log(`[scheduler] 🔍 Перевірка ${tgId} (${name})...`);
+        
+        // ✅ ВИПРАВЛЕНО: перевірка завершення
         const completedToday = await checkEveningCompletion(tgId);
         
         if (completedToday) {
           console.log(`[scheduler] ✅ ${tgId} вже завершив вечірні питання`);
           
-          // ✅ ДОДАЄМО ОПЦІЮ ПРОЙТИ ЩЕ РАЗ
+          // ✅ ПРОПОНУЄМО ПРОЙТИ ЩЕ РАЗ
           const text = 
             `🌙 Добрий вечір, ${name}!\n\n` +
             `✅ Ти вже пройшла вечірню рефлексію сьогодні.\n\n` +
@@ -198,29 +208,49 @@ const sendEveningReminders = async (bot) => {
             }
           );
           
+          console.log(`[scheduler] 📤 Надіслано пропозицію повтору для ${tgId}`);
           continue;
         }
 
+        // ✅ ПЕРЕВІРКА РАНКОВИХ (необов'язково)
         const hadMorning = await checkMorningCompletion(tgId);
         const baseText = SCHEDULER_MESSAGES.EVENING_SESSION_START(name);
-        const note = hadMorning ? '' : `\n\n${SCHEDULER_MESSAGES.EVENING_REMINDER}`;
+        const note = hadMorning ? '' : `\n\n⚠️ Ти ще не пройшла ранкові питання сьогодні.`;
+        
+        console.log(`[scheduler] 📤 Надсилаємо вечірнє нагадування для ${tgId}`);
+        console.log(`[scheduler] 🌞 Ранкові завершено: ${hadMorning ? 'ТАК' : 'НІ'}`);
         
         await bot.telegram.sendMessage(
           tgId,
           baseText + note,
-          keyboards.eveningStartInline?.() || undefined
+          keyboards.eveningStartInline?.() || {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🌙 Почати вечірню рефлексію', callback_data: 'start_evening' }],
+                [{ text: '⏭ Пізніше', callback_data: 'later_evening' }]
+              ]
+            }
+          }
         );
 
         markSessionActive(tgId, 'evening');
         scheduleSessionReminder(bot, tgId, SCHEDULER_MESSAGES.EVENING_REMINDER, 'evening');
+        
+        console.log(`[scheduler] ✅ Вечірнє нагадування надіслано ${tgId}`);
 
       } catch (err) {
-        console.error(`[scheduler] ❌ Помилка юзера ${tgId}:`, err);
+        console.error(`[scheduler] ❌ Помилка для користувача ${tgId}:`, err.message);
+        console.error(`[scheduler] ❌ Stack:`, err.stack);
       }
+      
       await sleep(250);
     }
+    
+    console.log(`[scheduler] 🌙 ========== ВЕЧІРНІ НАГАДУВАННЯ ЗАВЕРШЕНО ==========`);
+    
   } catch (e) {
-    console.error('[scheduler] ❌ Помилка вечірніх нагадувань:', e);
+    console.error('[scheduler] ❌ КРИТИЧНА ПОМИЛКА вечірніх нагадувань:', e.message);
+    console.error('[scheduler] ❌ Stack:', e.stack);
   }
 };
 // ----------------- session reminder (10 хв) -----------------
@@ -418,17 +448,32 @@ const checkEveningCompletion = async (tgId) => {
     const { getBase, tables } = await import('../config/database.js');
     const base = getBase();
     const today = new Date().toISOString().split('T')[0];
+    
+    console.log(`[checkEveningCompletion] 🔍 Перевірка для ${tgId}, дата: ${today}`);
 
+    // ✅ ВИПРАВЛЕНО: правильна назва поля + додано логування
     const recs = await base(tables.RESPONSES)
       .select({
-        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date Response})="${today}", {Q_e_5} != "")`,
+        filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date_Response})="${today}")`,
         maxRecords: 1
       })
       .firstPage();
 
-    return recs.length > 0;
+    if (recs.length === 0) {
+      console.log(`[checkEveningCompletion] ❌ Запис не знайдено для ${tgId}`);
+      return false;
+    }
+    
+    const record = recs[0].fields;
+    const hasQ_e_5 = !!record.Q_e_5;
+    
+    console.log(`[checkEveningCompletion] 📊 ${tgId}: Q_e_5 = "${record.Q_e_5 || 'ПУСТО'}", завершено: ${hasQ_e_5}`);
+    
+    return hasQ_e_5;
+    
   } catch (e) {
-    console.error('[checkEveningCompletion] ❌', e);
+    console.error('[checkEveningCompletion] ❌ Помилка:', e.message);
+    console.error('[checkEveningCompletion] ❌ Stack:', e.stack);
     return false;
   }
 };

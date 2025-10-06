@@ -57,7 +57,6 @@ const dailyController = {
   },
 
   // ===== ОБРОБКА CALLBACK (СТАРТ/ВИХІД) =====
-// ===== ОБРОБКА CALLBACK (СТАРТ/ВИХІД) =====
 async handleCallback(ctx, data) {
   const tgId = ctx.from.id;
   console.log(`[DAILY] 📱 Callback "${data}" від ${tgId}`);
@@ -71,7 +70,6 @@ async handleCallback(ctx, data) {
         await this.startEveningSession(ctx);
         break;
       
-      // ✅ ДОДАТИ ЦІ ОБРОБНИКИ
       case 'restart_morning':
       case 'repeat_morning':
       case 'redo_morning':
@@ -82,6 +80,11 @@ async handleCallback(ctx, data) {
       case 'repeat_evening':
       case 'redo_evening':
         await this.restartEveningSession(ctx);
+        break;
+      
+      // ✅ ДОДАТИ ЦЕ
+      case 'continue_evening':
+        await this.continueEveningSession(ctx);
         break;
         
       case 'exit_morning':
@@ -110,8 +113,6 @@ async handleCallback(ctx, data) {
   }
 },
 
-// ✅ ДОДАТИ НОВИЙ МЕТОД: Перезапуск ранкової сесії
-// ✅ ВИПРАВЛЕНИЙ restartMorningSession
 async restartMorningSession(ctx) {
   const tgId = ctx.from.id;
   
@@ -157,6 +158,74 @@ async restartMorningSession(ctx) {
   } catch (error) {
     console.error('[DAILY] ❌ restart_morning:', error);
     await ctx.reply('❌ Помилка перезапуску. Спробуй /start', keyboards.mainMenuKeyboard());
+  }
+},
+
+async startEveningSession(ctx) {
+  const tgId = ctx.from.id;
+
+  try {
+    console.log(`[DAILY] 🌙 ========== Start evening для ${tgId} ==========`);
+
+    const user = await userService.getUserByTgId(tgId);
+    if (!user || !userService.hasActiveAccess(user)) {
+      console.log(`[DAILY] ❌ Немає доступу для ${tgId}`);
+      await ctx.reply('🔒 Потрібна активна підписка.', keyboards.subscriptionMenuInline());
+      return;
+    }
+
+    console.log(`[DAILY] ✅ Доступ підтверджено для ${tgId}`);
+
+    // ✅ ПЕРЕВІРКА ЧИ ВЖЕ ЗАВЕРШЕНО
+    const completed = await responseService.isSessionCompleted(tgId, 'evening');
+    
+    console.log(`[DAILY] 🔍 Перевірка завершення: ${completed ? 'ЗАВЕРШЕНО' : 'НЕ ЗАВЕРШЕНО'}`);
+    
+    if (completed) {
+      console.log(`[DAILY] ✅ Вечірня сесія вже завершена для ${tgId}`);
+      await ctx.reply('🌙 Вже завершила вечірню рефлексію!', keyboards.mainMenuKeyboard());
+      return;
+    }
+
+    // ✅ ЗНАХОДИМО АБО СТВОРЮЄМО ЗАПИС
+    const today = new Date().toISOString().split('T')[0];
+    const { getBase, tables } = await import('../../config/database.js');
+    const base = getBase();
+    
+    console.log(`[DAILY] 🔍 Пошук запису Responses для ${tgId}, дата: ${today}`);
+    
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    if (records.length === 0) {
+      console.log(`[DAILY] 🆕 Створюємо новий запис Responses для вечірніх`);
+      
+      await base(tables.RESPONSES).create({
+        'TG_id': String(tgId),
+        'Date_Response': today,
+        'User Name': user['User Name'] || 'Користувач'
+      });
+    } else {
+      console.log(`[DAILY] ✅ Знайдено існуючий запис Responses (ID: ${records[0].id})`);
+    }
+
+    // ✅ ОНОВЛЮЄМО Answer_Step
+    await userService.updateUserFields(tgId, { Answer_Step: 'Q_e_1' });
+    console.log(`[DAILY] ✅ Answer_Step оновлено на Q_e_1`);
+
+    // ✅ ЗАДАЄМО ПЕРШЕ ПИТАННЯ
+    await this.askEveningQuestion(ctx, 1);
+    
+    console.log(`[DAILY] ✅ Вечірня сесія успішно запущена для ${tgId}`);
+    
+  } catch (error) {
+    console.error('[DAILY] ❌ КРИТИЧНА ПОМИЛКА Start evening:', error.message);
+    console.error('[DAILY] ❌ Stack:', error.stack);
+    await ctx.reply('❌ Помилка запуску.', keyboards.mainMenuKeyboard());
   }
 },
 
@@ -331,7 +400,6 @@ async restartEveningSession(ctx) {
   },
 
   // ===== ВЕЧІРНІ ПИТАННЯ =====
-// ===== ВЕЧІРНІ ПИТАННЯ З КОНТЕКСТОМ =====
 async askEveningQuestion(ctx, questionNumber) {
   const tgId = ctx.from.id;
   console.log(`[DAILY] 🌙 Ask evening Q${questionNumber} для ${tgId}`);
@@ -678,6 +746,36 @@ console.error('[DAILY] ❌ Start evening fail:', error);
       return "Перемога дня - твоя сила! Завтра новий крок.";
     }
   },
+  // ✅ НОВИЙ МЕТОД: Продовжити вечірню сесію з місця зупинки
+async continueEveningSession(ctx) {
+  const tgId = ctx.from.id;
+  
+  try {
+    await ctx.answerCbQuery('Продовжуємо');
+    
+    const user = await userService.getUserByTgId(tgId);
+    const currentStep = user?.Answer_Step;
+    
+    // Якщо сесія вже завершена
+    if (!currentStep || currentStep === ANSWER_STEPS.COMPLETED || currentStep === 'completed') {
+      await ctx.reply('✅ Вечірню рефлексію вже завершено', keyboards.mainMenuKeyboard());
+      return;
+    }
+    
+    // Якщо це вечірнє питання - продовжуємо
+    if (currentStep?.startsWith('Q_e_')) {
+      const questionNumber = parseInt(currentStep.split('_')[2], 10);
+      await this.askEveningQuestion(ctx, questionNumber);
+    } else {
+      // Якщо щось пішло не так - починаємо заново
+      await this.startEveningSession(ctx);
+    }
+    
+  } catch (error) {
+    console.error('[DAILY] ❌ continue_evening:', error);
+    await ctx.reply('❌ Помилка продовження. Спробуй /start', keyboards.mainMenuKeyboard());
+  }
+},
 
   // ===== ВИХІД З СЕСІЇ =====
   async exitSession(ctx, sessionType) {
