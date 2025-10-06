@@ -56,7 +56,6 @@ const responseService = {
       const fieldsToUpdate = {
         [fieldName]: answer,
         ...additionalFields,
-        'Current_Activity': now
       };
       
       if (records.length === 0) {
