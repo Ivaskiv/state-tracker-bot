@@ -112,11 +112,33 @@ const sendMorningReminders = async (bot) => {
       try {
         const name = user['User Name'] || 'Користувач';
         const completedToday = await checkMorningCompletion(tgId);
+        
         if (completedToday) {
           console.log(`[scheduler] ✅ ${tgId} вже завершив ранкові питання`);
+          
+          // ✅ ДОДАЄМО ОПЦІЮ ПРОЙТИ ЩЕ РАЗ
+          const text = 
+            `🌞 Доброго ранку, ${name}!\n\n` +
+            `✅ Ти вже пройшла ранкову рефлексію сьогодні.\n\n` +
+            `Бажаєш пройти ще раз? (попередні відповіді будуть замінені)`;
+          
+          await bot.telegram.sendMessage(
+            tgId,
+            text,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔄 Пройти ще раз', callback_data: 'restart_morning' }],
+                  [{ text: '✅ Залишити як є', callback_data: 'dismiss_reminder' }]
+                ]
+              }
+            }
+          );
+          
           continue;
         }
 
+        // ✅ ЗВИЧАЙНЕ НАГАДУВАННЯ ДЛЯ ТИХ, ХТО НЕ ЗАВЕРШИВ
         const text = SCHEDULER_MESSAGES.MORNING_SESSION_START(name);
         await bot.telegram.sendMessage(
           tgId,
@@ -153,14 +175,36 @@ const sendEveningReminders = async (bot) => {
       try {
         const name = user['User Name'] || 'Користувач';
         const completedToday = await checkEveningCompletion(tgId);
+        
         if (completedToday) {
           console.log(`[scheduler] ✅ ${tgId} вже завершив вечірні питання`);
+          
+          // ✅ ДОДАЄМО ОПЦІЮ ПРОЙТИ ЩЕ РАЗ
+          const text = 
+            `🌙 Добрий вечір, ${name}!\n\n` +
+            `✅ Ти вже пройшла вечірню рефлексію сьогодні.\n\n` +
+            `Бажаєш пройти ще раз? (попередні відповіді будуть замінені)`;
+          
+          await bot.telegram.sendMessage(
+            tgId,
+            text,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔄 Пройти ще раз', callback_data: 'restart_evening' }],
+                  [{ text: '✅ Залишити як є', callback_data: 'dismiss_reminder' }]
+                ]
+              }
+            }
+          );
+          
           continue;
         }
 
         const hadMorning = await checkMorningCompletion(tgId);
         const baseText = SCHEDULER_MESSAGES.EVENING_SESSION_START(name);
         const note = hadMorning ? '' : `\n\n${SCHEDULER_MESSAGES.EVENING_REMINDER}`;
+        
         await bot.telegram.sendMessage(
           tgId,
           baseText + note,
@@ -179,7 +223,6 @@ const sendEveningReminders = async (bot) => {
     console.error('[scheduler] ❌ Помилка вечірніх нагадувань:', e);
   }
 };
-
 // ----------------- session reminder (10 хв) -----------------
 const scheduleSessionReminder = (bot, tgId, reminderText, sessionType) => {
   const id = String(tgId);

@@ -57,44 +57,157 @@ const dailyController = {
   },
 
   // ===== ОБРОБКА CALLBACK (СТАРТ/ВИХІД) =====
-  async handleCallback(ctx, data) {
-    const tgId = ctx.from.id;
-    console.log(`[DAILY] 📱 Callback "${data}" від ${tgId}`);
+// ===== ОБРОБКА CALLBACK (СТАРТ/ВИХІД) =====
+async handleCallback(ctx, data) {
+  const tgId = ctx.from.id;
+  console.log(`[DAILY] 📱 Callback "${data}" від ${tgId}`);
 
-    try {
-      switch (data) {
-        case 'start_morning':
-          await this.startMorningSession(ctx);
-          break;
-        case 'start_evening':
-          await this.startEveningSession(ctx);
-          break;
-        case 'exit_morning':
-        case 'exit_evening':
-          await this.exitSession(ctx, data.includes('morning') ? 'morning' : 'evening');
-          break;
-        case 'later_morning':
-          await ctx.reply('🌞 Добре! Ранкові питання чекатимуть.');
-          await ctx.answerCbQuery('Відкладено');
-          break;
-        case 'later_evening':
-          await ctx.reply('🌙 Добре! Вечірні питання чекатимуть.');
-          await ctx.answerCbQuery('Відкладено');
-          break;
-        default:
-          console.log(`[DAILY] ❓ Невідомий callback: ${data}`);
-          await ctx.answerCbQuery('Команда не розпізнана');
-          return false;
-      }
-      return true;
-    } catch (error) {
-      console.error('[DAILY] ❌ Помилка callback:', error);
-      console.error('[DAILY] Stack:', error.stack);
-      await ctx.answerCbQuery('Помилка');
-      return true;
+  try {
+    switch (data) {
+      case 'start_morning':
+        await this.startMorningSession(ctx);
+        break;
+      case 'start_evening':
+        await this.startEveningSession(ctx);
+        break;
+      
+      // ✅ ДОДАТИ ЦІ ОБРОБНИКИ
+      case 'restart_morning':
+      case 'repeat_morning':
+      case 'redo_morning':
+        await this.restartMorningSession(ctx);
+        break;
+        
+      case 'restart_evening':
+      case 'repeat_evening':
+      case 'redo_evening':
+        await this.restartEveningSession(ctx);
+        break;
+        
+      case 'exit_morning':
+      case 'exit_evening':
+        await this.exitSession(ctx, data.includes('morning') ? 'morning' : 'evening');
+        break;
+      case 'later_morning':
+        await ctx.reply('🌞 Добре! Ранкові питання чекатимуть.');
+        await ctx.answerCbQuery('Відкладено');
+        break;
+      case 'later_evening':
+        await ctx.reply('🌙 Добре! Вечірні питання чекатимуть.');
+        await ctx.answerCbQuery('Відкладено');
+        break;
+      default:
+        console.log(`[DAILY] ❓ Невідомий callback: ${data}`);
+        await ctx.answerCbQuery('Команда не розпізнана');
+        return false;
     }
-  },
+    return true;
+  } catch (error) {
+    console.error('[DAILY] ❌ Помилка callback:', error);
+    console.error('[DAILY] Stack:', error.stack);
+    await ctx.answerCbQuery('Помилка');
+    return true;
+  }
+},
 
+// ✅ ДОДАТИ НОВИЙ МЕТОД: Перезапуск ранкової сесії
+// ✅ ВИПРАВЛЕНИЙ restartMorningSession
+async restartMorningSession(ctx) {
+  const tgId = ctx.from.id;
+  
+  console.log(`[DAILY] 🔄 restart_morning для ${tgId}`);
+  
+  try {
+    await ctx.answerCbQuery('Починаємо заново');
+    
+    const today = new Date().toISOString().split('T')[0];
+    const { getBase, tables } = await import('../../config/database.js');
+    const base = getBase();
+    
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    if (records.length > 0) {
+      const fields = ['Q_m_1', 'Q_m_2', 'Q_m_3', 'Q_m_4', 'Q_m_5', 'Q_m_6', 'Goal_1', 'Goal_2', 'Goal_3', 'Goal_4', 'Goal_5', 'Goal_6', 'Goal_7', 'Goal_8', 'Goal_9', 'Goal_10', 'Daily_Action_1', 'Daily_Action_2', 'Daily_Action_3', 'Daily_Main_Goal', 'Monthly_Priority_1', 'Monthly_Priority_2', 'Monthly_Priority_3', 'Daily_State', 'affirmation_m'];
+      
+      await base(tables.RESPONSES).update(records[0].id, {
+        ...Object.fromEntries(fields.map(f => [f, null])),
+        Current_Activity: 'Q_m_1'
+      });
+      
+      console.log(`[DAILY] ✅ Ранкові відповіді очищено в існуючому записі`);
+    }
+    
+    // Скидаємо статус у scheduler
+    try {
+      const { resetSessionStatus } = await import('../../utils/scheduler.js');
+      resetSessionStatus(tgId, 'morning');
+    } catch {}
+    
+    // ✅ ВАЖЛИВО: Оновлюємо Step БЕЗ створення нового запису
+    await userService.updateUserStep(tgId, 'Q_m_1');
+    
+    // ✅ ЗАДАЄМО ПЕРШЕ ПИТАННЯ (без виклику startMorningSession, щоб не створювати новий запис)
+    await this.askMorningQuestion(ctx, 1);
+    
+  } catch (error) {
+    console.error('[DAILY] ❌ restart_morning:', error);
+    await ctx.reply('❌ Помилка перезапуску. Спробуй /start', keyboards.mainMenuKeyboard());
+  }
+},
+
+// ✅ ДОДАТИ НОВИЙ МЕТОД: Перезапуск вечірньої сесії
+async restartEveningSession(ctx) {
+  const tgId = ctx.from.id;
+  
+  console.log(`[DAILY] 🔄 restart_evening для ${tgId}`);
+  
+  try {
+    await ctx.answerCbQuery('Починаємо заново');
+    
+    const today = new Date().toISOString().split('T')[0];
+    const { getBase, tables } = await import('../../config/database.js');
+    const base = getBase();
+    
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    if (records.length > 0) {
+      const fields = ['Q_e_1', 'Q_e_2', 'Q_e_3', 'Q_e_4', 'Q_e_5', 'Q_e_6', 'Q_e_7', 'Actions_Completed_Count', 'Actions_Completed_List', 'Actions_Skipped_List', 'Completion_Rate', 'affirmation_e'];
+      
+      await base(tables.RESPONSES).update(records[0].id, {
+        ...Object.fromEntries(fields.map(f => [f, null])),
+        Current_Activity: 'Q_e_1'
+      });
+      
+      console.log(`[DAILY] ✅ Вечірні відповіді очищено в існуючому записі`);
+    }
+    
+    // Скидаємо статус у scheduler
+    try {
+      const { resetSessionStatus } = await import('../../utils/scheduler.js');
+      resetSessionStatus(tgId, 'evening');
+    } catch {}
+    
+    // ✅ ВАЖЛИВО: Оновлюємо Step БЕЗ створення нового запису
+    await userService.updateUserStep(tgId, 'Q_e_1');
+    
+    // ✅ ЗАДАЄМО ПЕРШЕ ПИТАННЯ (без виклику startEveningSession)
+    await this.askEveningQuestion(ctx, 1);
+    
+  } catch (error) {
+    console.error('[DAILY] ❌ restart_evening:', error);
+    await ctx.reply('❌ Помилка перезапуску. Спробуй /start', keyboards.mainMenuKeyboard());
+  }
+},
   // ===== СТАРТ РАНКОВОЇ СЕСІЇ =====
   async startMorningSession(ctx) {
     const tgId = ctx.from.id;

@@ -2855,3 +2855,32 @@
 {"level":"info","message":"[responseService] 💾 Збереження affirmation_m та фіналізація для 630111093","timestamp":"2025-10-06T12:51:23.734Z"}
 {"level":"info","message":"[responseService] ✅ Афірмація збережено, Current_Activity = morning_completed","timestamp":"2025-10-06T12:51:24.244Z"}
 {"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-06T12:51:24.926Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-06T14:02:44.076Z"}
+{"level":"info","message":"[responseService] 🔄 Оновлюємо існуючий запис Responses (ID: recTly31DICFHFfXu)","timestamp":"2025-10-06T14:02:44.287Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_1 збережено","timestamp":"2025-10-06T14:02:44.785Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-06T14:06:11.966Z"}
+{"level":"info","message":"[responseService] 🔄 Оновлюємо існуючий запис Responses (ID: recTly31DICFHFfXu)","timestamp":"2025-10-06T14:06:12.193Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_1 збережено","timestamp":"2025-10-06T14:06:12.424Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_2 для 630111093","timestamp":"2025-10-06T14:06:29.882Z"}
+{"level":"info","message":"[responseService] 🔄 Оновлюємо існуючий запис Responses (ID: recTly31DICFHFfXu)","timestamp":"2025-10-06T14:06:30.086Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_2 збережено","timestamp":"2025-10-06T14:06:30.402Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_3 для 630111093","timestamp":"2025-10-06T14:07:11.706Z"}
+{"level":"info","message":"[responseService] 🔄 Оновлюємо існуючий запис Responses (ID: recTly31DICFHFfXu)","timestamp":"2025-10-06T14:07:11.891Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_3 збережено","timestamp":"2025-10-06T14:07:12.360Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_4 для 630111093","timestamp":"2025-10-06T14:07:48.832Z"}
+{"level":"info","message":"[responseService] 🔄 Оновлюємо існуючий запис Responses (ID: recTly31DICFHFfXu)","timestamp":"2025-10-06T14:07:49.273Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_4 збережено","timestamp":"2025-10-06T14:07:49.878Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_5 для 630111093","timestamp":"2025-10-06T14:09:31.963Z"}
+{"level":"info","message":"[responseService] 🔄 Оновлюємо існуючий запис Responses (ID: recTly31DICFHFfXu)","timestamp":"2025-10-06T14:09:32.202Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_5 збережено","timestamp":"2025-10-06T14:09:32.949Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_6 для 630111093","timestamp":"2025-10-06T14:09:56.820Z"}
+{"level":"info","message":"[responseService] 🔄 Оновлюємо існуючий запис Responses (ID: recTly31DICFHFfXu)","timestamp":"2025-10-06T14:09:57.056Z"}
+{"level":"info","message":"[responseService] ✅ Відповідь Q_m_6 збережено","timestamp":"2025-10-06T14:09:57.388Z"}
+{"level":"info","message":"[dataSyncService] 🔄 Початок синхронізації для 630111093","timestamp":"2025-10-06T14:09:57.876Z"}
+{"error":"NOT_AUTHORIZED","level":"error","message":"[dataSyncService] ❌ syncGoalsToUserGoals: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-06T14:09:58.285Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"[dataSyncService] ❌ syncActionsToMicroActions: Insufficient permissions to create new select option \"\"user_input\"\"","statusCode":422,"timestamp":"2025-10-06T14:09:58.731Z"}
+{"level":"info","message":"[dataSyncService] ✅ Синхронізація завершена: 0 цілей, 0 дій","timestamp":"2025-10-06T14:09:58.732Z"}
+{"level":"info","message":"[responseService] ✅ Синхронізовано: 0 цілей, 0 дій","timestamp":"2025-10-06T14:09:58.732Z"}
+{"level":"info","message":"[responseService] 💾 Збереження affirmation_m та фіналізація для 630111093","timestamp":"2025-10-06T14:09:59.380Z"}
+{"level":"info","message":"[responseService] ✅ Афірмація збережено, Current_Activity = morning_completed","timestamp":"2025-10-06T14:09:59.863Z"}
+{"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-06T14:10:00.727Z"}

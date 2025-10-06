@@ -199,18 +199,14 @@ router.register(
 // ═══════════════════════════════════════════════════════════════════════════
 // 8️⃣ ЩОДЕННІ СЕСІЇ
 // ═══════════════════════════════════════════════════════════════════════════
-router.register({ prefix: 'start_morning' }, async (ctx) => {
-  console.log('[callbackHandler] 🌞 start_morning');
-  await dailyController.startMorningSession(ctx);
-  return true;
-});
-
-router.register({ prefix: 'start_evening' }, async (ctx) => {
-  console.log('[callbackHandler] 🌙 start_evening');
-  await dailyController.startEveningSession(ctx);
-  return true;
-});
-
+router.register(
+  (data) => data.includes('morning') || data.includes('evening') || data.startsWith('start_'),
+  async (ctx, data) => {
+    console.log('[callbackHandler] 📅 daily action');
+    await dailyController.handleCallback(ctx, data);
+    return true;
+  }
+);
 // ═══════════════════════════════════════════════════════════════════════════
 // 9️⃣ ПІДПИСКИ
 // ═══════════════════════════════════════════════════════════════════════════

@@ -65,3 +65,5 @@
 {"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-04T16:53:23.677Z"}
 {"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-06T12:04:38.031Z"}
 {"error":"NOT_AUTHORIZED","level":"error","message":"[dataSyncService] ❌ syncGoalsToUserGoals: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-06T12:51:23.003Z"}
+{"error":"NOT_AUTHORIZED","level":"error","message":"[dataSyncService] ❌ syncGoalsToUserGoals: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-06T14:09:58.285Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"[dataSyncService] ❌ syncActionsToMicroActions: Insufficient permissions to create new select option \"\"user_input\"\"","statusCode":422,"timestamp":"2025-10-06T14:09:58.731Z"}

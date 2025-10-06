@@ -14,6 +14,8 @@ const responseService = {
   /**
    * Збереження ранкової відповіді
    */
+// src/services/responseService.js
+
 async saveMorningAnswer(tgId, questionNumber, answer) {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -23,7 +25,7 @@ async saveMorningAnswer(tgId, questionNumber, answer) {
     
     logger.info(`[responseService] 💾 Збереження ${fieldName} для ${tgId}`);
     
-    // 1️⃣ ЗНАХОДИМО ЗАПИС
+    // 1️⃣ ЗНАХОДИМО АБО СТВОРЮЄМО ЗАПИС
     const records = await base(tables.RESPONSES)
       .select({
         filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
@@ -49,16 +51,15 @@ async saveMorningAnswer(tgId, questionNumber, answer) {
       additionalFields = QUESTION_PARSERS.parseState(answer);
     }
     
-    // 2️⃣ ОНОВЛЮЄМО АБО СТВОРЮЄМО ЗАПИС
     const fieldsToUpdate = {
       [fieldName]: answer,
       ...additionalFields,
-      // ✅ КРИТИЧНО: оновлюємо Current_Activity в Responses
       Current_Activity: currentStep
     };
     
     if (records.length === 0) {
-      logger.warn(`[responseService] ⚠️ Запис Responses не знайдено - створюємо`);
+      // ✅ СТВОРЮЄМО НОВИЙ ЗАПИС
+      logger.info(`[responseService] 🆕 Створюємо новий запис Responses`);
       
       const user = await userService.getUserByTgId(tgId);
       
@@ -69,18 +70,19 @@ async saveMorningAnswer(tgId, questionNumber, answer) {
         ...fieldsToUpdate
       });
     } else {
+      // ✅ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
+      logger.info(`[responseService] 🔄 Оновлюємо існуючий запис Responses (ID: ${records[0].id})`);
+      
       await base(tables.RESPONSES).update(records[0].id, fieldsToUpdate);
     }
     
-    logger.info(`[responseService] ✅ Відповідь ${fieldName} збережено + Current_Activity оновлено`);
+    logger.info(`[responseService] ✅ Відповідь ${fieldName} збережено`);
     
-    // 3️⃣ ОНОВЛЮЄМО Answer_Step В USERS (основне поле для відстеження)
+    // 3️⃣ ОНОВЛЮЄМО Answer_Step В USERS
     await userService.updateUserFields(tgId, {
       Answer_Step: currentStep,
       Last_Activity: now
     });
-    
-    logger.info(`[responseService] ✅ Answer_Step оновлено до ${currentStep}`);
     
     // ✅ ПІСЛЯ Q_m_6 СИНХРОНІЗУЄМО
     if (questionNumber === 6) {
@@ -125,6 +127,7 @@ async saveEveningAnswer(tgId, questionNumber, answer) {
     
     logger.info(`[responseService] 💾 Збереження ${fieldName} для ${tgId}`);
     
+    // 1️⃣ ЗНАХОДИМО ІСНУЮЧИЙ ЗАПИС
     const records = await base(tables.RESPONSES)
       .select({
         filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
@@ -133,7 +136,24 @@ async saveEveningAnswer(tgId, questionNumber, answer) {
       .firstPage();
     
     if (records.length === 0) {
-      throw new Error('Запис Responses не знайдено');
+      // ✅ ЯКЩО НЕМАЄ ЗАПИСУ - СТВОРЮЄМО
+      logger.warn(`[responseService] ⚠️ Запис Responses не знайдено для вечірніх - створюємо`);
+      
+      const user = await userService.getUserByTgId(tgId);
+      
+      await base(tables.RESPONSES).create({
+        'TG_id': String(tgId),
+        'Date_Response': today,
+        'User Name': user?.['User Name'] || 'Користувач',
+        [fieldName]: answer
+      });
+      
+      await userService.updateUserFields(tgId, {
+        Answer_Step: `Q_e_${questionNumber}`,
+        Last_Activity: now
+      });
+      
+      return true;
     }
     
     let additionalFields = {};
@@ -143,7 +163,6 @@ async saveEveningAnswer(tgId, questionNumber, answer) {
       const completionAnalysis = this.analyzeActionCompletion(answer, records[0].fields);
       additionalFields = completionAnalysis;
       
-      // Оновлюємо статус дій в MICRO_ACTIONS
       await this.updateMicroActionsStatus(tgId, completionAnalysis);
     }
     
@@ -153,6 +172,7 @@ async saveEveningAnswer(tgId, questionNumber, answer) {
       additionalFields = goalProgress;
     }
     
+    // ✅ ОНОВЛЮЄМО ІСНУЮЧИЙ ЗАПИС
     await base(tables.RESPONSES).update(records[0].id, {
       [fieldName]: answer,
       ...additionalFields
