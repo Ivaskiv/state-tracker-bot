@@ -329,7 +329,19 @@ mainMenuInline() {
       }
     };
   },
-
+// ====== ПЕРЕВІРКА СТАТУСУ СЕСІЙ ======
+eveningWithoutMorningKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🌞 Пройти ранкові', callback_data: 'start_morning' }],
+        [{ text: '⏭ Пропустити ранкові', callback_data: 'skip_morning_do_evening' }],
+        [{ text: '🌙 Тільки вечірні', callback_data: 'force_evening' }],
+        [{ text: '🚪 Вийти', callback_data: 'exit_all' }]
+      ]
+    }
+  };
+},
   // ====== УТИЛІТИ ======
   dismissOfferKeyboard() {
     return navigationKeyboard(null, true);
@@ -343,6 +355,8 @@ mainMenuInline() {
     menuKeyboard
   }
 };
+
+
 
 export default keyboards;
 export { skipKeyboard, actionKeyboard, navigationKeyboard, menuKeyboard };

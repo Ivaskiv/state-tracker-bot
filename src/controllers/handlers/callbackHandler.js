@@ -287,6 +287,31 @@ router.register(['dismiss_reminder', 'dismiss_offer'], async (ctx) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ✅ ДОДАТИ в src/controllers/handlers/callbackHandler.js
+// ═══════════════════════════════════════════════════════════════════════════
+
+router.register('skip_morning_do_evening', async (ctx) => {
+  await ctx.answerCbQuery('Ранкові пропущено');
+  const dailyController = await import('../flows/dailyController.js');
+  await dailyController.default.startEveningSession(ctx);
+  return true;
+});
+
+router.register('force_evening', async (ctx) => {
+  await ctx.answerCbQuery('Починаємо вечірні');
+  const dailyController = await import('../flows/dailyController.js');
+  await dailyController.default.startEveningSession(ctx);
+  return true;
+});
+
+router.register('exit_all', async (ctx) => {
+  const tgId = ctx.from.id;
+  await userService.updateUserFields(tgId, { Answer_Step: 'completed' });
+  await ctx.reply('🚪 Сесії завершено.', keyboards.mainMenuKeyboard());
+  await ctx.answerCbQuery();
+  return true;
+});
+// ═══════════════════════════════════════════════════════════════════════════
 // 1️⃣6️⃣ DEFAULT HANDLER
 // ═══════════════════════════════════════════════════════════════════════════
 const defaultHandler = async (ctx, data) => {

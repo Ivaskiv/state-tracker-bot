@@ -2829,3 +2829,5 @@
 {"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-05T12:57:23.649Z"}
 {"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-05T12:57:24.007Z"}
 {"level":"info","message":"[responseService] ✅ finalizeDay завершено для 630111093","timestamp":"2025-10-05T12:57:24.058Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_m_1 для 630111093","timestamp":"2025-10-06T12:04:37.567Z"}
+{"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-06T12:04:38.031Z"}

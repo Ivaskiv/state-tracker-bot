@@ -379,7 +379,60 @@ const dailyController = {
       await ctx.reply('✅ Сесія збережена, але помилка звіту.', keyboards.mainMenuKeyboard());
     }
   },
+// ✅ ДОДАТИ МЕТОД перевірки статусу сесій
+async checkSessionStatus(ctx) {
+  const tgId = ctx.from.id;
+  
+  try {
+    // const user = await userService.getUserByTgId(tgId);
+    const morningCompleted = await responseService.isSessionCompleted(tgId, 'morning');
+    const eveningCompleted = await responseService.isSessionCompleted(tgId, 'evening');
+    
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // Визначаємо час сесій
+    const isMorningTime = currentHour >= 8 && currentHour < 12;
+    const isEveningTime = currentHour >= 21 || currentHour < 2;
+    
+    return {
+      morningCompleted,
+      eveningCompleted,
+      isMorningTime,
+      isEveningTime,
+      canDoEvening: morningCompleted || !isMorningTime
+    };
+  } catch (error) {
+    logger.error('[dailyController] ❌ checkSessionStatus:', error);
+    return null;
+  }
+},
 
+// ✅ ЗМІНИТИ startEveningSession
+async startEveningSession(ctx) {
+  const tgId = ctx.from.id;
+    const userName = ctx.from.first_name || 'Користувач';
+
+  try {
+    const status = await this.checkSessionStatus(ctx);
+    
+    // Якщо не пройдено ранкові - запитуємо
+    if (!status.morningCompleted && status.isEveningTime) {
+      await ctx.reply(
+DAILY_MESSAGES.EVENING_WITHOUT_MORNING(userName),
+        keyboards.eveningWithoutMorningKeyboard()      );
+      return;
+    }
+    const completed = await responseService.isSessionCompleted(tgId, 'evening');
+    if (completed) {
+      await ctx.reply('🌙 Вже завершила вечірню рефлексію!', keyboards.mainMenuKeyboard());
+      return;
+    }
+  } catch (error) {
+console.error('[DAILY] ❌ Start evening fail:', error);
+    await ctx.reply('❌ Помилка запуску.', keyboards.mainMenuKeyboard());
+    }
+},
   // ===== ГЕНЕРАЦІЯ МІКРО-ДІЙ (AI) =====
   async generateDailyMicroActions(tgId) {
     try {

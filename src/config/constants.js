@@ -255,8 +255,8 @@ export const NOTE_FIELDS = [
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '11:59',
-  EVENING_TIME: '12:04',
+  MORNING_TIME: '15:03',
+  EVENING_TIME: '15:15',
   TIMEZONE: 'Europe/Kyiv' 
 });
 
@@ -720,6 +720,13 @@ export const EXTENDED_MORNING_QUESTIONS = [
     optional: true // можна пропустити якщо вже відповіли в Q_m_5
   }
 ];
+
+// ===== ЩОДЕННІ ПИТАННЯ - ПОВІДОМЛЕННЯ =====
+export const DAILY_MESSAGES = Object.freeze({
+  EVENING_WITHOUT_MORNING: (name) =>
+    `🌙 Час вечірніх питань, ${name}!\n\n⚠️ Ти ще не пройшла ранкові питання.\n\nЩо робимо?`,
+});
+
 console.log('✅ [constants] Централізовані константи завантажено');
 console.log(`   • Ранкових питань: ${MORNING_QUESTIONS.length}`);
 console.log(`   • Вечірніх питань: ${EVENING_QUESTIONS.length}`);
