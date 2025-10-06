@@ -64,3 +64,4 @@
 {"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-04T14:10:15.823Z"}
 {"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-04T16:53:23.677Z"}
 {"level":"error","message":"[responseService] ❌ saveMorningAnswer:","timestamp":"2025-10-06T12:04:38.031Z"}
+{"error":"NOT_AUTHORIZED","level":"error","message":"[dataSyncService] ❌ syncGoalsToUserGoals: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-06T12:51:23.003Z"}

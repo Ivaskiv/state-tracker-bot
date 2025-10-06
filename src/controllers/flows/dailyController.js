@@ -218,38 +218,127 @@ const dailyController = {
   },
 
   // ===== ВЕЧІРНІ ПИТАННЯ =====
-  async askEveningQuestion(ctx, questionNumber) {
-    const tgId = ctx.from.id;
-    console.log(`[DAILY] 🌙 Ask evening Q${questionNumber} для ${tgId}`);
+// ===== ВЕЧІРНІ ПИТАННЯ З КОНТЕКСТОМ =====
+async askEveningQuestion(ctx, questionNumber) {
+  const tgId = ctx.from.id;
+  console.log(`[DAILY] 🌙 Ask evening Q${questionNumber} для ${tgId}`);
 
-    try {
-      const q = QUESTIONS.evening[questionNumber - 1];
-      if (!q) {
-        console.error(`[DAILY] ❌ Q${questionNumber} not found`);
-        await ctx.reply('❌ Помилка завантаження питання.', keyboards.mainMenuKeyboard());
-        return;
-      }
-
-      await userService.updateUserStep(tgId, `Q_e_${questionNumber}`);
-      console.log(`[DAILY] ✅ Step updated to Q_e_${questionNumber}`);
-
-      const message = `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ\n\n${questionNumber}/5\n\n${q.text}${q.hint ? `\n\n💡 ${q.hint}` : ''}`;
-
-      await ctx.reply(message, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🚪 Вийти із сесії', callback_data: 'exit_evening' }]
-          ]
-        }
-      });
-      console.log(`[DAILY] ✅ Evening Q${questionNumber} sent`);
-    } catch (error) {
-      console.error('[DAILY] ❌ Ask evening fail:', error);
-      console.error('[DAILY] Stack:', error.stack);
-      await ctx.reply('❌ Помилка питання. Спробуй заново.', keyboards.mainMenuKeyboard());
+  try {
+    const q = QUESTIONS.evening[questionNumber - 1];
+    if (!q) {
+      console.error(`[DAILY] ❌ Q${questionNumber} not found`);
+      await ctx.reply('❌ Помилка завантаження питання.', keyboards.mainMenuKeyboard());
+      return;
     }
-  },
 
+    await userService.updateUserStep(tgId, `Q_e_${questionNumber}`);
+    console.log(`[DAILY] ✅ Step updated to Q_e_${questionNumber}`);
+
+    let message = `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ\n\n${questionNumber}/7\n\n${q.text}`;
+    
+    // ✅ ДЛЯ Q_e_5 - ПОКАЗУЄМО ДІЇ З РАНКУ
+    if (questionNumber === 5) {
+      const morningActions = await this.getMorningActions(tgId);
+      if (morningActions.length > 0) {
+        message = message.replace('[ТУТ ПОКАЗАТИ СПИСОК З РАНКУ]', 
+          morningActions.map((a, i) => `${i+1}. ${a}`).join('\n')
+        );
+      } else {
+        message = message.replace('[ТУТ ПОКАЗАТИ СПИСОК З РАНКУ]', 'Дії не були заплановані');
+      }
+    }
+    
+    // ✅ ДЛЯ Q_e_6 - ПОКАЗУЄМО 10 ЦІЛЕЙ З РАНКУ
+    if (questionNumber === 6) {
+      const morningGoals = await this.getMorningGoals(tgId);
+      if (morningGoals.length > 0) {
+        message = message.replace('[ТУТ ПОКАЗАТИ ЦІЛІ З РАНКУ]', 
+          morningGoals.map((g, i) => `${i+1}. ${g}`).join('\n')
+        );
+      } else {
+        message = message.replace('[ТУТ ПОКАЗАТИ ЦІЛІ З РАНКУ]', 'Цілі не були записані');
+      }
+    }
+    
+    if (q.hint) {
+      message += `\n\n💡 ${q.hint}`;
+    }
+
+    await ctx.reply(message, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🚪 Вийти із сесії', callback_data: 'exit_evening' }]
+        ]
+      }
+    });
+    console.log(`[DAILY] ✅ Evening Q${questionNumber} sent`);
+  } catch (error) {
+    console.error('[DAILY] ❌ Ask evening fail:', error);
+    await ctx.reply('❌ Помилка питання. Спробуй заново.', keyboards.mainMenuKeyboard());
+  }
+},
+
+// ✅ НОВИЙ МЕТОД: Отримати ранкові дії
+async getMorningActions(tgId) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { getBase, tables } = await import('../../config/database.js');
+    const base = getBase();
+    
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    if (records.length === 0) return [];
+    
+    const data = records[0].fields;
+    const actions = [
+      data.Daily_Action_1,
+      data.Daily_Action_2,
+      data.Daily_Action_3
+    ].filter(a => a && a.trim());
+    
+    return actions;
+  } catch (error) {
+    console.error('[DAILY] ❌ getMorningActions:', error);
+    return [];
+  }
+},
+
+// ✅ НОВИЙ МЕТОД: Отримати ранкові цілі
+async getMorningGoals(tgId) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { getBase, tables } = await import('../../config/database.js');
+    const base = getBase();
+    
+    const records = await base(tables.RESPONSES)
+      .select({
+        filterByFormula: `AND({TG_id}="${String(tgId)}", DATESTR({Date_Response})="${today}")`,
+        maxRecords: 1
+      })
+      .firstPage();
+    
+    if (records.length === 0) return [];
+    
+    const data = records[0].fields;
+    const goals = [];
+    for (let i = 1; i <= 10; i++) {
+      const goal = data[`Goal_${i}`];
+      if (goal && goal.trim()) {
+        goals.push(goal);
+      }
+    }
+    
+    return goals;
+  } catch (error) {
+    console.error('[DAILY] ❌ getMorningGoals:', error);
+    return [];
+  }
+},
   // ===== ОБРОБКА РАНКОВИХ ВІДПОВІДЕЙ =====
   async handleMorningAnswer(ctx, text, userStep) {
     const tgId = ctx.from.id;
