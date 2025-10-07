@@ -1,38 +1,46 @@
-// src/aiMentor/services/aiMentorCore.js
-import { chat } from '../openaiClient.js';
-import { AI_TYPES } from '../../config/constants.js';
+// src/services/aiMentorCore.js
+import { chat } from './openaiClient.js';           // якщо потрібен
 import aiMentorService from './aiMentorService.js';
-import actionGenerator from '../core/processors/actionGenerator.js';
+import actionGenerator from './actionGenerator.js';
+import responseProcessor from './responseProcessor.js';
+import { getPrompt } from './prompts/index.js';     // можна залишити для загальних use-cases
+
+export const AI_TYPES = {
+  MORNING: 'morning',
+  EVENING: 'evening',
+  SMART_CONVERT: 'smart_convert',
+  TRIGGER: 'trigger',
+  WEEKLY: 'weekly',
+  MONTHLY: 'monthly',
+  GENERAL: 'general'
+};
 
 export const processAIRequest = async (type, payload, context = {}) => {
   console.log(`[aiMentorCore] 🧠 Processing ${type}`);
-
   try {
     let result;
-
     switch(type) {
       case AI_TYPES.MORNING:
+        result = await aiMentorService.provideMorningFeedback(
+          payload.state, payload.goal, payload.qualities, payload.tgId
+        );
+        break;
+
       case AI_TYPES.EVENING:
         result = await aiMentorService.provideDayFeedback(
-          payload.responses,
-          payload.state,
-          payload.goal,
-          payload.tgId
+          payload.responses, payload.state, payload.goal, payload.tgId
         );
         break;
 
       case AI_TYPES.SMART_CONVERT:
         result = await aiMentorService.generateMicroActions(
-          payload.focusGoal,
-          payload.state,
-          payload.tgId
+          payload.focusGoal, payload.state, payload.tgId
         );
         break;
 
       case AI_TYPES.TRIGGER:
         result = await aiMentorService.generatePersonalizedAdvice(
-          payload.question,
-          payload.tgId
+          payload.question, payload.tgId
         );
         break;
 
@@ -41,32 +49,40 @@ export const processAIRequest = async (type, payload, context = {}) => {
         result = await aiMentorService.generateSummary(type, payload);
         break;
 
+      case AI_TYPES.GENERAL:
+        result = await aiMentorService.generatePersonalizedAdvice(
+          payload.question, payload.tgId
+        );
+        break;
+
       default:
-        throw new Error(`[aiMentorCore] ❌ Unknown AI type: ${type}`);
+        throw new Error(`Unknown AI type: ${type}`);
     }
 
-    let actions = [];
-    if (result?.needsActions) {
-      actions = await actionGenerator.generate(payload, result);
+    const processed = await responseProcessor.process(result, type);
+
+    let actions = processed.actions || [];
+    if (processed.needsActions && actions.length === 0) {
+      actions = await actionGenerator.generate(payload, processed);
     }
 
     return {
-      text: result.text || result.feedback || result,
-      actions: result.actions || actions || [],
+      text: processed.text || processed.feedback || result,
+      actions,
       meta: {
         type,
         timestamp: new Date().toISOString(),
-        triggers: result.triggers || [],
-        classification: result.classification || null
+        triggers: processed.triggers || [],
+        classification: processed.classification || null,
+        needsFollowUp: processed.needsFollowUp || false
       }
     };
-
   } catch (error) {
     console.error('[aiMentorCore] ❌ Error:', error);
     return {
       text: "Виникла помилка при обробці запиту. Спробуй ще раз.",
       actions: [],
-      meta: { type, timestamp: new Date().toISOString() }
+      meta: { type, timestamp: new Date().toISOString(), error: error.message }
     };
   }
 };
