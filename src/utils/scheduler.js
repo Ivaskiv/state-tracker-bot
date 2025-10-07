@@ -445,39 +445,28 @@ const checkMorningCompletion = async (tgId) => {
 
 const checkEveningCompletion = async (tgId) => {
   try {
+    const user = await userService.getUserByTgId(tgId);
+    const step = user?.Answer_Step;
+    
+    // Завершено, якщо Answer_Step = 'evening_completed' АБО є Q_e_5 у Responses
+    if (step === 'evening_completed') return true;
+    
     const { getBase, tables } = await import('../config/database.js');
-    const base = getBase();
     const today = new Date().toISOString().split('T')[0];
     
-    console.log(`[checkEveningCompletion] 🔍 Перевірка для ${tgId}, дата: ${today}`);
-
-    // ✅ ВИПРАВЛЕНО: правильна назва поля + додано логування
-    const recs = await base(tables.RESPONSES)
+    const recs = await getBase()(tables.RESPONSES)
       .select({
         filterByFormula: `AND({TG_id}="${tgId}", DATESTR({Date_Response})="${today}")`,
         maxRecords: 1
       })
       .firstPage();
-
-    if (recs.length === 0) {
-      console.log(`[checkEveningCompletion] ❌ Запис не знайдено для ${tgId}`);
-      return false;
-    }
     
-    const record = recs[0].fields;
-    const hasQ_e_5 = !!record.Q_e_5;
-    
-    console.log(`[checkEveningCompletion] 📊 ${tgId}: Q_e_5 = "${record.Q_e_5 || 'ПУСТО'}", завершено: ${hasQ_e_5}`);
-    
-    return hasQ_e_5;
-    
+    return recs.length > 0 && !!recs[0].fields.Q_e_5;
   } catch (e) {
-    console.error('[checkEveningCompletion] ❌ Помилка:', e.message);
-    console.error('[checkEveningCompletion] ❌ Stack:', e.stack);
+    console.error('[checkEveningCompletion]:', e);
     return false;
   }
 };
-
 // ----------------- фіналізація / щотижневе / щомісячне / підписки -----------------
 const finalizeDailyStats = async () => {
   if (!guardExecution('daily_finalization')) return;
