@@ -8,6 +8,7 @@ import registerStartHandlers, {
 import textHandler from './handlers/textHandler.js';
 import callbackHandler from './handlers/callbackHandler.js';
 import keyboards from '../utils/keyboards.js';
+import profileController from './flows/profileController.js';
 
 const botController = (bot) => {
   console.log('🤖 [botController] Ініціалізація...');
@@ -24,7 +25,9 @@ const botController = (bot) => {
       try { await ctx.reply('❌ Виникла помилка. Спробуй /start'); } catch {}
     }
   });
-
+bot.hears('📊 Мій прогрес', async (ctx) => {
+  await profileController.showProfile(ctx);
+});
   // ===== /START =====
   // ✅ Реєструємо хендлер команди /start через дефолт-експорт
   registerStartHandlers(bot);
@@ -32,13 +35,16 @@ const botController = (bot) => {
   // ===== ТЕКСТ =====
 bot.on('text', async (ctx) => {
   try {
-    await textHandler.handle(ctx); 
+    const handled = await textHandler.handle(ctx);
+    if (!handled) {
+      await ctx.reply('❌ Невідома команда', keyboards.mainMenuKeyboard());
+    }
   } catch (error) {
     console.error('💥 Middleware error:', error);
     await ctx.reply('❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard());
   }
 });
-  // ===== CALLBACK =====
+// ===== CALLBACK =====
   bot.on('callback_query', async (ctx, next) => {
     // Спочатку онбординг
     if (await startCb(ctx)) return;

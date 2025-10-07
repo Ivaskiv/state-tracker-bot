@@ -66,20 +66,20 @@ const menuKeyboard = (options, withNavigation = true) => {
 
 const keyboards = {
   // ====== 🏠 ГОЛОВНЕ МЕНЮ (6 КНОПОК: AI, КОЛЕСО, ЗВІТИ, ІНФО, ПІДПИСКА, ЗВ'ЯЗОК) ======
-  mainMenuKeyboard() {
-    return {
-      reply_markup: {
-        keyboard: [
-          [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }],
-          [{ text: '📊 Звіти' }, { text: 'ℹ️ Інформація про бота' }],
-          [{ text: '💰 Підписка' }, { text: '📞 Зв\'язок' }]
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: false,
-        is_persistent: true
-      }
-    };
-  },
+mainMenuKeyboard() {
+  return {
+    reply_markup: {
+      keyboard: [
+        [{ text: '📊 Мій прогрес та Звіти' }, { text: 'ℹ️ Інформація про бота' }],
+        [{ text: '💰 Підписка' }, { text: '📞 Зв\'язок' }],
+        [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }]
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+      is_persistent: true
+    }
+  };
+},
 mainMenuInline() {
   return {
       inline_keyboard: [

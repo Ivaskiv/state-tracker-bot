@@ -264,8 +264,8 @@ export const NOTE_FIELDS = [
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '12:00',
-  EVENING_TIME: '12:45',
+  MORNING_TIME: '16:33',
+  EVENING_TIME: '15:13',
   TIMEZONE: 'Europe/Kyiv' 
 });
 
@@ -840,6 +840,173 @@ export const DAILY_MESSAGES = Object.freeze({
   EVENING_WITHOUT_MORNING: (name) =>
     `🌙 Час вечірніх питань, ${name}!\n\n⚠️ Ти ще не пройшла ранкові питання.\n\nЩо робимо?`,
 });
+
+// ===== ГЕЙМІФІКАЦІЯ: БЕЙДЖІ =====
+export const BADGES = Object.freeze({
+  BEGINNER: {
+    key: 'beginner',
+    icon: '🎯',
+    title: 'Початківець',
+    description: 'Пройшов 1 місячний аудит',
+    requirement: 'Заповнити Колесо балансу',
+    points: 10
+  },
+  WEEK_FOCUS: {
+    key: 'week_focus',
+    icon: '🔥',
+    title: '7-днів фокус',
+    description: '7 днів без пропусків',
+    requirement: '7 днів поспіль завершив ранок+вечір',
+    points: 25
+  },
+  WINNER: {
+    key: 'winner',
+    icon: '🏆',
+    title: 'Переможець',
+    description: 'Досяг 1 річної цілі на 30%+ прогресу',
+    requirement: 'Прогрес по будь-якій цілі ≥30%',
+    points: 50
+  },
+  TRANSFORMER: {
+    key: 'transformer',
+    icon: '⭐',
+    title: 'Перетворювач',
+    description: '30 днів регулярності',
+    requirement: '30 днів активності (не обов\'язково поспіль)',
+    points: 100
+  },
+  CONSISTENT: {
+    key: 'consistent',
+    icon: '💎',
+    title: 'Послідовний',
+    description: '14 днів без пропусків',
+    requirement: '14 днів поспіль завершив сесії',
+    points: 40
+  },
+  ACHIEVER: {
+    key: 'achiever',
+    icon: '🎖️',
+    title: 'Досягатор',
+    description: '50% всіх цілей виконано',
+    requirement: 'Completion rate ≥50% за місяць',
+    points: 60
+  },
+  AI_POWER_USER: {
+    key: 'ai_power_user',
+    icon: '🤖',
+    title: 'AI Майстер',
+    description: '50 AI взаємодій',
+    requirement: '50+ AI діалогів загалом',
+    points: 30
+  },
+  MONTHLY_WARRIOR: {
+    key: 'monthly_warrior',
+    icon: '📊',
+    title: 'Місячний воїн',
+    description: 'Завершив 4 тижневі звіти',
+    requirement: '4 тижні поспіль заповнив звіти',
+    points: 75
+  }
+});
+
+export const BADGE_CRITERIA = Object.freeze({
+  [BADGES.BEGINNER.key]: {
+    check: (stats) => stats.wheelBalanceCompleted >= 1,
+    field: 'wheelBalanceCompleted'
+  },
+  [BADGES.WEEK_FOCUS.key]: {
+    check: (stats) => stats.currentStreak >= 7,
+    field: 'currentStreak'
+  },
+  [BADGES.WINNER.key]: {
+    check: (stats) => stats.maxGoalProgress >= 30,
+    field: 'maxGoalProgress'
+  },
+  [BADGES.TRANSFORMER.key]: {
+    check: (stats) => stats.totalActiveDays >= 30,
+    field: 'totalActiveDays'
+  },
+  [BADGES.CONSISTENT.key]: {
+    check: (stats) => stats.currentStreak >= 14,
+    field: 'currentStreak'
+  },
+  [BADGES.ACHIEVER.key]: {
+    check: (stats) => stats.avgCompletionRate >= 50,
+    field: 'avgCompletionRate'
+  },
+  [BADGES.AI_POWER_USER.key]: {
+    check: (stats) => stats.totalAIInteractions >= 50,
+    field: 'totalAIInteractions'
+  },
+  [BADGES.MONTHLY_WARRIOR.key]: {
+    check: (stats) => stats.weeklyReportsCompleted >= 4,
+    field: 'weeklyReportsCompleted'
+  }
+});
+
+// ===== ПРОГРЕС БАР =====
+export const PROGRESS_LEVELS = Object.freeze({
+  NOVICE: {
+    level: 1,
+    name: 'Новачок',
+    pointsRequired: 0,
+    icon: '🌱',
+    color: '#95a5a6'
+  },
+  APPRENTICE: {
+    level: 2,
+    name: 'Учень',
+    pointsRequired: 50,
+    icon: '📚',
+    color: '#3498db'
+  },
+  PRACTITIONER: {
+    level: 3,
+    name: 'Практик',
+    pointsRequired: 150,
+    icon: '⚡',
+    color: '#9b59b6'
+  },
+  EXPERT: {
+    level: 4,
+    name: 'Експерт',
+    pointsRequired: 300,
+    icon: '🔥',
+    color: '#e67e22'
+  },
+  MASTER: {
+    level: 5,
+    name: 'Майстер',
+    pointsRequired: 500,
+    icon: '👑',
+    color: '#f39c12'
+  },
+  LEGEND: {
+    level: 6,
+    name: 'Легенда',
+    pointsRequired: 1000,
+    icon: '💫',
+    color: '#e74c3c'
+  }
+});
+
+export const getProgressLevel = (totalPoints) => {
+  const levels = Object.values(PROGRESS_LEVELS);
+  
+  for (let i = levels.length - 1; i >= 0; i--) {
+    if (totalPoints >= levels[i].pointsRequired) {
+      return {
+        ...levels[i],
+        nextLevel: levels[i + 1] || null,
+        progress: levels[i + 1] 
+          ? Math.min(100, Math.round(((totalPoints - levels[i].pointsRequired) / (levels[i + 1].pointsRequired - levels[i].pointsRequired)) * 100))
+          : 100
+      };
+    }
+  }
+  
+  return { ...PROGRESS_LEVELS.NOVICE, nextLevel: PROGRESS_LEVELS.APPRENTICE, progress: 0 };
+};
 
 console.log('✅ [constants] Централізовані константи завантажено');
 console.log(`   • Ранкових питань: ${MORNING_QUESTIONS.length}`);

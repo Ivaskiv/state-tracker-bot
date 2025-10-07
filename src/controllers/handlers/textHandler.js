@@ -1,9 +1,16 @@
-// src/controllers/handlers/textHandler.js - ОСТАТОЧНА ВЕРСІЯ
-
 import userService from '../../services/userService.js';
 import keyboards from '../../utils/keyboards.js';
 import { CURRENT_ACTIVITY, GENERAL_AFFIRMATIONS } from '../../config/constants.js';
 import { aiMentorSession } from '../../utils/session.js';
+
+// Функції для прогресу/звіту
+const getProgressText = (user) => {
+  return `📈 Ваш прогрес:\n- Завдань виконано: ${user.CompletedTasks || 0}\n- Поточний рівень: ${user.Level || 1}`;
+};
+
+const getReportsText = (user) => {
+  return `📊 Звіти:\n- Тиждень: +${user.WeekPoints || 0} балів\n- Місяць: +${user.MonthPoints || 0} балів`;
+};
 
 export const handle = async (ctx) => {
   const tgId = ctx.from.id;
@@ -15,52 +22,34 @@ export const handle = async (ctx) => {
 
   try {
     const user = await userService.getUserByTgId(tgId, { skipCache: true });
-
     if (!user || !user.UserRegistered) {
       await ctx.reply('Спочатку зареєструйся /start', keyboards.mainMenuKeyboard());
       return true;
     }
 
-    const step = user.Answer_Step; // ✅ Читаємо з Answer_Step
+    const step = user.Answer_Step;
     console.log(`[textHandler] 📍 Step: ${step}`);
 
-    // АКТИВНІ СЕСІЇ - ОБРОБКА ВІДПОВІДЕЙ
-    
-    // РАНКОВІ ПИТАННЯ
-    if (step?.startsWith('Q_m_')) {
-      console.log(`[textHandler] 🌞 Ранкова сесія: ${step}`);
+    // АКТИВНІ СЕСІЇ
+    if (step?.startsWith('Q_m_') || step?.startsWith('Q_e_')) {
       const dailyController = (await import('../flows/dailyController.js')).default;
       await dailyController.handleText(ctx, rawText, step);
       return true;
     }
 
-    // ВЕЧІРНІ ПИТАННЯ
-    if (step?.startsWith('Q_e_')) {
-      console.log(`[textHandler] 🌙 Вечірня сесія: ${step}`);
-      const dailyController = (await import('../flows/dailyController.js')).default;
-      await dailyController.handleText(ctx, rawText, step);
-      return true;
-    }
-
-    // КОЛЕСО БАЛАНСУ
     if (step === CURRENT_ACTIVITY.WHEEL) {
-      console.log(`[textHandler] 🎯 Колесо активне`);
       const wheelController = (await import('../flows/wheelController.js')).default;
       await wheelController.handleText(ctx, rawText);
       return true;
     }
 
-    // AI НАСТАВНИК
     if (aiMentorSession.isActive(tgId)) {
-      console.log(`[textHandler] 🤖 AI активна`);
       const aiMentorController = (await import('../flows/aiMentorController.js')).default;
       await aiMentorController.handleAIQuestion(ctx, rawText);
       return true;
     }
 
-    // ОБРОБКА КОМАНД МЕНЮ
     const hasAccess = userService.hasActiveAccess(user);
-
     const showBlock = async (feature) => {
       await ctx.reply(`🔒 "${feature}" - преміум!`, keyboards.subscriptionPlansKeyboard());
     };
@@ -76,6 +65,12 @@ export const handle = async (ctx) => {
         if (!hasAccess) return await showBlock('Колесо балансу');
         const wheelController = (await import('../flows/wheelController.js')).default;
         await wheelController.handleCallback(ctx, 'wheel_start');
+        break;
+
+      // Нова кнопка "Мій прогрес + Звіти"
+      case (text.includes('мій прогрес') && text.includes('звіти')) || text === '📊 мій прогрес та звіти':
+        if (!hasAccess) return await showBlock('Звіти та Прогрес');
+        await ctx.reply(`${getProgressText(user)}\n\n${getReportsText(user)}`, keyboards.mainMenuKeyboard());
         break;
 
       case text.includes('звіти'):
@@ -108,9 +103,9 @@ export const handle = async (ctx) => {
 
   } catch (error) {
     console.error('[textHandler] ❌ GLOBAL:', error);
-    console.error('[textHandler] Stack:', error.stack);
     await ctx.reply('❌ Помилка обробки.', keyboards.mainMenuKeyboard());
     return true;
   }
 };
-export default { handle };
+
+export default { handle, getProgressText, getReportsText };

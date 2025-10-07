@@ -122,6 +122,36 @@ export const calculateDailyStats = async (tgId) => {
 };
 
 // ===== ВЕЧІРНІЙ ПІДРАХУНОК (викликати після завершення вечірніх питань) =====
+// export const finalizeDay = async (tgId) => {
+//   try {
+//     console.log(`[activityTracker] 🌙 Фіналізація дня для ${tgId}`);
+    
+//     const stats = await calculateDailyStats(tgId);
+    
+//     if (!stats) return;
+    
+//     // Оновлюємо лічильники користувача
+//     if (!stats.morningCompleted || !stats.eveningCompleted) {
+//       // Пропущений день
+//       await updateMissedDays(tgId, true);
+//     } else {
+//       // День завершено успішно - скидаємо лічильник
+//       await updateMissedDays(tgId, false);
+//     }
+    
+//     // Оновлюємо current_activity_ts
+// await userService.updateUserActivity(tgId);
+    
+//     console.log(`[activityTracker] ✅ День фіналізовано`);
+//     await badgeService.checkAndAwardBadges(tgId);
+
+//   } catch (error) {
+//     console.error('[finalizeDay] Помилка:', error);
+//   }
+// };
+// src/services/activityTracker.js - ВИПРАВЛЕННЯ finalizeDay
+
+// ===== ВЕЧІРНІЙ ПІДРАХУНОК (викликати після завершення вечірніх питань) =====
 export const finalizeDay = async (tgId) => {
   try {
     console.log(`[activityTracker] 🌙 Фіналізація дня для ${tgId}`);
@@ -137,19 +167,22 @@ export const finalizeDay = async (tgId) => {
     } else {
       // День завершено успішно - скидаємо лічильник
       await updateMissedDays(tgId, false);
+      
+      // ✅ ПЕРЕВІРЯЄМО ТА ПРИСВОЮЄМО БЕЙДЖІ
+      console.log(`[activityTracker] 🎖️ Перевірка бейджів після успішного дня`);
+      const badgeService = (await import('./badgeService.js')).default;
+      await badgeService.checkAndAwardBadges(tgId);
     }
     
     // Оновлюємо current_activity_ts
-await userService.updateUserActivity(tgId);
+    await userService.updateUserActivity(tgId);
     
     console.log(`[activityTracker] ✅ День фіналізовано`);
-    await badgeService.checkAndAwardBadges(tgId);
 
   } catch (error) {
     console.error('[finalizeDay] Помилка:', error);
   }
 };
-
 // ===== ПЕРЕВІРКА COMPLETION RATE ЗА ТИЖДЕНЬ =====
 export const checkWeeklyCompletionRate = async (tgId) => {
   try {
@@ -454,6 +487,174 @@ export const saveMicroActions = async (tgId, actions, conversationId = null) => 
     console.error('[activityTracker] Stack:', error.stack);
   }
 };
+
+// src/services/activityTracker.js - ДОДАТИ ЦІ МЕТОДИ
+
+/**
+ * ===== СТАТИСТИКА ЗА ОСТАННІ N ДНІВ =====
+ */
+export const getLastNDaysStats = async (tgId, days = 7) => {
+  try {
+    console.log(`[activityTracker] 📊 Статистика за останні ${days} днів для ${tgId}`);
+    
+    const dateFrom = new Date();
+    dateFrom.setDate(dateFrom.getDate() - days);
+    const dateFromStr = dateFrom.toISOString().split('T')[0];
+    
+    const stats = await base(tables.ACTIVITY_STATS || 'ACTIVITY_STATS')
+      .select({
+        filterByFormula: `AND({TG_id}="${tgId}", IS_AFTER({Date}, "${dateFromStr}"))`,
+        sort: [{ field: 'Date', direction: 'desc' }]
+      })
+      .all();
+    
+    const result = stats.map(record => ({
+      date: record.fields.Date,
+      morningCompleted: record.fields.Morning_Completed || false,
+      eveningCompleted: record.fields.Evening_Completed || false,
+      actionsPlanned: record.fields.Actions_Planned || 0,
+      actionsCompleted: record.fields.Actions_Completed || 0,
+      completionRate: record.fields.Completion_Rate || 0,
+      hasVictory: record.fields.Has_Victory || false,
+      aiInteractions: record.fields.AI_Interactions || 0
+    }));
+    
+    console.log(`[activityTracker] ✅ Отримано ${result.length} днів статистики`);
+    
+    return result;
+    
+  } catch (error) {
+    console.error('[getLastNDaysStats] Помилка:', error);
+    return [];
+  }
+};
+
+/**
+ * ===== ОТРИМАННЯ ЗАГАЛЬНОЇ СТАТИСТИКИ КОРИСТУВАЧА =====
+ */
+export const getUserTotalStats = async (tgId) => {
+  try {
+    console.log(`[activityTracker] 📊 Загальна статистика для ${tgId}`);
+    
+    const allStats = await base(tables.ACTIVITY_STATS || 'ACTIVITY_STATS')
+      .select({
+        filterByFormula: `{TG_id}="${tgId}"`,
+        sort: [{ field: 'Date', direction: 'desc' }]
+      })
+      .all();
+    
+    if (allStats.length === 0) {
+      return {
+        totalDays: 0,
+        completedDays: 0,
+        totalActionsPlanned: 0,
+        totalActionsCompleted: 0,
+        avgCompletionRate: 0,
+        totalAIInteractions: 0,
+        daysWithVictories: 0,
+        currentStreak: 0,
+        maxStreak: 0
+      };
+    }
+    
+    const completedDays = allStats.filter(r => 
+      r.fields.Morning_Completed && r.fields.Evening_Completed
+    ).length;
+    
+    const totalActionsPlanned = allStats.reduce((sum, r) => 
+      sum + (r.fields.Actions_Planned || 0), 0
+    );
+    
+    const totalActionsCompleted = allStats.reduce((sum, r) => 
+      sum + (r.fields.Actions_Completed || 0), 0
+    );
+    
+    const avgCompletionRate = totalActionsPlanned > 0
+      ? Math.round((totalActionsCompleted / totalActionsPlanned) * 100)
+      : 0;
+    
+    const totalAIInteractions = allStats.reduce((sum, r) => 
+      sum + (r.fields.AI_Interactions || 0), 0
+    );
+    
+    const daysWithVictories = allStats.filter(r => 
+      r.fields.Has_Victory
+    ).length;
+    
+    // Розрахунок поточного та максимального streak
+    const { currentStreak, maxStreak } = calculateStreaks(allStats);
+    
+    return {
+      totalDays: allStats.length,
+      completedDays,
+      totalActionsPlanned,
+      totalActionsCompleted,
+      avgCompletionRate,
+      totalAIInteractions,
+      daysWithVictories,
+      currentStreak,
+      maxStreak
+    };
+    
+  } catch (error) {
+    console.error('[getUserTotalStats] Помилка:', error);
+    return null;
+  }
+};
+
+/**
+ * ===== РОЗРАХУНОК ПОТОЧНОГО ТА МАКСИМАЛЬНОГО STREAK =====
+ */
+const calculateStreaks = (allStats) => {
+  if (allStats.length === 0) return { currentStreak: 0, maxStreak: 0 };
+  
+  // Сортуємо за датою (найновіші спочатку)
+  const sorted = [...allStats].sort((a, b) => 
+    new Date(b.fields.Date) - new Date(a.fields.Date)
+  );
+  
+  let currentStreak = 0;
+  let maxStreak = 0;
+  let tempStreak = 0;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Розрахунок поточного streak
+  for (let i = 0; i < sorted.length; i++) {
+    const record = sorted[i].fields;
+    const recordDate = new Date(record.Date);
+    recordDate.setHours(0, 0, 0, 0);
+    
+    if (!record.Morning_Completed || !record.Evening_Completed) {
+      break;
+    }
+    
+    const expectedDate = new Date(today);
+    expectedDate.setDate(today.getDate() - i);
+    
+    if (recordDate.getTime() === expectedDate.getTime()) {
+      currentStreak++;
+    } else {
+      break;
+    }
+  }
+  
+  // Розрахунок максимального streak
+  for (let i = 0; i < sorted.length; i++) {
+    const record = sorted[i].fields;
+    
+    if (record.Morning_Completed && record.Evening_Completed) {
+      tempStreak++;
+      maxStreak = Math.max(maxStreak, tempStreak);
+    } else {
+      tempStreak = 0;
+    }
+  }
+  
+  return { currentStreak, maxStreak };
+};
+
 export default {
   saveMicroActions,
   updateActionStatus,
@@ -464,6 +665,8 @@ export default {
   checkInactivityTriggers,
   updateMissedDays,
   updateLowActivityWeeks,
-  incrementAIInteractions 
+  incrementAIInteractions,
+  getLastNDaysStats,       
+  getUserTotalStats        
 
 };

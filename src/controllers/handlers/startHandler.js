@@ -9,6 +9,7 @@ import {
   USER_STATUS,
   REGISTRATION_SUCCESS_TEMPLATE
 } from '../../config/constants.js';
+import profileController from '../flows/profileController.js';
 
 // ---------- helpers ----------
 const formatDateUA = (dateLike) => {
@@ -169,7 +170,10 @@ export const handleCallback = async (ctx) => {
       await ctx.reply(MESSAGES.ASK_PLAN, keyboards.subscriptionPlansKeyboard());
       return true;
     }
-
+if (data.startsWith('profile_') || data === 'show_profile') {
+  await profileController.handleCallback(ctx, data);
+  return;
+}
     // Trial: ідемпотентно
     if (data === 'plan_free' || data === 'activate_trial') {
       if (isAccessActive(user)) {
