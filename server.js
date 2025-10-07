@@ -10,6 +10,7 @@ import { testConnection, validateTables } from './src/config/database.js';
 import { startScheduler, stopScheduler } from './src/utils/scheduler.js';
 import { typingMiddleware } from './src/utils/typing.js';
 import webhookController from './src/api/webhookController.js'; // ✅ ДОДАТИ
+import profileController from './src/controllers/flows/profileController.js';
 
 const { TELEGRAM_BOT_TOKEN, NODE_ENV, TZ, PORT } = process.env;
 
@@ -73,7 +74,9 @@ bot.catch((err, ctx) => {
     console.error('❌ [bot] Помилка відправки error message:', replyError.message);
   }
 });
-
+bot.command('profile', async (ctx) => {
+  await profileController.showProfile(ctx);
+});
 // ===== ЗАПУСК =====
 (async () => {
   try {

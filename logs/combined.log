@@ -2884,3 +2884,9 @@
 {"level":"info","message":"[responseService] 💾 Збереження affirmation_m та фіналізація для 630111093","timestamp":"2025-10-06T14:09:59.380Z"}
 {"level":"info","message":"[responseService] ✅ Афірмація збережено, Current_Activity = morning_completed","timestamp":"2025-10-06T14:09:59.863Z"}
 {"level":"info","message":"[responseService] Отримано 2 записів для 630111093","timestamp":"2025-10-06T14:10:00.727Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_1 для 630111093","timestamp":"2025-10-06T16:06:58.063Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_2 для 630111093","timestamp":"2025-10-06T16:07:43.348Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_3 для 630111093","timestamp":"2025-10-06T16:08:07.371Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_4 для 630111093","timestamp":"2025-10-06T16:08:39.950Z"}
+{"level":"info","message":"[responseService] 💾 Збереження Q_e_5 для 630111093","timestamp":"2025-10-06T16:09:15.418Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] ❌ saveEveningAnswer: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-06T16:09:16.074Z"}

@@ -1,5 +1,4 @@
-// src/config/constants.js - ЦЕНТРАЛІЗОВАНІ КОНСТАНТИ (ПОВНА ВЕРСІЯ)
-
+// src/config/constants.js
 // ===== ЧАСОВІ ЗОНИ =====
 export const TIMEZONES = [
   { label: 'Europe/Kiev (UTC+3)', slug: 'Europe/Kiev' },
@@ -265,8 +264,8 @@ export const NOTE_FIELDS = [
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '18:28',
-  EVENING_TIME: '18:29',
+  MORNING_TIME: '20:16',
+  EVENING_TIME: '20:53',
   TIMEZONE: 'Europe/Kyiv' 
 });
 
@@ -721,15 +720,15 @@ export const QUESTION_PARSERS = {
 };
 
 // ===== НОВІ ПИТАННЯ (ОПЦІОНАЛЬНО) =====
-export const EXTENDED_MORNING_QUESTIONS = [
-  {
-    id: 7,
-    text: "Який мій стан сьогодні? (впевненість/рішучість/сила/легкість)",
-    field: 'Q_m_7',
-    hint: 'Обери найближчий стан або опиши своїми словами',
-    optional: true // можна пропустити якщо вже відповіли в Q_m_5
-  }
-];
+// export const EXTENDED_MORNING_QUESTIONS = [
+//   {
+//     id: 7,
+//     text: "Який мій стан сьогодні? (впевненість/рішучість/сила/легкість)",
+//     field: 'Q_m_7',
+//     hint: 'Обери найближчий стан або опиши своїми словами',
+//     optional: true 
+//   }
+// ];
 
 // ===== ЩОДЕННІ ПИТАННЯ - ПОВІДОМЛЕННЯ =====
 export const DAILY_MESSAGES = Object.freeze({

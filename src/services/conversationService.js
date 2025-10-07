@@ -1,4 +1,4 @@
-// src/aiMentor/services/conversationService.js - ПОВНА ВЕРСІЯ
+// src/aiMentor/services/conversationService.js
 
 import { getBase, tables } from '../config/database.js';
 import { CONTEXT_TYPES } from '../config/constants.js';

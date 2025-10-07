@@ -143,7 +143,8 @@ export const finalizeDay = async (tgId) => {
 await userService.updateUserActivity(tgId);
     
     console.log(`[activityTracker] ✅ День фіналізовано`);
-    
+    await badgeService.checkAndAwardBadges(tgId);
+
   } catch (error) {
     console.error('[finalizeDay] Помилка:', error);
   }

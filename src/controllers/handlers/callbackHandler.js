@@ -199,15 +199,43 @@ router.register(
 // ═══════════════════════════════════════════════════════════════════════════
 // 8️⃣ ЩОДЕННІ СЕСІЇ
 // ═══════════════════════════════════════════════════════════════════════════
+// РАНКОВА СЕСІЯ
+router.register('start_morning', async (ctx) => {
+  console.log('[callbackHandler] 📅 start_morning');
+  await dailyController.startMorningSession(ctx);
+  return true;
+});
+
+// ВЕЧІРНЯ СЕСІЯ
+router.register('start_evening', async (ctx) => {
+  console.log('[callbackHandler] 📅 start_evening');
+  await dailyController.startEveningSession(ctx);
+  return true;
+});
+
+// Обробка callback з проміжними кроками сесій (наприклад, відповіді користувача)
 router.register(
-  (data) => data.includes('morning') || data.includes('evening') || data.startsWith('start_'),
+  (data) => data.includes('morning') || data.includes('evening'),
   async (ctx, data) => {
     console.log('[callbackHandler] 📅 daily action');
     await dailyController.handleCallback(ctx, data);
     return true;
   }
 );
-// ═══════════════════════════════════════════════════════════════════════════
+
+// Пропуск ранкової сесії і одразу вечірня
+router.register('skip_morning_do_evening', async (ctx) => {
+  await ctx.answerCbQuery('Ранкові пропущено');
+  await dailyController.startEveningSession(ctx);
+  return true;
+});
+
+// Примусовий старт вечірньої
+router.register('force_evening', async (ctx) => {
+  await ctx.answerCbQuery('Починаємо вечірні');
+  await dailyController.startEveningSession(ctx);
+  return true;
+});// ═══════════════════════════════════════════════════════════════════════════
 // 9️⃣ ПІДПИСКИ
 // ═══════════════════════════════════════════════════════════════════════════
 router.register(

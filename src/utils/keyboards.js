@@ -291,14 +291,40 @@ mainMenuInline() {
       }
     };
   },
-
-  // ====== ЩОДЕННІ ПИТАННЯ ======
-  morningStartInline() {
-    return actionKeyboard('morning', ['start', 'later']);
+  eveningWithoutMorningKeyboard() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🌙 Почати вечірню рефлексію', callback_data: 'start_evening' }],
+          [{ text: '🌞 Спочатку ранкові питання', callback_data: 'start_morning' }],
+          [{ text: '⏭ Пізніше', callback_data: 'later_evening' }]
+        ]
+      }
+    };
   },
 
+  // ====== ЩОДЕННІ ПИТАННЯ ======
   eveningStartInline() {
-    return actionKeyboard('evening', ['start', 'later']);
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🌙 Почати вечірню рефлексію', callback_data: 'start_evening' }],
+          [{ text: '⏭ Пізніше', callback_data: 'later_evening' }]
+        ]
+      }
+    };
+  },
+
+  // ✅ КЛАВІАТУРА: старт ранкових
+  morningStartInline() {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🌞 Почати ранкову рефлексію', callback_data: 'start_morning' }],
+          [{ text: '⏭ Пізніше', callback_data: 'later_morning' }]
+        ]
+      }
+    };
   },
 
   sessionReminderInline(sessionType) {
@@ -329,6 +355,7 @@ mainMenuInline() {
       }
     };
   },
+  
 // ====== ПЕРЕВІРКА СТАТУСУ СЕСІЙ ======
 eveningWithoutMorningKeyboard() {
   return {
@@ -342,6 +369,7 @@ eveningWithoutMorningKeyboard() {
     }
   };
 },
+
   // ====== УТИЛІТИ ======
   dismissOfferKeyboard() {
     return navigationKeyboard(null, true);
