@@ -1,7 +1,7 @@
 // src/config/constants.js
 // ===== ЧАСОВІ ЗОНИ =====
 export const TIMEZONES = [
-  { label: 'Europe/Kiev (UTC+3)', slug: 'Europe/Kiev' },
+  { label: 'Europe/Kyiv (UTC+3)', slug: 'Europe/Kyiv' },
   { label: 'Europe/Warsaw (UTC+2)', slug: 'Europe/Warsaw' },
   { label: 'Europe/Berlin (UTC+2)', slug: 'Europe/Berlin' },
   { label: 'Europe/London (UTC+1)', slug: 'Europe/London' },
@@ -120,11 +120,16 @@ export const ANSWER_STEPS = Object.freeze({
   MORNING_4: 'Q_m_4',
   MORNING_5: 'Q_m_5',
   MORNING_6: 'Q_m_6',
+
   EVENING_1: 'Q_e_1',
   EVENING_2: 'Q_e_2',
   EVENING_3: 'Q_e_3',
   EVENING_4: 'Q_e_4',
   EVENING_5: 'Q_e_5',
+    EVENING_4: 'Q_e_6',
+  EVENING_5: 'Q_e_7',
+  
+
   WHEEL_BALANCE_ACTIVE: 'WheelBalance',
   AI_MENTOR_ACTIVE: 'ai_mentor_active'
 });
@@ -264,7 +269,7 @@ export const NOTE_FIELDS = [
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '16:33',
+  MORNING_TIME: '19:56',
   EVENING_TIME: '15:13',
   TIMEZONE: 'Europe/Kyiv' 
 });
@@ -730,7 +735,7 @@ export const CONFIG = Object.freeze({
   NAME_MAX_LENGTH: 50,
   EMAIL_MAX_LENGTH: 100,
   PHONE_REGEX: /^\+380\d{9}$/,
-  DEFAULT_TIMEZONE: 'Europe/Kiev (UTC+3)'
+  DEFAULT_TIMEZONE: 'Europe/Kyiv (UTC+3)'
 });
 
 // ===== АФІРМАЦІЇ =====

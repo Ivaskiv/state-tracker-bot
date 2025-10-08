@@ -30,10 +30,57 @@ export const handle = async (ctx) => {
     const step = user.Answer_Step;
     console.log(`[textHandler] 📍 Step: ${step}`);
 
-    // АКТИВНІ СЕСІЇ
-    if (step?.startsWith('Q_m_') || step?.startsWith('Q_e_')) {
+    // АКТИВНІ СЕСІЇ - РАНКОВІ ПИТАННЯ
+    if (step?.startsWith('Q_m_')) {
+      console.log(`[textHandler] 🌞 Обробка ранкової відповіді, step: ${step}`);
+      
+      // Парсимо номер питання з Q_m_1, Q_m_2 тощо
+      const match = step.match(/Q_m_(\d+)/i);
+      if (!match) {
+        console.error(`[textHandler] ❌ Не вдалося розпарсити номер питання з: ${step}`);
+        await ctx.reply('❌ Помилка. Почни сесію заново /start');
+        return true;
+      }
+      
+      const questionNumber = parseInt(match[1], 10);
+      console.log(`[textHandler] 📊 Parsed: questionNumber=${questionNumber}`);
+      
+      const userStep = {
+        tgId,
+        sessionType: 'morning',
+        questionNumber,
+        currentStep: step
+      };
+      
       const dailyController = (await import('../flows/dailyController.js')).default;
-      await dailyController.handleText(ctx, rawText, step);
+      await dailyController.handleText(ctx, rawText, userStep);
+      return true;
+    }
+
+    // АКТИВНІ СЕСІЇ - ВЕЧІРНІ ПИТАННЯ
+    if (step?.startsWith('Q_e_')) {
+      console.log(`[textHandler] 🌙 Обробка вечірньої відповіді, step: ${step}`);
+      
+      // Парсимо номер питання з Q_e_1, Q_e_2 тощо
+      const match = step.match(/Q_e_(\d+)/i);
+      if (!match) {
+        console.error(`[textHandler] ❌ Не вдалося розпарсити номер питання з: ${step}`);
+        await ctx.reply('❌ Помилка. Почни сесію заново /start');
+        return true;
+      }
+      
+      const questionNumber = parseInt(match[1], 10);
+      console.log(`[textHandler] 📊 Parsed: questionNumber=${questionNumber}`);
+      
+      const userStep = {
+        tgId,
+        sessionType: 'evening',
+        questionNumber,
+        currentStep: step
+      };
+      
+      const dailyController = (await import('../flows/dailyController.js')).default;
+      await dailyController.handleText(ctx, rawText, userStep);
       return true;
     }
 
@@ -67,7 +114,16 @@ export const handle = async (ctx) => {
         await wheelController.handleCallback(ctx, 'wheel_start');
         break;
 
-      // Нова кнопка "Мій прогрес + Звіти"
+      case text === '🌞 почати ранкову сесію':
+        const dailyController = (await import('../flows/dailyController.js')).default;
+        await dailyController.startMorningSession(ctx);
+        break;
+
+      case text === '🌙 почати вечірню сесію':
+        const dailyControllerEvening = (await import('../flows/dailyController.js')).default;
+        await dailyControllerEvening.startEveningSession(ctx);
+        break;
+
       case (text.includes('мій прогрес') && text.includes('звіти')) || text === '📊 мій прогрес та звіти':
         if (!hasAccess) return await showBlock('Звіти та Прогрес');
         await ctx.reply(`${getProgressText(user)}\n\n${getReportsText(user)}`, keyboards.mainMenuKeyboard());
