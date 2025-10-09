@@ -11,6 +11,7 @@ import {
   ANSWER_STEPS
 } from '../config/constants.js';
 import userService from '../services/userService.js';
+import paymentService from '../services/paymentService.js';
 
 // ----------------- helpers / state -----------------
 const jobs = [];
@@ -245,7 +246,7 @@ const scheduleSessionReminder = (bot, tgId, reminderText, sessionType) => {
       }
 
       const user = await userService.getUserByTgId(id);
-      if (user?.Answer_Step === 'completed' || user?.Answer_Step === ANSWER_STEPS.COMPLETED) {
+      if (user?.ANSWER_STEPS === 'completed' || user?.ANSWER_STEPS === ANSWER_STEPS.COMPLETED) {
         activeSessions.delete(id);
         reminderTimers.delete(id);
         return;
@@ -487,29 +488,18 @@ const sendMonthlyReports = async (bot) => {
   }
 };
 
-const checkExpiredSubscriptions = async () => {
+const checkExpiredSubscriptions = async (bot) => {
   if (!guardExecution('subscription_check')) return;
   console.log('[scheduler] 💰 Перевірка підписок');
-  try {
-    // dynamic import to avoid circular deps
-    try {
-      const { default: paymentService } = await import('../auth/services/paymentService.js');
-      if (paymentService && typeof paymentService.deactivateExpiredSubscriptions === 'function') {
-        const n = await paymentService.deactivateExpiredSubscriptions();
-        console.log(`[scheduler] ✅ Деактивовано: ${n}`);
-      }
-    } catch (e) {
-      console.error('[scheduler] ❌ Перевірка підписок (paymentService) помилка:', e?.message || e);
-    }
-  } catch (e) {
-    console.error('[scheduler] ❌ Перевірка підписок помилка:', e);
+
+  if (typeof paymentService.processSubscriptions === 'function') {
+    const { remindersSent, deactivatedCount } = await paymentService.processSubscriptions(bot);
+    console.log(`[scheduler] 📊 Нагадування: ${remindersSent}, Деактивації: ${deactivatedCount}`);
   }
 };
-
 // ----------------- utility: validate cron pattern -----------------
 const isValidCronPattern = (p) => {
   if (typeof p !== 'string') return false;
-  // very small validation: at least 5 space-separated fields (minute hour day month weekday)
   const parts = p.trim().split(/\s+/);
   return parts.length >= 5;
 };

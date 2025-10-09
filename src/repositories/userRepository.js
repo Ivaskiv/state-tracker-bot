@@ -11,7 +11,6 @@ const getAirtableDate = () => new Date().toISOString().split('.')[0] + 'Z';
 // видалити readonly/формульні поля
 const stripReadonly = (fields) => {
   const f = { ...fields };
-  // ✅ Answer_Step МОЖНА писати, Current_Activity в Responses
   ['AT_id', 'TG_id', 'Active_Subscription_Status', 'Last Modified Time'].forEach(k => delete f[k]);
   return f;
 };
@@ -32,7 +31,7 @@ export const updateUser = async (recordId, fields) => {
     ], { typecast: true });
     
     const elapsed = ((Date.now() - started) / 1000).toFixed(2);
-    console.log(`[userRepo] Оновлено за ${elapsed}с, Answer_Step: ${updated.fields.Answer_Step || 'none'}`);
+    console.log(`[userRepo] Оновлено за ${elapsed}с, ANSWER_STEPS: ${updated.fields.ANSWER_STEPS || 'none'}`);
     
     return updated;
   } catch (error) {
@@ -66,7 +65,7 @@ export const createUser = async (tgId, name, timezone = 'Europe/Kiev (UTC+3)') =
     'Subscription Status': SUBSCRIPTION_STATUS.NEW,
     Created_At: now,
     Last_Activity: now,
-    Answer_Step: CURRENT_ACTIVITY.IDLE 
+    ANSWER_STEPS: CURRENT_ACTIVITY.IDLE 
   };
 
   try {

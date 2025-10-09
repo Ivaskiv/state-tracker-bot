@@ -1,11 +1,11 @@
-// src/controllers/handlers/startHandler.js - ОПТИМІЗОВАНИЙ + reply ДЕ ПОТРІБНО
+// src/controllers/handlers/startHandler.js
 
 import userService from '../../services/userService.js';
 import onboardingService from '../../services/onboardingService.js';
 import keyboards from '../../utils/keyboards.js';
 import {
   MESSAGES,
-  CURRENT_ACTIVITY,
+  ANSWER_STEPS,
   USER_STATUS,
   REGISTRATION_SUCCESS_TEMPLATE
 } from '../../config/constants.js';
@@ -50,6 +50,7 @@ export default function registerStartHandlers(bot) {
         return;
       }
 
+      // іноді при імпорті юзернейм міг потрапити як tgId — виправляємо
       if (user['User Name'] === String(tgId)) {
         await userService.updateUserFields(tgId, { 'User Name': telegramName });
         user['User Name'] = telegramName;
@@ -64,7 +65,7 @@ export default function registerStartHandlers(bot) {
       const endStr = formatDateUA(user.End_Date) || 'скоро';
 
       if (isAccessActive(user)) {
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard()); // ✅ + keyboard
+        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
       } else {
         await ctx.reply(MESSAGES.WELCOME_BACK_INACTIVE(name), keyboards.mainMenuKeyboard());
       }
@@ -96,22 +97,23 @@ export const handleText = async (ctx) => {
   const user = await userService.getUserByTgId(tgId);
   if (!user || user.UserRegistered) return false;
 
-  const step = user.Current_Activity;
+  // ✅ ЧИТАЄМО ТІЛЬКИ Users.Answer_Step
+  const step = user.Answer_Step;
 
   try {
-    if (step === CURRENT_ACTIVITY.OB_NAME) {
+    if (step === ANSWER_STEPS.OB_NAME) {
       const result = await onboardingService.handleNameStep(tgId, text);
       if (result.error) await ctx.reply(result.message, keyboards.emailInputKeyboard());
       else await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
       return true;
     }
-    if (step === CURRENT_ACTIVITY.OB_EMAIL) {
+    if (step === ANSWER_STEPS.OB_EMAIL) {
       const result = await onboardingService.handleEmailStep(tgId, text);
       if (result.error) await ctx.reply(result.message, keyboards.emailInputKeyboard());
       else await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
       return true;
     }
-    if (step === CURRENT_ACTIVITY.OB_PHONE) {
+    if (step === ANSWER_STEPS.OB_PHONE) {
       const result = await onboardingService.handlePhoneStep(tgId, text);
       if (result.error) await ctx.reply(result.message, keyboards.phoneInputKeyboard());
       else await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
@@ -137,7 +139,8 @@ export const handleCallback = async (ctx) => {
     if (data === 'use_telegram_name') {
       await userService.updateUserFields(tgId, {
         Status: USER_STATUS.REGISTERED,
-        Current_Activity: CURRENT_ACTIVITY.OB_EMAIL
+        // ✅ ПИШЕМО ВИКЛЮЧНО Answer_Step (Users)
+        Answer_Step: ANSWER_STEPS.OB_EMAIL
       });
       await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
       return true;
@@ -146,7 +149,7 @@ export const handleCallback = async (ctx) => {
     if (data === 'enter_custom_name' || data === 'start_registration') {
       await userService.updateUserFields(tgId, {
         Status: USER_STATUS.REGISTERED,
-        Current_Activity: CURRENT_ACTIVITY.OB_NAME
+        Answer_Step: ANSWER_STEPS.OB_NAME
       });
       await ctx.reply(MESSAGES.ASK_NAME);
       return true;
@@ -160,7 +163,7 @@ export const handleCallback = async (ctx) => {
 
     if (data === 'skip_phone') {
       await onboardingService.handlePhoneStep(tgId, null, true);
-      await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
+      await ctx.reply(MESSAGES.AСК_TIMEZONE, keyboards.timezoneKeyboard());
       return true;
     }
 
@@ -170,10 +173,12 @@ export const handleCallback = async (ctx) => {
       await ctx.reply(MESSAGES.ASK_PLAN, keyboards.subscriptionPlansKeyboard());
       return true;
     }
-if (data.startsWith('profile_') || data === 'show_profile') {
-  await profileController.handleCallback(ctx, data);
-  return;
-}
+
+    if (data.startsWith('profile_') || data === 'show_profile') {
+      await profileController.handleCallback(ctx, data);
+      return true;
+    }
+
     // Trial: ідемпотентно
     if (data === 'plan_free' || data === 'activate_trial') {
       if (isAccessActive(user)) {

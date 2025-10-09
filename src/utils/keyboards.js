@@ -1,4 +1,4 @@
-// src/utils/keyboards.js - ОПТИМІЗОВАНА ВЕРСІЯ З TIMEZONE KEYBOARD + НОВЕ ГОЛОВНЕ МЕНЮ
+// src/utils/keyboards.js 
 
 import { TIMEZONES, SUBSCRIPTION_PLANS } from '../config/constants.js';
 
@@ -369,7 +369,18 @@ eveningWithoutMorningKeyboard() {
     }
   };
 },
-
+// ====== НОВА КЛАВІАТУРА: ПОПЕРЕДЖЕННЯ ПРО ПЕРЕЗАПИС ======
+  restartWarningKeyboard(type) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 Почати заново (перезаписати)', callback_data: `restart_${type}` }],
+          [{ text: '✅ Залишити як є', callback_data: 'dismiss_reminder' }],
+          [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
+        ]
+      }
+    };
+  },
   // ====== УТИЛІТИ ======
   dismissOfferKeyboard() {
     return navigationKeyboard(null, true);

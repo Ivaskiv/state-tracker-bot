@@ -237,7 +237,7 @@ router.register(['dismiss_reminder', 'dismiss_offer'], async (ctx) => {
 // ----------------- EXIT -----------------
 router.register('exit_all', async (ctx) => {
   const tgId = ctx.from.id;
-  await userService.updateUserFields(tgId, { Answer_Step: 'completed' });
+  await userService.updateUserFields(tgId, { ANSWER_STEPS: 'completed' });
   await ctx.reply('🚪 Сесії завершено.', keyboards.mainMenuKeyboard());
   await ctx.answerCbQuery();
   return true;

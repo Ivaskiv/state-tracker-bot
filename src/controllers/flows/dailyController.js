@@ -42,7 +42,7 @@ const dailyController = {
         
         // Оновлюємо статус
         await userService.updateUserFields(tgId, {
-          Answer_Step: ANSWER_STEPS.COMPLETED
+          ANSWER_STEPS: ANSWER_STEPS.COMPLETED
         });
         
         await responseService._createOrUpdateRecord(tgId, {

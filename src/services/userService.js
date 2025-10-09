@@ -1,7 +1,7 @@
 // src/services/userService.js
 
 import userRepo from '../repositories/userRepository.js';
-import { USER_STATUS, SUBSCRIPTION_STATUS, CURRENT_ACTIVITY, CONFIG } from '../config/constants.js';
+import { USER_STATUS, SUBSCRIPTION_STATUS, CONFIG, ANSWER_STEPS } from '../config/constants.js';
 
 // ===== КЕШ КОРИСТУВАЧІВ =====
 const userCache = new Map();
@@ -30,7 +30,8 @@ const mapRecord = (record) => {
     Start_Date: f.Start_Date || null,
     End_Date: f.End_Date || null,
     'Active_Subscription_Status': f['Active_Subscription_Status'] || '',
-    Answer_Step: f.Answer_Step || CURRENT_ACTIVITY.COMPLETED,
+    // ✅ читаємо ТІЛЬКИ Answer_Step із Users
+    Answer_Step: f.Answer_Step ?? ANSWER_STEPS.IDLE,
     Created_At: f.Created_At || null,
     Last_Activity: f.Last_Activity || null,
     'Registration Date': f['Registration Date'] || null
@@ -41,12 +42,12 @@ const mapRecord = (record) => {
 export const getUserByTgId = async (tgId, options) => {
   const skipCache = options?.skipCache || false;
   const cacheKey = String(tgId);
-  
+
   if (!skipCache) {
     const cached = userCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.user;
   }
-  
+
   const record = await userRepo.findByTgId(tgId);
   const user = mapRecord(record);
   if (user) userCache.set(cacheKey, { user, timestamp: Date.now() });
@@ -76,6 +77,7 @@ export const updateUserFields = async (tgId, fields) => {
 };
 
 export const updateUserStep = async (tgId, step) => {
+  // ✅ пишемо саме Answer_Step (Users)
   return updateUserFields(tgId, { Answer_Step: step });
 };
 
@@ -92,7 +94,8 @@ export const finalizeRegistration = async (tgId, data) => {
     'Time Zone': data.timezone,
     UserRegistered: true,
     'Registration Date': now,
-    Answer_Step: CURRENT_ACTIVITY.COMPLETED
+    // ✅ завершення онбордингу
+    Answer_Step: ANSWER_STEPS.COMPLETED
   });
 };
 
@@ -105,7 +108,7 @@ export const hasActiveAccess = (user) => {
   const isStatusActive = subStatus === 'active' ||
                          activeStatus.includes('✅') ||
                          activeStatus.toLowerCase().includes('активна') ||
-                         plan.includes('🧪 пробний');
+                         plan.toLowerCase().includes('пробний');
   if (isStatusActive) return true;
 
   const start = user.Start_Date ? new Date(user.Start_Date + 'T00:00:00') : null;

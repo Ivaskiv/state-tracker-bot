@@ -27,7 +27,7 @@ export const handle = async (ctx) => {
       return true;
     }
 
-    const step = user.Answer_Step;
+    const step = user.ANSWER_STEPS;
     console.log(`[textHandler] 📍 Step: ${step}`);
 
     // АКТИВНІ СЕСІЇ - РАНКОВІ ПИТАННЯ

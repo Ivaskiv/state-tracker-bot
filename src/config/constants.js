@@ -96,9 +96,20 @@ export const CURRENT_ACTIVITY = Object.freeze({
   WEEKLY: 'weekly_report',
   MONTHLY: 'monthly_report',
   SUBSCRIPTION: 'subscription',
-  Q_M_1: 'Q_m_1', Q_M_2: 'Q_m_2', Q_M_3: 'Q_m_3',
-  Q_M_4: 'Q_m_4', Q_M_5: 'Q_m_5', Q_M_6: 'Q_m_6',
-  Q_E_1: 'Q_e_1', Q_E_2: 'Q_e_2', Q_E_3: 'Q_e_3', Q_E_4: 'Q_e_4', Q_E_5: 'Q_e_5',
+  Q_M_1: 'Q_m_1', 
+  Q_M_2: 'Q_m_2', 
+  Q_M_3: 'Q_m_3', 
+  Q_M_4: 'Q_m_4', 
+  Q_M_5: 'Q_m_5', 
+  Q_M_6: 'Q_m_6',
+
+  Q_E_1: 'Q_e_1', 
+  Q_E_2: 'Q_e_2', 
+  Q_E_3: 'Q_e_3', 
+  Q_E_4: 'Q_e_4', 
+  Q_E_5: 'Q_e_5', 
+  Q_E_6: 'Q_e_6',
+  Q_E_7: 'Q_e_7',
 });
 
 export const ANSWER_STEPS = Object.freeze({
@@ -126,12 +137,22 @@ export const ANSWER_STEPS = Object.freeze({
   EVENING_3: 'Q_e_3',
   EVENING_4: 'Q_e_4',
   EVENING_5: 'Q_e_5',
-    EVENING_4: 'Q_e_6',
-  EVENING_5: 'Q_e_7',
+  EVENING_6: 'Q_e_6',
+  EVENING_7: 'Q_e_7',
   
 
   WHEEL_BALANCE_ACTIVE: 'WheelBalance',
   AI_MENTOR_ACTIVE: 'ai_mentor_active'
+});
+// ===== ЩОДЕННІ ПИТАННЯ - ПОВІДОМЛЕННЯ =====
+export const DAILY_MESSAGES = Object.freeze({
+  EVENING_WITHOUT_MORNING: (name) =>
+    `🌙 Добрий вечір, ${name}!\n\n` +
+    `⚠️ Ти ще не пройшла ранкові питання сьогодні.\n\n` +
+    `Що робимо?`,
+  
+  MORNING_SKIPPED: '✅ Добре! Почнімо відразу з вечірньої рефлексії.',
+  SESSION_EXITED: '✅ Зрозуміла! Повертайся коли будеш готова. 💪'
 });
 
 export const ONBOARDING_STEPS = Object.freeze({
@@ -269,8 +290,8 @@ export const NOTE_FIELDS = [
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '19:56',
-  EVENING_TIME: '15:13',
+  MORNING_TIME: '14:01',
+  EVENING_TIME: '15:00',
   TIMEZONE: 'Europe/Kyiv' 
 });
 
@@ -840,11 +861,6 @@ export const QUESTION_PARSERS = {
 //   }
 // ];
 
-// ===== ЩОДЕННІ ПИТАННЯ - ПОВІДОМЛЕННЯ =====
-export const DAILY_MESSAGES = Object.freeze({
-  EVENING_WITHOUT_MORNING: (name) =>
-    `🌙 Час вечірніх питань, ${name}!\n\n⚠️ Ти ще не пройшла ранкові питання.\n\nЩо робимо?`,
-});
 
 // ===== ГЕЙМІФІКАЦІЯ: БЕЙДЖІ =====
 export const BADGES = Object.freeze({

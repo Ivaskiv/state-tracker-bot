@@ -1,4 +1,4 @@
-// src/utils/menuVersion.js - ВЕРСІОНУВАННЯ МЕНЮ
+// src/utils/menuVersion.js 
 
 import keyboards from './keyboards.js';
 

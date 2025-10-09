@@ -1,151 +1,162 @@
+// src/aiMentor/services/dailyService.js
+
 import responseService from './responseService.js';
 import userService from './userService.js';
 import keyboards from '../utils/keyboards.js';
 import logger from '../utils/logger.js';
 import { QUESTIONS, ANSWER_STEPS } from '../config/constants.js';
+import dataSyncService from './dataSyncService.js';
 
-const dailyService = {
 
-  async handleText(ctx, text, userStep) {
-    try {
-      const { tgId, sessionType, questionNumber } = userStep;
+const handleText = async (ctx, text, userStep) => {
+  try {
+    const { tgId, sessionType, questionNumber } = userStep;
 
-      if (sessionType === 'morning') {
-        await responseService.saveMorningAnswer(tgId, questionNumber, text);
-      } else if (sessionType === 'evening') {
-        await responseService.saveEveningAnswer(tgId, questionNumber, text);
-      }
-
-      return true;
-    } catch (error) {
-      logger.error('[dailyService] ❌ handleText:', error);
-      throw error;
+    if (sessionType === 'morning') {
+      await responseService.saveMorningAnswer(tgId, questionNumber, text);
+    } else if (sessionType === 'evening') {
+      await responseService.saveEveningAnswer(tgId, questionNumber, text);
     }
-  },
 
-  async handleCallback(ctx, data) {
-    // обробка кнопок, наприклад завершення сесії
-    const { tgId, action } = data;
-    if (action === 'exit') await this.exitSession(ctx, data.sessionType);
-  },
-
-  async startSession(ctx, type) {
-    const tgId = ctx.from.id;
-    console.log(`[dailyService] 🚀 startSession type="${type}" tgId=${tgId}`);
-
-    try {
-      const isMorning = type === 'morning';
-      
-      // Перевіряємо чи є сьогоднішній запис у Responses
-      const todayRecord = await responseService._getTodayRecord(tgId);
-      
-if (todayRecord) {
-  const fields = todayRecord.fields;
-  const hasAnswers = isMorning 
-    ? (fields.Q_m_1 || fields.Q_m_2 || fields.Q_m_3 || fields.Q_m_4 || fields.Q_m_5 || fields.Q_m_6)
-    : (fields.Q_e_1 || fields.Q_e_2 || fields.Q_e_3 || fields.Q_e_4 || fields.Q_e_5 || fields.Q_e_6 || fields.Q_e_7);
-
-  // Якщо відповіді є, але це після reset – не показуємо попередження
-  if (hasAnswers && !fields.Current_Activity?.startsWith(isMorning ? 'Q_m' : 'Q_e')) {
-    return ctx.reply(
-      `⚠️ Ти вже пройшла ${isMorning ? 'ранкову' : 'вечірню'} рефлексію сьогодні!\n\n` +
-      `Якщо почнеш заново, попередні відповіді будуть перезаписані.\n\n` +
-      `Що робимо?`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔄 Почати заново (перезаписати)', callback_data: `restart_${type}` }],
-            [{ text: '✅ Залишити як є', callback_data: 'dismiss_reminder' }],
-            [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
-          ]
-        }
-      }
-    );
+    return true;
+  } catch (error) {
+    logger.error('[dailyService] ❌ handleText:', error);
+    throw error;
   }
-}
+};
 
-      // Якщо запису немає або немає відповідей - створюємо новий і стартуємо
-      console.log(`[dailyService] ✅ Початок нової ${type} сесії`);
-      
-      // Створюємо порожній запис у Responses
-      if (!todayRecord) {
-        const today = new Date().toISOString().split('T')[0];
-        const user = await userService.getUserByTgId(tgId);
-        await responseService._createOrUpdateRecord(tgId, {
-          Date_Response: today,
-          'User Name': user?.['User Name'] || 'Користувач'
-        });
-        console.log(`[dailyService] 📝 Створено новий запис у Responses`);
-      }
+const handleCallback = async (ctx, data) => {
+  try {
+    // data може бути рядком або об'єктом — приведемо до string
+    const raw = typeof data === 'string' ? data : (data?.data || '');
+    if (!raw) return;
 
-      // Встановлюємо початковий крок
-      const initialStep = isMorning ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
-      
-      await userService.updateUserFields(tgId, {
-        Answer_Step: initialStep
-      });
-
-      await responseService._createOrUpdateRecord(tgId, {
-        Current_Activity: initialStep
-      });
-
-      console.log(`[dailyService] ✅ Answer_Step та Current_Activity встановлено: ${initialStep}`);
-
-      // Відправляємо перше питання
-      const questions = isMorning ? QUESTIONS.morning : QUESTIONS.evening;
-      const firstQuestion = questions[0];
-      const totalQuestions = questions.length;
-
-      if (!firstQuestion) {
-        throw new Error(`Питання не знайдено для ${type}`);
-      }
-
-      console.log(`[dailyService] 📤 Відправка питання: ${firstQuestion.text.substring(0, 50)}...`);
-
-      // Форматування повідомлення
-      const icon = isMorning ? '🌞' : '🌙';
-      const title = isMorning ? 'РАНКОВА РЕФЛЕКСІЯ' : 'ВЕЧІРНЯ РЕФЛЕКСІЯ';
-      
-      // Емодзі цифри
-      const emojiNumbers = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
-      const currentEmoji = emojiNumbers[1]; // перше питання
-      
-      // Витягуємо перший рядок як заголовок питання
-      const questionLines = firstQuestion.text.split('\n');
-      const questionTitle = questionLines[0];
-      
-      const message = 
-        `${icon} ${title}\n\n` +
-        `${currentEmoji}/${totalQuestions} ${questionTitle}\n` +
-        (firstQuestion.hint ? `💡 ${firstQuestion.hint}` : '');
-
-      await ctx.reply(
-        message,
-        keyboards.questionKeyboard?.(firstQuestion) || { 
-          reply_markup: { remove_keyboard: true } 
-        }
-      );
-
-      console.log(`[dailyService] ✅ Сесія ${type} успішно запущена`);
-
-    } catch (error) {
-      console.error(`[dailyService] ❌ startSession error:`, error);
-      await ctx.reply('❌ Помилка запуску сесії. Спробуй /start', keyboards.mainMenuKeyboard());
-      throw error;
+    // стандартні callback'и: "daily:choice"
+    if (raw.startsWith('daily:')) {
+      const choice = raw.split(':')[1];
+      // choice: morning | skip_morning | evening | exit
+      await handleEveningChoice(ctx, choice);
+      try { await ctx.answerCbQuery(); } catch (e) { /* silent */ }
+      return;
     }
-  },
 
-async restartSession(ctx, type) {
+    if (raw === 'exit_session') {
+      const sessionType = (data?.sessionType) || 'morning';
+      await exitSession(ctx, sessionType);
+      try { await ctx.answerCbQuery(); } catch (e) { /* silent */ }
+    }
+  } catch (error) {
+    logger.error('[dailyService] ❌ handleCallback:', error);
+    try { await ctx.answerCbQuery('Помилка'); } catch (e) {}
+  }
+};
+
+const _sendQuestion = async (ctx, type, index) => {
+  const isMorning = type === 'morning';
+  const questions = isMorning ? QUESTIONS.morning : QUESTIONS.evening;
+  const q = questions[index];
+  if (!q) throw new Error('Question not found');
+
+  const total = questions.length;
+  const emojiNumbers = ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'];
+  const currentEmoji = emojiNumbers[index + 1] || `${index + 1}.`;
+
+  const icon = isMorning ? '🌞' : '🌙';
+  const title = isMorning ? 'РАНКОВА РЕФЛЕКСІЯ' : 'ВЕЧІРНЯ РЕФЛЕКСІЯ';
+  const questionLines = q.text.split('\n');
+  const questionTitle = questionLines[0];
+
+  const message =
+    `${icon} ${title}\n\n` +
+    `${currentEmoji}/${total} ${questionTitle}\n` +
+    (q.hint ? `💡 ${q.hint}` : '');
+
+  const keyboard = (keyboards?.utils?.skipKeyboard && keyboards.utils.skipKeyboard('question'))
+    ? keyboards.utils.skipKeyboard('question')
+    : { reply_markup: { remove_keyboard: true } };
+
+  await ctx.reply(message, keyboard);
+};
+
+const startSession = async (ctx, type) => {
   const tgId = ctx.from.id;
-  console.log(`[dailyService] 🔄 restartSession type="${type}" tgId=${tgId}`);
+  logger.info(`[dailyService] 🚀 startSession type="${type}" tgId=${tgId}`);
 
   try {
     const isMorning = type === 'morning';
-    const record = await responseService._getTodayRecord(tgId);
-    if (record) {
-      const fieldsToReset = {};
 
-      if (isMorning) {
+    if (!isMorning) {
+      // Перевіряємо: чи пройдено ранкові сьогодні? Якщо ні — пропонуємо варіанти.
+      const isMorningDone = await responseService.isMorningCompleted(tgId);
+if (!isMorningDone) {
+  await ctx.reply(
+    '⚠️ Ти ще не пройшла ранкові питання сьогодні. Що бажаєш?',
+    keyboards.eveningWithoutMorningKeyboard()
+  );
+  return;
+}    }
+
+    // отримуємо/створюємо сьогоднішній запис
+    let todayRecord = await responseService._getTodayRecord(tgId);
+
+    // якщо є відповіді — попереджаємо про перезапис
+    if (todayRecord) {
+      const fields = todayRecord.fields || {};
+      const hasAnswers = isMorning
+        ? !!(fields.Q_m_1 || fields.Q_m_2 || fields.Q_m_3 || fields.Q_m_4 || fields.Q_m_5 || fields.Q_m_6 || fields.affirmation_m)
+        : !!(fields.Q_e_1 || fields.Q_e_2 || fields.Q_e_3 || fields.Q_e_4 || fields.Q_e_5 || fields.Q_e_6 || fields.Q_e_7 || fields.affirmation_e);
+
+if (hasAnswers && !String(fields.Current_Activity || '').startsWith(isMorning ? 'Q_m' : 'Q_e')) {
+  await ctx.reply(
+    `⚠️ Ти вже пройшла ${isMorning ? 'ранкову' : 'вечірню'} рефлексію сьогодні!\n\nЯкщо почнеш заново, попередні відповіді будуть перезаписані.\n\nЩо робимо?`,
+    keyboards.restartWarningKeyboard(type)
+  );
+  return;
+}
+    }
+
+    // створюємо запис, якщо нема
+    if (!todayRecord) {
+      const today = new Date().toISOString().split('T')[0];
+      const user = await userService.getUserByTgId(tgId);
+      await responseService._createOrUpdateRecord(tgId, {
+        Date_Response: today,
+        'User Name': user?.['User Name'] || 'Користувач'
+      });
+      todayRecord = await responseService._getTodayRecord(tgId);
+      logger.info('[dailyService] 📝 Створено новий запис у Responses');
+    }
+
+    // ставимо початковий крок
+    const initialStep = isMorning ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
+    await userService.updateUserFields(tgId, { ANSWER_STEPS: initialStep });
+    await responseService._createOrUpdateRecord(tgId, { Current_Activity: initialStep });
+
+    logger.info(`[dailyService] ✅ ANSWER_STEPS та Current_Activity встановлено: ${initialStep}`);
+
+    // відправляємо перше питання
+    await _sendQuestion(ctx, type, 0);
+
+  } catch (error) {
+    logger.error('[dailyService] ❌ startSession error:', error);
+    try { await ctx.reply('❌ Помилка запуску сесії. Спробуй /start', (keyboards && keyboards.mainMenuKeyboard) ? keyboards.mainMenuKeyboard() : {}); } catch (e) {}
+    throw error;
+  }
+};
+
+const restartSession = async (ctx, type) => {
+  const tgId = ctx.from.id;
+  logger.info(`[dailyService] 🔄 restartSession type="${type}" tgId=${tgId}`);
+
+  try {
+    // Використаємо responseService.resetSession якщо доступний, інакше зробимо ручне скидання
+    if (typeof responseService.resetSession === 'function') {
+      await responseService.resetSession(tgId, type);
+      logger.info('[dailyService] 🧹 resetSession via responseService.resetSession');
+    } else {
+      // fallback: ручне скидання полів
+      const fieldsToReset = {};
+      if (type === 'morning') {
         for (let i = 1; i <= 6; i++) fieldsToReset[`Q_m_${i}`] = null;
         fieldsToReset.affirmation_m = null;
         fieldsToReset.Current_Activity = null;
@@ -158,105 +169,119 @@ async restartSession(ctx, type) {
         fieldsToReset.Completion_Rate = null;
         fieldsToReset.Current_Activity = null;
       }
-
-      await responseService._createOrUpdateRecord(tgId, fieldsToReset);
-      console.log(`[dailyService] 🧹 Скинуто попередні відповіді для ${type}`);
+      await responseService._createOrUpdateRecord(ctx.from.id, fieldsToReset);
     }
 
-    // Скидаємо Answer_Step на початковий
-    const initialStep = isMorning ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
-    await userService.updateUserFields(tgId, { Answer_Step: initialStep });
+    const initialStep = type === 'morning' ? ANSWER_STEPS.MORNING_1 : ANSWER_STEPS.EVENING_1;
+    await userService.updateUserFields(ctx.from.id, { ANSWER_STEPS: initialStep });
 
-    // Запускаємо сесію заново
-    return this.startSession(ctx, type);
-
+    return startSession(ctx, type);
   } catch (error) {
-    console.error(`[dailyService] ❌ restartSession error:`, error);
-    await ctx.reply('❌ Помилка перезапуску сесії. Спробуй ще раз.');
+    logger.error('[dailyService] ❌ restartSession error:', error);
+    try { await ctx.reply('❌ Помилка перезапуску сесії. Спробуй ще раз.'); } catch (e) {}
     throw error;
   }
-},
-  async continueEveningSession(ctx) {
-    const tgId = ctx.from.id;
-    console.log(`[dailyService] ▶️ continueEveningSession tgId=${tgId}`);
+};
 
+const continueEveningSession = async (ctx) => {
+  const tgId = ctx.from.id;
+  logger.info(`[dailyService] ▶️ continueEveningSession tgId=${tgId}`);
+
+  try {
+    const user = await userService.getUserByTgId(tgId);
+    const currentStep = user?.ANSWER_STEPS;
+
+    if (!currentStep || currentStep === 'completed') {
+      return startSession(ctx, 'evening');
+    }
+
+    const match = (currentStep || '').match(/Q_e_(\d+)/i);
+    const questionNum = match ? parseInt(match[1], 10) : 1;
+    const idx = Math.max(0, questionNum - 1);
+    const questions = QUESTIONS.evening || [];
+    const question = questions[idx];
+
+    if (!question) return startSession(ctx, 'evening');
+
+    await _sendQuestion(ctx, 'evening', idx);
+    logger.info(`[dailyService] ✅ Продовжено вечірню на питанні ${questionNum}`);
+  } catch (error) {
+    logger.error('[dailyService] ❌ continueEveningSession error:', error);
     try {
-      const user = await userService.getUserByTgId(tgId);
-      const currentStep = user?.Answer_Step;
-
-      if (!currentStep || currentStep === 'completed') {
-        return this.startSession(ctx, 'evening');
-      }
-
-      // Знаходимо номер поточного питання (Q_e_1, Q_e_2...)
-      const match = currentStep.match(/Q_e_(\d+)/i);
-      if (!match) {
-        return this.startSession(ctx, 'evening');
-      }
-
-      const questionNum = parseInt(match[1], 10);
-      const question = QUESTIONS.evening[questionNum - 1];
-      const totalQuestions = QUESTIONS.evening.length;
-
-      if (!question) {
-        return this.startSession(ctx, 'evening');
-      }
-
-      // Емодзі цифри
-      const emojiNumbers = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
-      const currentEmoji = emojiNumbers[questionNum];
-
-      // Витягуємо перший рядок як заголовок питання
-      const questionLines = question.text.split('\n');
-      const questionTitle = questionLines[0];
-
-      const message = 
-        `🌙 ВЕЧІРНЯ РЕФЛЕКСІЯ\n\n` +
-        `${currentEmoji}/${totalQuestions} ${questionTitle}\n` +
-        (question.hint ? `💡 ${question.hint}` : '');
-
-      await ctx.reply(
-        message,
-        keyboards.questionKeyboard?.(question) || { reply_markup: { remove_keyboard: true } }
-      );
-
-      console.log(`[dailyService] ✅ Продовжено з питання ${questionNum}`);
-
-    } catch (error) {
-      console.error('[dailyService] ❌ continueEveningSession error:', error);
-      await ctx.reply('❌ Помилка. Розпочнімо спочатку?', {
+      await ctx.reply('❌ Помилка. Розпочнемо спочатку?', {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🌙 Почати спочатку', callback_data: 'start_evening' }],
+            [{ text: '🌙 Почати спочатку', callback_data: 'daily:evening' }],
             [{ text: '🏠 Головне меню', callback_data: 'main_menu' }]
           ]
         }
       });
-    }
-  },
-
-  async exitSession(ctx, type) {
-    const tgId = ctx.from.id;
-    console.log(`[dailyService] 🚪 exitSession type="${type}" tgId=${tgId}`);
-
-    try {
-      await responseService.saveAffirmationAndFinalize(tgId, type, null);
-      await userService.updateUserFields(tgId, {
-        Answer_Step: 'completed'
-      });
-
-      await ctx.reply(
-        `✅ Сесію ${type === 'morning' ? 'ранкову' : 'вечірню'} завершено!`,
-        keyboards.mainMenuKeyboard()
-      );
-
-      console.log(`[dailyService] ✅ Сесія ${type} завершена`);
-
-    } catch (error) {
-      console.error('[dailyService] ❌ exitSession error:', error);
-      await ctx.reply('❌ Помилка завершення сесії');
-    }
+    } catch (e) {}
   }
 };
 
+const exitSession = async (ctx, type) => {
+  const tgId = ctx.from.id;
+  logger.info(`[dailyService] 🚪 exitSession type="${type}" tgId=${tgId}`);
+
+  try {
+    // Завершуємо сесію: якщо користувач вийшов без афірмації — ставимо completed і синхронізуємо.
+    const activityField = type === 'morning' ? 'morning_completed' : 'evening_completed';
+    await responseService._createOrUpdateRecord(tgId, { Current_Activity: activityField });
+    await userService.updateUserFields(tgId, { ANSWER_STEPS: 'completed' });
+
+    try {
+      await ctx.reply(`✅ Сесію ${type === 'morning' ? 'ранкову' : 'вечірню'} завершено!`, (keyboards && keyboards.mainMenuKeyboard) ? keyboards.mainMenuKeyboard() : {});
+    } catch (e) {}
+
+    // синхронізація
+    if (type === 'morning') {
+      try { await dataSyncService.syncMorningData(tgId); } catch (e) { logger.error(e); }
+    } else {
+      try { await dataSyncService.syncEveningData(tgId); } catch (e) { logger.error(e); }
+    }
+
+    logger.info(`[dailyService] ✅ Сесія ${type} завершена для ${tgId}`);
+  } catch (error) {
+    logger.error('[dailyService] ❌ exitSession error:', error);
+    try { await ctx.reply('❌ Помилка завершення сесії'); } catch (e) {}
+  }
+};
+
+const handleEveningChoice = async (ctx, choice) => {
+  try {
+    switch (choice) {
+      case 'morning':
+        await startSession(ctx, 'morning');
+        break;
+      case 'skip_morning':
+        // пропускаємо перевірку ранку і запускаємо вечірні
+        await startSession(ctx, 'evening');
+        break;
+      case 'evening':
+        await startSession(ctx, 'evening');
+        break;
+      case 'exit':
+        await exitSession(ctx, 'evening');
+        break;
+      default:
+        logger.info('[dailyService] handleEveningChoice: unknown choice', choice);
+    }
+  } catch (error) {
+    logger.error('[dailyService] ❌ handleEveningChoice error:', error);
+    try { await ctx.reply('❌ Помилка обробки вибору'); } catch (e) {}
+  }
+};
+
+const dailyService = {
+  handleText,
+  handleCallback,
+  startSession,
+  restartSession,
+  continueEveningSession,
+  exitSession,
+  handleEveningChoice
+};
+
 export default dailyService;
+
