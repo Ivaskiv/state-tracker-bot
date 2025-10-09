@@ -22,3 +22,5 @@ export const getRecords = (tableName, options = {}) => base(tableName).select(op
 export const createRecords = (tableName, records) => base(tableName).create(records);
 export const updateRecords = (tableName, records) => base(tableName).update(records);
 export const deleteRecords = (tableName, recordIds) => base(tableName).destroy(recordIds);
+
+export default airtableClient;

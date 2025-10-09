@@ -1,7 +1,7 @@
 // src/repositories/userRepository.js - ВИПРАВЛЕНО ФОРМАТ ДАТИ + ФОЛБЕК НАЗВ ПОЛІВ
 
 import { getBase, tables } from '../config/database.js';
-import { USER_STATUS, SUBSCRIPTION_STATUS, CURRENT_ACTIVITY } from '../config/constants.js';
+import { USER_STATUS, SUBSCRIPTION_STATUS, ANSWER_STEPS, CONFIG } from '../config/constants.js';
 
 const TABLE = 'USERS';
 
@@ -59,13 +59,13 @@ export const createUser = async (tgId, name, timezone = 'Europe/Kiev (UTC+3)') =
   const fields = {
     TG_id: String(tgId),
     'User Name': name,
-    'Time Zone': timezone,
+    'Time Zone': CONFIG.DEFAULT_TIMEZONE,
     UserRegistered: false,
     Status: USER_STATUS.NEW,
-    'Subscription Status': SUBSCRIPTION_STATUS.NEW,
+    'Subscription_Status': SUBSCRIPTION_STATUS.NEW,
     Created_At: now,
     Last_Activity: now,
-    ANSWER_STEPS: CURRENT_ACTIVITY.IDLE 
+    Answer_Step: ANSWER_STEPS.IDLE 
   };
 
   try {

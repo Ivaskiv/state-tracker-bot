@@ -34,28 +34,28 @@ export const parseTz = getTzLabel;
 export const SUBSCRIPTION_PLANS = Object.freeze({
   TRIAL: {
     key: 'TRIAL',
-    name: '🧪 Пробний період — 0€',
+    userName: '🧪 Пробний період — 0€',
     price: 0,
     duration: 7,
     description: 'Повний доступ на 7 днів'
   },
   WEEK: {
     key: 'WEEK',
-    name: 'Тиждень фокусу — 7€',
+    userName: 'Тиждень фокусу — 7€',
     price: 7,
     duration: 7,
     description: 'Ідеально для короткого фокусу або тесту системи'
   },
   MONTH: {
     key: 'MONTH',
-    name: 'Місяць дії — 30€',
+    userName: 'Місяць дії — 30€',
     price: 30,
     duration: 30,
     description: 'Глибинна робота з твоїми цілями та стратегією'
   },
   YEAR: {
     key: 'YEAR',
-    name: 'Рік трансформації — 300€',
+    userName: 'Рік трансформації — 300€',
     price: 300,
     duration: 365,
     description: 'Максимальна економія та підтримка протягом року'
@@ -84,7 +84,7 @@ export const SUBSCRIPTION_STATUS = Object.freeze({
 // ===== КРОКИ ВІДПОВІДЕЙ =====
 export const CURRENT_ACTIVITY = Object.freeze({
   IDLE: 'idle',
-  OB_NAME: 'ob_name',
+  OB_NAME: 'ob_userName',
   OB_EMAIL: 'ob_email',
   OB_PHONE: 'ob_phone',
   OB_TZ: 'ob_timezone',
@@ -114,13 +114,15 @@ export const CURRENT_ACTIVITY = Object.freeze({
 
 export const ANSWER_STEPS = Object.freeze({
   BEGIN: 'Begin_answer',
-  COMPLETED: 'completed',
+  // COMPLETED: 'completed',
+  COMPLETED:'COMPLETED',
+  IDLE:'IDLE',
   OB_PITCH: 'ob_pitch',
-  OB_NAME: 'ob_name',
-  OB_EMAIL: 'ob_email',
-  OB_PHONE: 'ob_phone',
-  OB_TIMEZONE: 'ob_timezone',
-  OB_PLAN: 'ob_plan',
+  OB_NAME: 'OB_NAME',
+  OB_EMAIL: 'OB_EMAIL',
+  OB_PHONE: 'OB_PHONE',
+  OB_TZ: 'OB_TZ',
+  OB_PLAN: 'OB_PLAN',
   OB_PAYMENT_PENDING: 'ob_payment_pending',
   OB_PAYMENT_SUCCESS: 'ob_payment_success',
   OB_REMINDERS_INTRO: 'ob_reminders_intro',
@@ -146,8 +148,8 @@ export const ANSWER_STEPS = Object.freeze({
 });
 // ===== ЩОДЕННІ ПИТАННЯ - ПОВІДОМЛЕННЯ =====
 export const DAILY_MESSAGES = Object.freeze({
-  EVENING_WITHOUT_MORNING: (name) =>
-    `🌙 Добрий вечір, ${name}!\n\n` +
+  EVENING_WITHOUT_MORNING: (userName) =>
+    `🌙 Добрий вечір, ${userName}!\n\n` +
     `⚠️ Ти ще не пройшла ранкові питання сьогодні.\n\n` +
     `Що робимо?`,
   
@@ -317,20 +319,20 @@ export const CRON_SCHEDULES = Object.freeze({
 });
 // ===== SCHEDULER ПОВІДОМЛЕННЯ =====
 // export const SCHEDULER_MESSAGES = Object.freeze({
-//   MORNING_SESSION_START: (name) =>
-//     `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
-//   EVENING_SESSION_START: (name) =>
-//     `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
+//   MORNING_SESSION_START: (userName) =>
+//     `🌞 Доброго ранку, ${userName}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
+//   EVENING_SESSION_START: (userName) =>
+//     `🌙 Добрий вечір, ${userName}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
 //   MORNING_REMINDER: '🔔 Не забудь відповісти на ранкові питання!',
 //   EVENING_REMINDER: '🔔 Час для вечірньої рефлексії!'
 // });
 
 
 export const SCHEDULER_MESSAGES = Object.freeze({
-  MORNING_SESSION_START: (name) =>
-    `🌞 Доброго ранку, ${name}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
-  EVENING_SESSION_START: (name) =>
-    `🌙 Добрий вечір, ${name}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
+  MORNING_SESSION_START: (userName) =>
+    `🌞 Доброго ранку, ${userName}!\n\nЧас для ранкової рефлексії та налаштування на день! ✨`,
+  EVENING_SESSION_START: (userName) =>
+    `🌙 Добрий вечір, ${userName}!\n\nЧас підсумувати день і зафіксувати перемоги! 🏆`,
   MORNING_REMINDER: '🔔 Нагадування: ранкова сесія ще не завершена.',
   EVENING_REMINDER: '🔔 Нагадування: вечірня сесія ще не завершена.',
   WEEKLY_PROMPT:
@@ -345,49 +347,51 @@ export const SCHEDULER_MESSAGES = Object.freeze({
     `⏰ НАГАДУВАННЯ\n\nЧерез 5 хв стартує:\n${task.action}\n\n🎯 Результат: ${task.result_metric}\n⏱ Тривалість: ${task.duration_min} хв\n\n💪 Тримай фокус!`
 });
 // ===== ПОВІДОМЛЕННЯ =====
+// DRY-хелпери
+const INTRO = (n)=>`👋 Привіт, ${n}!\n\nЯ твій AI-мотиватор та коуч!`;
+const FEATURES = `Допомагаю:
+🎯 Ставити та досягати цілі
+⚖️ Знаходити баланс у житті
+💪 Підтримувати мотивацію
+📈 Відслідковувати прогрес`;
+
+const REG_SUMMARY = `🎉 Реєстрацію завершено!
+🧪 Пробний доступ активовано на 7 днів.`;
+
+const BALANCE_HINT = `Почни з 🛞 «Колеса балансу» — 8 сфер життя: щотижневий аудит + щоденні ранкова/вечірня рефлексії для фокусу і прогресу. Далі: 🤖 AI-ментор, 🗓 Звички, 📈 Звіти.`;
+
 export const MESSAGES = Object.freeze({
-  WELCOME: (name) => 
-    `👋 Привіт, ${name}!\n\nЯ твій AI-мотиватор і коуч!\n\nДопомагаю:\n🎯 Ставити цілі\n⚖️ Знаходити баланс\n💪 Підтримувати мотивацію\n\nГотова розпочати?`,
-  
-  ONBOARDING_NAME_CHOICE: (userName) =>
-    `👋 Привіт, ${userName}!\n\n` +
-    `Я твій AI-мотиватор та коуч! Допомагаю:\n\n` +
-    `🎯 Ставити та досягати цілі\n` +
-    `⚖️ Знаходити баланс у житті\n` +
-    `💪 Підтримувати мотивацію\n` +
-    `📈 Відслідковувати прогрес\n\n` +
-    `Залишити ім'я "${userName}" або ввести інше?`,
+  WELCOME: (userName)=>`${INTRO(userName)}\n\n${FEATURES}\n\nГотова розпочати?`,
+  ASK_NAME: 'Як звертатись? (2–30 символів)',
+  CONFIRM_NAME: (userName)=>`Залишити імʼя «${userName}» чи змінити?`,
+  ASK_EMAIL: 'Вкажи e-mail (для звітів) або натисни «Пропустити».',
+  ASK_PHONE: 'Залиши номер телефону (для звʼязку) або «Пропустити».',
 
-WELCOME_BACK_ACTIVE: (name, endStr) =>
-    `👋 З поверненням, ${name}!\n` +
-    `✅ Підписка активна до ${endStr}.\n\n` +
-    `Продовжуємо ...\n\n`+
-    `Нагадую, що  ⬇️\n` +
-    `• 🌞 Ранкові питання надсилатиму о ${SCHEDULE.MORNING_TIME} — сфокусуємо день\n` +
-    `• 🌙 Вечірню рефлексію — о ${SCHEDULE.EVENING_TIME} — підсумуємо\n\n` +
-    `У будь-який момент ти можеш:\n` +
-    `• 🤖 AI наставник — запитай і отримай план\n` +
-    `• 🎯 Колесо балансу — щомісячний аудит\n` +
-    `• 📊 Мій прогрес — статистика\n\n`+
-    `Використовуй головне меню внизу.`,
+  // обидва ключі залишаємо для сумісності
+  ASK_TZ: `⚠️ Вибери свій часовий пояс (ранкові о 08:00 за місц. часом).`,
+  ASK_TIMEZONE: `⚠️ Вибери свій часовий пояс (ранкові о 08:00 за місц. часом).`,
 
-  WELCOME_BACK_INACTIVE: (name) =>
-    `👋 З поверненням, ${name}!\n\n` +
-    `❗ Підписка не активна. Щоб користуватися усіма функціями — активуй або продовж.\n\n` +
-    `Натисни «💰 Підписка» нижче, або обери інший розділ з меню.\n\n`+
-    `Використовуй головне меню внизу.`,
-  
-  ASK_NAME: 'Як до тебе звертатись?\n\nВведи ім\'я (2–50 символів).',
-  ASK_EMAIL: 'Вкажи свій e-mail (для надсилання звітів).\nАбо пропусти.',
-  ASK_PHONE: 'Залиш номер телефону (для зв\'язку).\nАбо пропусти.',
-  ASK_TIMEZONE: '⚠️ ВАЖЛИВО: Обери свій часовий пояс!\n\nЯ надсилатиму ранкові питання о 08:00 за твоїм місцевим часом.\n\n🌍 Твій часовий пояс:',
-  ASK_PLAN: 'Обери план доступу.\nМожеш почати з безкоштовного пробного тижня.',
-  TRIAL_ACTIVATED: '🎉 Реєстрацію завершено!\n🧪 Пробний доступ активовано на 7 днів.\n\nГотова почати?',
-  
-  ERROR_GENERIC: '❌ Виникла помилка. Спробуй ще раз /start',
-  ERROR_NAME: 'Ім\'я має бути від 2 до 50 символів. Введи ще раз.',
-  ERROR_EMAIL: 'Схоже, email некоректний. Введи інший або пропусти.',
-  ERROR_PHONE: 'Виглядає як некоректний номер. Введи у форматі +380XXXXXXXXX або пропусти.'
+  REG_SUCCESS: `${REG_SUMMARY}\n\nГотова почати?\n${BALANCE_HINT}`,
+  TRIAL_ACTIVATED: `${REG_SUMMARY}\n\nГотова почати?`,
+
+  ONBOARDING_NAME_CHOICE: (userName)=>
+    `${INTRO(userName)}\n\n${FEATURES}\n\nЗалишити ім'я «${userName}» або ввести інше?`,
+
+  WELCOME_BACK_ACTIVE: (userName, endStr)=>
+    `${INTRO(userName)}\n✅ Підписка активна до ${endStr}.\n\nНагадую:\n` +
+    `• 🌞 Ранкові — о ${SCHEDULE.MORNING_TIME}\n` +
+    `• 🌙 Вечірня — о ${SCHEDULE.EVENING_TIME}\n\n` +
+    `Можеш будь-коли: 🤖 AI-наставник, 🛞 Колесо балансу, 📊 Мій прогрес.\nВикористовуй меню внизу.`,
+
+  WELCOME_BACK_INACTIVE: (userName)=>
+    `${INTRO(userName)}\n\n❗ Підписка не активна. Натисни «💰 Підписка» або обери інший розділ.\nВикористовуй меню внизу.`,
+
+  ASK_PLAN: 'Обери план доступу. Можеш почати з безкоштовного пробного тижня.',
+
+  ERROR_GENERIC: '❌ Сталася помилка. Спробуй /start ще раз.',
+  ERROR_NAME: 'Імʼя має бути 2–50 символів. Введи ще раз.',
+  ERROR_EMAIL: 'Некоректний email. Введи інший або пропусти.',
+  ERROR_PHONE: 'Некоректний номер. Формат: +380XXXXXXXXX або пропусти.'
 });
 
 export const REGISTRATION_SUCCESS_TEMPLATE =
@@ -756,7 +760,7 @@ export const CONFIG = Object.freeze({
   NAME_MAX_LENGTH: 50,
   EMAIL_MAX_LENGTH: 100,
   PHONE_REGEX: /^\+380\d{9}$/,
-  DEFAULT_TIMEZONE: 'Europe/Kyiv (UTC+3)'
+  DEFAULT_TIMEZONE: 'Europe/Kyiv'
 });
 
 // ===== АФІРМАЦІЇ =====
@@ -969,42 +973,42 @@ export const BADGE_CRITERIA = Object.freeze({
 export const PROGRESS_LEVELS = Object.freeze({
   NOVICE: {
     level: 1,
-    name: 'Новачок',
+    userName: 'Новачок',
     pointsRequired: 0,
     icon: '🌱',
     color: '#95a5a6'
   },
   APPRENTICE: {
     level: 2,
-    name: 'Учень',
+    userName: 'Учень',
     pointsRequired: 50,
     icon: '📚',
     color: '#3498db'
   },
   PRACTITIONER: {
     level: 3,
-    name: 'Практик',
+    userName: 'Практик',
     pointsRequired: 150,
     icon: '⚡',
     color: '#9b59b6'
   },
   EXPERT: {
     level: 4,
-    name: 'Експерт',
+    userName: 'Експерт',
     pointsRequired: 300,
     icon: '🔥',
     color: '#e67e22'
   },
   MASTER: {
     level: 5,
-    name: 'Майстер',
+    userName: 'Майстер',
     pointsRequired: 500,
     icon: '👑',
     color: '#f39c12'
   },
   LEGEND: {
     level: 6,
-    name: 'Легенда',
+    userName: 'Легенда',
     pointsRequired: 1000,
     icon: '💫',
     color: '#e74c3c'

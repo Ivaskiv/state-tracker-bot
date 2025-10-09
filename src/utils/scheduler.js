@@ -45,7 +45,7 @@ const isAccessActiveFallback = (user) => {
     // ignore
   }
   const a = (user['Active_Subscription_Status'] || '');
-  const s = (user['Subscription Status'] || '').toLowerCase();
+  const s = (user['Subscription_Status'] || '').toLowerCase();
   return a.includes('✅') || s === 'active';
 };
 
@@ -76,7 +76,7 @@ const fetchActiveUsers = async () => {
         'NOT({TG_id} = ""),' +
         'OR(' +
           'FIND("✅", {Active_Subscription_Status}) > 0,' +
-          'LOWER({Subscription Status}) = "active"' +
+          'LOWER({Subscription_Status}) = "active"' +
         ')' +
       ')';
 

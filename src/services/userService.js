@@ -2,6 +2,10 @@
 
 import userRepo from '../repositories/userRepository.js';
 import { USER_STATUS, SUBSCRIPTION_STATUS, CONFIG, ANSWER_STEPS } from '../config/constants.js';
+import airtableClient from '../config/airtableClient.js';
+
+const T = () => airtableClient('Users');
+const N = (r) => ({ id: r.id, ...r.fields });
 
 // ===== КЕШ КОРИСТУВАЧІВ =====
 const userCache = new Map();
@@ -25,7 +29,7 @@ const mapRecord = (record) => {
     'Time Zone': f['Time Zone'] || CONFIG.DEFAULT_TIMEZONE,
     UserRegistered: Boolean(f.UserRegistered),
     Status: f.Status || USER_STATUS.NEW,
-    'Subscription Status': f['Subscription Status'] || SUBSCRIPTION_STATUS.NEW,
+    'Subscription_Status': f['Subscription_Status'] || SUBSCRIPTION_STATUS.NEW,
     'Active Subscription Plan': f['Active Subscription Plan'] || '',
     Start_Date: f.Start_Date || null,
     End_Date: f.End_Date || null,
@@ -101,7 +105,7 @@ export const finalizeRegistration = async (tgId, data) => {
 
 export const hasActiveAccess = (user) => {
   if (!user) return false;
-  const subStatus = (user['Subscription Status'] || '').trim().toLowerCase();
+  const subStatus = (user['Subscription_Status'] || '').trim().toLowerCase();
   const activeStatus = (user['Active_Subscription_Status'] || '').trim();
   const plan = user['Active Subscription Plan'] || '';
 
@@ -124,7 +128,7 @@ export const activateTrial = async (tgId, days = 7) => {
   const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
   return updateUserFields(tgId, {
     'Active Subscription Plan': '🧪 Пробний період — 0€',
-    'Subscription Status': SUBSCRIPTION_STATUS.ACTIVE,
+    'Subscription_Status': SUBSCRIPTION_STATUS.ACTIVE,
     Start_Date: start.toISOString().split('T')[0],
     End_Date: end.toISOString().split('T')[0]
   });
@@ -172,7 +176,26 @@ export const getCacheStats = () => ({
   size: userCache.size,
   users: Array.from(userCache.keys())
 });
-
+//=====
+export async function createOrGet(tgId){
+  const rs = await T().select({
+    filterByFormula: `{TG_id}='${String(tgId)}'`,
+    maxRecords: 1
+  }).firstPage();
+  if (rs.length) return N(rs[0]);
+  const created = await T().create({ TG_id:String(tgId), Status:'new', Current_Activity:'idle' });
+  return N(created);
+}
+export async function updateFields(id, patch){
+  return N(await T().update(id, patch));
+}
+export async function setTrial(id, days=7){
+  const d = new Date(); d.setDate(d.getDate()+days);
+  return updateFields(id, { Trial_End: d.toISOString() });
+}
+export async function markRegistered(id){
+  return updateFields(id, { Status:'registered', Current_Activity:'idle', Answer_Step:null });
+}
 export default {
   getUserByTgId,
   ensureUser,
@@ -185,7 +208,12 @@ export default {
   getActiveUsers,
   getUsersWithExpiringSubscriptions,
   clearCache,
-  getCacheStats
+  getCacheStats,
+//==========
+  createOrGet,
+  updateFields,
+  setTrial,
+  markRegistered
 };
 
 console.log('✅ [userService] Сервіс ініціалізовано');

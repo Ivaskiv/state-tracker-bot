@@ -42,7 +42,7 @@ export const activateTrialSubscription = async (tgId, days = 7) => {
 
     // ✅ ОНОВЛЮЄМО Users через userService
     const trialData = {
-      'Subscription Status': 'Active',
+      'Subscription_Status': 'Active',
       'Active Subscription Plan': '🧪 Пробний період',
       'Start_Date': now.toISOString(),
       'End_Date': endISO,
@@ -105,7 +105,7 @@ export const activatePaidSubscription = async (tgId, planKey, planName, amount, 
     const endUA = toUA(end.toISOString());
 
     const subscriptionData = {
-      'Subscription Status': 'Active',
+      'Subscription_Status': 'Active',
       'Active Subscription Plan': planName,
       'Start_Date': now.toISOString(),
       'End_Date': end.toISOString(),
@@ -211,10 +211,10 @@ export const deactivateExpiredSubscriptions = async () => {
     // Отримаємо сьогоднішню дату у форматі YYYY-MM-DD
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Запитуємо користувачів, які в Users мають Subscription Status = 'Active' або Active_Subscription_Status містить 'Актив'
+    // Запитуємо користувачів, які в Users мають Subscription_Status = 'Active' або Active_Subscription_Status містить 'Актив'
     const activeUsers = await base(tables.USERS)
       .select({
-        filterByFormula: `OR({Subscription Status}='Active', FIND('Актив', {Active_Subscription_Status}))`,
+        filterByFormula: `OR({Subscription_Status}='Active', FIND('Актив', {Active_Subscription_Status}))`,
         maxRecords: 500
       })
       .all();
@@ -232,7 +232,7 @@ export const deactivateExpiredSubscriptions = async () => {
         console.log(`[paymentService] ⏰ Деактивуємо підписку для ${tgId} (закінчилась ${expiry})`);
         try {
           await userService.updateUser(tgId, {
-            'Subscription Status': 'Expired',
+            'Subscription_Status': 'Expired',
             Current_Activity: 'completed',
             'Active Subscription Plan': ''
           });
@@ -273,7 +273,7 @@ export const syncUserSubscription = async (tgId, bot) => {
       console.log(`[paymentService] ❌ Активних оплат не знайдено для ${id}`);
       
       await userService.updateUser(id, {
-        'Subscription Status': 'Inactive',
+        'Subscription_Status': 'Inactive',
         'Active Subscription Plan': '',
         'Start_Date': null,
         'End_Date': null,
@@ -293,7 +293,7 @@ export const syncUserSubscription = async (tgId, bot) => {
     // Оновлюємо користувача
     const updateData = {
       'Active Subscription Plan': plan,
-      'Subscription Status': isStillActive ? 'Active' : 'Expired',
+      'Subscription_Status': isStillActive ? 'Active' : 'Expired',
       'Start_Date': s.Start_Date || null,
       'End_Date': s.End_Date || null,
     };
@@ -393,7 +393,7 @@ export const processSubscriptions = async (bot) => {
       if (endDate < now) {
         try {
           await userService.updateUser(tgId, {
-            'Subscription Status': 'Expired',
+            'Subscription_Status': 'Expired',
             'Active Subscription Plan': '',
             Current_Activity: 'completed'
           });

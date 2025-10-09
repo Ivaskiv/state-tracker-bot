@@ -32,7 +32,7 @@ const isAccessActive = (user) => {
     try { return !!userService.hasActiveAccess(user); } catch {}
   }
   const a = (user['Active_Subscription_Status'] || '');
-  const s = (user['Subscription Status'] || '').toLowerCase();
+  const s = (user['Subscription_Status'] || '').toLowerCase();
   return a.includes('✅') || s === 'active';
 };
 
@@ -46,7 +46,7 @@ export default function registerStartHandlers(bot) {
       let user = await userService.getUserByTgId(tgId);
       if (!user) {
         user = await userService.ensureUser(tgId, telegramName);
-        await ctx.reply(MESSAGES.WELCOME(telegramName));
+        await ctx.reply(MESSAGES.WELCOME(telegramName), );
         return;
       }
 

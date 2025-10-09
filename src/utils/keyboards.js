@@ -396,6 +396,13 @@ eveningWithoutMorningKeyboard() {
 };
 
 
+export const kbConfirmName=n=>({inline_keyboard:[
+  [{text:`✅ Залишити «${n}»`,callback_data:'confirm_name'}],
+  [{text:'✏️ Ввести інше імʼя',callback_data:'change_name'}]
+]});
+export const kbSkipEmail={inline_keyboard:[[ {text:'⏭ Пропустити e-mail',callback_data:'skip_email'} ]]};
+export const kbSkipPhone={inline_keyboard:[[ {text:'⏭ Пропустити телефон',callback_data:'skip_phone'} ]]};
+export const kbTimezones=(list)=>({inline_keyboard:list.map(t=>[{text:t,callback_data:`tz:${t}`}]).concat([[{text:'⬅️ Назад',callback_data:'tz_back'}]])});
 
 export default keyboards;
 export { skipKeyboard, actionKeyboard, navigationKeyboard, menuKeyboard };

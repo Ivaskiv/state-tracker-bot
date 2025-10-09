@@ -104,7 +104,7 @@ export const activatePaidSubscription = async (paymentData) => {
     // 2️⃣ ОНОВЛЮЄМО КОРИСТУВАЧА
     console.log(`[subscriptionService] 2️⃣ Оновлення користувача в Users...`);
     await userService.updateUserFields(tgId, {
-      'Subscription Status': 'Active',
+      'Subscription_Status': 'Active',
       'Active Subscription Plan': planName,
       Start_Date: now.toISOString().split('T')[0],
       End_Date: end.toISOString().split('T')[0]
@@ -146,7 +146,7 @@ export const syncUserSubscription = async (tgId) => {
       
       // Скидаємо статус в Users
       await userService.updateUserFields(id, {
-        'Subscription Status': 'Inactive',
+        'Subscription_Status': 'Inactive',
         'Active Subscription Plan': '',
         Start_Date: null,
         End_Date: null
@@ -166,7 +166,7 @@ export const syncUserSubscription = async (tgId) => {
     
     // Оновлюємо користувача
     await userService.updateUserFields(id, {
-      'Subscription Status': isStillActive ? 'Active' : 'Expired',
+      'Subscription_Status': isStillActive ? 'Active' : 'Expired',
       'Active Subscription Plan': fields.Plan_Name || '',
       Start_Date: fields.Start_Date,
       End_Date: fields.End_Date
