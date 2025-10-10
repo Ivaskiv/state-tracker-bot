@@ -878,17 +878,6 @@ export const QUESTION_PARSERS = {
   }
 };
 
-// ===== НОВІ ПИТАННЯ (ОПЦІОНАЛЬНО) =====
-// export const EXTENDED_MORNING_QUESTIONS = [
-//   {
-//     id: 7,
-//     text: "Який мій стан сьогодні? (впевненість/рішучість/сила/легкість)",
-//     field: 'Q_m_7',
-//     hint: 'Обери найближчий стан або опиши своїми словами',
-//     optional: true 
-//   }
-// ];
-
 
 // ===== ГЕЙМІФІКАЦІЯ: БЕЙДЖІ =====
 export const BADGES = Object.freeze({

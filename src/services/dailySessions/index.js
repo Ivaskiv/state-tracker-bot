@@ -7,9 +7,10 @@ import * as helpers from './helpers.js';
 import * as utils from './utils.js';
 import * as formatter from './formatter.js';
 import * as keyboards from './keyboards.js';
+import * as shared from './shared.js';
 
 export default {
-  // Database
+  // ===== DATABASE =====
   getTodayRecord: db.getTodayRecord,
   createTodayRecord: db.createTodayRecord,
   updateTodayRecord: db.updateTodayRecord,
@@ -19,49 +20,55 @@ export default {
   resetSession: db.resetSession,
   getRecentRecords: db.getRecentRecords,
   
-  // Morning
+  // ===== MORNING =====
   startMorningSession: morning.startMorningSession,
   handleMorningAnswer: morning.handleMorningAnswer,
   restartMorningSession: morning.restartMorningSession,
   continueMorningSession: morning.continueMorningSession,
   exitMorningSession: morning.exitMorningSession,
   
-  // Evening
+  // ===== EVENING =====
   startEveningSession: evening.startEveningSession,
   handleEveningAnswer: evening.handleEveningAnswer,
   restartEveningSession: evening.restartEveningSession,
   continueEveningSession: evening.continueEveningSession,
   exitEveningSession: evening.exitEveningSession,
   
-  // Sync
+  // ===== SYNC =====
   syncMorningData: sync.syncMorningData,
   syncEveningData: sync.syncEveningData,
   syncGoals: sync.syncGoals,
   syncActions: sync.syncActions,
   
-  // Helpers
+  // ===== HELPERS =====
   parseMorningAnswer: helpers.parseMorningAnswer,
   parseEveningAnswer: helpers.parseEveningAnswer,
   analyzeActionCompletion: helpers.analyzeActionCompletion,
   analyzeGoalProgress: helpers.analyzeGoalProgress,
   
-  // Utils
+  // ===== UTILS =====
   todayStr: utils.todayStr,
   normalize: utils.normalize,
   chunk: utils.chunk,
   getHoursSince: utils.getHoursSince,
   getDaysDiff: utils.getDaysDiff,
   
-  // Formatter
+  // ===== FORMATTER =====
   formatQuestionMessage: formatter.formatQuestionMessage,
   formatCompletionMessage: formatter.formatCompletionMessage,
   formatRestartWarning: formatter.formatRestartWarning,
   formatEveningWithoutMorning: formatter.formatEveningWithoutMorning,
   getStepNumber: formatter.getStepNumber,
   
-  // Keyboards
+  // ===== KEYBOARDS =====
   buildExitKeyboard: keyboards.buildExitKeyboard,
   buildRestartWarningKeyboard: keyboards.buildRestartWarningKeyboard,
   buildEveningWithoutMorningKeyboard: keyboards.buildEveningWithoutMorningKeyboard,
-  buildSessionStartKeyboard: keyboards.buildSessionStartKeyboard
+  buildSessionStartKeyboard: keyboards.buildSessionStartKeyboard,
+  
+  // ===== ✅ SHARED (НОВА ЛОГІКА) =====
+  checkAndCompleteSession: shared.checkAndCompleteSession,
+  showCompletionWithAnalysis: shared.showCompletionWithAnalysis,
+  restartSession: shared.restartSession,
+  exitSession: shared.exitSession
 };

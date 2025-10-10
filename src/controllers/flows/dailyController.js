@@ -1,119 +1,128 @@
 // src/controllers/flows/dailyController.js
+
 import dailySessions from '../../services/dailySessions/index.js';
 import userService from '../../services/userService.js';
-import badgeService from '../../services/badgeService.js';
-import activityTracker from '../../services/activityTracker.js';
-import keyboards from '../../utils/keyboards.js';
+// import keyboards from '../../utils/keyboards.js';
+import logger from '../../utils/logger.js';
 
-const dailyController = {
-  
-  // ===== ОБРОБКА ТЕКСТОВИХ ВІДПОВІДЕЙ =====
-  handleText: async (ctx, text, userStep) => {
-    console.log(`[dailyController] 📝 handleText: ${userStep.sessionType} Q${userStep.questionNumber}`);
-    
+// ✅ RETRY HELPER
+const withRetry = async (fn, maxAttempts = 3, delayMs = 1000) => {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const { tgId, sessionType, questionNumber } = userStep;
-      
-      // Делегуємо в dailySessions
-      if (sessionType === 'morning') {
-        const result = await dailySessions.handleMorningAnswer(ctx, text, questionNumber);
-        
-        if (result.completed) {
-          // Перевіряємо фіналізацію дня
-          const stats = await activityTracker.calculateDailyStats(tgId);
-          if (stats?.morningCompleted && stats?.eveningCompleted) {
-            await badgeService.assignBadges(tgId);
-          }
-        }
-        
-        return true;
-      } else if (sessionType === 'evening') {
-        const result = await dailySessions.handleEveningAnswer(ctx, text, questionNumber);
-        
-        // Фіналізація вже відбувається всередині handleEveningAnswer
-        return true;
-      }
-      
-      return false;
-      
+      return await fn();
     } catch (error) {
-      console.error('[dailyController] ❌ handleText error:', error);
-      await ctx.reply('❌ Помилка збереження відповіді. Спробуй ще раз.', keyboards.mainMenuKeyboard());
-      throw error;
-    }
-  },
-
-  // ===== CALLBACK (НЕ ЧІПАЄМО) =====
-  handleCallback: async (ctx, data) => {
-    // Залишаємо як є - тут можуть бути інші callback'и
-    console.log('[dailyController] handleCallback:', data);
-    return false;
-  },
-
-  // ===== СТАРТ СЕСІЙ =====
-  startMorningSession: async (ctx) => {
-    return dailySessions.startMorningSession(ctx);
-  },
-
-  startEveningSession: async (ctx) => {
-    return dailySessions.startEveningSession(ctx);
-  },
-
-  // ===== ПЕРЕЗАПУСК =====
-  restartMorningSession: async (ctx) => {
-    return dailySessions.restartMorningSession(ctx);
-  },
-
-  restartEveningSession: async (ctx) => {
-    return dailySessions.restartEveningSession(ctx);
-  },
-
-  // ===== ПРОДОВЖЕННЯ =====
-  continueEveningSession: async (ctx) => {
-    return dailySessions.continueEveningSession(ctx);
-  },
-
-  // ===== ВИХІД =====
-  exitSession: async (ctx, type) => {
-    const tgId = ctx.from.id;
-    
-    if (type === 'morning') {
-      await dailySessions.exitMorningSession(ctx);
-    } else {
-      await dailySessions.exitEveningSession(ctx);
-    }
-
-    // Перевіряємо фіналізацію дня
-    const stats = await activityTracker.calculateDailyStats(tgId);
-    if (stats?.morningCompleted && stats?.eveningCompleted) {
-      await badgeService.assignBadges(tgId);
-    }
-  },
-
-  // ===== ПРОФІЛЬ (НЕ ЧІПАЄМО) =====
-  showProfile: async (ctx) => {
-    try {
-      const tgId = ctx.from.id;
-
-      const badges = await badgeService.getUserBadges(tgId);
-      const last30DaysStats = await activityTracker.getLastNDaysStats(tgId, 30);
-
-      const completedActions = last30DaysStats.reduce((sum, day) => sum + day.actionsCompleted, 0);
-      const plannedActions = last30DaysStats.reduce((sum, day) => sum + day.actionsPlanned, 0);
-      const progress = plannedActions > 0 ? Math.round((completedActions / plannedActions) * 100) : 0;
-
-      const badgeText = badges.length ? badges.map(b => `🏅 ${b}`).join('\n') : 'Бейджів ще немає';
-
-      await ctx.reply(
-        `📊 Твій профіль:\n\nБейджі:\n${badgeText}\n\nПрогрес за місяць: ${progress}%`
-      );
-
-    } catch (error) {
-      console.error('[dailyController] ❌ showProfile:', error);
-      await ctx.reply('Виникла помилка при завантаженні профілю.');
+      if (attempt === maxAttempts) throw error;
+      logger.warn(`⚠️ Спроба ${attempt}/${maxAttempts} не вдалася, retry...`);
+      await new Promise(r => setTimeout(r, delayMs * attempt));
     }
   }
-
 };
 
-export default dailyController;
+// ✅ ОБРОБКА ТЕКСТОВИХ ВІДПОВІДЕЙ
+export const handleText = async (ctx, rawText, userStep) => {
+  const { tgId, sessionType, questionNumber } = userStep;
+  
+  logger.info(`📝 [dailyController] Текст від ${tgId}: ${sessionType} Q${questionNumber}`);
+  
+  try {
+    // ✅ RETRY ДЛЯ ЗБЕРЕЖЕННЯ
+    const result = await withRetry(async () => {
+      if (sessionType === 'morning') {
+        return await dailySessions.handleMorningAnswer(ctx, rawText, questionNumber);
+      } else if (sessionType === 'evening') {
+        return await dailySessions.handleEveningAnswer(ctx, rawText, questionNumber);
+      }
+      throw new Error('Unknown session type');
+    }, 3, 1500);
+    
+    logger.info(`✅ [dailyController] Відповідь збережено`);
+    return result;
+    
+  } catch (error) {
+    logger.error(`❌ [dailyController] Критична помилка після 3 спроб:`, error);
+    
+    // ✅ FALLBACK - дозволяємо продовжити
+    await ctx.reply(
+      `❌ Помилка збереження відповіді.\n\n` +
+      `Твоя відповідь: "${rawText.substring(0, 50)}..."\n\n` +
+      `Що робимо?`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Спробувати ще раз', callback_data: `retry_${sessionType}_${questionNumber}` }],
+            [{ text: '⏭️ Пропустити питання', callback_data: `skip_${sessionType}_${questionNumber}` }],
+            [{ text: '🚪 Вийти з сесії', callback_data: 'exit_session' }]
+          ]
+        }
+      }
+    );
+    
+    return { error: true };
+  }
+};
+
+// ✅ СТАРТ СЕСІЙ
+export const startMorningSession = async (ctx) => {
+  try {
+    await dailySessions.startMorningSession(ctx);
+  } catch (error) {
+    logger.error('❌ [dailyController] startMorning:', error);
+    await ctx.reply('❌ Помилка запуску. Спробуй /start', keyboards.mainMenuKeyboard());
+  }
+};
+
+export const startEveningSession = async (ctx) => {
+  try {
+    await dailySessions.startEveningSession(ctx);
+  } catch (error) {
+    logger.error('❌ [dailyController] startEvening:', error);
+    await ctx.reply('❌ Помилка запуску. Спробуй /start', keyboards.mainMenuKeyboard());
+  }
+};
+
+// ✅ ОБРОБКА CALLBACK
+export const handleCallback = async (ctx, data) => {
+  const tgId = ctx.from.id;
+  
+  // Retry
+  if (data.startsWith('retry_')) {
+    const [, sessionType, questionNumber] = data.split('_');
+    await ctx.reply(
+      `🔄 Спробуємо ще раз.\n\nНапиши відповідь на питання ${questionNumber}:`,
+      keyboards.buildExitKeyboard()
+    );
+    return;
+  }
+  
+  // Skip
+  if (data.startsWith('skip_')) {
+    const [, sessionType, questionNumber] = data.split('_');
+    const nextQ = parseInt(questionNumber) + 1;
+    
+    await ctx.reply(`⏭️ Питання пропущено. Переходимо далі...`);
+    
+    // Наступне питання
+    const formatter = dailySessions.formatQuestionMessage;
+    const nextQuestion = formatter(sessionType, nextQ - 1);
+    
+    if (nextQuestion) {
+      await userService.updateUserFields(tgId, { Answer_Step: nextQuestion.field });
+      await ctx.reply(nextQuestion.text, keyboards.buildExitKeyboard());
+    }
+    return;
+  }
+  
+  // Exit
+  if (data === 'exit_session') {
+    await userService.updateUserFields(tgId, { Answer_Step: 'completed' });
+    await ctx.reply('🚪 Сесію завершено.', keyboards.mainMenuKeyboard());
+    return;
+  }
+};
+
+export default {
+  handleText,
+  startMorningSession,
+  startEveningSession,
+  handleCallback
+};

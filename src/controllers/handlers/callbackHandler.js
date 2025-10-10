@@ -203,7 +203,21 @@ router.register(
     ].includes(data),
   async (ctx)=> await registrationHandler.handleCallback(ctx)
 );
+// ----------------- RETRY / SKIP для сесій -----------------
+router.register(
+  (data) => data.startsWith('retry_') || data.startsWith('skip_'),
+  async (ctx, data) => {
+    await dailyController.handleCallback(ctx, data);
+    return true;
+  }
+);
 
+router.register('exit_session', async (ctx) => {
+  const tgId = ctx.from.id;
+  await userService.updateUserFields(tgId, { Answer_Step: 'completed' });
+  await ctx.reply('🚪 Сесію завершено.', keyboards.mainMenuKeyboard());
+  return true;
+});
 // ----------------- EXIT -----------------
 router.register('exit_all', async (ctx) => {
   const tgId = ctx.from.id;

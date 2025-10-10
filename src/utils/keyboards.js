@@ -86,6 +86,11 @@ timezoneKeyboard: () => {
       ]
     }
   }),
+buildExitKeyboard: () => ({
+  reply_markup: {
+    inline_keyboard: [[{ text: '🚪 Вийти з сесії', callback_data: 'exit_session' }]]
+  }
+}),
 
   eveningStartInline: () => ({
     reply_markup: {

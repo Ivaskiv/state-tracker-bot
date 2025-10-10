@@ -8,7 +8,6 @@ src
     database.js
   controllers
     botController.js
-    dailyQuestionsController.js
     flows
       aiMentorController.js
       dailyController.js
@@ -16,17 +15,18 @@ src
       profileController.js
       registrationController.js
       wheelController.js
-      workSessionController.js
     handlers
       callbackHandler.js
       menuHandler.js
+      registrationHandler.js
       sessionHandler.js
       startHandler.js
       textHandler.js
     subscriptionController.js
-    wheelBalanceController.js
   img
     koleso_balansu.png
+  modules
+    auth.js
   repositories
     subscriptionRepository.js
     userRepository.js
@@ -39,6 +39,17 @@ src
     badgeService.js
     conversationService.js
     dailyService.js
+    dailySessions
+      database.js
+      evening.js
+      formatter.js
+      helpers.js
+      index.js
+      keyboards.js
+      morning.js
+      shared.js
+      sync.js
+      utils.js
     dataSyncService.js
     gamificationService.js
     goalService.js
@@ -55,7 +66,13 @@ src
     subscriptionService.js
     userService.js
     wayforpayService.js
-    wheelBalanceService.js
+    wheelBalance
+      analysis.js
+      database.js
+      flow.js
+      index.js
+      reminders.js
+      utils.js
   utils
     antiSpam.js
     callbackRouter.js

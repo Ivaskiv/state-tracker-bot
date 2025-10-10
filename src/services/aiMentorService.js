@@ -1,6 +1,7 @@
 // src/aiMentor/services/aiMentorService.js
 import { chat } from '../../services/openaiClient.js';
 import { AI_MENTOR_PROMPTS, AI_MENTOR_CONFIG } from '../../config/constants.js';
+import dailySessions from '../../services/dailySessions/index.js';
 
 // Utils
 import { 
@@ -143,6 +144,98 @@ async function provideDayFeedback(responses, state, goal, tgId) {
 }
 
 // ==========================================
+// ✅ НОВИЙ ФУНКЦІОНАЛ: АНАЛІЗ СЕСІЙ
+// ==========================================
+
+async function analyzeMorningSession(tgId) {
+  console.log(`[aiMentorService] 🌞 Аналіз ранкової сесії для ${tgId}`);
+  
+  try {
+    const record = await dailySessions.getTodayRecord(tgId);
+    const answers = [1, 2, 3, 4, 5, 6]
+      .map(i => record?.fields[`Q_m_${i}`])
+      .filter(Boolean);
+    
+    if (answers.length === 0) {
+      return '✅ Гарний старт дня! Продовжуй у тому ж дусі! 💪';
+    }
+    
+    const prompt = 
+      `Проаналізуй ранкові відповіді користувача:\n\n` +
+      `${answers.map((a, i) => `${i + 1}. ${a}`).join('\n')}\n\n` +
+      `Дай короткий аналіз (до 80 слів):\n` +
+      `- Поточний стан та енергія\n` +
+      `- Пріоритети дня\n` +
+      `- 1-2 конкретні рекомендації\n\n` +
+      `Українською, мотиваційно, конкретно.`;
+    
+    const analysis = await chat(
+      [
+        { role: 'system', content: 'Ти AI ментор. Аналізуєш ранкові рефлексії.' },
+        { role: 'user', content: prompt }
+      ],
+      'gpt-4o-mini',
+      250
+    );
+    
+    await saveAIConversation(tgId, 'Аналіз ранкової сесії', analysis, 'morning_analysis');
+    
+    return analysis || '✅ Гарний старт! Тримай фокус на цілях! 💪';
+    
+  } catch (error) {
+    console.error('[analyzeMorningSession] Помилка:', error);
+    return '✅ Ранкову рефлексію завершено! Чудовий старт дня! 💪';
+  }
+}
+
+async function analyzeDayComplete(tgId) {
+  console.log(`[aiMentorService] 🌙 Аналіз повного дня для ${tgId}`);
+  
+  try {
+    const record = await dailySessions.getTodayRecord(tgId);
+    
+    const morning = [1, 2, 3, 4, 5, 6]
+      .map(i => record?.fields[`Q_m_${i}`])
+      .filter(Boolean);
+    
+    const evening = [1, 2, 3, 4, 5, 6, 7]
+      .map(i => record?.fields[`Q_e_${i}`])
+      .filter(Boolean);
+    
+    if (morning.length === 0 && evening.length === 0) {
+      return '✅ День завершено! Дякую за чесність! 💪';
+    }
+    
+    const prompt = 
+      `Проаналізуй повний день користувача:\n\n` +
+      `РАНОК:\n${morning.map((a, i) => `${i + 1}. ${a}`).join('\n')}\n\n` +
+      `ВЕЧІР:\n${evening.map((a, i) => `${i + 1}. ${a}`).join('\n')}\n\n` +
+      `Дай аналіз дня (до 100 слів):\n` +
+      `- Ключові досягнення\n` +
+      `- Уроки дня\n` +
+      `- Фокус на завтра\n\n` +
+      `Українською, підтримуюче, з конкретикою.`;
+    
+    const analysis = await chat(
+      [
+        { role: 'system', content: 'Ти AI ментор. Аналізуєш повний день користувача.' },
+        { role: 'user', content: prompt }
+      ],
+      'gpt-4o-mini',
+      300
+    );
+    
+    await saveAIConversation(tgId, 'Аналіз повного дня', analysis, 'day_complete_analysis');
+    
+    return analysis || '✅ Чудовий день! Завтра буде ще краще! 💪';
+    
+  } catch (error) {
+    console.error('[analyzeDayComplete] Помилка:', error);
+    return '✅ Дякую за чесність! Продовжуй у тому ж дусі! 💪';
+  }
+}
+
+// ==========================================
 // UTILITIES
 // ==========================================
 
@@ -164,5 +257,9 @@ export default {
   generateMicroActions,
   generatePersonalizedAdvice,
   provideDayFeedback,
-  getFallbackActions
+  getFallbackActions,
+  
+  // ✅ НОВІ МЕТОДИ АНАЛІЗУ
+  analyzeMorningSession,
+  analyzeDayComplete
 };

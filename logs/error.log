@@ -86,3 +86,38 @@
 {"error":"NOT_AUTHORIZED","level":"error","message":"❌ [dailySessions] syncGoals: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-10T10:16:04.787Z"}
 {"error":"NOT_AUTHORIZED","level":"error","message":"❌ [dailySessions] syncMorningData: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-10T10:16:04.788Z"}
 {"error":"NOT_AUTHORIZED","level":"error","message":"❌ [dailySessions] handleMorningAnswer: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-10T10:16:04.789Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [dailySessions] updateTodayRecord: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:05:42.244Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [evening] handleEveningAnswer: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:05:42.245Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [dailySessions] updateTodayRecord: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:05:44.529Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [evening] handleEveningAnswer: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:05:44.530Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [dailySessions] updateTodayRecord: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:05:48.527Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [evening] handleEveningAnswer: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:05:48.527Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [dailyController] Критична помилка після 3 спроб: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:05:48.527Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [dailySessions] updateTodayRecord: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:48:40.641Z"}
+{"level":"error","message":"   Status: 422","timestamp":"2025-10-10T12:48:40.642Z"}
+{"level":"error","message":"   Message: Unknown field name: \"Actions_Completed_Count\"","timestamp":"2025-10-10T12:48:40.642Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [evening] handleEveningAnswer КРИТИЧНА ПОМИЛКА: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:48:40.643Z"}
+{"level":"error","message":"   TG_id:","timestamp":"2025-10-10T12:48:40.644Z"}
+{"level":"error","message":"   Question:","timestamp":"2025-10-10T12:48:40.644Z"}
+{"level":"error","message":"   Text length:","timestamp":"2025-10-10T12:48:40.644Z"}
+{"level":"error","message":"   Error name:","timestamp":"2025-10-10T12:48:40.644Z"}
+{"level":"error","message":"   Error message:","timestamp":"2025-10-10T12:48:40.645Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [dailySessions] updateTodayRecord: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:48:42.764Z"}
+{"level":"error","message":"   Status: 422","timestamp":"2025-10-10T12:48:42.765Z"}
+{"level":"error","message":"   Message: Unknown field name: \"Actions_Completed_Count\"","timestamp":"2025-10-10T12:48:42.765Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [evening] handleEveningAnswer КРИТИЧНА ПОМИЛКА: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:48:42.765Z"}
+{"level":"error","message":"   TG_id:","timestamp":"2025-10-10T12:48:42.765Z"}
+{"level":"error","message":"   Question:","timestamp":"2025-10-10T12:48:42.765Z"}
+{"level":"error","message":"   Text length:","timestamp":"2025-10-10T12:48:42.765Z"}
+{"level":"error","message":"   Error name:","timestamp":"2025-10-10T12:48:42.765Z"}
+{"level":"error","message":"   Error message:","timestamp":"2025-10-10T12:48:42.765Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [dailySessions] updateTodayRecord: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:48:46.596Z"}
+{"level":"error","message":"   Status: 422","timestamp":"2025-10-10T12:48:46.596Z"}
+{"level":"error","message":"   Message: Unknown field name: \"Actions_Completed_Count\"","timestamp":"2025-10-10T12:48:46.596Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [evening] handleEveningAnswer КРИТИЧНА ПОМИЛКА: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:48:46.597Z"}
+{"level":"error","message":"   TG_id:","timestamp":"2025-10-10T12:48:46.598Z"}
+{"level":"error","message":"   Question:","timestamp":"2025-10-10T12:48:46.598Z"}
+{"level":"error","message":"   Text length:","timestamp":"2025-10-10T12:48:46.598Z"}
+{"level":"error","message":"   Error name:","timestamp":"2025-10-10T12:48:46.598Z"}
+{"level":"error","message":"   Error message:","timestamp":"2025-10-10T12:48:46.598Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [dailyController] Критична помилка після 3 спроб: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-10T12:48:46.598Z"}

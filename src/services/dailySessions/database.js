@@ -42,23 +42,6 @@ export const createTodayRecord = async (tgId, userName) => {
   }
 };
 
-export const updateTodayRecord = async (tgId, fields) => {
-  try {
-    const record = await getTodayRecord(tgId);
-    
-    if (!record) {
-      logger.error('❌ [dailySessions] Запис не знайдено');
-      return null;
-    }
-    
-    await base(tables.RESPONSES).update(record.id, fields, { typecast: true });
-    return true;
-  } catch (error) {
-    logger.error('❌ [dailySessions] updateTodayRecord:', error);
-    throw error;
-  }
-};
-
 export const ensureTodayRecord = async (tgId, userName) => {
   try {
     let record = await getTodayRecord(tgId);
@@ -128,5 +111,69 @@ export const getRecentRecords = async (tgId, days = 7) => {
   } catch (error) {
     logger.error('❌ [dailySessions] getRecentRecords:', error);
     return [];
+  }
+};
+
+// src/services/dailySessions/database.js
+
+// ✅ ДОДАЙ HELPER для очищення тексту
+const sanitizeText = (text) => {
+  if (!text) return '';
+  
+  // Обрізаємо до безпечної довжини (Airtable Long Text: 100,000 символів)
+  const maxLength = 50000;
+  let cleaned = String(text).trim();
+  
+  if (cleaned.length > maxLength) {
+    cleaned = cleaned.substring(0, maxLength) + '...';
+  }
+  
+  // Видаляємо проблемні символи
+  cleaned = cleaned
+    .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '') // control chars
+    .replace(/\u0000/g, ''); // null bytes
+  
+  return cleaned;
+};
+
+// ✅ ОНОВЛЕНИЙ updateTodayRecord з валідацією
+export const updateTodayRecord = async (tgId, fields) => {
+  try {
+    const record = await getTodayRecord(tgId);
+    
+    if (!record) {
+      logger.error('❌ [dailySessions] Запис не знайдено');
+      return null;
+    }
+    
+    // ✅ ОЧИЩУЄМО ВСІ ТЕКСТОВІ ПОЛЯ
+    const cleanedFields = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (typeof value === 'string') {
+        cleanedFields[key] = sanitizeText(value);
+      } else {
+        cleanedFields[key] = value;
+      }
+    }
+    
+    logger.info(`🔄 [dailySessions] Оновлення запису ${record.id}`);
+    
+    await base(tables.RESPONSES).update(record.id, cleanedFields, { typecast: true });
+    
+    logger.info(`✅ [dailySessions] Успішно оновлено`);
+    return true;
+    
+  } catch (error) {
+    logger.error('❌ [dailySessions] updateTodayRecord:', error);
+    
+    // ✅ ДЕТАЛЬНА ІНФОРМАЦІЯ ПРО ПОМИЛКУ
+    if (error.statusCode) {
+      logger.error(`   Status: ${error.statusCode}`);
+    }
+    if (error.message) {
+      logger.error(`   Message: ${error.message}`);
+    }
+    
+    throw error;
   }
 };

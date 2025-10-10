@@ -146,7 +146,7 @@ export default {
   findByTgId,
   createUser,
   updateUser,
-  updateUserByTgId, // ✅ ДОДАНО
+  updateUserByTgId, 
   findActiveUsers
 };
 
