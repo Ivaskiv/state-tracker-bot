@@ -23,7 +23,7 @@ import userService from '../services/userService.js';
 const safeEditOrReply = async (ctx, text, extra) => {
   try {
     if (ctx.callbackQuery) {
-      await ctx.editMessageText(text, extra);
+      await ctx.reply(text, extra);
     } else {
       await ctx.reply(text, extra);
     }
@@ -259,7 +259,7 @@ const handleBuyCourse = async (ctx, problemType) => {
   
   const message = COURSE_MESSAGES.COURSE_INFO(offer.title, offer.price, tgId);
   
-  await ctx.editMessageText(message, keyboards.courseInfoKeyboard());
+  await ctx.reply(message, keyboards.courseInfoKeyboard());
   await ctx.answerCbQuery('Інформація надіслана');
   await logOfferClicked(tgId, problemType, offer.title);
 };
@@ -271,7 +271,7 @@ const handleBuyCourse = async (ctx, problemType) => {
 const handleBookConsultation = async (ctx) => {
   const tgId = ctx.from.id;
   const message = COURSE_MESSAGES.CONSULTATION_INFO(tgId);
-  await ctx.editMessageText(message, keyboards.consultationInfoKeyboard());
+  await ctx.reply(message, keyboards.consultationInfoKeyboard());
   await ctx.answerCbQuery('Інформація надіслана');
   await logOfferClicked(tgId, 'consultation', 'Consultation 150€');
 };
@@ -281,7 +281,7 @@ const handleBookConsultation = async (ctx) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const handleDismissOffer = async (ctx) => {
-  await ctx.editMessageText(COURSE_MESSAGES.DISMISS, keyboards.dismissOfferKeyboard());
+  await ctx.reply(COURSE_MESSAGES.DISMISS, keyboards.dismissOfferKeyboard());
   await ctx.answerCbQuery('Зрозуміло');
 };
 

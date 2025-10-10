@@ -2890,3 +2890,64 @@
 {"level":"info","message":"[responseService] 💾 Збереження Q_e_4 для 630111093","timestamp":"2025-10-06T16:08:39.950Z"}
 {"level":"info","message":"[responseService] 💾 Збереження Q_e_5 для 630111093","timestamp":"2025-10-06T16:09:15.418Z"}
 {"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[responseService] ❌ saveEveningAnswer: Unknown field name: \"Actions_Completed_Count\"","statusCode":422,"timestamp":"2025-10-06T16:09:16.074Z"}
+{"level":"info","message":"🎯 [wheelBalance] ПОЧАТОК КОЛЕСА для 630111093","timestamp":"2025-10-09T15:57:44.644Z"}
+{"level":"info","message":"🎯 [wheelBalance] ✅ Колесо створено, ID: recFuRKkDbTXH8z60","timestamp":"2025-10-09T15:57:45.233Z"}
+{"code":"ERR_INVALID_ARG_TYPE","level":"error","message":"❌ [wheelBalance] Помилка створення: The \"path\" argument must be of type string. Received undefined","stack":"TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string. Received undefined\n    at Object.join (node:path:1263:7)\n    at Object.startWheelBalance (file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/services/wheelBalanceService.js:441:23)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async Object.handleStartWheel (file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/flows/wheelController.js:302:25)\n    at async Object.handleCallback (file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/flows/wheelController.js:145:11)\n    at async file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/handlers/callbackHandler.js:147:3\n    at async Object.handle (file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/utils/callbackRouter.js:103:21)\n    at async Object.handle (file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/handlers/callbackHandler.js:200:21)\n    at async file:///Users/viravira/Documents/GitHub/state-tracker-bot/src/controllers/botController.js:66:23\n    at async execute (/Users/viravira/Documents/GitHub/state-tracker-bot/node_modules/telegraf/lib/composer.js:518:17)","timestamp":"2025-10-09T15:57:45.236Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T16:56:52.774Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка cancelActiveWheel: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-09T16:56:53.469Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка startWheelBalance: Insufficient permissions to create new select option \"\"Cancelled\"\"","statusCode":422,"timestamp":"2025-10-09T16:56:53.470Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T16:59:16.123Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка cancelActiveWheel: Insufficient permissions to create new select option \"\"Incomplete\"\"","statusCode":422,"timestamp":"2025-10-09T16:59:16.556Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка startWheelBalance: Insufficient permissions to create new select option \"\"Incomplete\"\"","statusCode":422,"timestamp":"2025-10-09T16:59:16.558Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T16:59:40.580Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка cancelActiveWheel: Insufficient permissions to create new select option \"\"Incomplete\"\"","statusCode":422,"timestamp":"2025-10-09T16:59:41.289Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка startWheelBalance: Insufficient permissions to create new select option \"\"Incomplete\"\"","statusCode":422,"timestamp":"2025-10-09T16:59:41.290Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T17:00:46.019Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка cancelActiveWheel: Insufficient permissions to create new select option \"\"Incomplete\"\"","statusCode":422,"timestamp":"2025-10-09T17:00:46.767Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка startWheelBalance: Insufficient permissions to create new select option \"\"Incomplete\"\"","statusCode":422,"timestamp":"2025-10-09T17:00:46.768Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T17:01:04.950Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка cancelActiveWheel: Insufficient permissions to create new select option \"\"Incomplete\"\"","statusCode":422,"timestamp":"2025-10-09T17:01:05.477Z"}
+{"error":"INVALID_MULTIPLE_CHOICE_OPTIONS","level":"error","message":"❌ [wheelBalance] Помилка startWheelBalance: Insufficient permissions to create new select option \"\"Incomplete\"\"","statusCode":422,"timestamp":"2025-10-09T17:01:05.478Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T17:02:17.985Z"}
+{"level":"info","message":"✅ [wheelBalance] Скасовано 1 коліс для 630111093","timestamp":"2025-10-09T17:02:18.584Z"}
+{"level":"info","message":"✅ [wheelBalance] Створено колесо recqnF2JCMlADzgUZ для 630111093","timestamp":"2025-10-09T17:02:19.166Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T17:02:38.308Z"}
+{"level":"info","message":"✅ [wheelBalance] Скасовано 1 коліс для 630111093","timestamp":"2025-10-09T17:02:38.834Z"}
+{"level":"info","message":"✅ [wheelBalance] Створено колесо recc6HGL7JHkzniN4 для 630111093","timestamp":"2025-10-09T17:02:39.210Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T17:03:22.604Z"}
+{"level":"info","message":"✅ [wheelBalance] Скасовано 1 коліс для 630111093","timestamp":"2025-10-09T17:03:23.096Z"}
+{"level":"info","message":"✅ [wheelBalance] Створено колесо rec9kuxBSeelRcvsV для 630111093","timestamp":"2025-10-09T17:03:23.438Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T17:20:36.312Z"}
+{"level":"info","message":"✅ [wheelBalance] Створено колесо rec3jVS0saX2nSDuw для 630111093","timestamp":"2025-10-09T17:20:36.929Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T17:24:47.085Z"}
+{"level":"info","message":"✅ [wheelBalance] Створено колесо recwcLnqORV4Ticdy для 630111093","timestamp":"2025-10-09T17:24:47.636Z"}
+{"level":"info","message":"🎯 [wheelBalance] Старт для 630111093","timestamp":"2025-10-09T17:26:10.074Z"}
+{"level":"info","message":"🎯 [wheelBalance] Знайдено Incomplete колесо recFuRKkDbTXH8z60, реактивуємо","timestamp":"2025-10-09T17:26:10.257Z"}
+{"level":"info","message":"✅ [wheelBalance] Завершено колесо recFuRKkDbTXH8z60","timestamp":"2025-10-09T17:43:38.027Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] Помилка updateWheel: Unknown field name: \"undefined\"","statusCode":422,"timestamp":"2025-10-09T18:51:32.249Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"❌ [wheelBalance] Помилка processWheelAnswer: Unknown field name: \"undefined\"","statusCode":422,"timestamp":"2025-10-09T18:51:32.266Z"}
+{"level":"info","message":"✅ [wheelBalance] Скасовано 1 коліс для 630111093","timestamp":"2025-10-09T18:51:45.083Z"}
+{"level":"info","message":"[dailyService] 🚀 startSession type=\"morning\" tgId=630111093","timestamp":"2025-10-09T18:55:08.726Z"}
+{"level":"info","message":"[responseService] 🔍 _getTodayRecord for 630111093: not found","timestamp":"2025-10-09T18:55:08.951Z"}
+{"level":"info","message":"[responseService] 🔍 _getTodayRecord for 630111093: not found","timestamp":"2025-10-09T18:55:09.167Z"}
+{"level":"info","message":"[responseService] 📝 Created new record for 630111093","timestamp":"2025-10-09T18:55:09.621Z"}
+{"level":"info","message":"[responseService] 🔍 _getTodayRecord for 630111093: found","timestamp":"2025-10-09T18:55:09.817Z"}
+{"level":"info","message":"[dailyService] 📝 Створено новий запис у Responses","timestamp":"2025-10-09T18:55:09.818Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[dailyService] ❌ startSession error: Unknown field name: \"ANSWER_STEPS\"","statusCode":422,"timestamp":"2025-10-09T18:55:10.230Z"}
+{"level":"info","message":"[dailyService] 🚀 startSession type=\"morning\" tgId=630111093","timestamp":"2025-10-09T18:55:16.939Z"}
+{"level":"info","message":"[responseService] 🔍 _getTodayRecord for 630111093: found","timestamp":"2025-10-09T18:55:17.137Z"}
+{"error":"UNKNOWN_FIELD_NAME","level":"error","message":"[dailyService] ❌ startSession error: Unknown field name: \"ANSWER_STEPS\"","statusCode":422,"timestamp":"2025-10-09T18:55:17.522Z"}
+{"level":"info","message":"🌞 [dailySessions] Старт ранкової для 630111093","timestamp":"2025-10-10T09:58:09.970Z"}
+{"level":"info","message":"✅ [dailySessions] Створено запис для 630111093","timestamp":"2025-10-10T09:58:10.883Z"}
+{"level":"info","message":"✅ [dailySessions] Ранкова запущена для 630111093","timestamp":"2025-10-10T09:58:12.076Z"}
+{"level":"info","message":"🌞 [dailySessions] Старт ранкової для 630111093","timestamp":"2025-10-10T10:11:13.254Z"}
+{"level":"info","message":"✅ [dailySessions] Ранкова запущена для 630111093","timestamp":"2025-10-10T10:11:15.660Z"}
+{"level":"info","message":"🌞 [dailySessions] Відповідь Q_m_1 від 630111093","timestamp":"2025-10-10T10:11:53.748Z"}
+{"level":"info","message":"🌞 [dailySessions] Відповідь Q_m_2 від 630111093","timestamp":"2025-10-10T10:12:35.046Z"}
+{"level":"info","message":"🌞 [dailySessions] Відповідь Q_m_3 від 630111093","timestamp":"2025-10-10T10:13:02.425Z"}
+{"level":"info","message":"🌞 [dailySessions] Відповідь Q_m_4 від 630111093","timestamp":"2025-10-10T10:13:35.534Z"}
+{"level":"info","message":"🌞 [dailySessions] Відповідь Q_m_5 від 630111093","timestamp":"2025-10-10T10:14:30.056Z"}
+{"level":"info","message":"🌞 [dailySessions] Відповідь Q_m_6 від 630111093","timestamp":"2025-10-10T10:16:02.515Z"}
+{"error":"NOT_AUTHORIZED","level":"error","message":"❌ [dailySessions] syncGoals: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-10T10:16:04.787Z"}
+{"error":"NOT_AUTHORIZED","level":"error","message":"❌ [dailySessions] syncMorningData: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-10T10:16:04.788Z"}
+{"error":"NOT_AUTHORIZED","level":"error","message":"❌ [dailySessions] handleMorningAnswer: You are not authorized to perform this operation","statusCode":403,"timestamp":"2025-10-10T10:16:04.789Z"}

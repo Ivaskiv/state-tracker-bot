@@ -2,18 +2,10 @@
 
 import userRepo from '../repositories/userRepository.js';
 import { USER_STATUS, SUBSCRIPTION_STATUS, CONFIG, ANSWER_STEPS } from '../config/constants.js';
-import airtableClient from '../config/airtableClient.js';
-
-const T = () => airtableClient('Users');
-const N = (r) => ({ id: r.id, ...r.fields });
 
 // ===== КЕШ КОРИСТУВАЧІВ =====
 const userCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 хв
-const batchCache = {
-  activeUsers: { data: null, timestamp: 0, ttl: 5 * 60 * 1000 },
-  expiringUsers: { data: null, timestamp: 0, ttl: 10 * 60 * 1000 }
-};
 
 // ===== МАППЕР ЗАПИСІВ =====
 const mapRecord = (record) => {
@@ -34,7 +26,6 @@ const mapRecord = (record) => {
     Start_Date: f.Start_Date || null,
     End_Date: f.End_Date || null,
     'Active_Subscription_Status': f['Active_Subscription_Status'] || '',
-    // ✅ читаємо ТІЛЬКИ Answer_Step із Users
     Answer_Step: f.Answer_Step ?? ANSWER_STEPS.IDLE,
     Created_At: f.Created_At || null,
     Last_Activity: f.Last_Activity || null,
@@ -43,89 +34,115 @@ const mapRecord = (record) => {
 };
 
 // ===== ОСНОВНІ ОПЕРАЦІЇ =====
-export const getUserByTgId = async (tgId, options) => {
+export const getUserByTgId = async (tgId, options = {}) => {
   const skipCache = options?.skipCache || false;
   const cacheKey = String(tgId);
 
   if (!skipCache) {
     const cached = userCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.user;
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`[userService] 📦 Отримано з кешу: ${tgId}`);
+      return cached.user;
+    }
   }
 
   const record = await userRepo.findByTgId(tgId);
   const user = mapRecord(record);
-  if (user) userCache.set(cacheKey, { user, timestamp: Date.now() });
+  
+  if (user) {
+    userCache.set(cacheKey, { user, timestamp: Date.now() });
+  }
+  
   return user;
 };
 
 export const ensureUser = async (tgId, name) => {
   let user = await getUserByTgId(tgId);
-  if (user) return user;
+  
+  if (user) {
+    console.log(`[userService] ✅ Користувач вже існує: ${tgId}`);
+    return user;
+  }
 
+  console.log(`[userService] 🆕 Створення нового користувача: ${tgId}`);
   const record = await userRepo.createUser(tgId, name || String(tgId));
   user = mapRecord(record);
-  if (user) userCache.set(String(tgId), { user, timestamp: Date.now() });
+  
+  if (user) {
+    userCache.set(String(tgId), { user, timestamp: Date.now() });
+  }
+  
   return user;
 };
 
+// ===== ОНОВЛЕННЯ ПОЛІВ =====
 export const updateUserFields = async (tgId, fields) => {
-  userCache.delete(String(tgId));
-  const record = await userRepo.findByTgId(tgId);
-  const user = mapRecord(record);
-  if (!user) return null;
+  try {
+    console.log(`[userService] 🔄 Оновлення полів для ${tgId}:`, Object.keys(fields).join(', '));
+    
+    // ✅ ВИПРАВЛЕНО: використовуємо updateUserByTgId замість updateUser
+    const record = await userRepo.updateUserByTgId(tgId, fields);
+    const user = mapRecord(record);
+    
+    if (user) {
+      userCache.set(String(tgId), { user, timestamp: Date.now() });
+      console.log(`[userService] ✅ Оновлено успішно, Answer_Step: ${user.Answer_Step}`);
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('[userService] ❌ Помилка оновлення полів:', error);
+    throw error;
+  }
+};
 
-  const updated = await userRepo.updateUser(user.id, fields);
-  const result = mapRecord(updated);
-  userCache.set(String(tgId), { user: result, timestamp: Date.now() });
-  return result;
+export const updateUserField = async (tgId, key, value) => {
+  return updateUserFields(tgId, { [key]: value });
 };
 
 export const updateUserStep = async (tgId, step) => {
-  // ✅ пишемо саме Answer_Step (Users)
+  console.log(`[userService] 📍 Оновлення кроку для ${tgId}: ${step}`);
   return updateUserFields(tgId, { Answer_Step: step });
 };
 
 export const updateUserActivity = async (tgId) => {
-  return updateUserFields(tgId, { Last_Activity: new Date().toISOString() });
+  return updateUserFields(tgId, { 
+    Last_Activity: new Date().toISOString()
+  });
 };
 
-export const finalizeRegistration = async (tgId, data) => {
-  const now = new Date().toISOString();
+export const markUserRegistered = async (tgId) => {
   return updateUserFields(tgId, {
-    'User Name': data.name,
-    Email: data.email || null,
-    Phone: data.phone || null,
-    'Time Zone': data.timezone,
     UserRegistered: true,
-    'Registration Date': now,
-    // ✅ завершення онбордингу
+    Status: USER_STATUS.REGISTERED,
+    'Registration Date': new Date().toISOString(),
     Answer_Step: ANSWER_STEPS.COMPLETED
   });
 };
 
-export const hasActiveAccess = (user) => {
-  if (!user) return false;
-  const subStatus = (user['Subscription_Status'] || '').trim().toLowerCase();
-  const activeStatus = (user['Active_Subscription_Status'] || '').trim();
-  const plan = user['Active Subscription Plan'] || '';
-
-  const isStatusActive = subStatus === 'active' ||
-                         activeStatus.includes('✅') ||
-                         activeStatus.toLowerCase().includes('активна') ||
-                         plan.toLowerCase().includes('пробний');
-  if (isStatusActive) return true;
-
-  const start = user.Start_Date ? new Date(user.Start_Date + 'T00:00:00') : null;
-  const end = user.End_Date ? new Date(user.End_Date + 'T23:59:59') : null;
-  const now = new Date();
-  if (start && end && now >= start && now <= end) return true;
-
-  return false;
+export const finalizeRegistration = async (tgId, data) => {
+  const now = new Date().toISOString();
+  
+  console.log(`[userService] 🎉 Фіналізація реєстрації для ${tgId}`);
+  
+  return updateUserFields(tgId, {
+    'User Name': data.name,
+    Email: data.email || null,
+    Phone: data.phone || null,
+    'Time Zone': data.timezone || CONFIG.DEFAULT_TIMEZONE,
+    UserRegistered: true,
+    Status: USER_STATUS.REGISTERED,
+    'Registration Date': now,
+    Answer_Step: ANSWER_STEPS.COMPLETED
+  });
 };
 
 export const activateTrial = async (tgId, days = 7) => {
   const start = new Date();
   const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+  
+  console.log(`[userService] 🧪 Активація trial для ${tgId} на ${days} днів`);
+  
   return updateUserFields(tgId, {
     'Active Subscription Plan': '🧪 Пробний період — 0€',
     'Subscription_Status': SUBSCRIPTION_STATUS.ACTIVE,
@@ -134,86 +151,74 @@ export const activateTrial = async (tgId, days = 7) => {
   });
 };
 
-export const getActiveUsers = async ({ forceRefresh = false } = {}) => {
-  const now = Date.now();
-  const cache = batchCache.activeUsers;
-  if (!forceRefresh && cache.data && now - cache.timestamp < cache.ttl) return cache.data;
+// ===== ПЕРЕВІРКА ДОСТУПУ =====
+export const hasActiveAccess = (user) => {
+  if (!user) return false;
+  
+  const subStatus = (user['Subscription_Status'] || '').trim().toLowerCase();
+  const activeStatus = (user['Active_Subscription_Status'] || '').trim();
+  const plan = user['Active Subscription Plan'] || '';
 
+  // Перевірка статусу
+  const isStatusActive =
+    subStatus === 'active' ||
+    activeStatus.includes('✅') ||
+    activeStatus.toLowerCase().includes('активна') ||
+    plan.toLowerCase().includes('пробний');
+
+  if (isStatusActive) return true;
+
+  // Перевірка дат
+  const start = user.Start_Date ? new Date(user.Start_Date + 'T00:00:00') : null;
+  const end = user.End_Date ? new Date(user.End_Date + 'T23:59:59') : null;
+  const now = new Date();
+  
+  return start && end && now >= start && now <= end;
+};
+
+// ===== BULK ОПЕРАЦІЇ =====
+export const getActiveUsers = async ({ forceRefresh = false } = {}) => {
   const records = await userRepo.findActiveUsers();
-  const users = records.map(mapRecord).filter(u => u !== null);
-  cache.data = users;
-  cache.timestamp = now;
-  users.forEach(user => userCache.set(user.TG_id, { user, timestamp: now }));
+  const users = records.map(mapRecord).filter(Boolean);
+  
+  // Оновлюємо кеш
+  users.forEach(user => {
+    userCache.set(user.TG_id, { user, timestamp: Date.now() });
+  });
+  
   return users;
 };
 
-export const getUsersWithExpiringSubscriptions = async (daysAhead = 1) => {
-  const today = new Date();
-  const target = new Date(today);
-  target.setDate(today.getDate() + daysAhead);
-  const todayStr = today.toISOString().split('T')[0];
-  const targetStr = target.toISOString().split('T')[0];
-
-  const { getBase, tables } = await import('../config/database.js');
-  const base = getBase();
-
-  const records = await base(tables.USERS)
-    .select({
-      filterByFormula: `AND(FIND('✅', {Active_Subscription_Status}) > 0, IS_AFTER({End_Date}, '${todayStr}'), IS_BEFORE({End_Date}, '${targetStr}'))`,
-      fields: ['TG_id', 'User Name', 'End_Date', 'Active Subscription Plan']
-    })
-    .all();
-
-  return records.map(mapRecord).filter(u => u !== null);
-};
-
+// ===== КЕШ =====
 export const clearCache = (tgId = null) => {
-  if (tgId) userCache.delete(String(tgId));
-  else userCache.clear();
+  if (tgId) {
+    userCache.delete(String(tgId));
+    console.log(`[userService] 🗑️ Кеш очищено для ${tgId}`);
+  } else {
+    userCache.clear();
+    console.log(`[userService] 🗑️ Весь кеш очищено`);
+  }
 };
 
 export const getCacheStats = () => ({
   size: userCache.size,
   users: Array.from(userCache.keys())
 });
-//=====
-export async function createOrGet(tgId){
-  const rs = await T().select({
-    filterByFormula: `{TG_id}='${String(tgId)}'`,
-    maxRecords: 1
-  }).firstPage();
-  if (rs.length) return N(rs[0]);
-  const created = await T().create({ TG_id:String(tgId), Status:'new', Current_Activity:'idle' });
-  return N(created);
-}
-export async function updateFields(id, patch){
-  return N(await T().update(id, patch));
-}
-export async function setTrial(id, days=7){
-  const d = new Date(); d.setDate(d.getDate()+days);
-  return updateFields(id, { Trial_End: d.toISOString() });
-}
-export async function markRegistered(id){
-  return updateFields(id, { Status:'registered', Current_Activity:'idle', Answer_Step:null });
-}
+
 export default {
   getUserByTgId,
   ensureUser,
-  updateUserFields,
+  updateUserField,
+  updateUserFields, 
   updateUserStep,
   updateUserActivity,
   finalizeRegistration,
+  markUserRegistered,
   hasActiveAccess,
   activateTrial,
   getActiveUsers,
-  getUsersWithExpiringSubscriptions,
   clearCache,
-  getCacheStats,
-//==========
-  createOrGet,
-  updateFields,
-  setTrial,
-  markRegistered
+  getCacheStats
 };
 
 console.log('✅ [userService] Сервіс ініціалізовано');

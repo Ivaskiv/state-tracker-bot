@@ -1,219 +1,57 @@
 // src/controllers/handlers/startHandler.js
 
 import userService from '../../services/userService.js';
-import onboardingService from '../../services/onboardingService.js';
+import { MESSAGES, ANSWER_STEPS } from '../../config/constants.js';
 import keyboards from '../../utils/keyboards.js';
-import {
-  MESSAGES,
-  ANSWER_STEPS,
-  USER_STATUS,
-  REGISTRATION_SUCCESS_TEMPLATE
-} from '../../config/constants.js';
-import profileController from '../flows/profileController.js';
 
-// ---------- helpers ----------
-const formatDateUA = (dateLike) => {
-  try {
-    if (!dateLike) return null;
-    const d = (dateLike instanceof Date) ? dateLike : new Date(dateLike);
-    return isNaN(d.getTime()) ? null : d.toLocaleDateString('uk-UA');
-  } catch { return null; }
-};
-
-const computeTrialEndFromNow = (days = 7) => {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return formatDateUA(d);
-};
-
-const isAccessActive = (user) => {
-  if (!user) return false;
-  if (typeof userService.hasActiveAccess === 'function') {
-    try { return !!userService.hasActiveAccess(user); } catch {}
-  }
-  const a = (user['Active_Subscription_Status'] || '');
-  const s = (user['Subscription_Status'] || '').toLowerCase();
-  return a.includes('✅') || s === 'active';
-};
-
-// ---------- /start ----------
-export default function registerStartHandlers(bot) {
-  bot.start(async (ctx) => {
-    try {
-      const tgId = ctx.from.id;
-      const telegramName = ctx.from.first_name || ctx.from.username || 'Користувач';
-
-      let user = await userService.getUserByTgId(tgId);
-      if (!user) {
-        user = await userService.ensureUser(tgId, telegramName);
-        await ctx.reply(MESSAGES.WELCOME(telegramName), );
-        return;
-      }
-
-      // іноді при імпорті юзернейм міг потрапити як tgId — виправляємо
-      if (user['User Name'] === String(tgId)) {
-        await userService.updateUserFields(tgId, { 'User Name': telegramName });
-        user['User Name'] = telegramName;
-      }
-
-      if (!user.UserRegistered) {
-        await startOnboarding(ctx, user);
-        return;
-      }
-
-      const name = user['User Name'] || telegramName;
-      const endStr = formatDateUA(user.End_Date) || 'скоро';
-
-      if (isAccessActive(user)) {
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
-      } else {
-        await ctx.reply(MESSAGES.WELCOME_BACK_INACTIVE(name), keyboards.mainMenuKeyboard());
-      }
-    } catch (e) {
-      console.error('[startHandler]/start error:', e);
-      await ctx.reply(MESSAGES.ERROR_GENERIC, keyboards.mainMenuKeyboard());
-    }
-  });
-}
-
-// ---------- онбординг: перше привітання ----------
-const startOnboarding = async (ctx, user) => {
-  const userName = user['User Name'] || 'Користувач';
-  await ctx.reply(MESSAGES.ONBOARDING_NAME_CHOICE(userName), {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: `✅ Залишити "${userName}"`, callback_data: 'use_telegram_name' }],
-        [{ text: '✏️ Ввести інше ім\'я', callback_data: 'enter_custom_name' }]
-      ]
-    }
-  });
-};
-
-// ---------- текст під час онбордингу ----------
-export const handleText = async (ctx) => {
+export const startHandler = async (ctx) => {
   const tgId = ctx.from.id;
-  const text = ctx.message?.text?.trim();
-
-  const user = await userService.getUserByTgId(tgId);
-  if (!user || user.UserRegistered) return false;
-
-  // ✅ ЧИТАЄМО ТІЛЬКИ Users.Answer_Step
-  const step = user.Answer_Step;
-
+  const name = ctx.from.first_name || 'Користувач';
+  
   try {
-    if (step === ANSWER_STEPS.OB_NAME) {
-      const result = await onboardingService.handleNameStep(tgId, text);
-      if (result.error) await ctx.reply(result.message, keyboards.emailInputKeyboard());
-      else await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
-      return true;
+    console.log(`[startHandler] 🚀 /start від ${tgId}`);
+    
+    let user = await userService.ensureUser(tgId, name);
+    
+    // Якщо користувач не зареєстрований — запускаємо онбординг
+    if (!user.UserRegistered) {
+      console.log(`[startHandler] 🆕 Новий користувач ${tgId}, запуск онбордингу`);
+      console.log(`[startHandler] 📍 Поточний Answer_Step: ${user.Answer_Step}`);
+      
+      // Якщо крок вже встановлений при створенні (OB_NAME), просто показуємо форму
+      if (!user.Answer_Step || user.Answer_Step === ANSWER_STEPS.IDLE) {
+        await userService.updateUserStep(tgId, ANSWER_STEPS.OB_NAME);
+      }
+      
+      await ctx.reply(
+        MESSAGES.ONBOARDING_NAME_CHOICE(name),
+        keyboards.nameChoiceInline()
+      );
+      return;
     }
-    if (step === ANSWER_STEPS.OB_EMAIL) {
-      const result = await onboardingService.handleEmailStep(tgId, text);
-      if (result.error) await ctx.reply(result.message, keyboards.emailInputKeyboard());
-      else await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
-      return true;
+
+    // Користувач зареєстрований — перевіряємо підписку
+    const hasAccess = userService.hasActiveAccess(user);
+    
+    if (hasAccess) {
+      console.log(`[startHandler] ✅ Активний користувач ${tgId}`);
+      await ctx.reply(
+        MESSAGES.WELCOME_BACK_ACTIVE(user['User Name'], user.End_Date || '—'),
+        keyboards.mainMenuKeyboard()
+      );
+    } else {
+      console.log(`[startHandler] ⚠️ Неактивна підписка ${tgId}`);
+      await ctx.reply(
+        MESSAGES.WELCOME_BACK_INACTIVE(user['User Name']),
+        keyboards.subscriptionMenuInline()
+      );
     }
-    if (step === ANSWER_STEPS.OB_PHONE) {
-      const result = await onboardingService.handlePhoneStep(tgId, text);
-      if (result.error) await ctx.reply(result.message, keyboards.phoneInputKeyboard());
-      else await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
-      return true;
-    }
-    return false;
   } catch (error) {
-    console.error('[startHandler] ❌ Помилка handleText:', error);
-    await ctx.reply(MESSAGES.ERROR_GENERIC, keyboards.mainMenuKeyboard());
-    return true;
+    console.error('[startHandler] ❌ Помилка:', error);
+    await ctx.reply(
+      '❌ Виникла помилка при запуску бота.\n\nСпробуй ще раз через кілька секунд або напиши /start'
+    );
   }
 };
 
-// ---------- callback-и під час онбордингу ----------
-export const handleCallback = async (ctx) => {
-  const tgId = ctx.from.id;
-  const data = ctx.callbackQuery?.data;
-
-  const user = await userService.getUserByTgId(tgId);
-  if (!user) return false;
-
-  try {
-    if (data === 'use_telegram_name') {
-      await userService.updateUserFields(tgId, {
-        Status: USER_STATUS.REGISTERED,
-        // ✅ ПИШЕМО ВИКЛЮЧНО Answer_Step (Users)
-        Answer_Step: ANSWER_STEPS.OB_EMAIL
-      });
-      await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.emailInputKeyboard());
-      return true;
-    }
-
-    if (data === 'enter_custom_name' || data === 'start_registration') {
-      await userService.updateUserFields(tgId, {
-        Status: USER_STATUS.REGISTERED,
-        Answer_Step: ANSWER_STEPS.OB_NAME
-      });
-      await ctx.reply(MESSAGES.ASK_NAME);
-      return true;
-    }
-
-    if (data === 'skip_email') {
-      await onboardingService.handleEmailStep(tgId, null, true);
-      await ctx.reply(MESSAGES.ASK_PHONE, keyboards.phoneInputKeyboard());
-      return true;
-    }
-
-    if (data === 'skip_phone') {
-      await onboardingService.handlePhoneStep(tgId, null, true);
-      await ctx.reply(MESSAGES.AСК_TIMEZONE, keyboards.timezoneKeyboard());
-      return true;
-    }
-
-    if (data.startsWith('tz_')) {
-      const tzSlug = data.slice(3);
-      await onboardingService.handleTimezoneStep(tgId, tzSlug);
-      await ctx.reply(MESSAGES.ASK_PLAN, keyboards.subscriptionPlansKeyboard());
-      return true;
-    }
-
-    if (data.startsWith('profile_') || data === 'show_profile') {
-      await profileController.handleCallback(ctx, data);
-      return true;
-    }
-
-    // Trial: ідемпотентно
-    if (data === 'plan_free' || data === 'activate_trial') {
-      if (isAccessActive(user)) {
-        const name = user['User Name'] || ctx.from.first_name || 'друже';
-        const endStr = formatDateUA(user.End_Date) || 'скоро';
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
-        return true;
-      }
-
-      const result = await onboardingService.handlePlanStep(tgId, 'TRIAL');
-      if (result?.success && result?.trial) {
-        const fresh = await userService.getUserByTgId(tgId);
-        const endDateFromService = formatDateUA(result.endDate);
-        const endDateFromUser = formatDateUA(fresh?.End_Date);
-        const endDateStr = endDateFromService || endDateFromUser || computeTrialEndFromNow(7);
-        const message = REGISTRATION_SUCCESS_TEMPLATE.replace('{END_DATE}', endDateStr);
-        await ctx.reply(message, keyboards.mainMenuKeyboard() || keyboards.afterRegistrationKeyboard());
-      } else {
-        const name = user['User Name'] || ctx.from.first_name || 'друже';
-        const fresh = await userService.getUserByTgId(tgId);
-        const endStr = formatDateUA(fresh?.End_Date) || computeTrialEndFromNow(7);
-        await ctx.reply(MESSAGES.WELCOME_BACK_ACTIVE(name, endStr), keyboards.mainMenuKeyboard());
-      }
-      return true;
-    }
-
-    if (['plan_week', 'plan_month', 'plan_year'].includes(data)) {
-      await ctx.reply('💳 Для оплати зверніться до підтримки: nadyastarway@gmail.com', keyboards.subscriptionMenuInline());
-      return true;
-    }
-
-    return false;
-  } catch (error) {
-    console.error('[startHandler] ❌ Помилка callback:', error);
-    await ctx.reply(MESSAGES.ERROR_GENERIC, keyboards.mainMenuKeyboard());
-    return true;
-  }
-};
+export default { startHandler };

@@ -1,99 +1,40 @@
-import dailyService from '../../services/dailyService.js';
-import responseService from '../../services/responseService.js';
+// src/controllers/flows/dailyController.js
+import dailySessions from '../../services/dailySessions/index.js';
 import userService from '../../services/userService.js';
 import badgeService from '../../services/badgeService.js';
 import activityTracker from '../../services/activityTracker.js';
 import keyboards from '../../utils/keyboards.js';
-import { QUESTIONS, ANSWER_STEPS } from '../../config/constants.js';
 
 const dailyController = {
   
+  // ===== ОБРОБКА ТЕКСТОВИХ ВІДПОВІДЕЙ =====
   handleText: async (ctx, text, userStep) => {
     console.log(`[dailyController] 📝 handleText: ${userStep.sessionType} Q${userStep.questionNumber}`);
     
     try {
       const { tgId, sessionType, questionNumber } = userStep;
       
-      // Зберігаємо відповідь
+      // Делегуємо в dailySessions
       if (sessionType === 'morning') {
-        await responseService.saveMorningAnswer(tgId, questionNumber, text);
-      } else if (sessionType === 'evening') {
-        await responseService.saveEveningAnswer(tgId, questionNumber, text);
-      }
-      
-      console.log(`[dailyController] ✅ Відповідь збережено`);
-      
-      // Визначаємо наступне питання
-      const questions = sessionType === 'morning' ? QUESTIONS.morning : QUESTIONS.evening;
-      const totalQuestions = questions.length;
-      const nextQuestionNum = questionNumber + 1;
-      
-      if (nextQuestionNum > totalQuestions) {
-        // Сесія завершена
-        console.log(`[dailyController] 🎉 Сесія ${sessionType} завершена`);
+        const result = await dailySessions.handleMorningAnswer(ctx, text, questionNumber);
         
-        const icon = sessionType === 'morning' ? '🌞' : '🌙';
-        const title = sessionType === 'morning' ? 'Ранкову' : 'Вечірню';
-        
-        await ctx.reply(
-          `${icon} ${title} рефлексію завершено!\n\n✅ Всі відповіді збережено.\n\nДякую за чесність! 💪`,
-          keyboards.mainMenuKeyboard()
-        );
-        
-        // Оновлюємо статус
-        await userService.updateUserFields(tgId, {
-          ANSWER_STEPS: ANSWER_STEPS.COMPLETED
-        });
-        
-        await responseService._createOrUpdateRecord(tgId, {
-          Current_Activity: sessionType === 'morning' ? 'morning_completed' : 'evening_completed'
-        });
-        
-        // Перевіряємо фіналізацію дня
-        const stats = await activityTracker.calculateDailyStats(tgId);
-        if (stats?.morningCompleted && stats?.eveningCompleted) {
-          await badgeService.assignBadges(tgId);
+        if (result.completed) {
+          // Перевіряємо фіналізацію дня
+          const stats = await activityTracker.calculateDailyStats(tgId);
+          if (stats?.morningCompleted && stats?.eveningCompleted) {
+            await badgeService.assignBadges(tgId);
+          }
         }
         
         return true;
+      } else if (sessionType === 'evening') {
+        const result = await dailySessions.handleEveningAnswer(ctx, text, questionNumber);
+        
+        // Фіналізація вже відбувається всередині handleEveningAnswer
+        return true;
       }
       
-      // Відправляємо наступне питання
-      const nextQuestion = questions[nextQuestionNum - 1];
-      
-      if (!nextQuestion) {
-        throw new Error(`Питання ${nextQuestionNum} не знайдено`);
-      }
-      
-      console.log(`[dailyController] 📤 Відправка питання ${nextQuestionNum}/${totalQuestions}`);
-      
-      // Форматування повідомлення
-      const icon = sessionType === 'morning' ? '🌞' : '🌙';
-      const title = sessionType === 'morning' ? 'РАНКОВА РЕФЛЕКСІЯ' : 'ВЕЧІРНЯ РЕФЛЕКСІЯ';
-      
-      // Емодзі цифри
-      const emojiNumbers = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
-      const currentEmoji = emojiNumbers[nextQuestionNum];
-      
-      // Витягуємо перший рядок як заголовок питання
-      const questionLines = nextQuestion.text.split('\n');
-      const questionTitle = questionLines[0];
-      
-      const message = 
-        `${icon} ${title}\n\n` +
-        `${currentEmoji}/${totalQuestions} ${questionTitle}\n` +
-        (nextQuestion.hint ? `💡 ${nextQuestion.hint}` : '');
-      
-      await ctx.reply(
-        message,
-        keyboards.questionKeyboard?.(nextQuestion) || { 
-          reply_markup: { remove_keyboard: true } 
-        }
-      );
-      
-      console.log(`[dailyController] ✅ Питання ${nextQuestionNum} відправлено`);
-      
-      return true;
+      return false;
       
     } catch (error) {
       console.error('[dailyController] ❌ handleText error:', error);
@@ -102,44 +43,54 @@ const dailyController = {
     }
   },
 
+  // ===== CALLBACK (НЕ ЧІПАЄМО) =====
   handleCallback: async (ctx, data) => {
-    return dailyService.handleCallback(ctx, data);
+    // Залишаємо як є - тут можуть бути інші callback'и
+    console.log('[dailyController] handleCallback:', data);
+    return false;
   },
 
+  // ===== СТАРТ СЕСІЙ =====
   startMorningSession: async (ctx) => {
-    return dailyService.startSession(ctx, 'morning');
+    return dailySessions.startMorningSession(ctx);
   },
 
   startEveningSession: async (ctx) => {
-    return dailyService.startSession(ctx, 'evening');
+    return dailySessions.startEveningSession(ctx);
   },
 
+  // ===== ПЕРЕЗАПУСК =====
   restartMorningSession: async (ctx) => {
-    return dailyService.restartSession(ctx, 'morning');
+    return dailySessions.restartMorningSession(ctx);
   },
 
   restartEveningSession: async (ctx) => {
-    return dailyService.restartSession(ctx, 'evening');
+    return dailySessions.restartEveningSession(ctx);
   },
 
+  // ===== ПРОДОВЖЕННЯ =====
   continueEveningSession: async (ctx) => {
-    return dailyService.continueEveningSession(ctx);
+    return dailySessions.continueEveningSession(ctx);
   },
 
+  // ===== ВИХІД =====
   exitSession: async (ctx, type) => {
-    await dailyService.exitSession(ctx, type);
-
-    // ✅ Після завершення сесії перевіряємо фіналізацію дня
     const tgId = ctx.from.id;
-    const stats = await activityTracker.calculateDailyStats(tgId);
+    
+    if (type === 'morning') {
+      await dailySessions.exitMorningSession(ctx);
+    } else {
+      await dailySessions.exitEveningSession(ctx);
+    }
 
+    // Перевіряємо фіналізацію дня
+    const stats = await activityTracker.calculateDailyStats(tgId);
     if (stats?.morningCompleted && stats?.eveningCompleted) {
-      // Присвоюємо бейджі після успішного дня
       await badgeService.assignBadges(tgId);
     }
   },
 
-  // Додатковий метод для отримання профілю з бейджами та прогресом
+  // ===== ПРОФІЛЬ (НЕ ЧІПАЄМО) =====
   showProfile: async (ctx) => {
     try {
       const tgId = ctx.from.id;

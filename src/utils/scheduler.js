@@ -2,7 +2,7 @@
 import cron from 'node-cron';
 import subscriptionController from '../controllers/subscriptionController.js';
 import activityTracker from '../services/activityTracker.js';
-import wheelBalanceService from '../services/wheelBalanceService.js';
+import wheelBalanceService from '../services/wheelBalance/index.js'; // ✅ ВИПРАВЛЕНО
 import keyboards from '../utils/keyboards.js';
 import {
   SCHEDULE,

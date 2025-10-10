@@ -11,7 +11,7 @@ export const send = async (ctx, text, keyboard = null, options = {}) => {
 
       // спробуємо редагувати існуюче повідомлення
       try {
-        await ctx.editMessageText(text, replyPayload);
+        await ctx.reply(text, replyPayload);
         return { method: 'edit' };
       } catch (err) {
         // якщо не вдалось — fallback у reply
