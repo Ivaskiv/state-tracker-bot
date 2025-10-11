@@ -29,6 +29,8 @@ src
       shared.js
       sync.js
       utils.js
+    dashboard
+      index.js
     gamification
       badges.js
       index.js
@@ -37,8 +39,6 @@ src
     onboarding
       handlers.js
       index.js
-      messages.js
-      validation.js
     reports
       formatter.js
       index.js
@@ -48,7 +48,6 @@ src
     subscription
       handlers.js
       index.js
-      messages.js
       wayforpay.js
       webhook.js
     wheelBalance
@@ -70,6 +69,7 @@ src
     stats.js
     users.js
   utils
+    antiSpam.js
     errors.js
     formatters.js
     keyboards.js
