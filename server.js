@@ -1,16 +1,27 @@
-// server.js — ДОДАТИ WEBHOOK ENDPOINT
+// server.js — ВИПРАВЛЕНА ВЕРСІЯ З РОЗШИРЕНИМ MIDDLEWARE
 
 import dotenv from 'dotenv';
 dotenv.config();
 
-import express from 'express'; // ✅ ДОДАТИ
+import express from 'express';
 import { Telegraf, session } from 'telegraf';
-import botController from './src/controllers/botController.js';
+import { initRouter } from './src/bot/router.js';
+
+// ✅ ІМПОРТ ВСІХ MIDDLEWARE
+import { 
+  initMiddleware, 
+  performanceMiddleware, 
+  antiSpamMiddleware 
+} from './src/bot/middleware.js';
+
+// Config
 import { testConnection, validateTables } from './src/config/database.js';
-import { startScheduler, stopScheduler } from './src/utils/scheduler.js';
-import { typingMiddleware } from './src/utils/typing.js';
-import webhookController from './src/api/webhookController.js'; // ✅ ДОДАТИ
-import profileController from './src/controllers/flows/profileController.js';
+
+// Services
+import { startScheduler, stopScheduler } from './src/services/scheduler.js';
+
+// Webhook
+import subscriptionWebhook from './src/features/subscription/webhook.js';
 
 const { TELEGRAM_BOT_TOKEN, NODE_ENV, TZ, PORT } = process.env;
 
@@ -23,13 +34,13 @@ if (!TELEGRAM_BOT_TOKEN) {
 console.log('🚀 [server] Запуск бота...');
 console.log(`🟢 MODE=${NODE_ENV || 'development'} | TZ=${TZ || 'Europe/Kiev'}`);
 
-// ===== EXPRESS SERVER ДЛЯ WEBHOOK ===== ✅ ДОДАТИ
+// ===== EXPRESS SERVER ДЛЯ WEBHOOK =====
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Webhook endpoint
-app.post('/api/wayforpay/webhook', webhookController.handleWayForPayWebhook);
+app.post('/api/wayforpay/webhook', subscriptionWebhook);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -43,6 +54,9 @@ const bot = new Telegraf(TELEGRAM_BOT_TOKEN, {
   handlerTimeout: 15_000,
 });
 
+// ===== MIDDLEWARE STACK (ПОРЯДОК ВАЖЛИВИЙ!) =====
+
+// 1️⃣ Session - завжди першим
 bot.use(session({ 
   defaultSession: () => ({
     wheel: null,
@@ -51,8 +65,16 @@ bot.use(session({
   }) 
 }));
 
-bot.use(typingMiddleware());
+// 2️⃣ Anti-spam protection (опціонально - розкоментуй для production)
+bot.use(antiSpamMiddleware());
 
+// 3️⃣ Performance logging (опціонально - для моніторингу повільних запитів)
+// bot.use(performanceMiddleware());
+
+// 4️⃣ Main middleware - логування + typing + error handling
+bot.use(initMiddleware());
+
+// ===== ГЛОБАЛЬНИЙ ERROR HANDLER =====
 bot.catch((err, ctx) => {
   console.error('❌ [bot] Unhandled error:', {
     error: err.message,
@@ -74,9 +96,7 @@ bot.catch((err, ctx) => {
     console.error('❌ [bot] Помилка відправки error message:', replyError.message);
   }
 });
-bot.command('profile', async (ctx) => {
-  await profileController.showProfile(ctx);
-});
+
 // ===== ЗАПУСК =====
 (async () => {
   try {
@@ -108,10 +128,10 @@ bot.command('profile', async (ctx) => {
       console.log('✅ [server] Всі критичні таблиці доступні');
     }
     
-    // 3️⃣ ІНІЦІАЛІЗАЦІЯ КОНТРОЛЕРІВ
-    console.log('🎮 [server] Ініціалізація контролерів...');
-    botController(bot);
-    console.log('✅ [server] Контролери готові');
+    // 3️⃣ ІНІЦІАЛІЗАЦІЯ РОУТЕРА
+    console.log('🎮 [server] Ініціалізація роутера...');
+    initRouter(bot);
+    console.log('✅ [server] Роутер готовий');
     
     // 4️⃣ ЗАПУСК SCHEDULER
     console.log('⏰ [server] Запуск планувальника...');
@@ -133,7 +153,7 @@ bot.command('profile', async (ctx) => {
       allowedUpdates: ['message', 'callback_query'],
     });
     
-    // 7️⃣ ЗАПУСК EXPRESS SERVER ✅ ДОДАТИ
+    // 7️⃣ ЗАПУСК EXPRESS SERVER
     app.listen(PORT_NUMBER, () => {
       console.log(`🌐 [server] Express server запущено на порту ${PORT_NUMBER}`);
       console.log(`🔗 [server] Webhook URL: http://localhost:${PORT_NUMBER}/api/wayforpay/webhook`);

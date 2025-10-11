@@ -1,4 +1,4 @@
-// src/utils/antiSpam.js - ЦЕНТРАЛІЗОВАНИЙ АНТІ-СПАМ
+// src/utils/antiSpam.js
 
 import { CONFIG } from '../config/constants.js';
 

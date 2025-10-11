@@ -1,44 +1,23 @@
 src
   .DS_Store
-  api
-    webhookController.js
+  bot
+    handlers.js
+    middleware.js
+    router.js
   config
     airtableClient.js
     constants.js
     database.js
-  controllers
-    botController.js
-    flows
-      aiMentorController.js
-      dailyController.js
-      mainFlowController.js
-      profileController.js
-      registrationController.js
-      wheelController.js
-    handlers
-      callbackHandler.js
-      menuHandler.js
-      registrationHandler.js
-      sessionHandler.js
-      startHandler.js
-      textHandler.js
-    subscriptionController.js
-  img
-    koleso_balansu.png
-  modules
-    auth.js
-  repositories
-    subscriptionRepository.js
-    userRepository.js
-  services
-    actionGenerator.js
-    activityTracker.js
-    affirmationService.js
-    aiMentorCore.js
-    aiMentorService.js
-    badgeService.js
-    conversationService.js
-    dailyService.js
+  features
+    affirmations
+      generator.js
+      index.js
+    aiMentor
+      context.js
+      handlers.js
+      index.js
+      prompts.js
+      storage.js
     dailySessions
       database.js
       evening.js
@@ -50,44 +29,50 @@ src
       shared.js
       sync.js
       utils.js
-    dataSyncService.js
-    gamificationService.js
-    goalService.js
-    onboardingService.js
-    openaiClient.js
-    paymentService.js
-    prompts
+    gamification
+      badges.js
       index.js
-    reportService.js
-    responseProcessor.js
-    responseService.js
-    sessionManager.js
-    smartTaskService.js
-    subscriptionService.js
-    userService.js
-    wayforpayService.js
+      levels.js
+      rewards.js
+    onboarding
+      handlers.js
+      index.js
+      messages.js
+      validation.js
+    reports
+      formatter.js
+      index.js
+      monthly.js
+      progress.js
+      weekly.js
+    subscription
+      handlers.js
+      index.js
+      messages.js
+      wayforpay.js
+      webhook.js
     wheelBalance
       analysis.js
+      calculator.js
       database.js
       flow.js
+      handlers.js
       index.js
       reminders.js
       utils.js
-  utils
-    antiSpam.js
-    callbackRouter.js
-    cb.js
-    dailyData.js
-    dailyHelpers.js
-    keyboards.js
-    logger.js
-    menuVersion.js
-    promptBuilder.js
+      visualization.js
+  img
+    koleso_balansu.png
+  services
+    goals.js
+    responses.js
     scheduler.js
-    send.js
-    session.js
-    smartActionsValidator.js
-    timeUtils.js
+    stats.js
+    users.js
+  utils
+    errors.js
+    formatters.js
+    keyboards.js
     typing.js
     validators.js
 
