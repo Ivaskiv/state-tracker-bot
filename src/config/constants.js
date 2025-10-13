@@ -374,8 +374,14 @@ export const MESSAGES = Object.freeze({
   REG_SUCCESS: `${REG_SUMMARY}\n\nГотова почати?\n${BALANCE_HINT}`,
   TRIAL_ACTIVATED: `${REG_SUMMARY}\n\nГотова почати?`,
 
-  ONBOARDING_NAME_CHOICE: (userName)=>
-    `${INTRO(userName)}\n\n${FEATURES}\n\nЗалишити ім'я «${userName}» або ввести інше?`,
+  ONBOARDING_NAME_CHOICE: (userName) =>
+    `👋 Привіт, ${userName}!\n\n` +
+    `Я твій AI-мотиватор та коуч! Допомагаю:\n` +
+    `🎯 Ставити та досягати цілі\n` +
+    `⚖️ Знаходити баланс у житті\n` +
+    `💪 Підтримувати мотивацію\n` +
+    `📈 Відслідковувати прогрес\n\n` +
+    `Залишити ім'я «${userName}» або ввести інше?`,
 
 WELCOME_BACK_ACTIVE: (userName, endStr, stats = {}) =>
   `👋 Привіт, ${userName}!\n\n` +

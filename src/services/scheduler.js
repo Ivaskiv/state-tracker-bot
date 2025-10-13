@@ -1,32 +1,37 @@
 // src/services/scheduler.js
-// Планувальник для автоматичних нагадувань
+// Планувальник для автоматичних нагадувань (fix: правильні поля Users: TG_id, "User Name")
 
 import cron from 'node-cron';
 import { CRON_SCHEDULES, SCHEDULER_MESSAGES } from '../config/constants.js';
 import { tables, selectFromTable } from '../config/database.js';
 
-// ===== ІМПОРТИ ОНОВЛЕНІ =====
-// БУЛО: import subscriptionController from '../controllers/subscriptionController.js';
-// СТАЛО: (поки закоментуємо, бо subscription ще не готовий)
-// import subscriptionHandlers from '../features/subscription/handlers.js';
-
 let jobs = [];
 
 /**
  * Отримати активних користувачів
+ * Умови: Status = 'Active User' і Answer_Step = 'COMPLETED'
  */
 const getActiveUsers = async () => {
   try {
     const formula = `AND({Status} = 'Active User', {Answer_Step} = 'COMPLETED')`;
-    const records = await selectFromTable(tables.USERS, {
-      filterByFormula: formula
-    }).all();
-
-    return records;
+    const records = await selectFromTable(tables.USERS, { filterByFormula: formula }).all();
+    return records || [];
   } catch (error) {
     console.error('[scheduler/getActiveUsers] ❌ Помилка:', error);
     return [];
   }
+};
+
+/** Безпечне отримання TG chat_id з запису Users */
+const getChatId = (user) => {
+  const tg = user?.fields?.TG_id;
+  if (!tg) return null;
+  return String(tg).trim();
+};
+
+/** Безпечне імʼя для звертання */
+const getUserName = (user) => {
+  return user?.fields?.['User Name'] || 'Користувач';
 };
 
 /**
@@ -34,16 +39,20 @@ const getActiveUsers = async () => {
  */
 const sendMorningQuestions = async (bot) => {
   console.log('🌞 [scheduler] Відправка ранкових питань...');
-
   try {
     const users = await getActiveUsers();
     console.log(`[scheduler] Знайдено активних користувачів: ${users.length}`);
 
     for (const user of users) {
-      try {
-        const tgId = user.fields.Telegram_ID;
-        const userName = user.fields.Name || 'Користувач';
+      const tgId = getChatId(user);
+      if (!tgId) {
+        console.error('[scheduler] ❌ Пропущено: chat_id порожній (TG_id відсутній)');
+        continue;
+      }
 
+      const userName = getUserName(user);
+
+      try {
         await bot.telegram.sendMessage(
           tgId,
           SCHEDULER_MESSAGES.MORNING_SESSION_START(userName),
@@ -56,10 +65,9 @@ const sendMorningQuestions = async (bot) => {
             }
           }
         );
-
-        console.log(`[scheduler] ✅ Відправлено ранкові для ${tgId}`);
+        console.log(`[scheduler] ✅ Ранкові надіслані для TG=${tgId}`);
       } catch (err) {
-        console.error(`[scheduler] ❌ Помилка відправки для ${user.fields.Telegram_ID}:`, err.message);
+        console.error(`[scheduler] ❌ Помилка відправки ранкових TG=${tgId}:`, err.message);
       }
     }
   } catch (error) {
@@ -72,16 +80,20 @@ const sendMorningQuestions = async (bot) => {
  */
 const sendEveningQuestions = async (bot) => {
   console.log('🌙 [scheduler] Відправка вечірніх питань...');
-
   try {
     const users = await getActiveUsers();
     console.log(`[scheduler] Знайдено активних користувачів: ${users.length}`);
 
     for (const user of users) {
-      try {
-        const tgId = user.fields.Telegram_ID;
-        const userName = user.fields.Name || 'Користувач';
+      const tgId = getChatId(user);
+      if (!tgId) {
+        console.error('[scheduler] ❌ Пропущено: chat_id порожній (TG_id відсутній)');
+        continue;
+      }
 
+      const userName = getUserName(user);
+
+      try {
         await bot.telegram.sendMessage(
           tgId,
           SCHEDULER_MESSAGES.EVENING_SESSION_START(userName),
@@ -94,10 +106,9 @@ const sendEveningQuestions = async (bot) => {
             }
           }
         );
-
-        console.log(`[scheduler] ✅ Відправлено вечірні для ${tgId}`);
+        console.log(`[scheduler] ✅ Вечірні надіслані для TG=${tgId}`);
       } catch (err) {
-        console.error(`[scheduler] ❌ Помилка відправки для ${user.fields.Telegram_ID}:`, err.message);
+        console.error(`[scheduler] ❌ Помилка відправки вечірніх TG=${tgId}:`, err.message);
       }
     }
   } catch (error) {
@@ -106,14 +117,12 @@ const sendEveningQuestions = async (bot) => {
 };
 
 /**
- * Перевірка підписок
+ * Перевірка підписок (заглушка, підʼєднаєш коли буде готово)
  */
-const checkSubscriptions = async (bot) => {
+const checkSubscriptions = async (_bot) => {
   console.log('💰 [scheduler] Перевірка підписок...');
-
   try {
-    // TODO: Реалізувати коли буде готовий subscription модуль
-    // await subscriptionHandlers.checkExpiredSubscriptions(bot);
+    // TODO: підключити features/subscription/handlers.js коли буде готово
     console.log('[scheduler] ⚠️ Перевірка підписок поки не реалізована');
   } catch (error) {
     console.error('[scheduler/checkSubscriptions] ❌ Помилка:', error);
@@ -125,16 +134,18 @@ const checkSubscriptions = async (bot) => {
  */
 const sendWeeklyReports = async (bot) => {
   console.log('📊 [scheduler] Відправка щотижневих звітів...');
-
   try {
     const users = await getActiveUsers();
     console.log(`[scheduler] Знайдено активних користувачів: ${users.length}`);
 
     for (const user of users) {
-      try {
-        const tgId = user.fields.Telegram_ID;
-        const userName = user.fields.Name || 'Користувач';
+      const tgId = getChatId(user);
+      if (!tgId) {
+        console.error('[scheduler] ❌ Пропущено: chat_id порожній (TG_id відсутній)');
+        continue;
+      }
 
+      try {
         await bot.telegram.sendMessage(
           tgId,
           SCHEDULER_MESSAGES.WEEKLY_PROMPT,
@@ -147,10 +158,9 @@ const sendWeeklyReports = async (bot) => {
             }
           }
         );
-
-        console.log(`[scheduler] ✅ Відправлено щотижневий звіт для ${tgId}`);
+        console.log(`[scheduler] ✅ Тижневий звіт надіслано TG=${tgId}`);
       } catch (err) {
-        console.error(`[scheduler] ❌ Помилка відправки для ${user.fields.Telegram_ID}:`, err.message);
+        console.error(`[scheduler] ❌ Помилка відправки звіту TG=${tgId}:`, err.message);
       }
     }
   } catch (error) {
@@ -163,16 +173,20 @@ const sendWeeklyReports = async (bot) => {
  */
 const monthlyWheelCheck = async (bot) => {
   console.log('🎯 [scheduler] Щомісячна перевірка колеса балансу...');
-
   try {
     const users = await getActiveUsers();
     console.log(`[scheduler] Знайдено активних користувачів: ${users.length}`);
 
     for (const user of users) {
-      try {
-        const tgId = user.fields.Telegram_ID;
-        const userName = user.fields.Name || 'Користувач';
+      const tgId = getChatId(user);
+      if (!tgId) {
+        console.error('[scheduler] ❌ Пропущено: chat_id порожній (TG_id відсутній)');
+        continue;
+      }
 
+      const userName = getUserName(user);
+
+      try {
         await bot.telegram.sendMessage(
           tgId,
           `🎯 Привіт, ${userName}!\n\nНастав час оновити твоє Колесо балансу! Це допоможе побачити прогрес та скоригувати фокус на наступний місяць.`,
@@ -185,10 +199,9 @@ const monthlyWheelCheck = async (bot) => {
             }
           }
         );
-
-        console.log(`[scheduler] ✅ Відправлено нагадування про колесо для ${tgId}`);
+        console.log(`[scheduler] ✅ Нагадування про колесо надіслано TG=${tgId}`);
       } catch (err) {
-        console.error(`[scheduler] ❌ Помилка відправки для ${user.fields.Telegram_ID}:`, err.message);
+        console.error(`[scheduler] ❌ Помилка відправки колеса TG=${tgId}:`, err.message);
       }
     }
   } catch (error) {
@@ -204,47 +217,47 @@ export const startScheduler = (bot) => {
 
   try {
     // Ранкові питання
-    const morningJob = cron.schedule(CRON_SCHEDULES.MORNING_QUESTIONS, () => {
-      sendMorningQuestions(bot);
-    }, {
-      timezone: 'Europe/Kyiv'
-    });
+    const morningJob = cron.schedule(
+      CRON_SCHEDULES.MORNING_QUESTIONS,
+      () => sendMorningQuestions(bot),
+      { timezone: 'Europe/Prague' }
+    );
     jobs.push(morningJob);
     console.log(`[scheduler] ✅ Ранкові питання: ${CRON_SCHEDULES.MORNING_QUESTIONS}`);
 
     // Вечірні питання
-    const eveningJob = cron.schedule(CRON_SCHEDULES.EVENING_QUESTIONS, () => {
-      sendEveningQuestions(bot);
-    }, {
-      timezone: 'Europe/Kyiv'
-    });
+    const eveningJob = cron.schedule(
+      CRON_SCHEDULES.EVENING_QUESTIONS,
+      () => sendEveningQuestions(bot),
+      { timezone: 'Europe/Prague' }
+    );
     jobs.push(eveningJob);
     console.log(`[scheduler] ✅ Вечірні питання: ${CRON_SCHEDULES.EVENING_QUESTIONS}`);
 
     // Щотижневі звіти
-    const weeklyJob = cron.schedule(CRON_SCHEDULES.WEEKLY_REPORTS, () => {
-      sendWeeklyReports(bot);
-    }, {
-      timezone: 'Europe/Kyiv'
-    });
+    const weeklyJob = cron.schedule(
+      CRON_SCHEDULES.WEEKLY_REPORTS,
+      () => sendWeeklyReports(bot),
+      { timezone: 'Europe/Prague' }
+    );
     jobs.push(weeklyJob);
     console.log(`[scheduler] ✅ Щотижневі звіти: ${CRON_SCHEDULES.WEEKLY_REPORTS}`);
 
     // Щомісячне колесо балансу
-    const monthlyJob = cron.schedule(CRON_SCHEDULES.MONTHLY_WHEEL_CHECK, () => {
-      monthlyWheelCheck(bot);
-    }, {
-      timezone: 'Europe/Kyiv'
-    });
+    const monthlyJob = cron.schedule(
+      CRON_SCHEDULES.MONTHLY_WHEEL_CHECK,
+      () => monthlyWheelCheck(bot),
+      { timezone: 'Europe/Prague' }
+    );
     jobs.push(monthlyJob);
     console.log(`[scheduler] ✅ Щомісячне колесо: ${CRON_SCHEDULES.MONTHLY_WHEEL_CHECK}`);
 
     // Перевірка підписок
-    const subscriptionJob = cron.schedule(CRON_SCHEDULES.SUBSCRIPTION_CHECK, () => {
-      checkSubscriptions(bot);
-    }, {
-      timezone: 'Europe/Kyiv'
-    });
+    const subscriptionJob = cron.schedule(
+      CRON_SCHEDULES.SUBSCRIPTION_CHECK,
+      () => checkSubscriptions(bot),
+      { timezone: 'Europe/Prague' }
+    );
     jobs.push(subscriptionJob);
     console.log(`[scheduler] ✅ Перевірка підписок: ${CRON_SCHEDULES.SUBSCRIPTION_CHECK}`);
 
@@ -261,13 +274,13 @@ export const startScheduler = (bot) => {
 export const stopScheduler = () => {
   console.log('⏰ [scheduler] Зупинка планувальника...');
 
-  jobs.forEach(job => {
+  for (const job of jobs) {
     try {
       job.stop();
     } catch (error) {
       console.error('[scheduler/stopScheduler] ❌ Помилка зупинки:', error);
     }
-  });
+  }
 
   jobs = [];
   console.log('[scheduler] ✅ Планувальник зупинено');
