@@ -14,8 +14,8 @@ import {
   NOTE_FIELDS 
 } from './utils.js';
 import { generateWheelAnalysis } from './analysis.js';
-import logger from '../../123/logger.js';
 import { getBase, tables } from '../../config/database.js';
+import logger from '../../utils/logger.js';
 
 const base = getBase();
 

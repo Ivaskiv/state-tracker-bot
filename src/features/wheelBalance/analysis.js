@@ -1,8 +1,8 @@
 // AI аналіз
 // src/services/wheelBalance/analysis.js
-import { chat } from '../../123/openaiClient.js';
+import { chat } from '../../services/openaiClient.js';
+import logger from '../../utils/logger.js';
 import { LIFE_SPHERES } from './utils.js';
-import logger from '../../123/logger.js';
 
 export const generateWheelAnalysis = async (scoresArr) => {
   try {

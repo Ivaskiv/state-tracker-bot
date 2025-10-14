@@ -1,6 +1,6 @@
 // src/services/dailySessions/database.js
 import { getBase, tables } from '../../config/database.js';
-import logger from '../../123/logger.js';
+import logger from '../../utils/logger.js';
 
 const base = getBase();
 

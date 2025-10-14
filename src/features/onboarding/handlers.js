@@ -78,7 +78,7 @@ export const updateUser = async (recordId, fields) => {
       id: recordId,
       fields: {
         ...fields,
-        Updated_At: new Date().toISOString()
+        Created_At: new Date().toISOString()
       }
     }]);
 
@@ -94,26 +94,54 @@ export const createTrialSubscription = async (userRecordId, tgId, userName) => {
   try {
     const now = new Date();
     const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() + SUBSCRIPTION_PLANS.TRIAL.duration);
+    endDate.setDate(endDate.getDate() + 7);
 
-    console.log(`[createTrialSubscription] 💰 Створення підписки для ${tgId}`);
+    const subscription = await createRows(tables.SUBSCRIPTIONS, [{
+      fields: {
+        TG_id: String(tgId),
+        "User Name": userName,
+        User: [userRecordId], 
+        Plan_Name: 'TRIAL',
+        Status: 'Active',
+        Start_Date: now.toISOString().split('T')[0],
+        End_Date: endDate.toISOString().split('T')[0],
+
+      }
+    }]);
+    console.log(`[createTrialSubscription] ✅ Підписка створена: ${subscription[0].id}`);
+    return subscription[0];
+  } catch (error) {
+    console.error('[createTrialSubscription] ❌', error);
+    throw error;
+  }
+};
+
+export const createPaidSubscription = async (userRecordId, tgId, userName, planKey) => {
+  try {
+    const plan = SUBSCRIPTION_PLANS[planKey];
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setDate(endDate.getDate() + plan.duration);
+
+    console.log(`[createPaidSubscription] 💰 Створення ${planKey} для ${tgId}`);
 
     const subscription = await createRows(tables.SUBSCRIPTIONS, [{
       fields: {
         TG_id: String(tgId),
         "User Name": userName || `User_${tgId}`,
-        Plan_Name: SUBSCRIPTION_PLANS.TRIAL.key,
-        Status: 'Active',
+        User: [userRecordId],
+        Plan_Name: plan.key,
+        Status: 'Pending', // ✅ Очікує оплату
         Start_Date: now.toISOString().split('T')[0],
         End_Date: endDate.toISOString().split('T')[0],
         Created_At: new Date().toISOString()
       }
     }]);
 
-    console.log(`[createTrialSubscription] ✅ Підписка створена`);
+    console.log(`[createPaidSubscription] ✅ Підписка створена: ${subscription[0].id}`);
     return subscription[0];
   } catch (error) {
-    console.error('[createTrialSubscription] ❌ Помилка:', error);
+    console.error('[createPaidSubscription] ❌ Помилка:', error);
     throw error;
   }
 };
@@ -128,64 +156,29 @@ export const formatDate = (dateString) => {
 };
 
 // ===== ГОЛОВНИЙ ОБРОБНИК /start =====
-
 export const handleStart = async (ctx) => {
   const tgId = ctx.from.id;
   const firstName = ctx.from.first_name || '';
 
   try {
     await typing(ctx);
+    let user = await getUserByTgId(tgId);
 
-    console.log('');
-    console.log('═══════════════════════════════════════════════════════');
-    console.log(`[handleStart] 🚀 /start від ${tgId} (${firstName})`);
-    console.log('═══════════════════════════════════════════════════════');
-
-    const user = await getUserByTgId(tgId);
-
-    // КОРИСТУВАЧА НЕМАЄ
+    // 🆕 НОВИЙ КОРИСТУВАЧ
     if (!user) {
-      console.log('[handleStart] 🆕 НОВИЙ КОРИСТУВАЧ');
-      
+      user = await createUser(tgId, firstName);
       await ctx.reply(
-        `👋 Привіт, ${firstName}!\n\n` +
-        `Я твій AI-мотиватор та коуч! Допомагаю:\n` +
-        `🎯 Ставити та досягати цілі\n` +
-        `⚖️ Знаходити баланс у житті\n` +
-        `💪 Підтримувати мотивацію\n` +
-        `📈 Відслідковувати прогрес\n\n` +
-        `Готова розпочати?`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '✅ Почати реєстрацію', callback_data: 'start_registration' }],
-              [{ text: '⏭️ Пізніше', callback_data: 'later_registration' }],
-              [{ text: '❌ Завершити без реєстрації', callback_data: 'skip_registration' }]
-            ]
-          }
-        }
+        MESSAGES.ONBOARDING_NAME_CHOICE(firstName),
+        keyboards.nameChoiceInline()
       );
-      
-      console.log('═══════════════════════════════════════════════════════');
       return true;
     }
 
-    // КОРИСТУВАЧ Є
+    // ✅ ЗАРЕЄСТРОВАНИЙ
     const status = user.fields.Status;
-    const answerStep = user.fields.Answer_Step;
-    const userName = user.fields['User Name'] || firstName;
-
-    console.log(`[handleStart] ✅ ІСНУЮЧИЙ: Status=${status}, Step=${answerStep}`);
-
-    // ЗАРЕЄСТРОВАНИЙ
-    const isRegistered = status === 'Registered User' || status === 'Active User';
-
-    if (isRegistered) {
-      console.log('[handleStart] → Показуємо меню');
-
-      const subscriptionStatus = user.fields['Subscription_Status'];
+    if (status === 'Registered User' || status === 'Active User') {
+      const subStatus = user.fields['Subscription_Status'];
       const endDate = user.fields.End_Date;
-
       const stats = {
         currentStreak: user.fields.Current_Streak || 0,
         completedSessions: user.fields.Total_Sessions || 0,
@@ -193,82 +186,38 @@ export const handleStart = async (ctx) => {
         goalProgress: user.fields.Goal_Progress || 0
       };
 
-      if (subscriptionStatus === 'Active' && endDate) {
-        await ctx.reply(
-          MESSAGES.WELCOME_BACK_ACTIVE(userName, formatDate(endDate), stats),
-          keyboards.mainMenuKeyboard()
-        );
-      } else {
-        await ctx.reply(
-          MESSAGES.WELCOME_BACK_INACTIVE(userName, stats),
-          keyboards.mainMenuKeyboard()
-        );
-      }
-
-      console.log('═══════════════════════════════════════════════════════');
-      return true;
-    }
-
-    // NEW USER - ПРОДОВЖУЄМО
-    console.log('[handleStart] → Продовжуємо реєстрацію');
-
-    if (!answerStep || answerStep === ANSWER_STEPS.OB_PITCH) {
       await ctx.reply(
-        MESSAGES.ONBOARDING_NAME_CHOICE(userName),
-        keyboards.nameChoiceInline()
+        subStatus === 'Active' 
+          ? MESSAGES.WELCOME_BACK_ACTIVE(user.fields['User Name'], formatDate(endDate), stats)
+          : MESSAGES.WELCOME_BACK_INACTIVE(user.fields['User Name'], stats),
+        keyboards.mainMenuKeyboard()
       );
-      console.log('═══════════════════════════════════════════════════════');
       return true;
     }
 
-    if (answerStep === ANSWER_STEPS.OB_NAME) {
-      await ctx.reply(
-        MESSAGES.ONBOARDING_NAME_CHOICE(userName),
-        keyboards.kbConfirmName(userName)
-      );
-      console.log('═══════════════════════════════════════════════════════');
-      return true;
-    }
-
-    if (answerStep === ANSWER_STEPS.OB_EMAIL) {
+    // 🔄 ПРОДОВЖЕННЯ РЕЄСТРАЦІЇ
+    const step = user.fields.Answer_Step;
+    if (step === ANSWER_STEPS.OB_NAME) {
+      await ctx.reply(MESSAGES.ASK_NAME);
+    } else if (step === ANSWER_STEPS.OB_EMAIL) {
       await ctx.reply(MESSAGES.ASK_EMAIL, keyboards.kbSkipEmail());
-      console.log('═══════════════════════════════════════════════════════');
-      return true;
-    }
-
-    if (answerStep === ANSWER_STEPS.OB_PHONE) {
+    } else if (step === ANSWER_STEPS.OB_PHONE) {
       await ctx.reply(MESSAGES.ASK_PHONE, keyboards.kbSkipPhone());
-      console.log('═══════════════════════════════════════════════════════');
-      return true;
-    }
-
-    if (answerStep === ANSWER_STEPS.OB_TZ) {
+    } else if (step === ANSWER_STEPS.OB_TZ) {
       await ctx.reply(MESSAGES.ASK_TIMEZONE, keyboards.timezoneKeyboard());
-      console.log('═══════════════════════════════════════════════════════');
-      return true;
-    }
-
-    if (answerStep === ANSWER_STEPS.OB_PLAN) {
+    } else if (step === ANSWER_STEPS.OB_PLAN) {
       await ctx.reply(MESSAGES.ASK_PLAN, keyboards.subscriptionPlansKeyboard());
-      console.log('═══════════════════════════════════════════════════════');
-      return true;
+    } else {
+      await ctx.reply(MESSAGES.ONBOARDING_NAME_CHOICE(user.fields['User Name']), keyboards.nameChoiceInline());
     }
-
-    console.log('═══════════════════════════════════════════════════════');
     return true;
 
   } catch (error) {
-    console.error('');
-    console.error('═══════════════════════════════════════════════════════');
-    console.error('[handleStart] ❌ ПОМИЛКА:', error);
-    console.error('   Message:', error.message);
-    console.error('   Stack:', error.stack);
-    console.error('═══════════════════════════════════════════════════════');
+    console.error('[handleStart] ❌', error);
     await ctx.reply(MESSAGES.ERROR_GENERIC);
     return false;
   }
 };
-
 // ===== ОБРОБКА CALLBACK =====
 
 export const handleCallback = async (ctx) => {
@@ -284,24 +233,24 @@ export const handleCallback = async (ctx) => {
     await typing(ctx);
 
     // ПОЧАТОК РЕЄСТРАЦІЇ
-    if (data === 'start_registration') {
-      console.log('[handleCallback] ✅ ПОЧАТОК РЕЄСТРАЦІЇ');
+    // if (data === 'start_registration') {
+    //   console.log('[handleCallback] ✅ ПОЧАТОК РЕЄСТРАЦІЇ');
       
-      let user = await getUserByTgId(tgId);
+    //   let user = await getUserByTgId(tgId);
       
-      if (!user) {
-        console.log('[handleCallback] → Створюємо NEW USER');
-        user = await createUser(tgId, ctx.from.first_name);
-      }
+    //   if (!user) {
+    //     console.log('[handleCallback] → Створюємо NEW USER');
+    //     user = await createUser(tgId, ctx.from.first_name);
+    //   }
       
-      const userName = user.fields['User Name'] || ctx.from.first_name;
+    //   const userName = user.fields['User Name'] || ctx.from.first_name;
       
-      await ctx.reply(
-        MESSAGES.ONBOARDING_NAME_CHOICE(userName),
-        keyboards.nameChoiceInline()
-      );
-      return true;
-    }
+    //   await ctx.reply(
+    //     MESSAGES.ONBOARDING_NAME_CHOICE(userName),
+    //     keyboards.nameChoiceInline()
+    //   );
+    //   return true;
+    // }
 
     // ПІЗНІШЕ
     if (data === 'later_registration') {
@@ -615,40 +564,107 @@ export const completeRegistration = async (ctx, planKey = 'TRIAL') => {
 
     const userName = user.fields['User Name'] || `User_${tgId}`;
 
+    // Генеруємо AT_id та дати
+    const atId = `AT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const lastActivity = now.toISOString();
+    const lastAnswerDate = new Date().toISOString().split('T')[0];
+
     let subscription = null;
     
     if (planKey === 'TRIAL') {
       subscription = await createTrialSubscription(user.id, tgId, userName);
       
-      console.log('[completeRegistration] ✅ STATUS → "Registered User"');
       await updateUser(user.id, {
         Status: 'Registered User',
         Answer_Step: ANSWER_STEPS.COMPLETED,
-        "Subscription_Status": 'Active',
-        "Active Subscription Plan": SUBSCRIPTION_PLANS.TRIAL.key,
+        UserRegistered: true,
+        AT_id: atId,
+        'Subscription_Status': 'Active',
+        'Active Subscription Plan': SUBSCRIPTION_PLANS.TRIAL.userName,
         Start_Date: subscription.fields.Start_Date,
-        End_Date: subscription.fields.End_Date
+        End_Date: subscription.fields.End_Date,
+        Last_Activity: lastActivity,
+        Last_Answer_Date: lastAnswerDate
       });
-    } else {
-      console.log('[completeRegistration] ✅ STATUS → "Registered User" (без підписки)');
+
+      const userData = {
+        name: userName,
+        email: user.fields.Email || 'не вказано',
+        phone: user.fields.Phone || 'не вказано',
+        timezone: user.fields['Time Zone'] || 'не вказано',
+        endDate: formatDate(subscription.fields.End_Date)
+      };
+
+      await ctx.reply(
+        MESSAGES.REGISTRATION_INFO(userData),
+        keyboards.afterRegistrationKeyboard()
+      );
+      
+    } else if (planKey === 'WEEK') {
+      subscription = await createPaidSubscription(user.id, tgId, userName, 'WEEK');
+      
       await updateUser(user.id, {
         Status: 'Registered User',
-        Answer_Step: ANSWER_STEPS.COMPLETED
+        Answer_Step: ANSWER_STEPS.COMPLETED,
+        UserRegistered: true,
+        AT_id: atId,
+        'Active Subscription Plan': SUBSCRIPTION_PLANS.WEEK.userName,
+        Last_Activity: lastActivity,
+        Last_Answer_Date: lastAnswerDate
       });
+
+      await ctx.reply('📝 Реєстрація завершена! Очікуємо оплату...', keyboards.mainMenuKeyboard());
+      
+    } else if (planKey === 'MONTH') {
+      subscription = await createPaidSubscription(user.id, tgId, userName, 'MONTH');
+      
+      await updateUser(user.id, {
+        Status: 'Registered User',
+        Answer_Step: ANSWER_STEPS.COMPLETED,
+        UserRegistered: true,
+        AT_id: atId,
+        'Active Subscription Plan': SUBSCRIPTION_PLANS.MONTH.userName,
+        Last_Activity: lastActivity,
+        Last_Answer_Date: lastAnswerDate
+      });
+
+      await ctx.reply('📝 Реєстрація завершена! Очікуємо оплату...', keyboards.mainMenuKeyboard());
+      
+    } else if (planKey === 'YEAR') {
+      subscription = await createPaidSubscription(user.id, tgId, userName, 'YEAR');
+      
+      await updateUser(user.id, {
+        Status: 'Registered User',
+        Answer_Step: ANSWER_STEPS.COMPLETED,
+        UserRegistered: true,
+        AT_id: atId,
+        'Active Subscription Plan': SUBSCRIPTION_PLANS.YEAR.userName,
+        Last_Activity: lastActivity,
+        Last_Answer_Date: lastAnswerDate
+      });
+
+      await ctx.reply('📝 Реєстрація завершена! Очікуємо оплату...', keyboards.mainMenuKeyboard());
+      
+    } else {
+      const atId = `AT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      await updateUser(user.id, {
+        Status: 'Registered User',
+        Answer_Step: ANSWER_STEPS.COMPLETED,
+        UserRegistered: true,
+        AT_id: atId,
+        Last_Activity: lastActivity,
+        Last_Answer_Date: lastAnswerDate
+      });
+      
+      await ctx.reply('✅ Реєстрація завершена!', keyboards.mainMenuKeyboard());
     }
 
-    const userData = {
-      name: userName,
-      email: user.fields.Email || 'не вказано',
-      phone: user.fields.Phone || 'не вказано',
-      timezone: user.fields['Time Zone'] || 'не вказано',
-      endDate: subscription ? formatDate(subscription.fields.End_Date) : 'не активовано'
-    };
-
-    await ctx.reply(
-      MESSAGES.REGISTRATION_INFO(userData),
-      keyboards.afterRegistrationKeyboard()
-    );
+    // ✅ ПЕРЕВІРКА ЧИ Є КОЛЕСО БАЛАНСУ
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await checkAndOfferWheel(ctx, tgId);
 
     console.log('[completeRegistration] ✅ ЗАВЕРШЕНО');
     console.log('═══════════════════════════════════════════════════════');
@@ -661,9 +677,123 @@ export const completeRegistration = async (ctx, planKey = 'TRIAL') => {
     console.error('   Message:', error.message);
     console.error('   Stack:', error.stack);
     console.error('═══════════════════════════════════════════════════════');
+    console.error('');
     await ctx.reply(MESSAGES.ERROR_GENERIC);
     return false;
   }
+};
+
+/**
+ * Перевірити чи є колесо балансу та запропонувати його
+ */
+const checkAndOfferWheel = async (ctx, tgId) => {
+  try {
+    console.log('[checkAndOfferWheel] 🔍 Перевірка колеса балансу...');
+
+    // Перевіряємо чи є завершене колесо
+    const wheelBalance = (await import('../wheelBalance/index.js')).default;
+    const existingWheel = await wheelBalance.getLatestCompletedWheel(tgId);
+
+    if (!existingWheel) {
+      // ✅ КОЛЕСА НЕМАЄ - пропонуємо пройти перше
+      console.log('[checkAndOfferWheel] 🆕 Колеса немає - пропонуємо пройти');
+      
+      await ctx.reply(
+        '🎯 **ЩО ДАЛІ?**\n\n' +
+        '1️⃣ **Заповни Колесо балансу** 🎯\n' +
+        '   Оціни 8 сфер життя — це допоможе побачити загальну картину\n\n' +
+        '2️⃣ **Пройди першу ранкову рефлексію** 🌞\n' +
+        '   Визнач цілі та заплануй день\n\n' +
+        '3️⃣ **Познайомся з AI-наставником** 🤖\n' +
+        '   Отримай персональну підтримку 24/7\n\n' +
+        '💡 Всі функції вже доступні через меню внизу!\n\n' +
+        'Почнемо з Колеса балансу? 👇',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' }],
+              [{ text: '⏭️ Пропустити зараз', callback_data: 'skip_first_wheel' }]
+            ]
+          }
+        }
+      );
+      
+      return;
+    }
+
+    // ✅ КОЛЕСО ВЖЕ Є - показуємо статистику
+    console.log('[checkAndOfferWheel] 📊 Колесо знайдено - показуємо статистику');
+
+    const wheelData = existingWheel.fields;
+    const createdDate = wheelData.Created_Date || wheelData.Date;
+    const analysis = wheelData.AI_Analysis || 'Аналіз недоступний';
+
+    // Рахуємо дні до наступного колеса
+    const createdDateObj = new Date(createdDate);
+    const nextWheelDate = new Date(createdDateObj);
+    nextWheelDate.setMonth(nextWheelDate.getMonth() + 1);
+    
+    const today = new Date();
+    const daysUntilNext = Math.ceil((nextWheelDate - today) / (1000 * 60 * 60 * 24));
+
+    let message = 
+      `📊 **ТВОЄ КОЛЕСО БАЛАНСУ**\n\n` +
+      `Останнє заповнення: ${formatDate(createdDate)}\n\n` +
+      `**AI Аналіз:**\n${analysis}\n\n`;
+
+    if (daysUntilNext > 0) {
+      message += `⏰ Наступне колесо рекомендовано через ${daysUntilNext} ${getDaysWord(daysUntilNext)}\n\n`;
+      message += `💡 Колесо балансу краще проходити раз на місяць для відстеження прогресу.`;
+    } else {
+      message += `✅ Час для нового колеса балансу!\n\n`;
+      message += `💡 Минув місяць - можна оновити оцінки.`;
+    }
+
+    await ctx.reply(
+      message,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🎯 Пройти колесо ще раз', callback_data: 'wheel_start' }],
+            [{ text: '📊 Детальна статистика', callback_data: 'wheel_history' }],
+            [{ text: '🏠 До головного меню', callback_data: 'main_menu' }]
+          ]
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error('[checkAndOfferWheel] ❌ Помилка:', error);
+    
+    // Fallback - пропонуємо пройти колесо
+    await ctx.reply(
+      '🎯 Заповни Колесо балансу для кращих результатів!',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' }],
+            [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+          ]
+        }
+      }
+    );
+  }
+};
+
+/**
+ * Helper: правильне відмінювання "день/дні/днів"
+ */
+const getDaysWord = (count) => {
+  if (count === 1) return 'день';
+  if (count >= 2 && count <= 4) return 'дні';
+  if (count >= 5 && count <= 20) return 'днів';
+  
+  const lastDigit = count % 10;
+  if (lastDigit === 1) return 'день';
+  if (lastDigit >= 2 && lastDigit <= 4) return 'дні';
+  return 'днів';
 };
 
 console.log('✅ [onboarding/handlers] Handlers завантажено');

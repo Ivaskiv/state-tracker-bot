@@ -12,7 +12,9 @@ const keyboards = {
       keyboard: [
         [{ text: '📊 Мій прогрес та Звіти' }, { text: 'ℹ️ Інформація про бота' }],
         [{ text: '💰 Підписка' }, { text: '📞 Звʼязок' }],
-        [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }]
+        [{ text: '🤖 AI Наставник' }, { text: '🏆 Мої досягнення' }],
+        [{ text: '🎯 Колесо балансу' }]
+
       ],
       resize_keyboard: true,
       one_time_keyboard: false,

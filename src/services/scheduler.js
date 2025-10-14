@@ -286,4 +286,29 @@ export const stopScheduler = () => {
   console.log('[scheduler] ✅ Планувальник зупинено');
 };
 
+export const checkInactiveUsers = async (bot) => {
+  const now = new Date();
+  const users = await getAllActiveUsers();
+  
+  for (const user of users) {
+    const lastActivity = new Date(user.fields.Last_Activity);
+    const hoursSinceActivity = (now - lastActivity) / (1000 * 60 * 60);
+    
+    // ✅ Якщо не було активності 48+ годин
+    if (hoursSinceActivity >= 48) {
+      await bot.telegram.sendMessage(
+        user.fields.TG_id,
+        '⏰ Привіт! Давно не бачились. Хочеш продовжити роботу над цілями?',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🌞 Ранкова рефлексія', callback_data: 'start_morning' }]
+            ]
+          }
+        }
+      );
+    }
+  }
+};
+
 console.log('✅ [services/scheduler] Scheduler завантажено');

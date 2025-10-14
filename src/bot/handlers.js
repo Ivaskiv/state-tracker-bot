@@ -17,7 +17,7 @@ import gamification from '../features/gamification/index.js';
 import affirmations from '../features/affirmations/index.js';
 
 // Сервіси (можуть не мати всіх методів — обгортаємо в try/catch)
-import usersService from '../services/users.js';
+import usersService from '../services/user.js';
 
 // ---------- утиліти ----------
 const safeReply = async (ctx, text, extra) => {

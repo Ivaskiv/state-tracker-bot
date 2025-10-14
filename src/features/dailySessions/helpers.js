@@ -2,7 +2,7 @@
 
 // src/services/dailySessions/helpers.js
 import { QUESTION_PARSERS } from '../../config/constants.js';
-import logger from '../../123/logger.js';
+import logger from '../../utils/logger.js';
 
 // ===== ПАРСИНГ РАНКОВИХ ВІДПОВІДЕЙ =====
 

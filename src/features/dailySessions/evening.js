@@ -6,16 +6,16 @@ import * as keyboards from './keyboards.js';
 import * as helpers from './helpers.js';
 import * as sync from './sync.js';
 import * as shared from './shared.js';
-import userService from '../123/userService.js';
-import { ANSWER_STEPS, QUESTIONS } from '../config/constants.js';
-import logger from '../123/logger.js';
+import users from '../../services/users.js';
+import logger from '../../utils/logger.js';
+import { ANSWER_STEPS, QUESTIONS } from '../../config/constants.js';
 
 export const startEveningSession = async (ctx) => {
   const tgId = ctx.from.id;
   logger.info(`🌙 [evening] Старт для ${tgId}`);
   
   try {
-    const user = await userService.getUserByTgId(tgId);
+    const user = await users.getUserByTgId(tgId);
     
     // ✅ Перевірка відновлення
     const wasRecovered = await shared.checkAndCompleteSession(ctx, tgId, 'evening');
@@ -47,7 +47,7 @@ export const startEveningSession = async (ctx) => {
     await db.ensureTodayRecord(tgId, user['User Name']);
     
     // Встановлюємо крок
-    await userService.updateUserFields(tgId, {
+    await users.updateUserFields(tgId, {
       Answer_Step: ANSWER_STEPS.EVENING_1
     });
     
@@ -111,7 +111,7 @@ export const handleEveningAnswer = async (ctx, text, questionNumber) => {
     if (questionNumber >= totalQuestions) {
       // ЗАВЕРШЕНО
       await db.updateTodayRecord(tgId, { Current_Activity: 'evening_completed' });
-      await userService.updateUserFields(tgId, { Answer_Step: ANSWER_STEPS.COMPLETED });
+      await users.updateUserFields(tgId, { Answer_Step: ANSWER_STEPS.COMPLETED });
       
       // Синхронізація
       try {
@@ -134,7 +134,7 @@ export const handleEveningAnswer = async (ctx, text, questionNumber) => {
     // НАСТУПНЕ ПИТАННЯ
     const nextQ = formatter.formatQuestionMessage('evening', questionNumber);
     
-    await userService.updateUserFields(tgId, {
+    await users.updateUserFields(tgId, {
       Answer_Step: nextQ.field
     });
     
@@ -173,7 +173,7 @@ export const continueEveningSession = async (ctx) => {
   logger.info(`▶️ [evening] Продовження для ${tgId}`);
   
   try {
-    const user = await userService.getUserByTgId(tgId);
+    const user = await users.getUserByTgId(tgId);
     const currentStep = user?.Answer_Step;
 
     if (!currentStep || currentStep === ANSWER_STEPS.COMPLETED) {
