@@ -257,37 +257,83 @@ export const EVENING_QUESTIONS = QUESTIONS.evening.map(q => q.text);
 
 // ===== КОЛЕСО БАЛАНСУ =====
 export const LIFE_SPHERES = [
-  'Здоров\'я та енергія',
-  'Особистісний розвиток',
-  'Стосунки (сім\'я, друзі)',
-  'Кар\'єра та професія',
-  'Фінанси та достаток',
-  'Дозвілля та відпочинок',
-  'Духовність та цінності',
-  'Побут та оточення'
+  {
+    key: 'Health',
+    label: "Здоров'я та енергія",
+    description: 'Сон, харчування, фізична активність, відновлення',
+    noteField: 'Health_Notes'
+  },
+  {
+    key: 'Self_Growth',
+    label: 'Особистісний розвиток',
+    description: 'Навчання, навички, ментальні моделі, внутрішній стан',
+    noteField: 'Self_Growth_Notes'
+  },
+  {
+    key: 'Relationships',
+    label: "Стосунки (сімʼя, друзі)",
+    description: 'Якість комунікації, підтримка, близькість',
+    noteField: 'Relationships_Notes'
+  },
+  {
+    key: 'Career_Business',
+    label: "Карʼєра та професія",
+    description: 'Сенс, результат, зростання, вплив',
+    noteField: 'Career_Notes'
+  },
+  {
+    key: 'Finance',
+    label: 'Фінанси та достаток',
+    description: 'Дохід, заощадження, інвестиції, фінплан',
+    noteField: 'Finance_Notes'
+  },
+  {
+    key: 'Rest_Leisure',
+    label: 'Дозвілля та відпочинок',
+    description: 'Хобі, подорожі, відновлення через радість',
+    noteField: 'Leisure_Notes'
+  },
+  {
+    key: 'Spirituality',
+    label: 'Духовність та цінності',
+    description: 'Сенс, практика усвідомленості, етика',
+    noteField: 'Spirituality_Notes'
+  },
+  {
+    key: 'Housing',
+    label: 'Побут та оточення',
+    description: 'Дім, порядок, робочий простір, середовище',
+    noteField: 'Housing_Notes'
+  }
 ];
+// похідні масиви тепер генеруються з LIFE_SPHERES → щоб ніколи не розʼїхались
+export const SPHERE_FIELDS = LIFE_SPHERES.map(s => s.key);
+export const NOTE_FIELDS   = LIFE_SPHERES.map(s => s.noteField);
 
-export const SPHERE_FIELDS = [
-  'Health',
-  'Self_Growth',
-  'Relationships',
-  'Career_Business',
-  'Finance',
-  'Rest_Leisure',
-  'Spirituality',
-  'Housing'
-];
+// утиліта: безпечне звернення до сфери по індексу (0..7)
+export const getSphereMeta = (i) => LIFE_SPHERES[i] || null;
 
-export const NOTE_FIELDS = [
-  'Health_Notes',
-  'Self_Growth_Notes',
-  'Relationships_Notes',
-  'Career_Notes',
-  'Finance_Notes',
-  'Leisure_Notes',
-  'Spirituality_Notes',
-  'Housing_Notes'
-];
+// export const SPHERE_FIELDS = [
+//   'Health',
+//   'Self_Growth',
+//   'Relationships',
+//   'Career_Business',
+//   'Finance',
+//   'Rest_Leisure',
+//   'Spirituality',
+//   'Housing'
+// ];
+
+// export const NOTE_FIELDS = [
+//   'Health_Notes',
+//   'Self_Growth_Notes',
+//   'Relationships_Notes',
+//   'Career_Notes',
+//   'Finance_Notes',
+//   'Leisure_Notes',
+//   'Spirituality_Notes',
+//   'Housing_Notes'
+// ];
 
 // ===== ЧАСОВІ НАЛАШТУВАННЯ =====
 // ONE SOURCE OF TRUTH

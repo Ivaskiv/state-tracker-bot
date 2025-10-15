@@ -1,12 +1,9 @@
 // src/bot/handlers.js
 
-// src/bot/handlers.js
-// Головний реєстратор хендлерів Telegraf під структуру /features/*
-
 import keyboards from '../utils/keyboards.js';
 import { typing } from '../utils/typing.js';
 
-// ===== Фічі (експортують handleStart/handleText/handleCallback або подібні) =====
+// ===== Фічі =====
 import onboarding from '../features/onboarding/index.js';
 import subscription from '../features/subscription/index.js';
 import wheel from '../features/wheelBalance/index.js';
@@ -16,10 +13,9 @@ import reports from '../features/reports/index.js';
 import gamification from '../features/gamification/index.js';
 import affirmations from '../features/affirmations/index.js';
 
-// Сервіси (можуть не мати всіх методів — обгортаємо в try/catch)
+// Сервіси
 import usersService from '../services/user.js';
 
-// ---------- утиліти ----------
 const safeReply = async (ctx, text, extra) => {
   try { await ctx.reply(text, extra); } catch { /* ignore */ }
 };
@@ -28,7 +24,7 @@ const ensureCreatedAt = async (tgId) => {
   try {
     const user = await usersService.getByTgId?.(tgId);
     if (!user?.id) return;
-    const fields = user.fields || user; // підтримка двох форматів
+    const fields = user.fields || user;
     if (!fields.Created_At) {
       await usersService.update?.(user.id, { Created_At: new Date().toISOString() });
       console.log(`[bot] 🕓 Доставлено Created_At для ${tgId}`);
@@ -38,7 +34,6 @@ const ensureCreatedAt = async (tgId) => {
   }
 };
 
-// Повертає true, якщо хендлер з’їв апдейт
 const tryHandle = async (fn, ctx, ...args) => {
   if (typeof fn !== 'function') return false;
   try {
@@ -50,11 +45,61 @@ const tryHandle = async (fn, ctx, ...args) => {
   }
 };
 
-// ---------- основний реєстратор ----------
+// ✅ ДОДАНО: handleWheelText
+const handleWheelText = async (ctx) => {
+  const tgId = ctx.from.id;
+  const text = ctx.message?.text?.trim();
+
+  if (!text) return false;
+
+  try {
+    console.log('[bot/wheel-text] 🔍 Перевірка чи чекаємо нотатку...');
+
+    const awaitingNote = await wheel.isAwaitingNote(tgId);
+
+    if (!awaitingNote) {
+      console.log('[bot/wheel-text] ℹ️ Не чекаємо нотатку');
+      return false;
+    }
+
+    console.log(`[bot/wheel-text] ✅ Чекаємо нотатку для сфери ${awaitingNote.step}`);
+
+    const result = await wheel.saveWheelNoteAndGoNext(ctx, text);
+
+    if (result.error) {
+      await ctx.reply(result.message, keyboards.mainMenuKeyboard());
+      return true;
+    }
+
+    if (result.completed) {
+      await ctx.reply(result.message, {
+        parse_mode: 'Markdown',
+        ...keyboards.mainMenuKeyboard()
+      });
+
+      try {
+        const rewardsService = (await import('../features/gamification/rewards.js')).default;
+        await rewardsService.rewardWheel(tgId, ctx.telegram);
+      } catch (rewardError) {
+        console.error('[bot/wheel-text] Помилка нагородження:', rewardError);
+      }
+
+      return true;
+    }
+
+    await ctx.reply(result.message, result.keyboard);
+    console.log('[bot/wheel-text] ✅ Нотатку збережено');
+    return true;
+
+  } catch (error) {
+    console.error('[bot/wheel-text] ❌ Помилка:', error);
+    return false;
+  }
+};
+
 const registerBotHandlers = (bot) => {
   console.log('🤖 [bot] Ініціалізація...');
 
-  // ===== Глобальне логування апдейтів =====
   bot.use(async (ctx, next) => {
     const t = ctx.updateType;
     const from = ctx.from?.id;
@@ -76,12 +121,10 @@ const registerBotHandlers = (bot) => {
     }
   });
 
-  // ===== /start =====
   bot.start(async (ctx) => {
     try {
       await typing(ctx);
       const handled = await tryHandle(onboarding.handleStart, ctx);
-      // страховка на випадок, якщо юзер уже був без Created_At
       await ensureCreatedAt(ctx.from.id);
 
       if (!handled) {
@@ -93,56 +136,54 @@ const registerBotHandlers = (bot) => {
     }
   });
 
-  // ===== Текстові повідомлення =====
-  bot.on('text', async (ctx) => {
+  bot.on('text', async (ctx, next) => {
     try {
-      // 1) Спочатку даємо шанс онбордингу завершитись
-      if (await tryHandle(onboarding.handleText, ctx)) return;
+      console.log('[bot/text] 📝 Обробка тексту...');
 
-      // 2) Денні/вечірні сесії
-      if (await tryHandle(daily.handleText, ctx)) return;
+      // ✅ 1. Wheel Balance Text (нотатки) - ПЕРШИЙ
+      if (await handleWheelText(ctx)) {
+        console.log('[bot/text] ✅ Wheel оброблено');
+        return;
+      }
 
-      // 3) AI-наставник
-      if (await tryHandle(aiMentor.handleText, ctx)) return;
+      // 2. Onboarding Text
+      if (await tryHandle(onboarding.handleText, ctx)) {
+        console.log('[bot/text] ✅ Onboarding оброблено');
+        return;
+      }
 
-      // 4) Афірмації, гейміфікація, репорти (якщо слухають текст)
-      if (await tryHandle(affirmations.handleText, ctx)) return;
-      if (await tryHandle(gamification.handleText, ctx)) return;
-      if (await tryHandle(reports.handleText, ctx)) return;
+      // 3. Daily Sessions Text
+      if (await tryHandle(daily.handleText, ctx)) {
+        console.log('[bot/text] ✅ Daily Sessions оброблено');
+        return;
+      }
 
-      // 5) Фолбек меню
-      await safeReply(ctx, '❌ Невідома команда', keyboards.mainMenuKeyboard?.());
+      // 4. AI Mentor Text
+      if (await tryHandle(aiMentor.handleText, ctx)) {
+        console.log('[bot/text] ✅ AI Mentor оброблено');
+        return;
+      }
+
+      console.log('[bot/text] ❓ Жоден handler не спрацював');
+      await ctx.reply('❓ Невідома команда. Використай меню нижче.', keyboards.mainMenuKeyboard());
+
     } catch (error) {
-      console.error('[bot] ❌ Text handler error:', error);
-      await safeReply(ctx, '❌ Помилка. Спробуй /start', keyboards.mainMenuKeyboard?.());
+      console.error('[bot/text] ❌ Помилка:', error);
+      await ctx.reply('❌ Виникла помилка. Спробуй ще раз або натисни /start', keyboards.mainMenuKeyboard()).catch(() => {});
     }
   });
 
-  // ===== Callback-кнопки =====
   bot.on('callback_query', async (ctx) => {
     try {
-      // Порядок важливий:
-      // 1) онбординг (кнопки імені/емейлу/планів/таймзони)
       if (await tryHandle(onboarding.handleCallback, ctx)) return;
-
-      // 2) підписки/оплата/синхронізація
       if (await tryHandle(subscription.handleCallback, ctx)) return;
-
-      // 3) колесо балансу (після реєстрації “перше колесо” — сюди)
       if (await tryHandle(wheel.handleCallback, ctx)) return;
-
-      // 4) щоденні/вечірні
       if (await tryHandle(daily.handleCallback, ctx)) return;
-
-      // 5) AI-ментор
       if (await tryHandle(aiMentor.handleCallback, ctx)) return;
-
-      // 6) інше (аффірмації/гейміфікація/репорти)
       if (await tryHandle(affirmations.handleCallback, ctx)) return;
       if (await tryHandle(gamification.handleCallback, ctx)) return;
       if (await tryHandle(reports.handleCallback, ctx)) return;
 
-      // 7) якщо ніхто не з’їв
       await ctx.answerCbQuery('Невідома дія').catch(() => {});
       await safeReply(ctx, '❓ Невідома дія. Спробуй ще раз', keyboards.mainMenuKeyboard?.());
     } catch (error) {
@@ -152,7 +193,6 @@ const registerBotHandlers = (bot) => {
     }
   });
 
-  // ===== Глобальний catcher =====
   bot.catch(async (err, ctx) => {
     console.error('❌ [bot] Global error:', err);
     if (ctx?.reply) {

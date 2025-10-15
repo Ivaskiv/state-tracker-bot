@@ -1,9 +1,5 @@
 // src/utils/keyboards.js
-import { TIMEZONES, SUBSCRIPTION_PLANS } from '../config/constants.js';
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 🧩 УСІ КЛАВІАТУРИ (загальні, онбординг, меню, підписки, сесії)
-// ═══════════════════════════════════════════════════════════════════════════════
+import { TIMEZONES, SUBSCRIPTION_PLANS, LIFE_SPHERES } from '../config/constants.js';
 
 const keyboards = {
   // ===== 🏠 ГОЛОВНЕ МЕНЮ =====
@@ -12,9 +8,7 @@ const keyboards = {
       keyboard: [
         [{ text: '📊 Мій прогрес та Звіти' }, { text: 'ℹ️ Інформація про бота' }],
         [{ text: '💰 Підписка' }, { text: '📞 Звʼязок' }],
-        [{ text: '🤖 AI Наставник' }, { text: '🏆 Мої досягнення' }],
-        [{ text: '🎯 Колесо балансу' }]
-
+        [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }]
       ],
       resize_keyboard: true,
       one_time_keyboard: false,
@@ -154,7 +148,7 @@ inline_keyboard: [
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 🧩 УНІВЕРСАЛЬНІ ГЕНЕРАТОРИ (для реюзу у flow)
+// 🧩 УНІВЕРСАЛЬНІ ГЕНЕРАТОРИ
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const skipKeyboard = (field, withBack = false) => {
@@ -183,7 +177,59 @@ export const menuKeyboard = (options, withNavigation = true) => {
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ✅ ЕКСПОРТ
-// ═══════════════════════════════════════════════════════════════════════════════
+// ==== WHEEL: оцінка 0..10 (inline-keyboard) ====
+export const wheelScoreKeyboard = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [
+        { text: '0',  callback_data: 'wheel_score_0'  },
+        { text: '1',  callback_data: 'wheel_score_1'  },
+        { text: '2',  callback_data: 'wheel_score_2'  },
+        { text: '3',  callback_data: 'wheel_score_3'  },
+        { text: '4',  callback_data: 'wheel_score_4'  },
+        { text: '5',  callback_data: 'wheel_score_5'  }
+      ],
+      [
+        { text: '6',  callback_data: 'wheel_score_6'  },
+        { text: '7',  callback_data: 'wheel_score_7'  },
+        { text: '8',  callback_data: 'wheel_score_8'  },
+        { text: '9',  callback_data: 'wheel_score_9'  },
+        { text: '10', callback_data: 'wheel_score_10' }
+      ],
+      [{ text: '🚪 Вийти', callback_data: 'wheel_exit' }]
+    ]
+  }
+});
+// Клава після завершеного колеса
+export const wheelCompletedKeyboard = () => ({
+  parse_mode: 'Markdown',
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🔄 Пройти колесо ще раз', callback_data: 'wheel_restart_confirmed' }],
+      [{ text: '📊 Історія коліс', callback_data: 'wheel_history' }],
+      [{ text: '🏠 До головного меню', callback_data: 'main_menu' }]
+    ]
+  }
+});
+
+export const wheelActiveKeyboard = () => ({
+  parse_mode: 'Markdown',
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '✅ Продовжити', callback_data: 'wheel_continue' }],
+      [{ text: '🔄 Почати заново', callback_data: 'wheel_restart' }],
+      [{ text: '❌ Скасувати', callback_data: 'wheel_exit' }]
+    ]
+  }
+});
+
+export const wheelNoteKeyboard = (step) => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '⏭️ Пропустити нотатку', callback_data: `wheel_skip_note_${step}` }],
+      [{ text: '🚪 Вийти', callback_data: 'wheel_exit' }]
+    ]
+  }
+});
+
 export default keyboards;

@@ -1,5 +1,4 @@
 // src/features/onboarding/handlers.js
-// ПОВНА ВЕРСІЯ З ВИПРАВЛЕННЯМ ПОМИЛКИ
 
 import { 
   MESSAGES, 
@@ -94,28 +93,32 @@ export const createTrialSubscription = async (userRecordId, tgId, userName) => {
   try {
     const now = new Date();
     const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() + 7);
+    endDate.setDate(endDate.getDate() + SUBSCRIPTION_PLANS.TRIAL.duration);
+
+    console.log(`[createTrialSubscription] 💰 Створення підписки для ${tgId}`);
 
     const subscription = await createRows(tables.SUBSCRIPTIONS, [{
       fields: {
         TG_id: String(tgId),
-        "User Name": userName,
-        User: [userRecordId], 
-        Plan_Name: 'TRIAL',
+        "User Name": userName || `User_${tgId}`,
+        User_Link: [userRecordId], 
+        Plan_Name: SUBSCRIPTION_PLANS.TRIAL.key,
         Status: 'Active',
         Start_Date: now.toISOString().split('T')[0],
         End_Date: endDate.toISOString().split('T')[0],
-
+        Created_At: new Date().toISOString()
       }
     }]);
-    console.log(`[createTrialSubscription] ✅ Підписка створена: ${subscription[0].id}`);
+
+    console.log(`[createTrialSubscription] ✅ Підписка створена`);
     return subscription[0];
   } catch (error) {
-    console.error('[createTrialSubscription] ❌', error);
+    console.error('[createTrialSubscription] ❌ Помилка:', error);
     throw error;
   }
 };
 
+// ✅ ДОДАЙ ЦЮ ФУНКЦІЮ після createTrialSubscription
 export const createPaidSubscription = async (userRecordId, tgId, userName, planKey) => {
   try {
     const plan = SUBSCRIPTION_PLANS[planKey];
@@ -218,8 +221,8 @@ export const handleStart = async (ctx) => {
     return false;
   }
 };
-// ===== ОБРОБКА CALLBACK =====
 
+// ===== ОБРОБКА CALLBACK =====
 export const handleCallback = async (ctx) => {
   const data = ctx.callbackQuery?.data;
   const tgId = ctx.from.id;
@@ -543,20 +546,13 @@ export const handleText = async (ctx) => {
 };
 
 // ===== ЗАВЕРШЕННЯ РЕЄСТРАЦІЇ =====
-
 export const completeRegistration = async (ctx, planKey = 'TRIAL') => {
   const tgId = ctx.from.id;
 
   try {
     await typing(ctx, 1200);
 
-    console.log('');
-    console.log('═══════════════════════════════════════════════════════');
-    console.log(`[completeRegistration] 🎉 ЗАВЕРШЕННЯ`);
-    console.log('═══════════════════════════════════════════════════════');
-
     const user = await getUserByTgId(tgId);
-    
     if (!user) {
       await ctx.reply(MESSAGES.ERROR_GENERIC);
       return false;
@@ -564,11 +560,11 @@ export const completeRegistration = async (ctx, planKey = 'TRIAL') => {
 
     const userName = user.fields['User Name'] || `User_${tgId}`;
 
-    // Генеруємо AT_id та дати
+    // ✅ ГЕНЕРУЄМО AT_id
     const atId = `AT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date();
-    now.setSeconds(0, 0);
-    const lastActivity = now.toISOString();
+    
+    // ✅ ГЕНЕРУЄМО DateTime без секунд
+    const lastActivity = getDateTimeWithoutSeconds();
     const lastAnswerDate = new Date().toISOString().split('T')[0];
 
     let subscription = null;
@@ -585,8 +581,8 @@ export const completeRegistration = async (ctx, planKey = 'TRIAL') => {
         'Active Subscription Plan': SUBSCRIPTION_PLANS.TRIAL.userName,
         Start_Date: subscription.fields.Start_Date,
         End_Date: subscription.fields.End_Date,
-        Last_Activity: lastActivity,
-        Last_Answer_Date: lastAnswerDate
+        Last_Activity: lastActivity, 
+        Last_Answer_Date: lastAnswerDate 
       });
 
       const userData = {
@@ -648,8 +644,7 @@ export const completeRegistration = async (ctx, planKey = 'TRIAL') => {
       await ctx.reply('📝 Реєстрація завершена! Очікуємо оплату...', keyboards.mainMenuKeyboard());
       
     } else {
-      const atId = `AT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+      // БЕЗ ПІДПИСКИ
       await updateUser(user.id, {
         Status: 'Registered User',
         Answer_Step: ANSWER_STEPS.COMPLETED,
@@ -662,31 +657,19 @@ export const completeRegistration = async (ctx, planKey = 'TRIAL') => {
       await ctx.reply('✅ Реєстрація завершена!', keyboards.mainMenuKeyboard());
     }
 
-    // ✅ ПЕРЕВІРКА ЧИ Є КОЛЕСО БАЛАНСУ
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await checkAndOfferWheel(ctx, tgId);
-
     console.log('[completeRegistration] ✅ ЗАВЕРШЕНО');
-    console.log('═══════════════════════════════════════════════════════');
-    
     return true;
+    
   } catch (error) {
-    console.error('');
-    console.error('═══════════════════════════════════════════════════════');
     console.error('[completeRegistration] ❌ ПОМИЛКА:', error);
-    console.error('   Message:', error.message);
-    console.error('   Stack:', error.stack);
-    console.error('═══════════════════════════════════════════════════════');
-    console.error('');
     await ctx.reply(MESSAGES.ERROR_GENERIC);
     return false;
   }
 };
-
 /**
  * Перевірити чи є колесо балансу та запропонувати його
  */
-const checkAndOfferWheel = async (ctx, tgId) => {
+export const checkAndOfferWheel = async (ctx, tgId) => {
   try {
     console.log('[checkAndOfferWheel] 🔍 Перевірка колеса балансу...');
 

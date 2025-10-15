@@ -39,14 +39,14 @@ export const tables = Object.freeze({
   RESPONSES: 'Responses',
   
   // ===== AI НАСТАВНИК =====
-  AI_CONVERSATIONS: 'AI_Conversations', // ✅ Основна таблиця діалогів
-  AI_CONVERSATIONS_FEEDBACK: 'AI_Conversations_Feedback_Advice', // ✅ Фідбек та поради
+  AI_CONVERSATIONS: 'AI_Conversations', 
+  AI_CONVERSATIONS_FEEDBACK: 'AI_Conversations_Feedback_Advice', 
   
   // ===== МІКРО-ДІЇ =====
-  MICRO_ACTIONS: 'MICRO_ACTIONS', // ✅ Згенеровані дії
+  MICRO_ACTIONS: 'MICRO_ACTIONS', 
   
   // ===== СТАТИСТИКА =====
-  ACTIVITY_STATS: 'ACTIVITY_STATS', // ✅ Статистика активності
+  ACTIVITY_STATS: 'ACTIVITY_STATS', 
   
   // ===== ІНШІ ТАБЛИЦІ =====
   USER_REFLECTIONS: 'User Reflections',
@@ -60,7 +60,7 @@ export const tables = Object.freeze({
   OFFERS_LOG: 'Offers_Log',
   
   // ===== DEPRECATED (для зворотної сумісності) =====
-  DAILY_MICRO_ACTIONS: 'MICRO_ACTIONS' // ✅ Alias для старого коду
+  DAILY_MICRO_ACTIONS: 'MICRO_ACTIONS' 
 });
 
 // ---- Утиліти

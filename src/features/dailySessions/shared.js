@@ -4,12 +4,12 @@
 import * as db from './database.js';
 import * as formatter from './formatter.js';
 import * as sync from './sync.js';
-import users from '../../services/users.js';
 import { ANSWER_STEPS } from '../../config/constants.js';
 
 // ✅ ІМПОРТИ ДЛЯ ГЕЙМІФІКАЦІЇ
 import { rewardsService } from '../gamification/index.js';
 import logger from '../../utils/logger.js';
+import users from '../../services/users.js';
 
 /**
  * Перевірити та завершити сесію (якщо всі відповіді є)
@@ -82,7 +82,6 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
     // ═══════════════════════════════════════════════════════════════
     
     if (sessionType === 'morning') {
-      // Ранкова афірмація (з відповіді або стандартна)
       const affirmation = fields?.affirmation_m || fields?.Q_m_6 || '✨ Готова до дня! 💪';
       
       await ctx.reply(
@@ -90,19 +89,13 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
         { parse_mode: 'Markdown' }
       );
       
-      // Мікро-затримка для природності
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
     } else {
-      // Вечірня афірмація
       const victory = fields?.Q_e_7 || 'Ти зробила крок вперед сьогодні';
       
       await ctx.reply(
         `🌟 **ПЕРЕМОГА ДНЯ:**\n\n${victory}\n\n✨ Дякую за чесність! Завтра буде ще краще! 💪`,
         { parse_mode: 'Markdown' }
       );
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -127,13 +120,10 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
           `📊 **АНАЛІЗ ${sessionType === 'morning' ? 'РАНКУ' : 'ДНЯ'}:**\n\n${analysis}`,
           { parse_mode: 'Markdown' }
         );
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
     } catch (aiError) {
       logger.warn(`⚠️ [${sessionType}] AI аналіз недоступний:`, aiError.message);
-      // Продовжуємо без AI аналізу
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -155,10 +145,6 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
           `📊 Всього: ${rewardResult.totalPoints}`;
         
         await ctx.reply(pointsMessage, { parse_mode: 'Markdown' });
-        
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Якщо level up - повідомлення вже надіслано в rewardSession
       }
       
     } catch (rewardError) {
@@ -172,7 +158,7 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
     if (sessionType === 'evening') {
       try {
         const user = await users.getUserByTgId(tgId);
-        const currentStreak = user?.Current_Streak || 0;
+        const currentStreak = user?.fields?.Current_Streak || 0;
         
         if (currentStreak > 0) {
           await ctx.reply(
@@ -184,8 +170,6 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
           if ([7, 14, 30].includes(currentStreak)) {
             await rewardsService.rewardStreak(tgId, currentStreak, ctx.telegram);
           }
-          
-          await new Promise(resolve => setTimeout(resolve, 800));
         }
         
       } catch (streakError) {
@@ -214,7 +198,6 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
     // ═══════════════════════════════════════════════════════════════
     
     const kbds = (await import('../../utils/keyboards.js')).default;
-    
     const completionText = formatter.formatCompletionMessage(sessionType);
     
     await ctx.reply(
@@ -231,7 +214,7 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
     
     try {
       const now = new Date();
-      now.setSeconds(0, 0); // Без секунд
+      now.setSeconds(0, 0);
       const lastActivity = now.toISOString();
       const lastAnswerDate = new Date().toISOString().split('T')[0];
       
@@ -249,7 +232,7 @@ export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields 
   } catch (error) {
     logger.error(`❌ [${sessionType}] showCompletionWithAnalysis:`, error);
     
-    // Fallback - мінімальне повідомлення
+    // Fallback
     try {
       const kbds = (await import('../../utils/keyboards.js')).default;
       await ctx.reply(
