@@ -71,7 +71,7 @@ export const initRouter = (bot) => {
       console.log('[router/text] 🔍 Перевірка Wheel...');
       const awaitingNote = await wheelBalance.isAwaitingNote(tgId);
       
-      if (awaitingNote) {
+    if (awaitingNote !== null && awaitingNote !== undefined) {
         console.log(`[router/text] ✅ Чекаємо нотатку для сфери ${awaitingNote.step}`);
         
         const result = await wheelBalance.saveWheelNoteAndGoNext(ctx, text);
@@ -269,28 +269,26 @@ const handleWheelCallback = async (ctx) => {
       return true;
     }
 
-    if (data === 'wheel_restart_confirmed') {
-      const user = await (await import('../features/onboarding/handlers.js')).getUserByTgId(tgId);
-      const userName = user?.fields?.['User Name'] || ctx.from.first_name || 'Користувач';
+if (data === 'wheel_restart_confirmed') {
+  const user = await (await import('../features/onboarding/handlers.js')).getUserByTgId(tgId);
+  const userName = user?.fields?.['User Name'] || ctx.from.first_name || 'Користувач';
 
-      const result = await wheelBalance.startNewWheelIgnoreOld(tgId, userName);
+  if (!wheelBalance.startNewWheelIgnoreOld) {
+    console.error('[router/wheel] ❌ startNewWheelIgnoreOld is not defined');
+    await ctx.reply('❌ Помилка: функція не знайдена. Спробуй ще раз.', keyboards.mainMenuKeyboard());
+    return true;
+  }
 
-      if (result.error) {
-        await ctx.reply(result.message, keyboards.mainMenuKeyboard());
-        return true;
-      }
+  const result = await wheelBalance.startNewWheelIgnoreOld(tgId, userName);
 
-      await ctx.reply(result.message, result.keyboard);
-      return true;
-    }
+  if (result.error) {
+    await ctx.reply(result.message, keyboards.mainMenuKeyboard());
+    return true;
+  }
 
-    if (data === 'skip_first_wheel') {
-      await ctx.reply(
-        '✅ Добре! Можеш заповнити колесо пізніше через меню.\n\n💡 Рекомендую пройти його найближчим часом для кращих результатів.',
-        keyboards.mainMenuKeyboard()
-      );
-      return true;
-    }
+  await ctx.reply(result.message, result.keyboard);
+  return true;
+}
 
     if (data === 'wheel_history') {
       const history = await wheelBalance.getWheelHistory(tgId);
@@ -393,6 +391,41 @@ const handleWheelCallback = async (ctx) => {
       );
       return true;
     }
+if (data === 'wheel_view_analysis') {
+  // 1) тягнемо останнє колесо з історії
+  const history = await wheelBalance.getWheelHistory(tgId);
+
+  if (!history || history.length === 0) {
+    await ctx.reply('📊 Поки немає завершених коліс для аналізу.', keyboards.mainMenuKeyboard());
+    return true;
+  }
+
+  // 2) беремо найсвіжіший запис (якщо не відсортовано — можна відсортувати за датою)
+  const last = history[0];
+  const f = last.fields || {};
+  const date = f.Created_Date || f.Date || 'н/д';
+  const total = f.Total_Score ?? f.Total ?? f.Score ?? 'н/д';
+
+  // 3) збираємо компактний текст; якщо маєш детальні поля по сферах — можеш розширити
+  const msg =
+    `📊 *Останній аналіз колеса*\n\n` +
+    `🗓 Дата: *${date}*\n` +
+    `⭐ Загальна оцінка: *${total}*/80\n\n` +
+    `ℹ️ Повну історію можна переглянути у «Історія коліс».`;
+
+  await ctx.reply(msg, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '📊 Історія коліс', callback_data: 'wheel_history' }],
+        [{ text: '🔁 Пройти ще раз', callback_data: 'wheel_restart' }],
+        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+      ]
+    }
+  });
+
+  return true;
+}
 
     return false;
 

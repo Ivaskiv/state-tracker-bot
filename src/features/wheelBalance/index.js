@@ -62,7 +62,7 @@ export const startWheelBalance = flow.startWheelBalance;
 export const continueActiveWheel = flow.continueActiveWheel;
 export const processWheelAnswer = flow.processWheelAnswer;
 export const saveWheelNoteAndGoNext = flow.saveWheelNoteAndGoNext;
-export const startNewWheelIgnoreOld = flow.startNewWheelIgnoreOld;
+export const startNewWheelIgnoreOld = flow.startNewWheelIgnoreOld; // ✅ Added export
 
 export const generateWheelAnalysis = analysis.generateWheelAnalysis;
 

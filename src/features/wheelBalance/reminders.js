@@ -9,7 +9,7 @@ export const shouldShowWheelReminder = async (tgId, regDate) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
       .select({
-        filterByFormula: `AND({TG_id}="${tgId}", OR({Status}="Completed", {Status}="Active"))`,
+        filterByFormula: `AND({TG_id}="${tgId}", OR({Status}="Completed", {Status}="In Progress"))`,
         sort: [{ field: 'Created_Date', direction: 'desc' }]
       })
       .all();
@@ -26,7 +26,7 @@ export const shouldShowWheelReminder = async (tgId, regDate) => {
     }
     
     // 2. НЕЗАВЕРШЕНЕ КОЛЕСО
-    const active = records.find(r => r.fields.Status === 'Active');
+    const active = records.find(r => r.fields.Status === 'In Progress');
     if (active) {
       const hoursSinceStart = (now - new Date(active.fields.Created_Date)) / 3600000;
       return { 
@@ -44,7 +44,6 @@ export const shouldShowWheelReminder = async (tgId, regDate) => {
     if (lastCompleted) {
       const daysSince = Math.floor((now - new Date(lastCompleted.fields.Completed_Date)) / 86400000);
       
-      // ✅ БЛОКУВАННЯ НА 30 ДНІВ
       if (daysSince < 30) {
         return { 
           needed: false, 
@@ -54,7 +53,6 @@ export const shouldShowWheelReminder = async (tgId, regDate) => {
         };
       }
       
-      // ✅ ДОЗВОЛЯЄМО НОВЕ КОЛЕСО
       return { 
         needed: true, 
         type: 'monthly', 

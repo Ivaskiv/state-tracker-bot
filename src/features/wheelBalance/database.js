@@ -9,7 +9,7 @@ export const getActiveWheel = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
       .select({
-        filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")`,
+        filterByFormula: `AND({TG_id}="${tgId}", {Status}="In Progress")`,
         maxRecords: 1,
         sort: [{ field: 'Created_Date', direction: 'desc' }]
       })
@@ -22,53 +22,10 @@ export const getActiveWheel = async (tgId) => {
   }
 };
 
-// ✅ НОВА ФУНКЦІЯ: перевірити чи чекаємо нотатку
-export const isAwaitingNote = async (tgId) => {
-  try {
-    const activeWheel = await getActiveWheel(tgId);
-    if (!activeWheel) return null;
-    
-    const step = Number(activeWheel.fields.Step || 0);
-    const scoreField = `Health`; // Перше поле - Health
-    const allScoreFields = [
-      'Health', 'Self_Growth', 'Relationships', 'Career_Business',
-      'Finance', 'Rest_Leisure', 'Spirituality', 'Housing'
-    ];
-    
-    // Перевіряємо чи є оцінка для поточного кроку
-    const currentScoreField = allScoreFields[step];
-    const score = activeWheel.fields[currentScoreField];
-    
-    if (score != null) {
-      // Є оцінка - чекаємо нотатку
-      return {
-        recordId: activeWheel.id,
-        step,
-        score,
-        sphereName: [
-          'Здоров\'я та енергія',
-          'Особистісний розвиток',
-          'Стосунки (сім\'я, друзі)',
-          'Кар\'єра та професія',
-          'Фінанси та достаток',
-          'Дозвілля та відпочинок',
-          'Духовність та цінності',
-          'Побут та оточення'
-        ][step]
-      };
-    }
-    
-    return null;
-  } catch (error) {
-    logger.error('❌ [wheelBalance] Помилка isAwaitingNote:', error);
-    return null;
-  }
-};
-
 export const cancelActiveWheel = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
-      .select({ filterByFormula: `AND({TG_id}="${tgId}", {Status}="Active")` })
+      .select({ filterByFormula: `AND({TG_id}="${tgId}", {Status}="In Progress")` })
       .all();
 
     if (records.length > 0) {
@@ -112,7 +69,7 @@ export const createWheel = async (tgId, userName) => {
       fields: {
         TG_id: String(tgId),
         'User Name': userName || 'Користувач',
-        Status: 'Active',
+        Status: 'In Progress',
         Step: 0,
         Created_Date: todayISO()
       }

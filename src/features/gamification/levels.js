@@ -2,7 +2,7 @@
 // Система рівнів та прогресу
 
 import { getBase, tables } from '../../config/database.js';
-import { PROGRESS_LEVELS, getProgressLevel } from '../../config/constants.js';
+import { PROGRESS_LEVELS, getProgressLevel } from '../../config/index.js';
 
 const base = getBase();
 

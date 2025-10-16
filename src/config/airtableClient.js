@@ -3,14 +3,9 @@ import Airtable from 'airtable';
 import dotenv from 'dotenv';
 
 dotenv.config();
-
-// Підключення до бази Airtable
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
-
-// Основна функція для роботи з таблицями
 export const airtableClient = (tableName) => base(tableName);
 
-// Додаткові функції для вибірки (необов'язково)
 export const selectFromTable = (tableName, options = {}) => base(tableName).select(options);
 export const findRecordById = (tableName, recordId) => base(tableName).find(recordId);
 export const createRecord = (tableName, record) => base(tableName).create(record);

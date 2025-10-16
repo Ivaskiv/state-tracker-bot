@@ -1,6 +1,4 @@
 // src/services/openaiClient.js
-// Клієнт для роботи з OpenAI API
-
 /**
  * Відправити запит до Claude/OpenAI через Anthropic API
  */

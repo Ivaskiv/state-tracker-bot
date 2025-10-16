@@ -1,59 +1,63 @@
 // src/bot/middleware.js
-// Middleware для бота - логування, typing, антиспам, performance
+// Middleware: логування, typing, антиспам, performance
 
 import { typingMiddleware } from '../utils/typing.js';
 import { isSpam } from '../utils/antiSpam.js';
 import keyboards from '../utils/keyboards.js';
 
+const safeMainMenu = () => {
+  try { return keyboards?.mainMenuKeyboard?.() || undefined; }
+  catch { return undefined; }
+};
+
+// ініціалізуємо один раз, а не на кожен апдейт
+const typingMw = typingMiddleware?.() || (async (ctx, next) => next());
+
 /**
- * Ініціалізація основного middleware
- * Включає: детальне логування, typing анімація, обробка помилок
+ * Основний middleware: логи + typing + safe error
  */
 export const initMiddleware = () => {
   return async (ctx, next) => {
     const type = ctx.updateType;
     const from = ctx.from?.id;
     const username = ctx.from?.username || ctx.from?.first_name || 'Unknown';
-    
-    // Детальне логування
+
+    // Логування
     if (type === 'callback_query') {
-      const data = ctx.callbackQuery?.data;
-      console.log(`➡️ [bot] ${type} від ${from} (@${username}) | data: "${data}"`);
+      console.log(`➡️ [bot] ${type} від ${from} (@${username}) | data: "${ctx.callbackQuery?.data}"`);
     } else if (type === 'message') {
-      const text = ctx.message?.text?.slice(0, 50) || '[не текст]';
+      const text = ctx.message?.text?.slice(0, 80) || '[не текст]';
       console.log(`➡️ [bot] ${type} від ${from} (@${username}) | text: "${text}"`);
     } else {
       console.log(`➡️ [bot] ${type} від ${from} (@${username})`);
     }
-    
+
     try {
-      // Typing анімація (тільки для текстових повідомлень)
+      // Typing тільки для текстових повідомлень
       if (type === 'message' && ctx.message?.text) {
-        await typingMiddleware()(ctx, () => {});
+        await typingMw(ctx, async () => {});
       }
-      
-      // Продовжуємо виконання
       await next();
-      
+
     } catch (error) {
       console.error('💥 [middleware] Помилка:', {
-        error: error.message,
+        msg: error.message,
         stack: error.stack?.split('\n').slice(0, 3).join('\n'),
         user: from,
-        type: type,
-        data: type === 'callback_query' ? ctx.callbackQuery?.data : ctx.message?.text?.slice(0, 50)
+        type,
+        data: type === 'callback_query'
+          ? ctx.callbackQuery?.data
+          : ctx.message?.text?.slice(0, 80)
       });
-      
-      // Відправляємо повідомлення про помилку
+
+      // Відповідь користувачу (safe)
       try {
         if (ctx.callbackQuery) {
-          await ctx.answerCbQuery('❌ Виникла помилка');
+          try { await ctx.answerCbQuery('❌ Сталася помилка'); } catch {}
         }
-        
-        await ctx.reply(
-          '❌ Виникла помилка. Спробуй ще раз або натисни /start',
-          keyboards.mainMenuKeyboard()
-        );
+        if (ctx.chat?.id) {
+          await ctx.reply('❌ Виникла помилка. Спробуй ще раз або натисни /start', safeMainMenu());
+        }
       } catch (replyError) {
         console.error('💥 [middleware] Не вдалося відправити помилку користувачу:', replyError.message);
       }
@@ -62,54 +66,41 @@ export const initMiddleware = () => {
 };
 
 /**
- * Middleware для логування часу виконання запитів
- * Використовуй для моніторингу performance
+ * Performance middleware: лог повільних апдейтів
  */
-export const performanceMiddleware = () => {
+export const performanceMiddleware = (thresholdMs = 2000) => {
   return async (ctx, next) => {
-    const start = Date.now();
-    const type = ctx.updateType;
-    const from = ctx.from?.id;
-    
+    const t0 = Date.now();
+    let err;
     try {
       await next();
-      const duration = Date.now() - start;
-      
-      // Логуємо повільні запити (>2 секунди)
-      if (duration > 2000) {
-        console.warn(`⚠️ [performance] Повільний ${type} від ${from}: ${duration}ms`);
+    } catch (e) {
+      err = e;
+      throw e;
+    } finally {
+      const dt = Date.now() - t0;
+      if (dt > thresholdMs) {
+        console.warn(`⚠️ [perf] Повільний ${ctx.updateType} від ${ctx.from?.id}: ${dt}ms`);
       }
-    } catch (error) {
-      const duration = Date.now() - start;
-      console.error(`❌ [performance] Помилка ${type} від ${from} після ${duration}ms:`, error.message);
-      throw error;
     }
   };
 };
 
 /**
- * Middleware для блокування спаму callback кнопок
- * Використовує централізований src/utils/antiSpam.js
+ * Anti-spam тільки для callback_query
  */
 export const antiSpamMiddleware = () => {
   return async (ctx, next) => {
     const userId = ctx.from?.id;
-    const callbackData = ctx.callbackQuery?.data;
+    const data = ctx.callbackQuery?.data;
 
-    // Перевіряємо тільки callback_query
-    if (!userId || !callbackData) {
-      return next();
+    if (!userId || !data) return next();
+
+    if (isSpam(userId, data)) {
+      console.warn(`🚫 [antiSpam] Блок від ${userId} | "${data}"`);
+      try { await ctx.answerCbQuery('⏳ Зачекай трохи'); } catch {}
+      return;
     }
-
-    // ✅ ВИКОРИСТОВУЄМО ЦЕНТРАЛІЗОВАНИЙ isSpam з utils/antiSpam.js
-    if (isSpam(userId, callbackData)) {
-      console.warn(`🚫 [antiSpam] Блокування спаму від ${userId} | callback: "${callbackData}"`);
-      try {
-        await ctx.answerCbQuery('⏳ Зачекай трохи');
-      } catch {}
-      return; // Не викликаємо next()
-    }
-
     await next();
   };
 };

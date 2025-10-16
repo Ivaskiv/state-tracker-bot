@@ -1,7 +1,8 @@
 // src/utils/validators.js
 // Загальні валідатори для всього проекту
 
-import { CONFIG } from '../config/constants.js';
+import { CONFIG } from "../config/index.js";
+
 
 // ===== БАЗОВІ ПЕРЕВІРКИ (старі функції - залишаємо для сумісності) =====
 

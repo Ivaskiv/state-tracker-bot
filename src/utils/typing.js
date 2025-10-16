@@ -1,35 +1,36 @@
 // src/utils/typing.js
-export const typing = async (ctx, delay = 800) => {
+// Легкий typing без штучних затримок і промісів
+
+export const typing = async (ctx, _delay = 0) => {
   try {
-    if (ctx && ctx.telegram && ctx.from) {
-      await ctx.telegram.sendChatAction(ctx.from.id, 'typing');
-      await new Promise(resolve => setTimeout(resolve, delay));
+    if (ctx?.sendChatAction) {
+      await ctx.sendChatAction('typing');
+    } else if (ctx?.telegram && ctx?.chat?.id) {
+      await ctx.telegram.sendChatAction(ctx.chat.id, 'typing');
     }
   } catch (error) {
-    // Ігноруємо помилки typing анімації
+    // ігноруємо помилки typing, але логуємо для дебагу
+    console.warn('⚠️ [typing] Не вдалося показати typing:', error?.message || error);
   }
 };
 
 // ===== MIDDLEWARE TYPING (для автоматичного виклику) =====
 export const typingMiddleware = () => {
   return async (ctx, next) => {
-    // Пропускаємо для callback_query
-    if (ctx.updateType === 'callback_query') {
-      return next();
-    }
-    
+    // пропускаємо callback_query, щоб не спамити action
+    if (ctx.updateType === 'callback_query') return next();
+
     try {
-      // Показуємо typing тільки для текстових повідомлень
-      if (ctx.chat && ctx.chat.id) {
+      if (ctx?.sendChatAction) {
+        await ctx.sendChatAction('typing');
+      } else if (ctx?.telegram && ctx?.chat?.id) {
         await ctx.telegram.sendChatAction(ctx.chat.id, 'typing');
-        
-        // Коротка затримка для middleware (щоб не сповільнювати)
-        await new Promise(resolve => setTimeout(resolve, 400));
       }
     } catch (error) {
-      // Ігноруємо помилки typing
+      // ігноруємо помилки typing, але пишемо в консоль
+      console.warn('⚠️ [typingMiddleware] sendChatAction error:', error?.message || error);
     }
-    
+
     return next();
   };
 };

@@ -3,7 +3,7 @@
 
 import crypto from 'crypto';
 import { tables, selectFromTable, updateRows } from '../../config/database.js';
-import { SUBSCRIPTION_STATUS } from '../../config/constants.js';
+import { SUBSCRIPTION_STATUS } from '../../config/index.js';
 
 /**
  * Перевірка підпису WayForPay

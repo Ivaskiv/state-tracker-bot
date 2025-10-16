@@ -1,5 +1,5 @@
 // src/features/wheelBalance/utils.js
-import { LIFE_SPHERES } from '../../config/constants.js';
+import { LIFE_SPHERES } from '../../config/index.js';
 
 export const getWheelInfo = (sphere, step) =>
   `🎯 **КОЛЕСО БАЛАНСУ**\n\n` +

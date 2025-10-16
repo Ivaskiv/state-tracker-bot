@@ -6,7 +6,7 @@ import {
   SUBSCRIPTION_PLANS,
   USER_STATUS,
   getTzLabel,
-} from '../../config/constants.js';
+} from '../../config/index.js';
 
 import { 
   validateName, 

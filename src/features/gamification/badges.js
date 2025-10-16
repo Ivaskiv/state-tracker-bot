@@ -2,7 +2,7 @@
 // Система бейджів та нагород
 
 import { getBase, tables } from '../../config/database.js';
-import { BADGES, BADGE_CRITERIA } from '../../config/constants.js';
+import { BADGES, BADGE_CRITERIA } from '../../config/index.js';
 
 const base = getBase();
 

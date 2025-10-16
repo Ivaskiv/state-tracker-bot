@@ -12,21 +12,23 @@ import aiMentor from '../features/aiMentor/index.js';
 import reports from '../features/reports/index.js';
 import gamification from '../features/gamification/index.js';
 import affirmations from '../features/affirmations/index.js';
-
-// Сервіси
-import usersService from '../services/user.js';
+import users from '../services/users.js';
 
 const safeReply = async (ctx, text, extra) => {
-  try { await ctx.reply(text, extra); } catch { /* ignore */ }
+  try { await ctx.reply(text, extra); 
+
+  } catch { 
+    /* ignore */ 
+  }
 };
 
 const ensureCreatedAt = async (tgId) => {
   try {
-    const user = await usersService.getByTgId?.(tgId);
+    const user = await users.getByTgId?.(tgId);
     if (!user?.id) return;
     const fields = user.fields || user;
     if (!fields.Created_At) {
-      await usersService.update?.(user.id, { Created_At: new Date().toISOString() });
+      await users.update?.(user.id, { Created_At: new Date().toISOString() });
       console.log(`[bot] 🕓 Доставлено Created_At для ${tgId}`);
     }
   } catch (e) {
@@ -57,7 +59,8 @@ const handleWheelText = async (ctx) => {
 
     const awaitingNote = await wheel.isAwaitingNote(tgId);
 
-    if (!awaitingNote) {
+    // ✅ ВИПРАВЛЕНО: перевіряємо null (не false!)
+    if (!awaitingNote || awaitingNote === null) {
       console.log('[bot/wheel-text] ℹ️ Не чекаємо нотатку');
       return false;
     }
@@ -96,7 +99,6 @@ const handleWheelText = async (ctx) => {
     return false;
   }
 };
-
 const registerBotHandlers = (bot) => {
   console.log('🤖 [bot] Ініціалізація...');
 

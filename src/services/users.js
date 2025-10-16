@@ -2,7 +2,7 @@
 // Сервіс для роботи з користувачами (спрощена версія)
 
 import { getBase, tables, updateRows } from '../config/database.js';
-import { USER_STATUS, ANSWER_STEPS, CONFIG } from '../config/constants.js';
+import { USER_STATUS, ANSWER_STEPS, CONFIG } from '../config/index.js';
 
 const base = getBase();
 

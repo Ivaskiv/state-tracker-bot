@@ -3,8 +3,8 @@
 // src/services/dailySessions/sync.js
 import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';
-import * as db from './database.js';
-import * as utils from './utils.js'; 
+import * as db from './repo.js';
+import * as utils from './service.js'; 
 
 const base = getBase();
 

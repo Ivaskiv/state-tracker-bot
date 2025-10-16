@@ -1,7 +1,7 @@
 // src/features/dashboard/index.js
 // Головне меню та навігація - ТІЛЬКИ ІМПОРТИ З constants.js та keyboards.js
 
-import { MESSAGES, MENU_TEXTS, DASHBOARD_MESSAGES } from '../../config/constants.js';
+import { MESSAGES, MENU_TEXTS, DASHBOARD_MESSAGES } from '../../config/index.js';
 import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
 import { getUserByTgId } from '../onboarding/handlers.js';
