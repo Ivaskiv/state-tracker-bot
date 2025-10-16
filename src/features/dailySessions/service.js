@@ -1,7 +1,9 @@
-// src/services/dailySessions/service.js
+// src/services/dailySessions/service.js — ВИПРАВЛЕНО + ДОПИСАНО
 
 import { QUESTIONS, QUESTION_PARSERS } from '../../config/index.js';
 import logger from '../../utils/logger.js';
+import keyboards from '../../utils/keyboards.js';
+import * as db from './repo.js';
 
 // ── formatter ─────────────────────────────────────────────────────────────────
 export const formatQuestionMessage = (sessionType, questionIndex) => {
@@ -160,6 +162,86 @@ export const getDaysDiff = (date1, date2) => {
     return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
   } catch {
     return 0;
+  }
+};
+
+// ── ПЕРЕНЕСЕНІ З shared.js ────────────────────────────────────────────────────
+
+/**
+ * Перевірити чи можна автоматично завершити сесію (якщо всі відповіді є)
+ */
+export const checkAndCompleteSession = async (ctx, tgId, sessionType) => {
+  try {
+    const rec = await db.getTodayRecord(tgId);
+    if (!rec) return false;
+
+    const questions = sessionType === 'morning' ? QUESTIONS.morning : QUESTIONS.evening;
+    const fields = rec.fields;
+
+    // Перевіряємо чи всі питання заповнені
+    const allAnswered = questions.every((q, i) => {
+      const fieldName = `${sessionType === 'morning' ? 'Q_m_' : 'Q_e_'}${i + 1}`;
+      return fields[fieldName];
+    });
+
+    if (allAnswered) {
+      logger.info(`[dailySessions] ✅ Всі відповіді є для ${sessionType}`);
+      return true;
+    }
+
+    return false;
+  } catch (e) {
+    logger.error('[dailySessions] checkAndCompleteSession:', e);
+    return false;
+  }
+};
+
+/**
+ * Показати аналіз та нагороди після завершення
+ */
+export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields) => {
+  try {
+    const msg = formatCompletionMessage(sessionType);
+    await ctx.reply(msg, keyboards.mainMenuKeyboard());
+
+    // Нагородження
+    try {
+      const rewardsService = (await import('../gamification/rewards.js')).default;
+      await rewardsService.rewardSession(tgId, sessionType, ctx.telegram);
+    } catch (e) {
+      logger.warn('[dailySessions] Помилка нагородження:', e);
+    }
+  } catch (e) {
+    logger.error('[dailySessions] showCompletionWithAnalysis:', e);
+  }
+};
+
+/**
+ * Перезапустити сесію
+ */
+export const restartSession = async (ctx, tgId, sessionType, startFn) => {
+  try {
+    await db.resetSession(tgId, sessionType);
+    await startFn(ctx);
+  } catch (e) {
+    logger.error('[dailySessions] restartSession:', e);
+    await ctx.reply('❌ Помилка перезавантаження сесії. Спробуй /start');
+  }
+};
+
+/**
+ * Вийти з сесії
+ */
+export const exitSession = async (ctx, tgId, sessionType) => {
+  try {
+    await db.resetSession(tgId, sessionType);
+    await ctx.reply(
+      `✅ Зрозуміла! Повертайся коли будеш готова. 💪`,
+      keyboards.mainMenuKeyboard()
+    );
+  } catch (e) {
+    logger.error('[dailySessions] exitSession:', e);
+    await ctx.reply('❌ Помилка. Спробуй /start');
   }
 };
 

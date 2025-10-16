@@ -215,7 +215,7 @@ export const processWheelAnswer = async (tgId, score, ctx) => {
       `✅ Оцінка ${score}/10 для сфери *${sphere.label}* збережена!\n\n` +
         `💭 Напиши коротку нотатку про цю сферу:\n` +
         `• Що працює добре?\n• Що хочеш покращити?\n• Які є плани?\n\n` +
-        `Або натисни “Пропустити” ⤵️`,
+        `Або натисни "Пропустити" ⤵️`,
       wheelNoteKeyboard(step)
     );
 
@@ -423,9 +423,9 @@ export const goBackWheelStep = async (tgId, ctx) => {
     }
 
     const step = wheel.fields.Step || 1;
-    const isAwaitingNote = await isAwaitingNote(tgId);
+    const awaitingNote = await isAwaitingNote(tgId);
 
-    if (isAwaitingNote) {
+    if (awaitingNote) {
       const sphere = LIFE_SPHERES[step - 1];
       await ctx.reply(
         utils.getWheelInfo(sphere, step),

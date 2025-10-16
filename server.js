@@ -128,12 +128,16 @@ bot.catch((err, ctx) => {
       console.log('✅ [server] Всі критичні таблиці доступні');
     }
     
-    // 3️⃣ ІНІЦІАЛІЗАЦІЯ РОУТЕРА
-    console.log('🎮 [server] Ініціалізація роутера...');
-    initRouter(bot);
-    console.log('✅ [server] Роутер готовий');
-    
-    // 4️⃣ ЗАПУСК SCHEDULER
+ console.log('🎮 [server] Ініціалізація роутера...');
+    try {
+      initRouter(bot);
+      console.log('✅ [server] Роутер готовий');
+    } catch (routerError) {
+      console.error('❌ [server] Помилка роутера:', routerError.message);
+      throw routerError;
+    }
+
+    // 4️⃣ ЗАПУСК SCHEDULER (ЗАМІСТЬ 3️⃣)
     console.log('⏰ [server] Запуск планувальника...');
     try {
       startScheduler(bot);
@@ -142,7 +146,7 @@ bot.catch((err, ctx) => {
       console.warn('⚠️ [server] Помилка запуску планувальника:', schedulerError.message);
       console.warn('💡 [server] Бот працюватиме без автоматичних нагадувань');
     }
-    
+        
     // 5️⃣ ОЧИЩЕННЯ WEBHOOK
     console.log('🧹 [server] Очищення webhook...');
     await bot.telegram.deleteWebhook({ drop_pending_updates: true });

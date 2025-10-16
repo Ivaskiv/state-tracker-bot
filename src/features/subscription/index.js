@@ -62,5 +62,92 @@ export const runExpirationReminders = async (bot) => {
     console.error('[subscription] ❌ sendExpirationReminders:', e?.message || e);
   }
 };
+export const handleCallback = async (ctx) => {
+  const data = ctx.callbackQuery?.data;
+  
+  const subscriptionCallbacks = [
+    'subscription_info', 'subscription_plans', 'subscribe_week', 'subscribe_month',
+    'subscribe_year', 'sync_subscription', 'renew_subscription', 'contact_support',
+    'buy_course_low_activity', 'buy_course_fear', 'buy_course_no_goals',
+    'buy_course_state_mastery', 'book_consultation', 'dismiss_offer',
+    'renew_week', 'renew_month', 'renew_year'
+  ];
 
+  if (!subscriptionCallbacks.includes(data)) return false;
+
+  try {
+    // Маршрутизуємо до контролера
+    const { 
+      handleSubscriptionInfo, 
+      handleSubscriptionPlans, 
+      handleSubscribe,
+      handleSyncSubscription,
+      handleRenewSubscription,
+      handleRenewalFromReminder,
+      handleContactSupport,
+      handleBuyCourse,
+      handleBookConsultation,
+      handleDismissOffer
+    } = await import('./controller.js').then(m => m.default);
+
+    switch (data) {
+      case 'subscription_info':
+        await handleSubscriptionInfo(ctx);
+        break;
+      case 'subscription_plans':
+        await handleSubscriptionPlans(ctx);
+        break;
+      case 'subscribe_week':
+        await handleSubscribe(ctx, 'WEEK');
+        break;
+      case 'subscribe_month':
+        await handleSubscribe(ctx, 'MONTH');
+        break;
+      case 'subscribe_year':
+        await handleSubscribe(ctx, 'YEAR');
+        break;
+      case 'sync_subscription':
+        await handleSyncSubscription(ctx);
+        break;
+      case 'renew_subscription':
+        await handleRenewSubscription(ctx);
+        break;
+      case 'contact_support':
+        await handleContactSupport(ctx);
+        break;
+      case 'buy_course_low_activity':
+        await handleBuyCourse(ctx, 'low_activity');
+        break;
+      case 'buy_course_fear':
+        await handleBuyCourse(ctx, 'fear');
+        break;
+      case 'buy_course_no_goals':
+        await handleBuyCourse(ctx, 'no_goals');
+        break;
+      case 'buy_course_state_mastery':
+        await handleBuyCourse(ctx, 'state_mastery');
+        break;
+      case 'book_consultation':
+        await handleBookConsultation(ctx);
+        break;
+      case 'dismiss_offer':
+        await handleDismissOffer(ctx);
+        break;
+      case 'renew_week':
+        await handleRenewalFromReminder(ctx, 'WEEK');
+        break;
+      case 'renew_month':
+        await handleRenewalFromReminder(ctx, 'MONTH');
+        break;
+      case 'renew_year':
+        await handleRenewalFromReminder(ctx, 'YEAR');
+        break;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[subscription/handleCallback] ❌ Помилка:', error);
+    return false;
+  }
+};
 console.log('✅ [features/subscription] Модуль завантажено');

@@ -32,4 +32,38 @@ export const getDaysWord = (count) => {
  */
 export const todayISO = () => new Date().toISOString().split('T')[0];
 
+/**
+ * Додати дні до дати
+ * @param {Date|string} date - початкова дата
+ * @param {number} days - кількість днів для додання
+ * @returns {Date} нова дата
+ */
+export const addDays = (date, days) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
+/**
+ * Конвертувати дату у формат ISO (YYYY-MM-DD)
+ * @param {Date|string} date - дата
+ * @returns {string} ISO формат без часу
+ */
+export const toISODate = (date) => {
+  if (typeof date === 'string') return date.split('T')[0];
+  return new Date(date).toISOString().split('T')[0];
+};
+
+/**
+ * Отримати DateTime без секунд (для Airtable)
+ * @returns {string} ISO формат без секунд
+ */
+export const getDateTimeWithoutSeconds = () => {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  return now.toISOString();
+};
+
+console.log('✅ [utils/helpers] Завантажено хелпери');
+
 console.log('✅ [utils/helpers] Завантажено хелпери');

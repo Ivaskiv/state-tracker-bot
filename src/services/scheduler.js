@@ -5,7 +5,6 @@ import cron from 'node-cron';
 import { CRON_SCHEDULES, SCHEDULER_MESSAGES } from '../config/index.js';
 import { tables, selectFromTable } from '../config/database.js';
 import keyboards, { menuKeyboard } from '../utils/keyboards.js';
-// import service from './service.js'; 
 
 const TZ = 'Europe/Prague';
 let jobs = [];
@@ -89,7 +88,14 @@ const monthlyWheelCheck = async (bot) => {
     ]),
   }));
 };
+let subscriptionService = null;
 
+const getSubscriptionService = async () => {
+  if (!subscriptionService) {
+    subscriptionService = (await import('../features/subscription/service.js')).default;
+  }
+  return subscriptionService;
+};
 /**
  * 🔔 Перевірка підписок:
  * 1) деактивація прострочених (в базі)
@@ -100,6 +106,7 @@ const checkSubscriptions = async (bot) => {
     console.log('💰 [scheduler] Перевірка підписок…');
 
     // 1) деактивуємо прострочені
+    const service = await getSubscriptionService();
     const deactivated = await service.deactivateExpiredSubscriptions?.();
     if (typeof deactivated === 'number') {
       console.log(`💳 [scheduler] Деактивовано прострочених: ${deactivated}`);
@@ -109,7 +116,6 @@ const checkSubscriptions = async (bot) => {
     const expiringSoon = await service.getUsersWithExpiringSubscriptions?.(1);
     const expiringIn3 = await service.getUsersWithExpiringSubscriptions?.(3);
 
-    // мерджимо унікально по TG_id
     const map = new Map();
     [...(expiringSoon || []), ...(expiringIn3 || [])].forEach((u) => map.set(u.TG_id, u));
     const users = [...map.values()];
@@ -126,13 +132,12 @@ const checkSubscriptions = async (bot) => {
                   `Щоб не втрачати доступ — продовжуй у один клік 👇`;
 
       await safeSend(bot, tgId, msg, keyboards.subscriptionExpiringKeyboard());
-      await new Promise((r) => setTimeout(r, 400)); // дрібний троттлінг
+      await new Promise((r) => setTimeout(r, 400));
     }
   } catch (e) {
     console.error('[scheduler/checkSubscriptions] ❌', e?.message || e);
   }
 };
-
 // ── public API ────────────────────────────────────────────────────────────────
 export const startScheduler = (bot) => {
   console.log('⏰ [scheduler] Старт…');
