@@ -413,7 +413,48 @@ export const cancelActiveWheel = async (tgId) => {
     return false;
   }
 };
+/**
+ * Продовжити активне колесо з поточного кроку
+ */
+export const continueActiveWheel = async (tgId, ctx) => {
+  try {
+    logger.info(`[wheelBalance] ▶️ Продовження колеса для ${tgId}`);
 
+    const wheel = await getActiveWheel(tgId);
+    if (!wheel) {
+      return {
+        error: true,
+        message: '❌ Немає активного колеса. Почни нове!'
+      };
+    }
+
+    const step = wheel.fields.Step || 1;
+    const LIFE_SPHERES_IMPORT = (await import('../../config/index.js')).LIFE_SPHERES;
+    
+    if (step > LIFE_SPHERES_IMPORT.length) {
+      // Колесо вже завершено
+      return {
+        error: true,
+        message: '✅ Колесо вже завершено!',
+        keyboard: wheelCompletedKeyboard()
+      };
+    }
+
+    const sphere = LIFE_SPHERES_IMPORT[step - 1];
+    
+    return {
+      error: false,
+      message: utils.getWheelInfo(sphere, step),
+      keyboard: wheelScoreKeyboard()
+    };
+  } catch (error) {
+    logger.error('[wheelBalance] ❌ continueActiveWheel:', error);
+    return {
+      error: true,
+      message: '❌ Помилка продовження колеса'
+    };
+  }
+};
 export const goBackWheelStep = async (tgId, ctx) => {
   try {
     const wheel = await getActiveWheel(tgId);

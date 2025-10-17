@@ -45,3 +45,9 @@ export { ACTIVITY_TRIGGERS, PROBLEM_TYPES, PROBLEM_DESCRIPTIONS } from './consta
 export { CONTACTS } from './constantsContacts.js';
 
 export { DASHBOARD_MESSAGES } from './constantsDashboard.js';
+
+export { 
+  AI_MENTOR_PROMPTS, 
+  DAILY_ANALYSIS_PROMPTS,
+  WHEEL_ANALYSIS_PROMPT
+} from './prompts.js';

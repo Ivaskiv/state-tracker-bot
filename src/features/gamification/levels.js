@@ -81,7 +81,7 @@ export const addPoints = async (tgId, points, reason = '') => {
     await base(tables.USERS).update(user.id, {
       Total_Points: newPoints,
       Current_Level: newLevel.level,
-      Last_Points_Added: new Date().toISOString()
+      // Last_Points_Added: new Date().toISOString()
     });
 
     console.log(`[levels/addPoints] ✅ Додано ${points} балів (всього: ${newPoints})`);

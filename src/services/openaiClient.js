@@ -1,36 +1,67 @@
-// src/services/openaiClient.js
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
 /**
- * Відправити запит до Claude/OpenAI через Anthropic API
+ * Ініціалізація OpenAI клієнта
  */
-export const chat = async (messages, model = 'claude-sonnet-4-20250514', maxTokens = 1000) => {
+const apiKey = process.env.OPENAI_API_KEY;
+
+if (!apiKey) {
+  console.error('[openaiClient] ❌ OPENAI_API_KEY не встановлено в .env');
+} else {
+  console.log('[openaiClient] ✅ OPENAI_API_KEY знайдено');
+}
+
+export const openai = new OpenAI({ 
+  apiKey: apiKey
+});
+
+/**
+ * Відправити запит до OpenAI API
+ */
+export const chat = async (messages, model = 'gpt-4o-mini', maxTokens = 1000) => {
   try {
-    console.log('[openaiClient] 🤖 Відправка запиту до AI...');
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: maxTokens,
-        messages: messages
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
+    if (!apiKey) {
+      console.error('[openaiClient] ❌ OPENAI_API_KEY не встановлено в .env');
+      throw new Error('Missing OPENAI_API_KEY');
     }
 
-    const data = await response.json();
-    const result = data.content[0].text;
+    console.log('[openaiClient] 🤖 Відправка запиту до OpenAI...');
+    console.log('[openaiClient] 🔑 API Key (перші 10 символів):', apiKey.substring(0, 10) + '...');
 
-    console.log('[openaiClient] ✅ Відповідь отримано');
+    const response = await openai.chat.completions.create({
+      model: model,
+      max_tokens: maxTokens,
+      messages: messages,
+      temperature: 0.7
+    });
+
+    console.log('[openaiClient] 📡 Response status: 200 (успішно)');
+
+    const result = response.choices?.[0]?.message?.content?.trim();
+
+    if (!result) {
+      console.error('[openaiClient] ❌ Нема контенту у відповіді:', response);
+      throw new Error('No content in response');
+    }
+
+    console.log('[openaiClient] ✅ Відповідь отримано:', result.substring(0, 100) + '...');
     return result;
 
   } catch (error) {
-    console.error('[openaiClient] ❌ Помилка:', error);
-    throw error;
+    console.error('[openaiClient] ❌ Помилка:', error.message);
+    
+    // Fallback відповіді
+    const fallbacks = [
+      "🎯 Для досягнення цілі важливо розбити її на маленькі кроки та діяти послідовно.",
+      "💪 Твоя сила в постійності. Роби невеликі кроки щодня - вони ведуть до великих результатів.",
+      "✨ Сфокусуйся на одній дії сьогодні. Довіряй процесу та своїй здатності рости.",
+      "🌱 Кожен день - це можливість стати кращою версією себе. Почни з того, що можеш зробити прямо зараз."
+    ];
+    
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
 };
 
@@ -39,6 +70,7 @@ export const chat = async (messages, model = 'claude-sonnet-4-20250514', maxToke
  */
 export const simpleChat = async (userMessage, systemPrompt = 'Ти корисний асистент.') => {
   return chat([
+    { role: 'system', content: systemPrompt },
     { role: 'user', content: userMessage }
   ]);
 };
