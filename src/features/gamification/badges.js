@@ -143,17 +143,15 @@ export const getUserStats = async (tgId) => {
       .select({
         filterByFormula: userFormula,
         maxRecords: 1,
-        fields: ['Current_Streak', 'Total_Sessions', 'Wheel_Completed']
+        fields: ['Total_Points', 'Total_Sessions', 'Badges']  // ✅ РЕАЛЬНІ ПОЛЯ
       })
       .firstPage();
 
-    if (userRecords.length === 0) {
-      return null;
-    }
+    if (userRecords.length === 0) return null;
 
     const user = userRecords[0].fields;
 
-    // 2. Підрахунок активних днів (з таблиці Responses)
+    // 2. Активні дні (з Responses)
     const responsesFormula = `{TG_id} = "${tgId}"`;
     const responses = await base(tables.RESPONSES)
       .select({
@@ -164,34 +162,28 @@ export const getUserStats = async (tgId) => {
 
     const uniqueDates = new Set(responses.map(r => r.fields.Date_Response));
     const totalActiveDays = uniqueDates.size;
+    const currentStreak = calculateStreak(responses); // 👈 Нова функція!
 
-    // 3. Колесо балансу
+    // 3. Завершені колеса
     const wheelFormula = `AND({TG_id} = "${tgId}", {Status} = "Completed")`;
     const wheelRecords = await base(tables.WHEEL_BALANCE)
       .select({ filterByFormula: wheelFormula })
       .all();
 
-    const wheelBalanceCompleted = wheelRecords.length;
-
-    // 4. Прогрес по цілях
+    // 4. Цілі
     const goalsFormula = `AND({TG_id} = "${tgId}", {Status} = "active")`;
     const goals = await base(tables.USER_GOALS)
       .select({ filterByFormula: goalsFormula })
       .all();
 
     let maxGoalProgress = 0;
-    let totalProgress = 0;
-
-    goals.forEach(goal => {
-      const progress = goal.fields.Progress || 0;
-      totalProgress += progress;
-      if (progress > maxGoalProgress) {
-        maxGoalProgress = progress;
-      }
+    goals.forEach(g => {
+      const progress = g.fields.Progress || 0;
+      maxGoalProgress = Math.max(maxGoalProgress, progress);
     });
 
-    const avgCompletionRate = goals.length > 0 
-      ? Math.round(totalProgress / goals.length) 
+    const avgCompletionRate = goals.length > 0
+      ? Math.round(goals.reduce((sum, g) => sum + (g.fields.Progress || 0), 0) / goals.length)
       : 0;
 
     // 5. AI взаємодії
@@ -211,9 +203,9 @@ export const getUserStats = async (tgId) => {
     const weeklyReportsCompleted = reports.length;
 
     return {
-      currentStreak: user.Current_Streak || 0,
+      currentStreak,
       totalActiveDays,
-      wheelBalanceCompleted,
+      wheelBalanceCompleted: wheelRecords.length,
       maxGoalProgress,
       avgCompletionRate,
       totalAIInteractions,
@@ -227,6 +219,34 @@ export const getUserStats = async (tgId) => {
   }
 };
 
+const calculateStreak = (responses) => {
+  if (!responses.length) return 0;
+
+  const dates = responses
+    .map(r => new Date(r.fields.Date_Response))
+    .filter(d => !isNaN(d.getTime()))
+    .sort((a, b) => b - a);
+
+  let streak = 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < dates.length; i++) {
+    const current = new Date(dates[i]);
+    current.setHours(0, 0, 0, 0);
+
+    const expected = new Date(today);
+    expected.setDate(expected.getDate() - i);
+
+    if (current.getTime() === expected.getTime()) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+};
 /**
  * Перевірити та нагородити всіма можливими бейджами
  */
