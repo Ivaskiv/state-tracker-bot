@@ -1,4 +1,4 @@
-// src/config/database.js — СІНГЛТОН + СТАБІЛЬНІ ЛОГИ + ВИПРАВЛЕНІ НАЗВИ ТАБЛИЦЬ
+// src/config/database.js
 import Airtable from 'airtable';
 import dotenv from 'dotenv';
 dotenv.config();

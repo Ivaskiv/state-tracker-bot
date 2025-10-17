@@ -1,4 +1,5 @@
-// src/config/index.js
+// src/config/index.js - ДОДАЄМО НОВІ ПИТАННЯ
+
 export { SCHEDULE, CRON_SCHEDULES, SCHEDULER_MESSAGES } from './constantsSchedule.js';
 export { TIMEZONES, getTzLabel, parseTz } from './constantsTimezones.js';
 
@@ -31,7 +32,14 @@ export { MESSAGES, MENU_TEXTS, REGISTRATION_SUCCESS_TEMPLATE, MENU_BUTTONS } fro
 export { QUESTIONS, MORNING_QUESTIONS, EVENING_QUESTIONS, QUESTION_PARSERS } from './constantsQuestions.js';
 
 // Колесо
-export { LIFE_SPHERES, SPHERE_FIELDS, NOTE_FIELDS, getSphereMeta } from './constantsWheel.js';
+export { 
+  LIFE_SPHERES, 
+  SPHERE_FIELDS, 
+  NOTE_FIELDS, 
+  getSphereMeta,
+  WHEEL_QUESTIONS,           
+  WHEEL_QUESTIONS_QUICK,     
+} from './constantsWheel.js';
 
 // Афірмації
 export { MORNING_AFFIRMATIONS, EVENING_AFFIRMATIONS, GENERAL_AFFIRMATIONS } from './constantsAffirmations.js';
@@ -51,3 +59,5 @@ export {
   DAILY_ANALYSIS_PROMPTS,
   WHEEL_ANALYSIS_PROMPT
 } from './prompts.js';
+
+console.log('✅ [config/index] Конфіг оновлено з новими питаннями колеса');

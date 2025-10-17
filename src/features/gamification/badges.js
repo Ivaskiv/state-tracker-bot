@@ -135,15 +135,16 @@ const formatBadgeMessage = (badge, totalPoints) => {
 /**
  * Отримати статистику для перевірки бейджів
  */
+// ✅ ВИПРАВЛЕНО: видалено поле "Badges" з запиту (воно зберігається окремо)
 export const getUserStats = async (tgId) => {
   try {
-    // 1. Основні дані користувача
+    // 1. Основні дані користувача (БЕЗ Badges - воно не існує в Users)
     const userFormula = `{TG_id} = "${tgId}"`;
     const userRecords = await base(tables.USERS)
       .select({
         filterByFormula: userFormula,
         maxRecords: 1,
-        fields: ['Total_Points', 'Total_Sessions', 'Badges']  // ✅ РЕАЛЬНІ ПОЛЯ
+        fields: ['Total_Points', 'Total_Sessions'] // ✅ Видалено Badges
       })
       .firstPage();
 
@@ -162,7 +163,7 @@ export const getUserStats = async (tgId) => {
 
     const uniqueDates = new Set(responses.map(r => r.fields.Date_Response));
     const totalActiveDays = uniqueDates.size;
-    const currentStreak = calculateStreak(responses); // 👈 Нова функція!
+    const currentStreak = calculateStreak(responses); 
 
     // 3. Завершені колеса
     const wheelFormula = `AND({TG_id} = "${tgId}", {Status} = "Completed")`;
@@ -219,6 +220,7 @@ export const getUserStats = async (tgId) => {
   }
 };
 
+// ✅ Helper функція для розрахунку streak
 const calculateStreak = (responses) => {
   if (!responses.length) return 0;
 
@@ -247,6 +249,35 @@ const calculateStreak = (responses) => {
 
   return streak;
 };
+
+// const calculateStreak = (responses) => {
+//   if (!responses.length) return 0;
+
+//   const dates = responses
+//     .map(r => new Date(r.fields.Date_Response))
+//     .filter(d => !isNaN(d.getTime()))
+//     .sort((a, b) => b - a);
+
+//   let streak = 0;
+//   const today = new Date();
+//   today.setHours(0, 0, 0, 0);
+
+//   for (let i = 0; i < dates.length; i++) {
+//     const current = new Date(dates[i]);
+//     current.setHours(0, 0, 0, 0);
+
+//     const expected = new Date(today);
+//     expected.setDate(expected.getDate() - i);
+
+//     if (current.getTime() === expected.getTime()) {
+//       streak++;
+//     } else {
+//       break;
+//     }
+//   }
+
+//   return streak;
+// };
 /**
  * Перевірити та нагородити всіма можливими бейджами
  */

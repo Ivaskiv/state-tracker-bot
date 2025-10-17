@@ -19,6 +19,27 @@ const handleDailySessionsText = async (ctx) => {
   if (!text) return false;
 
   try {
+    // ✅ 0. ПЕРЕВІРКА: Чи користувач в активному колесі? (ЯК ПЕРША ПЕРЕВІРКА)
+    const activeWheel = await wheelBalance.getActiveWheel(tgId);
+    if (activeWheel) {
+      // Користувач має активне колесо, але натиснув текст замість оцінки
+      const step = activeWheel.fields.Step || 1;
+      const LIFE_SPHERES_IMPORT = (await import('../../config/index.js')).LIFE_SPHERES;
+      const sphere = LIFE_SPHERES_IMPORT[step - 1];
+
+      await ctx.reply(
+        `❌ Оберіть оцінку від 0 до 10 за допомогою кнопок 👇\n\n` +
+        `📍 Сфера ${step}/8: *${sphere.label}*\n\n` +
+        `${sphere.description}\n\n` +
+        `Оціни від 0 до 10:`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: keyboards.wheelScoreKeyboard().reply_markup
+        }
+      );
+      return true; // ✅ Обробили
+    }
+
     // 1. WHEEL TEXT (нотатки) — ПЕРШИЙ
     const awaitingNote = await wheelBalance.isAwaitingNote(tgId);
     if (awaitingNote !== null && awaitingNote !== undefined) {
@@ -32,7 +53,7 @@ const handleDailySessionsText = async (ctx) => {
       if (result.completed) {
         await ctx.reply(result.message, { parse_mode: 'Markdown', ...keyboards.mainMenuKeyboard() });
         try {
-          const rewardsService = (await import('../features/gamification/rewards.js')).default;
+          const rewardsService = (await import('../gamification/rewards.js')).default;
           await rewardsService.rewardWheel(tgId, ctx.telegram);
         } catch (e) {
           console.error('[router/wheel-text] Нагородження:', e);
@@ -67,7 +88,7 @@ const handleDailySessionsText = async (ctx) => {
     }
 
     // 4. AI Mentor Text
-    if (await aiMentorModule.handleText(ctx)) {
+    if (await aiMentorModule.handleText?.(ctx)) {
       return true;
     }
 
@@ -399,7 +420,10 @@ export const initRouter = (bot) => {
       await ctx.reply('❌ Виникла помилка. Спробуй ще раз.', keyboards.mainMenuKeyboard());
     }
   });
-
+bot.action(/wheel_score_(\d+)/, async (ctx) => {
+  const score = parseInt(ctx.match[1]);
+  await wheelBalance.processWheelAnswer(ctx.from.id, score, ctx);
+});
   console.log('✅ [router] Готовий');
 };
 

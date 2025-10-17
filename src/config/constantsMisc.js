@@ -7,3 +7,7 @@ export const CONFIG = Object.freeze({
   PHONE_REGEX: /^\+380\d{9}$/,
   DEFAULT_TIMEZONE: 'Europe/Kyiv'
 });
+export const getNumberEmoji = (num) => {
+  const emojis = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
+  return emojis[num] || num;
+};
