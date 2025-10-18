@@ -1,10 +1,11 @@
 // src/features/reports/index.js
 
 import { getBase, tables } from '../../config/database.js';
-import keyboards from '../../utils/keyboards.js';
+// import keyboards, { weeklyReportMenuKeyboard, monthlyReportMenuKeyboard } from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
 import logger from '../../utils/logger.js';
 import users from '../../services/users.js';
+import keyboards from '../../utils/keyboards.js';
 
 const base = getBase();
 
@@ -123,18 +124,7 @@ const showWeeklyReport = async (ctx) => {
       return;
     }
     
-    await ctx.reply(
-      report.message,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📊 Щомісячний звіт', callback_data: 'show_monthly_report' }],
-            [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-          ]
-        }
-      }
-    );
+    await ctx.reply(report.message, keyboards.weeklyReportMenuKeyboard());
     
     logger.info('[reports] ✅ Показаний щотижневий звіт');
   } catch (error) {
@@ -158,18 +148,7 @@ const showMonthlyReport = async (ctx) => {
       return;
     }
     
-    await ctx.reply(
-      report.message,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📊 Щотижневий звіт', callback_data: 'show_weekly_report' }],
-            [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-          ]
-        }
-      }
-    );
+    await ctx.reply(report.message, keyboards.monthlyReportMenuKeyboard());
     
     logger.info('[reports] ✅ Показаний щомісячний звіт');
   } catch (error) {

@@ -5,11 +5,6 @@
 // ===============================================================
 
 /**
- * Номери кроків як українські слова
- */
-export const STEP_WORDS = ['', 'Перше', 'Друге', 'Третє', 'Четверте', 'П\'яте', 'Шосте', 'Сьоме', 'Восьме'];
-
-/**
  * Маппінг сфер на поля нотаток в Airtable
  */
 export const getNoteField = (sphereKey) => ({
@@ -42,7 +37,7 @@ export const getSphereEmoji = (sphereKey) => ({
 // ===============================================================
 
 export const formatPhoneDisplay = (phone) => {
-  if (!phone) return 'невказано';
+  if (!phone) return 'не вказано';
   const cleaned = String(phone).replace(/\D/g, '');
   return `+${cleaned.slice(0, 2)} (${cleaned.slice(2, 5)}) ${cleaned.slice(5, 8)}-${cleaned.slice(8)}`;
 };

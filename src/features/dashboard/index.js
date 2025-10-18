@@ -1,10 +1,10 @@
 // src/features/dashboard/index.js
-// Головне меню та навігація - ТІЛЬКИ ІМПОРТИ З constants.js та keyboards.js
 
 import { MESSAGES, MENU_TEXTS, DASHBOARD_MESSAGES } from '../../config/index.js';
 import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
 import { getUserByTgId } from '../onboarding/handlers.js';
+import * as wheelBalance from '../wheelBalance/index.js';  
 
 /**
  * Форматувати дату
@@ -69,7 +69,8 @@ export const showCapabilities = async (ctx) => {
   await typing(ctx);
 
   // ✅ ВИКОРИСТОВУЄМО DASHBOARD_MESSAGES з constants.js
-  await ctx.reply(DASHBOARD_MESSAGES.CAPABILITIES, keyboards.infoMenuInline());
+  // showCapabilities = false → показує кнопку "Можливості" (щоб повернути сюди)
+  await ctx.reply(DASHBOARD_MESSAGES.CAPABILITIES, keyboards.infoMenuInline(false));
 
   if (ctx.callbackQuery) {
     try { await ctx.answerCbQuery('Можливості'); } catch {}
@@ -83,12 +84,14 @@ export const showInstructions = async (ctx) => {
   await typing(ctx);
   
   // ✅ ВИКОРИСТОВУЄМО MENU_TEXTS з constants.js
-  await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.infoMenuInline());
+  // showCapabilities = true → показує кнопку "Інструкції" (щоб повернути сюди)
+  await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.infoMenuInline(true));
 
   if (ctx.callbackQuery) {
     try { await ctx.answerCbQuery('Інструкції'); } catch {}
   }
 };
+
 
 /**
  * Показати контакти
@@ -182,13 +185,12 @@ export const handleText = async (ctx) => {
   if (!text) return false;
 
   try {
-    // ✅ ТОЧНІ ТЕКСТИ З keyboards.js
     switch (text) {
       case 'ℹ️ Інформація про бота':
         await showCapabilities(ctx);
         return true;
 
-      case '📞 Звʼязок':  // ✅ ПРАВИЛЬНИЙ АПОСТРОФ (ʼ)
+      case '📞 Звʼязок':
         await showContact(ctx);
         return true;
 
@@ -196,7 +198,6 @@ export const handleText = async (ctx) => {
         await showHelp(ctx);
         return true;
 
-      // ✅ ДОДАНО: Інші кнопки з mainMenuKeyboard
       case '📊 Мій прогрес та Звіти':
         await ctx.reply('📊 Функція "Мій прогрес" в розробці...', keyboards.mainMenuKeyboard());
         return true;
@@ -210,7 +211,16 @@ export const handleText = async (ctx) => {
         return true;
 
       case '🎯 Колесо балансу':
-        await ctx.reply('🎯 Функція "Колесо балансу" в розробці...', keyboards.mainMenuKeyboard());
+        // ✅ ВИКЛИКАЄМО РЕАЛЬНУ ФУНКЦІЮ
+        const tgId = ctx.from.id;
+        const user = await getUserByTgId(tgId);
+        const userName = user?.fields?.['User Name'] || ctx.from.first_name || 'Користувач';
+        const result = await wheelBalance.startWheelBalance(tgId, userName);
+        if (result.error) {
+          await ctx.reply(result.message, keyboards.mainMenuKeyboard());
+        } else {
+          await ctx.reply(result.message, result.keyboard);
+        }
         return true;
 
       default:
@@ -221,7 +231,6 @@ export const handleText = async (ctx) => {
     return false;
   }
 };
-
 /**
  * Ініціалізація модуля
  */

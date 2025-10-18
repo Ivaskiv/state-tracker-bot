@@ -54,7 +54,7 @@ export const tables = Object.freeze({
   EVENING_RESPONSES: 'Evening_Responses',
   AFFIRMATIONS: 'Affirmations',
   USER_AFFIRMATIONS: 'User Affirmations',
-  USER_REPORTS: 'User Reports',
+  USER_REPORTS: 'User_Reports',
   USER_GOALS: 'User_Goals',
   WHEEL_BALANCE: 'WheelBalance',
   OFFERS_LOG: 'Offers_Log',

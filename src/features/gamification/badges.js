@@ -135,78 +135,105 @@ const formatBadgeMessage = (badge, totalPoints) => {
 /**
  * Отримати статистику для перевірки бейджів
  */
-// ✅ ВИПРАВЛЕНО: видалено поле "Badges" з запиту (воно зберігається окремо)
+// Замість старої версії:
 export const getUserStats = async (tgId) => {
   try {
-    // 1. Основні дані користувача (БЕЗ Badges - воно не існує в Users)
+    // 1. Основні дані користувача
     const userFormula = `{TG_id} = "${tgId}"`;
     const userRecords = await base(tables.USERS)
       .select({
         filterByFormula: userFormula,
         maxRecords: 1,
-        fields: ['Total_Points', 'Total_Sessions'] // ✅ Видалено Badges
+        fields: ['Total_Points', 'Total_Sessions']
       })
       .firstPage();
 
     if (userRecords.length === 0) return null;
-
     const user = userRecords[0].fields;
 
-    // 2. Активні дні (з Responses)
-    const responsesFormula = `{TG_id} = "${tgId}"`;
-    const responses = await base(tables.RESPONSES)
-      .select({
-        filterByFormula: responsesFormula,
-        fields: ['Date_Response']
-      })
-      .all();
+    // 2. Активні дні (з Responses) - SAFE
+    let totalActiveDays = 0;
+    let currentStreak = 0;
+    try {
+      const responsesFormula = `{TG_id} = "${tgId}"`;
+      const responses = await base(tables.RESPONSES)
+        .select({
+          filterByFormula: responsesFormula,
+          fields: ['Date_Response']
+        })
+        .all();
 
-    const uniqueDates = new Set(responses.map(r => r.fields.Date_Response));
-    const totalActiveDays = uniqueDates.size;
-    const currentStreak = calculateStreak(responses); 
+      const uniqueDates = new Set(responses.map(r => r.fields.Date_Response));
+      totalActiveDays = uniqueDates.size;
+      currentStreak = calculateStreak(responses);
+    } catch (responsesError) {
+      console.warn('[badges/getUserStats] ⚠️ RESPONSES недоступна:', responsesError.message);
+    }
 
-    // 3. Завершені колеса
-    const wheelFormula = `AND({TG_id} = "${tgId}", {Status} = "Completed")`;
-    const wheelRecords = await base(tables.WHEEL_BALANCE)
-      .select({ filterByFormula: wheelFormula })
-      .all();
+    // 3. Завершені колеса - SAFE
+    let wheelBalanceCompleted = 0;
+    try {
+      const wheelFormula = `AND({TG_id} = "${tgId}", {Status} = "Completed")`;
+      const wheelRecords = await base(tables.WHEEL_BALANCE)
+        .select({ filterByFormula: wheelFormula })
+        .all();
+      wheelBalanceCompleted = wheelRecords.length;
+    } catch (wheelError) {
+      console.warn('[badges/getUserStats] ⚠️ WHEEL_BALANCE недоступна:', wheelError.message);
+    }
 
-    // 4. Цілі
-    const goalsFormula = `AND({TG_id} = "${tgId}", {Status} = "active")`;
-    const goals = await base(tables.USER_GOALS)
-      .select({ filterByFormula: goalsFormula })
-      .all();
-
+    // 4. Цілі - SAFE
     let maxGoalProgress = 0;
-    goals.forEach(g => {
-      const progress = g.fields.Progress || 0;
-      maxGoalProgress = Math.max(maxGoalProgress, progress);
-    });
+    let avgCompletionRate = 0;
+    try {
+      const goalsFormula = `AND({TG_id} = "${tgId}", {Status} = "active")`;
+      const goals = await base(tables.USER_GOALS)
+        .select({ filterByFormula: goalsFormula })
+        .all();
 
-    const avgCompletionRate = goals.length > 0
-      ? Math.round(goals.reduce((sum, g) => sum + (g.fields.Progress || 0), 0) / goals.length)
-      : 0;
+      goals.forEach(g => {
+        const progress = g.fields.Progress || 0;
+        maxGoalProgress = Math.max(maxGoalProgress, progress);
+      });
 
-    // 5. AI взаємодії
-    const aiFormula = `{TG_id} = "${tgId}"`;
-    const aiRecords = await base(tables.AI_CONVERSATIONS)
-      .select({ filterByFormula: aiFormula })
-      .all();
+      avgCompletionRate = goals.length > 0
+        ? Math.round(goals.reduce((sum, g) => sum + (g.fields.Progress || 0), 0) / goals.length)
+        : 0;
+    } catch (goalsError) {
+      console.warn('[badges/getUserStats] ⚠️ USER_GOALS недоступна:', goalsError.message);
+    }
 
-    const totalAIInteractions = aiRecords.length;
+    // 5. AI взаємодії - SAFE
+    let totalAIInteractions = 0;
+    try {
+      const aiFormula = `{TG_id} = "${tgId}"`;
+      const aiRecords = await base(tables.AI_CONVERSATIONS)
+        .select({ filterByFormula: aiFormula })
+        .all();
+      totalAIInteractions = aiRecords.length;
+    } catch (aiError) {
+      console.warn('[badges/getUserStats] ⚠️ AI_CONVERSATIONS недоступна:', aiError.message);
+    }
 
-    // 6. Тижневі звіти
-    const reportsFormula = `AND({TG_id} = "${tgId}", {Report_Type} = "weekly")`;
-    const reports = await base(tables.USER_REPORTS)
-      .select({ filterByFormula: reportsFormula })
-      .all();
-
-    const weeklyReportsCompleted = reports.length;
+    // 6. Тижневі звіти - SAFE
+    let weeklyReportsCompleted = 0;
+    try {
+      const reportsFormula = `{TG_id} = "${tgId}"`;
+      const reports = await base(tables.USER_REPORTS)
+        .select({ 
+          filterByFormula: reportsFormula,
+          fields: ['TG_id']
+        })
+        .all();
+      weeklyReportsCompleted = reports.length;
+    } catch (reportsError) {
+      console.warn('[badges/getUserStats] ⚠️ USER_REPORTS недоступна:', reportsError.message);
+    }
 
     return {
       currentStreak,
       totalActiveDays,
-      wheelBalanceCompleted: wheelRecords.length,
+      wheelBalanceCompleted,
       maxGoalProgress,
       avgCompletionRate,
       totalAIInteractions,
@@ -219,7 +246,6 @@ export const getUserStats = async (tgId) => {
     return null;
   }
 };
-
 // ✅ Helper функція для розрахунку streak
 const calculateStreak = (responses) => {
   if (!responses.length) return 0;

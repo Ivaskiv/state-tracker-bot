@@ -1,7 +1,8 @@
 // src/features/wheelBalance/database.js
 import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';
-import { todayISO } from '../../utils/date.js';
+import { todayISO } from '../../utils/helpers.js';
+import { getDaysWord } from '../../utils/helpers.js';
 
 const base = getBase();
 
@@ -145,7 +146,7 @@ export const canStartNewWheel = async (tgId) => {
       const daysLeft = 30 - daysSince;
       return {
         allowed: false,
-        reason: `Подождите ${daysLeft} днів перед новим колесом`,
+        reason: `Почекайте ${daysLeft} ${getDaysWord(daysLeft)} перед новим колесом`,
         daysLeft,
         lastDate: completedDate
       };

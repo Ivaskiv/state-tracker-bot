@@ -1,4 +1,4 @@
-// src/utils/date.js
+// src/utils/helpers.js
 
 /**
  * Отримати поточну дату в форматі ISO (YYYY-MM-DD)
