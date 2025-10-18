@@ -292,6 +292,12 @@ const handleWheelCallback = async (ctx) => {
       await ctx.reply('✅ Колесо скасовано. Можеш почати заново будь-коли!', keyboards.mainMenuKeyboard());
       return true;
     }
+if (data === 'wheel_go_back') {
+  const wheelBalance = (await import('../features/wheelBalance/index.js')).default;
+  await wheelBalance.goBackWheelStep(tgId, ctx);
+  try { await ctx.answerCbQuery('⬅️ Повертаємось назад'); } catch {}
+  return true;
+}
 
     if (data === 'wheel_view_analysis') {
       const history = await wheelBalance.getWheelHistory(tgId);

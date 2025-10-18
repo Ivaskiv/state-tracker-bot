@@ -4,7 +4,6 @@ import { TIMEZONES } from "../config/index.js";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 const kbRow = (...btns) => btns.map((b) => ({ text: b.text, callback_data: b.callback_data }));
-
 // ── головний набір клавіатур ─────────────────────────────────────────────────
 const keyboards = {
   // 🏠 ГОЛОВНЕ МЕНЮ (reply keyboard)
@@ -228,6 +227,8 @@ export const wheelNoteKeyboard = (step) => ({
   reply_markup: {
     inline_keyboard: [
       kbRow({ text: '⏭️ Пропустити нотатку', callback_data: `wheel_skip_note_${step}` }),
+      kbRow({ text: '⬅️ Змінити оцінку', callback_data: 'wheel_go_back' }),
+
       kbRow({ text: '🚪 Вийти', callback_data: 'wheel_exit' }),
     ],
   },

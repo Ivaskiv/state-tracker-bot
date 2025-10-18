@@ -18,6 +18,11 @@ export const isAwaitingNote = flow.isAwaitingNote;
 export const goBackWheelStep = flow.goBackWheelStep;
 export const cancelWheelBalance = flow.cancelWheelBalance;
 
+export const getWheelHistory = flow.getWheelHistory;
+export const getActiveWheel = flow.getActiveWheel;
+export const getLatestCompletedWheel = flow.getLatestCompletedWheel;
+
+
 // Analysis функції
 export const generateWheelAnalysis = analysis.generateWheelAnalysis;
 
