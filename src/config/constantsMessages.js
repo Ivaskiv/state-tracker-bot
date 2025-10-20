@@ -44,7 +44,7 @@ export const MESSAGES = Object.freeze({
     `• 🤖 AI-наставник — 24/7\n` +
     `• 🛞 Колесо балансу — аудит 8 сфер\n` +
     `• 📊 Мій прогрес — звіти\n` +
-    `• 💎 Афірмація — щоденна мотивація\n\n` +
+    `• 🧭 Фокус дня — щоденна мотивація\n\n` +
     `Обирай дію 👇`,
 
   WELCOME_BACK_INACTIVE: (userName, stats = {}) =>
@@ -76,7 +76,7 @@ export const REGISTRATION_SUCCESS_TEMPLATE =
 • 🤖 AI наставник
 • 🛞 Колесо балансу
 • 📈 Звіти
-• 💎 Афірмація 
+• 🧭 Фокус дня 
 • 📊 Мій прогрес 
 • 💰 Підписка
 
@@ -102,7 +102,7 @@ export const MENU_BUTTONS = Object.freeze({
   SUBSCRIPTION: '💰 Підписка',
   HELP: '❓ Допомога',
   PROGRESS: '📊 Мій прогрес',
-  AFFIRMATION: '💎 Афірмація',
+  AFFIRMATION: '🧭 Фокус дня',
   INSTRUCTIONS: '📝 Інструкції',
   CONTACT: '📞 Зв\'язок'
 });

@@ -117,7 +117,7 @@ export const goBackWheelStep = async (tgId, ctx) => {
     const wheel = await getActiveWheel(tgId);
     if (!wheel) {
       await ctx.reply('❌ Немає активного колеса', keyboards.mainMenuKeyboard());
-      return { error: true };
+      return { error: false };
     }
 
     const step = wheel.fields.Step || 1;

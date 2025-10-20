@@ -1,6 +1,7 @@
 // src/features/dashboard/index.js
 
 import { MESSAGES, MENU_TEXTS, DASHBOARD_MESSAGES } from '../../config/index.js';
+import users from '../../services/users.js';
 import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
 import { getUserByTgId } from '../onboarding/handlers.js';
@@ -61,22 +62,66 @@ export const showMainMenu = async (ctx) => {
     await ctx.reply('Помилка завантаження меню', keyboards.mainMenuKeyboard());
   }
 };
+export const startAIMentorFromText = async (ctx) => {
+  try {
+    const aiMentor = (await import('../aiMentor/index.js')).default;
+    await aiMentor.showAIMentorChat(ctx);
+  } catch (error) {
+    console.error('[dashboard/startAIMentorFromText] ❌ Помилка:', error);
+    await ctx.reply('❌ Помилка запуску AI наставника', keyboards.mainMenuKeyboard());
+  }
+};
+/**
+ * Запустити колесо балансу з текстового меню
+ */
+export const startWheelFromText = async (ctx) => {
+  try {
+    const tgId = ctx.from.id;
+    const user = await getUserByTgId(tgId);
+    
+    if (!user) {
+      await ctx.reply('Спочатку зареєструйся командою /start', keyboards.mainMenuKeyboard());
+      return;
+    }
 
+    const userName = user.fields['User Name'] || ctx.from.first_name || 'Користувач';
+    const result = await wheelBalance.startWheelBalance(tgId, userName);
+    
+    if (result.error) {
+      await ctx.reply(result.message, keyboards.mainMenuKeyboard());
+    } else {
+      await ctx.reply(result.message, result.keyboard);
+    }
+  } catch (error) {
+    console.error('[dashboard/startWheelFromText] ❌ Помилка:', error);
+    await ctx.reply('❌ Помилка запуску колеса', keyboards.mainMenuKeyboard());
+  }
+};
 /**
  * Показати можливості бота
  */
 export const showCapabilities = async (ctx) => {
   await typing(ctx);
 
-  // ✅ ВИКОРИСТОВУЄМО DASHBOARD_MESSAGES з constants.js
-  // showCapabilities = false → показує кнопку "Можливості" (щоб повернути сюди)
   await ctx.reply(DASHBOARD_MESSAGES.CAPABILITIES, keyboards.infoMenuInline(false));
 
   if (ctx.callbackQuery) {
     try { await ctx.answerCbQuery('Можливості'); } catch {}
   }
 };
-
+/**
+ * ✅ ВИНЕСЕНА ЛОГІКА - показати мій прогрес
+ */
+export const showMyProgress = async (ctx) => {
+  try {
+    const tgId = ctx.from.id;
+    const gamification = (await import('../gamification/index.js')).default;
+    await gamification.showAchievements(ctx);
+  } catch (error) {
+    console.error('[dashboard/showMyProgress] ❌ Помилка:', error);
+    await ctx.reply('📊 Функція в розробці...', keyboards.mainMenuKeyboard());
+  }
+};
 /**
  * Показати інструкції
  */
@@ -92,6 +137,19 @@ export const showInstructions = async (ctx) => {
   }
 };
 
+/**
+ * ✅ ВИНЕСЕНА ЛОГІКА - показати підписку
+ */
+export const showSubscription = async (ctx) => {
+  try {
+    const subscription = (await import('../subscription/index.js')).default;
+    const controller = (await import('../subscription/controller.js')).default;
+    await controller.handleSubscriptionInfo(ctx);
+  } catch (error) {
+    console.error('[dashboard/showSubscription] ❌ Помилка:', error);
+    await ctx.reply('💰 Функція в розробці...', keyboards.mainMenuKeyboard());
+  }
+};
 
 /**
  * Показати контакти
@@ -184,8 +242,9 @@ export const handleText = async (ctx) => {
 
   if (!text) return false;
 
-  try {
+try {
     switch (text) {
+      // ── dashboard команди ──────────────────────────────────────
       case 'ℹ️ Інформація про бота':
         await showCapabilities(ctx);
         return true;
@@ -198,29 +257,21 @@ export const handleText = async (ctx) => {
         await showHelp(ctx);
         return true;
 
+      // ── основні фічі ───────────────────────────────────────────
+      case '🎯 Колесо балансу':
+        await startWheelFromText(ctx);
+        return true;
+
       case '📊 Мій прогрес та Звіти':
-        await ctx.reply('📊 Функція "Мій прогрес" в розробці...', keyboards.mainMenuKeyboard());
+        await showMyProgress(ctx);
         return true;
 
       case '💰 Підписка':
-        await ctx.reply('💰 Функція "Підписка" в розробці...', keyboards.mainMenuKeyboard());
+        await showSubscription(ctx);
         return true;
 
       case '🤖 AI Наставник':
-        await ctx.reply('🤖 Функція "AI Наставник" в розробці...', keyboards.mainMenuKeyboard());
-        return true;
-
-      case '🎯 Колесо балансу':
-        // ✅ ВИКЛИКАЄМО РЕАЛЬНУ ФУНКЦІЮ
-        const tgId = ctx.from.id;
-        const user = await getUserByTgId(tgId);
-        const userName = user?.fields?.['User Name'] || ctx.from.first_name || 'Користувач';
-        const result = await wheelBalance.startWheelBalance(tgId, userName);
-        if (result.error) {
-          await ctx.reply(result.message, keyboards.mainMenuKeyboard());
-        } else {
-          await ctx.reply(result.message, result.keyboard);
-        }
+        await startAIMentorFromText(ctx);
         return true;
 
       default:
@@ -228,9 +279,11 @@ export const handleText = async (ctx) => {
     }
   } catch (error) {
     console.error('[dashboard/handleText] ❌ Помилка:', error);
+    await ctx.reply('❌ Виникла помилка. Спробуй ще раз', keyboards.mainMenuKeyboard());
     return false;
   }
 };
+
 /**
  * Ініціалізація модуля
  */

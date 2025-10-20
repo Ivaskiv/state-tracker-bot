@@ -2,7 +2,7 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T12:00:43.665Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T12:00:49.854Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T12:00:51.396Z"}
-{"level":"info","message":"Processing text message from 630111093: \"💎 Афірмація\"","timestamp":"2025-09-12T12:01:01.692Z"}
+{"level":"info","message":"Processing text message from 630111093: \"🧭 Фокус дня\"","timestamp":"2025-09-12T12:01:01.692Z"}
 {"level":"info","message":"Processing text message from 630111093: \"3\"","timestamp":"2025-09-12T12:01:22.724Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ОБРОБКА ВІДПОВІДІ ==========","timestamp":"2025-09-12T12:01:23.986Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T12:01:23.986Z"}
@@ -180,7 +180,7 @@
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:34:56.305Z"}
 {"level":"info","message":"✅ Збігається: false","timestamp":"2025-09-12T12:34:56.305Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:34:56.305Z"}
-{"0":"(t) => t === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"(t) => t === '📞 Зв\\'язок з нами'","11":"(t) => t === '📝 Інструкції'","12":"(t) => t === 'ℹ️ Профіль'","2":"🌅 Ранкові питання","3":"🌙 Вечірні питання","4":"(t) => t === '💎 Афірмація'","5":"(t) => t === '📈 Щотижневий звіт'","6":"(t) => t === '📈 Щомісячний звіт'","7":"(t) => t === '💰 Підписка'","8":"(t) => t === '📊 Мій прогрес'","9":"(t) => t === '❓ Допомога'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T12:34:56.306Z"}
+{"0":"(t) => t === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"(t) => t === '📞 Зв\\'язок з нами'","11":"(t) => t === '📝 Інструкції'","12":"(t) => t === 'ℹ️ Профіль'","2":"🌅 Ранкові питання","3":"🌙 Вечірні питання","4":"(t) => t === '🧭 Фокус дня'","5":"(t) => t === '📈 Щотижневий звіт'","6":"(t) => t === '📈 Щомісячний звіт'","7":"(t) => t === '💰 Підписка'","8":"(t) => t === '📊 Мій прогрес'","9":"(t) => t === '❓ Допомога'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T12:34:56.306Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:34:56.307Z"}
 {"level":"info","message":"✅ [MENU] Знайдено обробник для: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:34:56.308Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T12:34:56.308Z"}
@@ -370,7 +370,7 @@
 {"level":"info","message":"🎯 AI_MENTOR_WAITING: \"undefined\"","timestamp":"2025-09-12T12:54:01.277Z"}
 {"level":"info","message":"✅ Збігається: false","timestamp":"2025-09-12T12:54:01.277Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:54:01.277Z"}
-{"0":"(t) => t === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"(t) => t === '📞 Зв\\'язок з нами'","11":"(t) => t === '📝 Інструкції'","12":"(t) => t === 'ℹ️ Профіль'","2":"🌅 Ранкові питання","3":"🌙 Вечірні питання","4":"(t) => t === '💎 Афірмація'","5":"(t) => t === '📈 Щотижневий звіт'","6":"(t) => t === '📈 Щомісячний звіт'","7":"(t) => t === '💰 Підписка'","8":"(t) => t === '📊 Мій прогрес'","9":"(t) => t === '❓ Допомога'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T12:54:01.278Z"}
+{"0":"(t) => t === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"(t) => t === '📞 Зв\\'язок з нами'","11":"(t) => t === '📝 Інструкції'","12":"(t) => t === 'ℹ️ Профіль'","2":"🌅 Ранкові питання","3":"🌙 Вечірні питання","4":"(t) => t === '🧭 Фокус дня'","5":"(t) => t === '📈 Щотижневий звіт'","6":"(t) => t === '📈 Щомісячний звіт'","7":"(t) => t === '💰 Підписка'","8":"(t) => t === '📊 Мій прогрес'","9":"(t) => t === '❓ Допомога'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T12:54:01.278Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:54:01.278Z"}
 {"level":"info","message":"✅ [MENU] Знайдено обробник для: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T12:54:01.278Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T12:54:01.278Z"}
@@ -454,28 +454,28 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T15:28:05.075Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T15:32:25.175Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T15:32:47.908Z"}
-{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '💎 Афірмація'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:33:58.148Z"}
+{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '🧭 Фокус дня'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:33:58.148Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"ℹ️ Профіль\"","timestamp":"2025-09-12T15:33:58.149Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"ℹ️ Профіль\"","timestamp":"2025-09-12T15:33:58.150Z"}
-{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '💎 Афірмація'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:01.837Z"}
+{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '🧭 Фокус дня'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:01.837Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"❓ Допомога\"","timestamp":"2025-09-12T15:34:01.837Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"❓ Допомога\"","timestamp":"2025-09-12T15:34:01.838Z"}
-{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '💎 Афірмація'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:04.399Z"}
+{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '🧭 Фокус дня'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:04.399Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"📊 Мій прогрес\"","timestamp":"2025-09-12T15:34:04.400Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"📊 Мій прогрес\"","timestamp":"2025-09-12T15:34:04.401Z"}
-{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '💎 Афірмація'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:05.551Z"}
+{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '🧭 Фокус дня'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:05.551Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"🤖 AI наставник\"","timestamp":"2025-09-12T15:34:05.552Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"🤖 AI наставник\"","timestamp":"2025-09-12T15:34:05.552Z"}
-{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '💎 Афірмація'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:08.005Z"}
-{"level":"info","message":"📋 [MENU] Вхідний текст: \"💎 Афірмація\"","timestamp":"2025-09-12T15:34:08.006Z"}
-{"level":"info","message":"❓ [MENU] Невідома команда: \"💎 Афірмація\"","timestamp":"2025-09-12T15:34:08.006Z"}
-{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '💎 Афірмація'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:09.196Z"}
+{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '🧭 Фокус дня'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:08.005Z"}
+{"level":"info","message":"📋 [MENU] Вхідний текст: \"🧭 Фокус дня\"","timestamp":"2025-09-12T15:34:08.006Z"}
+{"level":"info","message":"❓ [MENU] Невідома команда: \"🧭 Фокус дня\"","timestamp":"2025-09-12T15:34:08.006Z"}
+{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '🧭 Фокус дня'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:09.196Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"📈 Щомісячний звіт\"","timestamp":"2025-09-12T15:34:09.196Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"📈 Щомісячний звіт\"","timestamp":"2025-09-12T15:34:09.196Z"}
-{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '💎 Афірмація'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:10.663Z"}
+{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '🧭 Фокус дня'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:10.663Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"📈 Щотижневий звіт\"","timestamp":"2025-09-12T15:34:10.664Z"}
 {"level":"info","message":"❓ [MENU] Невідома команда: \"📈 Щотижневий звіт\"","timestamp":"2025-09-12T15:34:10.664Z"}
-{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '💎 Афірмація'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:11.808Z"}
+{"0":"text => text === '🤖 AI наставник'","1":"🎯 Колесо балансу","10":"text => text === 'ℹ️ Профіль'","2":"text => text === '🧭 Фокус дня'","3":"text => text === '📈 Щотижневий звіт'","4":"text => text === '📈 Щомісячний звіт'","5":"text => text === '💰 Підписка'","6":"text => text === '📊 Мій прогрес'","7":"text => text === '❓ Допомога'","8":"text => text === '📞 Зв\\'язок з нами'","9":"text => text === '📝 Інструкції'","level":"info","message":"📋 [MENU] Доступні команди:","timestamp":"2025-09-12T15:34:11.808Z"}
 {"level":"info","message":"📋 [MENU] Вхідний текст: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T15:34:11.808Z"}
 {"level":"info","message":"✅ [MENU] Знайдено обробник для: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T15:34:11.808Z"}
 {"level":"info","message":"🎯 [КОЛЕСО БАЛАНСУ] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T15:34:11.811Z"}
@@ -535,7 +535,7 @@
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📞 Зв'язок з нами\"","timestamp":"2025-09-12T15:36:38.593Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📝 Інструкції\"","timestamp":"2025-09-12T15:36:41.776Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-12T15:36:47.414Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-12T15:36:51.839Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-12T15:36:51.839Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📈 Щотижневий звіт\"","timestamp":"2025-09-12T15:36:54.183Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📈 Щомісячний звіт\"","timestamp":"2025-09-12T15:37:03.932Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-12T15:37:17.586Z"}
@@ -622,7 +622,7 @@
 {"level":"info","message":"📋 [MENU] Обробка команди: \"ℹ️ Профіль\"","timestamp":"2025-09-12T16:03:21.060Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📞 Зв'язок з нами\"","timestamp":"2025-09-12T16:03:25.966Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-12T16:03:29.751Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-12T16:03:32.982Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-12T16:03:32.982Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T16:03:41.123Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] ========== ПОЧАТОК ЗАПИТУ ==========","timestamp":"2025-09-12T16:03:41.702Z"}
 {"level":"info","message":"🎯 [WHEEL CONTROLLER] Користувач: 630111093","timestamp":"2025-09-12T16:03:41.703Z"}
@@ -1055,9 +1055,9 @@
 {"level":"info","message":"✅ [WHEEL CONTROLLER] Колесо завершено для 630111093","timestamp":"2025-09-12T16:54:46.523Z"}
 {"level":"info","message":"✅ [WHEEL CONTROLLER] Встановлено крок: completed","timestamp":"2025-09-12T16:54:47.000Z"}
 {"level":"info","message":"✅ [WHEEL CONTROLLER] ========== ВІДПОВІДЬ УСПІШНО ОБРОБЛЕНА ==========","timestamp":"2025-09-12T16:54:47.000Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-12T16:55:13.909Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-12T16:55:13.909Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-12T16:55:22.278Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-12T16:57:17.339Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-12T16:57:17.339Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:57:42.637Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:57:48.784Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-12T16:58:19.712Z"}
@@ -1098,7 +1098,7 @@
 {"level":"info","message":"❓ [MENU] Невідома команда: \"🙏\"","timestamp":"2025-09-12T17:51:43.153Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"ℹ️ Профіль\"","timestamp":"2025-09-12T17:51:50.707Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📝 Інструкції\"","timestamp":"2025-09-12T17:52:03.108Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-12T17:52:23.639Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-12T17:52:23.639Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-12T17:52:30.659Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-12T17:59:32.421Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-12T17:59:45.477Z"}
@@ -1189,7 +1189,7 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:38:31.170Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:38:41.898Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:38:42.195Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-13T16:38:51.955Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-13T16:38:51.955Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:41:22.364Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T16:42:21.085Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\" для користувача 630111093","timestamp":"2025-09-13T16:43:34.710Z"}
@@ -1209,16 +1209,16 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T17:01:51.044Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-13T17:02:04.104Z"}
 {"level":"info","message":"🚪 [botController] Вихід з AI ментора для афірмації 630111093","timestamp":"2025-09-13T17:02:12.525Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-13T17:02:12.526Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-13T17:02:12.526Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T17:04:40.765Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T17:04:58.048Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-13T17:05:29.468Z"}
 {"level":"info","message":"🚪 [botController] Вихід з AI ментора для афірмації 630111093","timestamp":"2025-09-13T17:05:34.889Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-13T17:05:34.889Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-13T17:05:34.889Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T17:06:52.374Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-13T17:07:15.111Z"}
 {"level":"info","message":"🚪 [botController] Вихід з AI ментора для афірмації 630111093","timestamp":"2025-09-13T17:07:25.654Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-13T17:07:25.654Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-13T17:07:25.654Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-13T17:09:24.991Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📈 Щотижневий звіт\"","timestamp":"2025-09-13T17:09:49.332Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-13T17:10:01.288Z"}
@@ -1296,7 +1296,7 @@
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:35:20.403Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:35:23.826Z"}
 {"level":"info","message":"[botController] Initializing bot controller...","timestamp":"2025-09-15T16:35:43.140Z"}
-{"level":"info","message":"📋 [MENU] Обробка команди: \"💎 Афірмація\"","timestamp":"2025-09-15T16:36:25.343Z"}
+{"level":"info","message":"📋 [MENU] Обробка команди: \"🧭 Фокус дня\"","timestamp":"2025-09-15T16:36:25.343Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"📊 Мій прогрес\"","timestamp":"2025-09-15T16:36:29.344Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🎯 Колесо балансу\"","timestamp":"2025-09-15T16:36:38.484Z"}
 {"level":"info","message":"📋 [MENU] Обробка команди: \"🤖 AI наставник\"","timestamp":"2025-09-15T16:36:54.097Z"}

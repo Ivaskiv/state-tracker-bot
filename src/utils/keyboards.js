@@ -106,7 +106,7 @@ const keyboards = {
     reply_markup: {
       inline_keyboard: [
         kbRow({ text: '📞 Підтримка', callback_data: 'contact_support' }),
-        kbRow({ text: '💎 Афірмація', callback_data: 'show_affirmation' }),
+        kbRow({ text: '🧭 Фокус дня', callback_data: 'show_affirmation' }),
         kbRow({ text: '❓ Допомога', callback_data: 'help' }),
         kbRow({ text: '🔙 Назад', callback_data: 'main_menu' }),
       ],

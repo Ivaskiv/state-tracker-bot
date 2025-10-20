@@ -1,4 +1,3 @@
-// src/features/wheelBalance/index.js
 import * as flow from './flow.js';
 import * as analysis from './analysis.js';
 import { wheelController } from './controller.js';
@@ -18,10 +17,10 @@ export const isAwaitingNote = flow.isAwaitingNote;
 export const goBackWheelStep = flow.goBackWheelStep;
 export const cancelWheelBalance = flow.cancelWheelBalance;
 
+// ✅ БЕЗ ДУБЛЮВАННЯ - лише один експорт!
 export const getWheelHistory = flow.getWheelHistory;
 export const getActiveWheel = flow.getActiveWheel;
 export const getLatestCompletedWheel = flow.getLatestCompletedWheel;
-
 
 // Analysis функції
 export const generateWheelAnalysis = analysis.generateWheelAnalysis;
