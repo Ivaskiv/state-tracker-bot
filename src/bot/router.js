@@ -368,6 +368,57 @@ if (data.startsWith('wheel_skip_note_')) {
   }
 };
 
+const handleDashboardText = async (ctx) => {
+  const text = ctx.message?.text?.trim();
+  if (!text) return false;
+
+  try {
+    switch (text) {
+      case '🎯 Колесо балансу':
+        const tgId = ctx.from.id;
+        const user = await (await import('../services/users.js')).default.getUserByTgId(tgId);
+        const userName = user?.fields?.['User Name'] || ctx.from.first_name || 'Користувач';
+        const result = await wheelBalance.startWheelBalance(tgId, userName);
+        if (result.error) {
+          await ctx.reply(result.message, keyboards.mainMenuKeyboard());
+        } else {
+          await ctx.reply(result.message, result.keyboard);
+        }
+        return true;
+
+      case '📊 Мій прогрес та Звіти':
+        await ctx.reply('📊 Функція в розробці...', keyboards.mainMenuKeyboard());
+        return true;
+
+      case 'ℹ️ Інформація про бота':
+        await dashboardModule.showCapabilities(ctx);
+        return true;
+
+      case '📞 Звʼязок':
+        await dashboardModule.showContact(ctx);
+        return true;
+
+      case '❓ Допомога':
+        await dashboardModule.showHelp(ctx);
+        return true;
+
+      case '💰 Підписка':
+        await ctx.reply('💰 Функція в розробці...', keyboards.mainMenuKeyboard());
+        return true;
+
+      case '🤖 AI Наставник':
+        await ctx.reply('🤖 Функція в розробці...', keyboards.mainMenuKeyboard());
+        return true;
+
+      default:
+        return false;
+    }
+  } catch (e) {
+    logger.error('[router/handleDashboardText]', e);
+    return false;
+  }
+};
+
 // ── Ініціалізація роутера ────────────────────────────────────────────────────
 export const initRouter = (bot) => {
   logger.info('🎮 [router] Ініціалізація…');
@@ -392,9 +443,10 @@ export const initRouter = (bot) => {
       // Послідовність обробки:
       // 1. Онбординг → 2. Колесо (нотатка) → 3. Щоденні сесії → 4. AI → 5. Меню
       
-      if (await handleDailySessionsText(ctx)) return;
-      if (await dashboardModule.handleText?.(ctx)) return;
-      if (await aiMentorModule.handleText?.(ctx)) return;
+    if (await handleDashboardText(ctx)) return;        
+    if (await handleDailySessionsText(ctx)) return;
+    if (await dashboardModule.handleText?.(ctx)) return;
+    if (await aiMentorModule.handleText?.(ctx)) return;
 
       logger.warn('[router/text] ❓ Жоден handler не спрацював');
       await ctx.reply('❓ Невідома команда. Використай меню нижче.', keyboards.mainMenuKeyboard());
