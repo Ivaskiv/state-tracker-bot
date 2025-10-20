@@ -1,12 +1,12 @@
-// src/features/subscription/controller.js
+// src/features/subscription/controller.js — ВИПРАВЛЕНО
 
 import service from './service.js';
 import keyboards from '../../utils/keyboards.js';
+import logger from '../../utils/logger.js';
 import { 
   SUBSCRIPTION_PLANS, 
   WAYFORPAY_LINKS,
   COURSE_OFFERS,
-  CONSULTATION_OFFER,
   PROBLEM_DESCRIPTIONS,
   ACTIVITY_TRIGGERS,
   SUBSCRIPTION_MESSAGES,
@@ -15,17 +15,8 @@ import {
 import users from '../../services/users.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
-// helpers (локальні)
+// helpers
 // ──────────────────────────────────────────────────────────────────────────────
-
-const safeEditOrReply = async (ctx, text, extra) => {
-  try {
-    // у callback'ах простіше одразу reply (щоб не ловити message_id)
-    await ctx.reply(text, extra);
-  } catch {
-    try { await ctx.reply(text, extra); } catch {}
-  }
-};
 
 const daysLeftFrom = (isoDate) => {
   if (!isoDate) return null;
@@ -35,11 +26,21 @@ const daysLeftFrom = (isoDate) => {
   return diff;
 };
 
+const safeSend = async (bot, tgId, text, extra = {}) => {
+  try {
+    await bot.telegram.sendMessage(tgId, text, { parse_mode: 'Markdown', ...extra });
+    return true;
+  } catch (e) {
+    logger.error(`[subscription] ❌ Send ${tgId}:`, e.message);
+    return false;
+  }
+};
+
 // ──────────────────────────────────────────────────────────────────────────────
 // 1) Інфо про підписку
 // ──────────────────────────────────────────────────────────────────────────────
 
-const handleSubscriptionInfo = async (ctx) => {
+export const handleSubscriptionInfo = async (ctx) => {
   const tgId = ctx.from.id;
 
   try {
@@ -50,26 +51,34 @@ const handleSubscriptionInfo = async (ctx) => {
     }
 
     const status = await service.checkSubscriptionStatus(tgId);
-    const plan = user['Active Subscription Plan'] || '—';
-    const start = user.Start_Date ? new Date(user.Start_Date).toLocaleDateString('uk-UA') : '—';
-    const end = user.End_Date ? new Date(user.End_Date).toLocaleDateString('uk-UA') : '—';
+    const plan = user.fields['Active Subscription Plan'] || '—';
+    const start = user.fields.Start_Date ? new Date(user.fields.Start_Date).toLocaleDateString('uk-UA') : '—';
+    const end = user.fields.End_Date ? new Date(user.fields.End_Date).toLocaleDateString('uk-UA') : '—';
 
-    const daysLeft = status?.endDate ? daysLeftFrom(status.endDate) : daysLeftFrom(user.End_Date);
+    const daysLeft = status?.endDate ? daysLeftFrom(status.endDate) : daysLeftFrom(user.fields.End_Date);
     const expiringSoon = typeof daysLeft === 'number' && daysLeft >= 0 && daysLeft <= 3;
 
-    let message = '💰 ПІДПИСКА:\n\n';
+    let message = '💰 **ПІДПИСКА:**\n\n';
 
     if (status?.active) {
       message += SUBSCRIPTION_MESSAGES.INFO_ACTIVE(plan, start, end);
       if (expiringSoon) message += SUBSCRIPTION_MESSAGES.INFO_EXPIRING(daysLeft);
-      await safeEditOrReply(ctx, message, keyboards.subscriptionInfoActiveKeyboard(expiringSoon));
+      
+      await ctx.reply(message, { 
+        parse_mode: 'Markdown',
+        ...keyboards.subscriptionInfoActiveKeyboard(expiringSoon)
+      });
     } else {
       message += SUBSCRIPTION_MESSAGES.INFO_INACTIVE;
-      await safeEditOrReply(ctx, message, keyboards.subscriptionInfoInactiveKeyboard());
+      
+      await ctx.reply(message, { 
+        parse_mode: 'Markdown',
+        ...keyboards.subscriptionInfoInactiveKeyboard()
+      });
     }
   } catch (error) {
-    console.error('❌ [subscription/controller] Інфо помилка:', error);
-    await ctx.reply('Помилка отримання інформації про підписку', keyboards.mainMenuKeyboard());
+    logger.error('[subscription] ❌ handleSubscriptionInfo:', error.message);
+    await ctx.reply('❌ Помилка отримання інформації про підписку', keyboards.mainMenuKeyboard());
   }
 };
 
@@ -77,12 +86,18 @@ const handleSubscriptionInfo = async (ctx) => {
 // 2) Плани
 // ──────────────────────────────────────────────────────────────────────────────
 
-const handleSubscriptionPlans = async (ctx) => {
+export const handleSubscriptionPlans = async (ctx) => {
   try {
-    await safeEditOrReply(ctx, SUBSCRIPTION_MESSAGES.PLANS_LIST, keyboards.subscriptionPlansKeyboard());
-    if (ctx.callbackQuery) { try { await ctx.answerCbQuery('Оберіть план'); } catch {} }
+    await ctx.reply(SUBSCRIPTION_MESSAGES.PLANS_LIST, { 
+      parse_mode: 'Markdown',
+      ...keyboards.subscriptionPlansKeyboard()
+    });
+    
+    if (ctx.callbackQuery) {
+      try { await ctx.answerCbQuery('Оберіть план'); } catch {}
+    }
   } catch (e) {
-    console.error('❌ [subscription/controller] Plans:', e?.message || e);
+    logger.error('[subscription] ❌ handleSubscriptionPlans:', e.message);
   }
 };
 
@@ -90,7 +105,7 @@ const handleSubscriptionPlans = async (ctx) => {
 // 3) Оформлення оплати
 // ──────────────────────────────────────────────────────────────────────────────
 
-const handleSubscribe = async (ctx, planKey) => {
+export const handleSubscribe = async (ctx, planKey) => {
   const tgId = ctx.from.id;
 
   try {
@@ -111,19 +126,26 @@ const handleSubscribe = async (ctx, planKey) => {
     const baseLink = WAYFORPAY_LINKS[planKey];
     if (!baseLink) throw new Error('Невірний план');
 
-    const paymentLink = `${baseLink}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.name)}`;
-    const message = SUBSCRIPTION_MESSAGES.PAYMENT(planInfo.name, planInfo.price, planInfo.duration, paymentLink);
+    const paymentLink = `${baseLink}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.userName)}`;
+    const message = SUBSCRIPTION_MESSAGES.PAYMENT(planInfo.userName, planInfo.price, planInfo.duration, paymentLink);
 
-    await safeEditOrReply(ctx, message, keyboards.subscriptionPaymentKeyboard(paymentLink));
-    try { await ctx.answerCbQuery(`Обрано: ${planInfo.name}`); } catch {}
+    await ctx.reply(message, { 
+      parse_mode: 'Markdown',
+      ...keyboards.subscriptionPaymentKeyboard(paymentLink)
+    });
+    
+    try { await ctx.answerCbQuery(`Обрано: ${planInfo.userName}`); } catch {}
   } catch (error) {
-    console.error('❌ [subscription/controller] Subscribe:', error);
+    logger.error('[subscription] ❌ handleSubscribe:', error.message);
     try { await ctx.answerCbQuery('Помилка створення оплати'); } catch {}
   }
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-const handleSyncSubscription = async (ctx) => {
+// 4) Синхронізація статусу
+// ──────────────────────────────────────────────────────────────────────────────
+
+export const handleSyncSubscription = async (ctx) => {
   const tgId = ctx.from.id;
 
   try {
@@ -131,7 +153,7 @@ const handleSyncSubscription = async (ctx) => {
     if (!ctx.callbackQuery) {
       progressMsg = await ctx.reply('🔄 Перевіряю статус оплати...');
     } else {
-      await safeEditOrReply(ctx, '🔄 Перевіряю статус оплати...');
+      await ctx.reply('🔄 Перевіряю статус оплати...');
     }
 
     const resultText = await service.syncUserSubscription(tgId);
@@ -143,49 +165,78 @@ const handleSyncSubscription = async (ctx) => {
     await ctx.reply(resultText, keyboards.mainMenuKeyboard());
     try { await ctx.answerCbQuery('Статус оновлено'); } catch {}
   } catch (error) {
-    console.error('❌ [subscription/controller] Sync:', error);
-    await ctx.reply('Помилка оновлення статусу підписки', keyboards.mainMenuKeyboard());
+    logger.error('[subscription] ❌ handleSyncSubscription:', error.message);
+    await ctx.reply('❌ Помилка оновлення статусу підписки', keyboards.mainMenuKeyboard());
     try { await ctx.answerCbQuery('Помилка оновлення'); } catch {}
   }
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-const handleRenewSubscription = async (ctx) => {
-  await handleSubscriptionPlans(ctx);
-  try { await ctx.answerCbQuery('Оберіть план для продовження'); } catch {}
+// 5) Продовження підписки
+// ──────────────────────────────────────────────────────────────────────────────
+
+export const handleRenewSubscription = async (ctx) => {
+  try {
+    await ctx.reply(SUBSCRIPTION_MESSAGES.PLANS_LIST, { 
+      parse_mode: 'Markdown',
+      ...keyboards.subscriptionPlansKeyboard()
+    });
+    try { await ctx.answerCbQuery('Оберіть план для продовження'); } catch {}
+  } catch (error) {
+    logger.error('[subscription] ❌ handleRenewSubscription:', error.message);
+  }
 };
 
-const handleRenewalFromReminder = async (ctx, planKey) => {
+export const handleRenewalFromReminder = async (ctx, planKey) => {
   const tgId = ctx.from.id;
 
   try {
     const planInfo = SUBSCRIPTION_PLANS[planKey];
-    if (!planInfo) { try { await ctx.answerCbQuery('Невірний план'); } catch {}; return; }
+    if (!planInfo) { 
+      try { await ctx.answerCbQuery('Невірний план'); } catch {}
+      return;
+    }
 
     const orderReference = `RENEWAL_${planKey}_${tgId}_${Date.now()}`;
     const baseLink = WAYFORPAY_LINKS[planKey];
     if (!baseLink) throw new Error('Невірний план');
 
-    const paymentLink = `${baseLink}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.name)}`;
-    const message = SUBSCRIPTION_MESSAGES.RENEWAL(planInfo.name, planInfo.price, planInfo.duration, paymentLink);
+    const paymentLink = `${baseLink}?tg_id=${tgId}&orderReference=${orderReference}&productName=${encodeURIComponent(planInfo.userName)}`;
+    const message = SUBSCRIPTION_MESSAGES.RENEWAL(planInfo.userName, planInfo.price, planInfo.duration, paymentLink);
 
-    await safeEditOrReply(ctx, message, keyboards.subscriptionRenewalKeyboard(paymentLink));
-    try { await ctx.answerCbQuery(`Продовження: ${planInfo.name}`); } catch {}
+    await ctx.reply(message, { 
+      parse_mode: 'Markdown',
+      ...keyboards.subscriptionRenewalKeyboard(paymentLink)
+    });
+    
+    try { await ctx.answerCbQuery(`Продовження: ${planInfo.userName}`); } catch {}
   } catch (error) {
-    console.error('❌ [subscription/controller] Renewal:', error);
+    logger.error('[subscription] ❌ handleRenewalFromReminder:', error.message);
     try { await ctx.answerCbQuery('Помилка'); } catch {}
   }
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-const handleContactSupport = async (ctx) => {
-  const message = SUBSCRIPTION_MESSAGES.SUPPORT(ctx.from.id);
-  await safeEditOrReply(ctx, message, keyboards.subscriptionSupportKeyboard());
-  try { await ctx.answerCbQuery('Контакти надіслано'); } catch {}
+// 6) Підтримка
+// ──────────────────────────────────────────────────────────────────────────────
+
+export const handleContactSupport = async (ctx) => {
+  try {
+    const message = SUBSCRIPTION_MESSAGES.SUPPORT(ctx.from.id);
+    
+    await ctx.reply(message, { 
+      parse_mode: 'Markdown',
+      ...keyboards.subscriptionSupportKeyboard()
+    });
+    
+    try { await ctx.answerCbQuery('Контакти надіслано'); } catch {}
+  } catch (error) {
+    logger.error('[subscription] ❌ handleContactSupport:', error.message);
+  }
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Курси / пропозиції
+// 7) КУРСИ / ПРОПОЗИЦІЇ
 // ──────────────────────────────────────────────────────────────────────────────
 
 const checkOffersCount = async (tgId) => {
@@ -205,7 +256,7 @@ const checkOffersCount = async (tgId) => {
 
     return records.length;
   } catch (error) {
-    console.error('[checkOffersCount] ❌', error);
+    logger.error('[subscription] ❌ checkOffersCount:', error.message);
     return 0;
   }
 };
@@ -215,15 +266,17 @@ const logOfferShown = async (tgId, problemType, offerTitle) => {
     const { getBase, tables } = await import('../../config/database.js');
     const base = getBase();
 
-    await base(tables.OFFERS_LOG).create({
-      TG_id: String(tgId),
-      Problem_Type: problemType,
-      Offer_Title: offerTitle,
-      Shown_At: new Date().toISOString(),
-      Status: 'shown'
-    });
+    await base(tables.OFFERS_LOG).create([{
+      fields: {
+        TG_id: String(tgId),
+        Problem_Type: problemType,
+        Offer_Title: offerTitle,
+        Shown_At: new Date().toISOString(),
+        Status: 'shown'
+      }
+    }]);
   } catch (error) {
-    console.error('[logOfferShown] ❌', error);
+    logger.error('[subscription] ❌ logOfferShown:', error.message);
   }
 };
 
@@ -241,117 +294,145 @@ const logOfferClicked = async (tgId, problemType, offerTitle) => {
       .firstPage();
 
     if (records.length > 0) {
-      await base(tables.OFFERS_LOG).update(records[0].id, {
-        Status: 'clicked',
-        Clicked_At: new Date().toISOString()
-      });
+      await base(tables.OFFERS_LOG).update([{
+        id: records[0].id,
+        fields: {
+          Status: 'clicked',
+          Clicked_At: new Date().toISOString()
+        }
+      }]);
     }
   } catch (error) {
-    console.error('[logOfferClicked] ❌', error);
+    logger.error('[subscription] ❌ logOfferClicked:', error.message);
   }
 };
 
-const offerService = async (ctx, problemType, triggerData = null) => {
+export const offerService = async (ctx, problemType, triggerData = null) => {
   const tgId = ctx.from.id;
 
-  const offersThisMonth = await checkOffersCount(tgId);
-  if (offersThisMonth >= ACTIVITY_TRIGGERS.MAX_OFFERS_PER_MONTH) return;
+  try {
+    const offersThisMonth = await checkOffersCount(tgId);
+    if (offersThisMonth >= ACTIVITY_TRIGGERS.MAX_OFFERS_PER_MONTH) {
+      logger.warn(`[subscription] ⚠️ Ліміт пропозицій для ${tgId}`);
+      return;
+    }
 
-  const offer = COURSE_OFFERS[problemType] || COURSE_OFFERS.no_goals;
-  const triggerMessage = triggerData?.message || `Помічаю, що ти застрягла в ${PROBLEM_DESCRIPTIONS[problemType]}.`;
+    const offer = COURSE_OFFERS[problemType] || COURSE_OFFERS.no_goals;
+    const triggerMessage = triggerData?.message || `Помічаю, що ти застрягла в ${PROBLEM_DESCRIPTIONS[problemType]}.`;
 
-  const message = COURSE_MESSAGES.OFFER(
-    offer.title,
-    offer.price,
-    offer.description,
-    offer.benefit,
-    triggerMessage
-  );
+    const message = COURSE_MESSAGES.OFFER(
+      offer.title,
+      offer.price,
+      offer.description,
+      offer.benefit,
+      triggerMessage
+    );
 
-  await ctx.reply(message, keyboards.courseOfferKeyboard(problemType, offer.title, offer.price));
-  await logOfferShown(tgId, problemType, offer.title);
+    await ctx.reply(message, { 
+      parse_mode: 'Markdown',
+      ...keyboards.courseOfferKeyboard(problemType, offer.title, offer.price)
+    });
+    
+    await logOfferShown(tgId, problemType, offer.title);
+  } catch (error) {
+    logger.error('[subscription] ❌ offerService:', error.message);
+  }
 };
 
-const handleBuyCourse = async (ctx, problemType) => {
+export const handleBuyCourse = async (ctx, problemType) => {
   const tgId = ctx.from.id;
   const offer = COURSE_OFFERS[problemType];
 
-  if (!offer) { await ctx.answerCbQuery('Курс не знайдено'); return; }
+  if (!offer) { 
+    try { await ctx.answerCbQuery('Курс не знайдено'); } catch {}
+    return;
+  }
 
-  const message = COURSE_MESSAGES.COURSE_INFO(offer.title, offer.price, tgId);
-  await ctx.reply(message, keyboards.courseInfoKeyboard());
-  await ctx.answerCbQuery('Інформація надіслана');
-  await logOfferClicked(tgId, problemType, offer.title);
-};
-
-const handleBookConsultation = async (ctx) => {
-  const tgId = ctx.from.id;
-  const message = COURSE_MESSAGES.CONSULTATION_INFO(tgId);
-  await ctx.reply(message, keyboards.consultationInfoKeyboard());
-  await ctx.answerCbQuery('Інформація надіслана');
-  await logOfferClicked(tgId, 'consultation', 'Consultation 150€');
-};
-
-const handleDismissOffer = async (ctx) => {
-  await ctx.reply(COURSE_MESSAGES.DISMISS, keyboards.dismissOfferKeyboard());
-  await ctx.answerCbQuery('Зрозуміло');
-};
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Нагадування про завершення підписок
-// ──────────────────────────────────────────────────────────────────────────────
-
-const sendExpirationReminders = async (bot) => {
   try {
-    console.log('[subscription/controller] Перевірка підписок, що закінчуються…');
-    const list = await service.getUsersWithExpiringSubscriptions?.(1);
-    if (!list || !list.length) return;
+    const message = COURSE_MESSAGES.COURSE_INFO(offer.title, offer.price, tgId);
+    
+    await ctx.reply(message, { 
+      parse_mode: 'Markdown',
+      ...keyboards.courseInfoKeyboard()
+    });
+    
+    try { await ctx.answerCbQuery('Інформація надіслана'); } catch {}
+    await logOfferClicked(tgId, problemType, offer.title);
+  } catch (error) {
+    logger.error('[subscription] ❌ handleBuyCourse:', error.message);
+  }
+};
 
-    for (const u of list) {
-      const tgId = u.TG_id;
-      const planName = u['Active Subscription Plan'] || 'План';
-      const endDate = u.End_Date ? new Date(u.End_Date).toLocaleDateString('uk-UA') : '—';
-      const message = SUBSCRIPTION_MESSAGES.EXPIRATION_REMINDER(planName, endDate);
+export const handleBookConsultation = async (ctx) => {
+  const tgId = ctx.from.id;
 
-      try {
-        await bot.telegram.sendMessage(tgId, message, keyboards.subscriptionExpiringKeyboard());
-      } catch (e) {
-        console.error(`[subscription/controller] ❌ Надсилання ${tgId}:`, e?.message || e);
-      }
+  try {
+    const message = COURSE_MESSAGES.CONSULTATION_INFO(tgId);
+    
+    await ctx.reply(message, { 
+      parse_mode: 'Markdown',
+      ...keyboards.consultationInfoKeyboard()
+    });
+    
+    try { await ctx.answerCbQuery('Інформація надіслана'); } catch {}
+    await logOfferClicked(tgId, 'consultation', 'Consultation 150€');
+  } catch (error) {
+    logger.error('[subscription] ❌ handleBookConsultation:', error.message);
+  }
+};
 
-      // невелика пауза щоб не спамити API
-      await new Promise((r) => setTimeout(r, 700));
-    }
-  } catch (e) {
-    console.error('[subscription/controller] ❌ Reminders:', e?.message || e);
+export const handleDismissOffer = async (ctx) => {
+  try {
+    await ctx.reply(COURSE_MESSAGES.DISMISS, { 
+      parse_mode: 'Markdown',
+      ...keyboards.dismissOfferKeyboard()
+    });
+    
+    try { await ctx.answerCbQuery('Зрозуміло'); } catch {}
+  } catch (error) {
+    logger.error('[subscription] ❌ handleDismissOffer:', error.message);
   }
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Експорт
+// 8) Нагадування про завершення підписок
 // ──────────────────────────────────────────────────────────────────────────────
 
-export {
-  // підписки
-  handleSubscriptionInfo,
-  handleSubscriptionPlans,
-  handleSubscribe,
-  handleSyncSubscription,
-  handleRenewSubscription,
-  handleRenewalFromReminder,
-  handleContactSupport,
+export const sendExpirationReminders = async (bot) => {
+  try {
+    logger.info('[subscription] ⏰ Перевірка підписок, що закінчуються…');
+    
+    const expiring = await service.getUsersWithExpiringSubscriptions?.(1);
+    if (!expiring || !expiring.length) {
+      logger.info('[subscription] ℹ️ Немає користувачів з підписками, що закінчуються');
+      return;
+    }
 
-  // курси
-  offerService,
-  handleBuyCourse,
-  handleBookConsultation,
-  handleDismissOffer,
+    for (const u of expiring) {
+      const tgId = u.TG_id;
+      const planName = u['Active Subscription Plan'] || 'План';
+      const endDate = u.End_Date ? new Date(u.End_Date).toLocaleDateString('uk-UA') : '—';
 
-  // нагадування
-  sendExpirationReminders,
+      const message = SUBSCRIPTION_MESSAGES.EXPIRATION_REMINDER(planName, endDate);
+
+      try {
+        await bot.telegram.sendMessage(tgId, message, { 
+          parse_mode: 'Markdown',
+          ...keyboards.subscriptionExpiringKeyboard()
+        });
+      } catch (e) {
+        logger.warn(`[subscription] ⚠️ Не вдалося надіслати ${tgId}:`, e.message);
+      }
+
+      await new Promise(r => setTimeout(r, 700));
+    }
+
+    logger.info(`[subscription] ✅ Нагадування надіслано ${expiring.length} користувачам`);
+  } catch (e) {
+    logger.error('[subscription] ❌ sendExpirationReminders:', e.message);
+  }
 };
 
-// default для зручного імпорту в index.js
 export default {
   handleSubscriptionInfo,
   handleSubscriptionPlans,
