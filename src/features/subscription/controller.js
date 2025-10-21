@@ -1,4 +1,4 @@
-// src/features/subscription/controller.js — ВИПРАВЛЕНО
+// src/features/subscription/controller.js — БЕЗ REPO
 
 import service from './service.js';
 import keyboards from '../../utils/keyboards.js';
@@ -13,6 +13,9 @@ import {
   COURSE_MESSAGES
 } from '../../config/index.js';
 import users from '../../services/users.js';
+import { getBase, tables } from '../../config/database.js';
+
+const base = getBase();
 
 // ──────────────────────────────────────────────────────────────────────────────
 // helpers
@@ -241,9 +244,6 @@ export const handleContactSupport = async (ctx) => {
 
 const checkOffersCount = async (tgId) => {
   try {
-    const { getBase, tables } = await import('../../config/database.js');
-    const base = getBase();
-
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -263,9 +263,6 @@ const checkOffersCount = async (tgId) => {
 
 const logOfferShown = async (tgId, problemType, offerTitle) => {
   try {
-    const { getBase, tables } = await import('../../config/database.js');
-    const base = getBase();
-
     await base(tables.OFFERS_LOG).create([{
       fields: {
         TG_id: String(tgId),
@@ -282,9 +279,6 @@ const logOfferShown = async (tgId, problemType, offerTitle) => {
 
 const logOfferClicked = async (tgId, problemType, offerTitle) => {
   try {
-    const { getBase, tables } = await import('../../config/database.js');
-    const base = getBase();
-
     const records = await base(tables.OFFERS_LOG)
       .select({
         filterByFormula: `AND({TG_id}="${tgId}", {Offer_Title}="${offerTitle}", {Status}="shown")`,
@@ -432,6 +426,10 @@ export const sendExpirationReminders = async (bot) => {
     logger.error('[subscription] ❌ sendExpirationReminders:', e.message);
   }
 };
+
+// ──────────────────────────────────────────────────────────────────────────────
+// EXPORT DEFAULT
+// ──────────────────────────────────────────────────────────────────────────────
 
 export default {
   handleSubscriptionInfo,

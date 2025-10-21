@@ -17,6 +17,7 @@ import {
 import { tables, selectFromTable, updateRows, createRows } from '../../config/database.js';
 import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
+import { getDateTimeWithoutSeconds } from '../../utils/helpers.js';
 
 // ===== ДОПОМІЖНІ ФУНКЦІЇ БД =====
 
@@ -134,7 +135,7 @@ export const createPaidSubscription = async (userRecordId, tgId, userName, planK
         "User Name": userName || `User_${tgId}`,
         User: [userRecordId],
         Plan_Name: plan.key,
-        Status: 'Pending', // ✅ Очікує оплату
+        Status: 'Pending', 
         Start_Date: now.toISOString().split('T')[0],
         End_Date: endDate.toISOString().split('T')[0],
         Created_At: new Date().toISOString()

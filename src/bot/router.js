@@ -1,6 +1,6 @@
-// src/bot/router.js
+// src/bot/router.js (COMPLETE FIX)
 
-import initOnboarding from '../features/onboarding/index.js';
+import initOnboarding, { handleCallback as obHandleCallback, handleText as obHandleText } from '../features/onboarding/index.js';
 import {
   startWheelBalance,
   continueActiveWheel,
@@ -13,7 +13,6 @@ import {
 } from '../features/wheelBalance/flow.js';
 import * as dailyController from '../features/dailySessions/controller.js';
 import subscriptionController from '../features/subscription/controller.js';
-
 import keyboards from '../utils/keyboards.js';
 import logger from '../utils/logger.js';
 import * as dashboard from '../features/dashboard/index.js';
@@ -29,9 +28,9 @@ const attachRoutes = (bot) => {
   bot.action('sync_subscription', subscriptionController.handleSyncSubscription);
   bot.action('contact_support', subscriptionController.handleContactSupport);
   bot.action('activate_trial', (ctx) => subscriptionController.handleSubscribe(ctx, 'trial'));
-  bot.action('subscribe_week', (ctx) => subscriptionController.handleSubscribe(ctx, 'week'));
-  bot.action('subscribe_month', (ctx) => subscriptionController.handleSubscribe(ctx, 'month'));
-  bot.action('subscribe_year', (ctx) => subscriptionController.handleSubscribe(ctx, 'year'));
+  bot.action('subscribe_week', (ctx) => subscriptionController.handleSubscribe(ctx, 'WEEK'));
+  bot.action('subscribe_month', (ctx) => subscriptionController.handleSubscribe(ctx, 'MONTH'));
+  bot.action('subscribe_year', (ctx) => subscriptionController.handleSubscribe(ctx, 'YEAR'));
   bot.action(/^buy_course_(.+)$/, async (ctx) => {
     const [, problemType] = ctx.match;
     await subscriptionController.handleBuyCourse(ctx, problemType);
@@ -82,61 +81,70 @@ const attachRoutes = (bot) => {
   bot.action('exit_session', dailyController.handleExitSession);
   bot.action('skip_morning_do_evening', dailyController.handleSkipMorningDoEvening);
 
-  // Навігація (через dashboard)
-  bot.action('main_menu', (ctx) => dashboard.showMainMenu);
+  // Navigation (dashboard)
+  bot.action('main_menu', dashboard.showMainMenu);
   bot.action('show_capabilities', dashboard.showCapabilities);
   bot.action('instructions', dashboard.showInstructions);
   bot.action('help', dashboard.showHelp);
 
-  // TEXT — один обробник
+  // TEXT HANDLER — Порядок важливий!
   bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
     const text = (ctx.message?.text || '').trim();
 
-    // 1) daily
     try {
-      const handledDaily = await dailyController.handleText?.(ctx, text);
-      if (handledDaily) return;
-    } catch (e) {
-      logger.error('[router] dailyController.handleText:', e.message);
-    }
+      // 1️⃣ Onboarding (повинен бути першим)
+      if (await obHandleText(ctx, text)) return;
 
-    // 2) wheel note очікування
-    try {
-      const awaiting = await isAwaitingNote(tgId);
-      if (awaiting && text) {
-        const res = await saveWheelNoteAndGoNext(ctx, text);
-        await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
-        return;
+      // 2️⃣ Daily sessions
+      try {
+        const handledDaily = await dailyController.handleText?.(ctx, text);
+        if (handledDaily) return;
+      } catch (e) {
+        logger.error('[router] dailyController.handleText:', e.message);
       }
-    } catch (e) {
-      logger.error('[router] wheel note flow:', e.message);
-    }
 
-    // 3) AI mentor (lazy)
-    try {
-      const aiMentorMod = await import('../features/aiMentor/index.js');
-      const aiMentor = aiMentorMod?.default || aiMentorMod;
-      const handledAi = await aiMentor?.handleText?.(ctx, text);
-      if (handledAi) return;
-    } catch (e) {
-      logger.warn('[router] AI mentor module not found or no handleText:', e.message);
-    }
+      // 3️⃣ Wheel note flow
+      try {
+        const awaiting = await isAwaitingNote(tgId);
+        if (awaiting && text) {
+          const res = await saveWheelNoteAndGoNext(ctx, text);
+          await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
+          return;
+        }
+      } catch (e) {
+        logger.error('[router] wheel note flow:', e.message);
+      }
 
-    // 4) dashboard
-    try {
-      const handledDash = await dashboard.handleText?.(ctx, text);
-      if (handledDash) return;
-    } catch (e) {
-      logger.error('[router] dashboard.handleText:', e.message);
-    }
+      // 4️⃣ AI mentor (lazy load)
+      try {
+        const aiMentorMod = await import('../features/aiMentor/index.js');
+        const aiMentor = aiMentorMod?.default || aiMentorMod;
+        const handledAi = await aiMentor?.handleText?.(ctx, text);
+        if (handledAi) return;
+      } catch (e) {
+        logger.warn('[router] AI mentor not ready:', e.message);
+      }
 
-    await ctx.reply('Не зовсім зрозумів. Обери дію:', keyboards.mainMenuKeyboard());
+      // 5️⃣ Dashboard
+      try {
+        const handledDash = await dashboard.handleText?.(ctx, text);
+        if (handledDash) return;
+      } catch (e) {
+        logger.error('[router] dashboard.handleText:', e.message);
+      }
+
+      // Fallback
+      await ctx.reply('Не зовсім зрозумів. Обери дію:', keyboards.mainMenuKeyboard());
+    } catch (error) {
+      logger.error('[router/text] ❌', error);
+      await ctx.reply('❌ Помилка. Спробуй ще раз', keyboards.mainMenuKeyboard());
+    }
   });
 
   bot.catch((err, ctx) => {
     logger.error(`[router] Global error for ${ctx.updateType}:`, err);
-    try { ctx.reply('Сталася помилка. Спробуй ще раз пізніше.', keyboards.mainMenuKeyboard()); } catch {}
+    try { ctx.reply?.('Сталася помилка. Спробуй ще раз пізніше.', keyboards.mainMenuKeyboard()); } catch {}
   });
 };
 

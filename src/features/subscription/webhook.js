@@ -11,9 +11,8 @@ const secretKey = process.env.WAYFORPAY_SECRET || 'flk3409refn54t54t*FNJRET';
 /**
  * Перевірка підпису WayForPay webhook
  */
-const verifySignature = (data, signature) => {
+export const verifySignature = (data, signature) => {
   try {
-    // WayForPay использует этот порядок полей для подписи
     const signString = [
       data.merchantAccount || '',
       data.orderReference || '',
@@ -44,7 +43,7 @@ const verifySignature = (data, signature) => {
 /**
  * Обробка webhook від WayForPay
  */
-const handleWayForPayWebhook = async (req, res) => {
+export const handleWayForPayWebhook = async (req, res) => {
   console.log('💳 [webhook] Отримано webhook від WayForPay');
 
   try {
@@ -56,7 +55,6 @@ const handleWayForPayWebhook = async (req, res) => {
     console.log('  Amount:', data.amount);
     console.log('  Currency:', data.currency);
 
-    // ✅ Перевірка підпису (якщо є)
     if (data.merchantSignature) {
       const isValid = verifySignature(data, data.merchantSignature);
       
@@ -73,7 +71,6 @@ const handleWayForPayWebhook = async (req, res) => {
       console.log('[webhook] ✅ Підпис валідний');
     }
 
-    // ✅ Парсимо orderReference: AIMENTOR_<PLAN>_<TGID>_<timestamp>
     const parts = String(data.orderReference || '').split('_');
     const planKey = parts?.[1] || '';
     const tgId = parts?.[2] || '';
@@ -92,7 +89,6 @@ const handleWayForPayWebhook = async (req, res) => {
       });
     }
 
-    // ✅ Обробка статусу
     let isApproved = false;
 
     switch (data.transactionStatus) {
@@ -113,7 +109,6 @@ const handleWayForPayWebhook = async (req, res) => {
         isApproved = false;
     }
 
-    // ✅ Якщо APPROVED — активуємо підписку
     if (isApproved) {
       try {
         const paymentData = {
@@ -121,7 +116,7 @@ const handleWayForPayWebhook = async (req, res) => {
           planKey,
           planName: `План ${planKey}`,
           amount: data.amount,
-          duration: 7, // за замовчуванням
+          duration: 7,
           orderReference: data.orderReference,
           userName: data.clientEmail?.split('@')[0] || 'Користувач'
         };
@@ -138,10 +133,9 @@ const handleWayForPayWebhook = async (req, res) => {
       }
     }
 
-    // ✅ Відповідь для WayForPay (підтвердження отримання)
     const response = {
       orderReference: data.orderReference,
-      status: 'accept', // завжди повертаємо accept для WayForPay
+      status: 'accept',
       time: Math.floor(Date.now() / 1000)
     };
 
@@ -156,6 +150,40 @@ const handleWayForPayWebhook = async (req, res) => {
       message: error.message,
       time: Math.floor(Date.now() / 1000)
     });
+  }
+};
+
+/**
+ * Обробка даних webhook з верифікацією
+ */
+export const processWebhookData = (webhookData) => {
+  try {
+    if (!webhookData.merchantSignature || !verifySignature(webhookData, webhookData.merchantSignature)) {
+      throw new Error('Невірний підпис webhook');
+    }
+
+    const orderReference = String(webhookData.orderReference || '');
+    const parts = orderReference.split('_');
+    
+    let planKey = parts?.[1] || 'MONTH';
+    let tgId = parts?.[2] || null;
+    
+    if (!tgId || tgId === 'undefined') {
+      console.warn('[webhook] ⚠️ Не вдалося розібрати TG_id:', orderReference);
+      return { error: true, message: 'Invalid orderReference' };
+    }
+
+    return {
+      tgId,
+      planKey: (planKey || 'MONTH').toUpperCase(),
+      orderReference,
+      transactionStatus: webhookData.transactionStatus,
+      amount: parseFloat(webhookData.amount),
+      isApproved: webhookData.transactionStatus === 'Approved'
+    };
+  } catch (e) {
+    console.error('[webhook] ❌ Помилка processWebhookData:', e.message);
+    return { error: true, message: e.message };
   }
 };
 

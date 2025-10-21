@@ -6,7 +6,7 @@ import { getDaysWord } from '../../utils/helpers.js';
 
 const base = getBase();
 
-export const getActiveWheel = async (tgId) => {
+const getActiveWheel = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
       .select({
@@ -23,7 +23,7 @@ export const getActiveWheel = async (tgId) => {
   }
 };
 
-export const getLatestCompletedWheel = async (tgId) => {
+const getLatestCompletedWheel = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
       .select({
@@ -40,7 +40,7 @@ export const getLatestCompletedWheel = async (tgId) => {
   }
 };
 
-export const cancelActiveWheel = async (tgId) => {
+const cancelActiveWheel = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
       .select({ filterByFormula: `AND({TG_id}="${tgId}", {Status}="In Progress")` })
@@ -60,7 +60,7 @@ export const cancelActiveWheel = async (tgId) => {
   }
 };
 
-export const getUserWheelStats = async (tgId) => {
+const getUserWheelStats = async (tgId) => {
   try {
     const records = await base(tables.WHEEL_BALANCE)
       .select({
@@ -81,7 +81,7 @@ export const getUserWheelStats = async (tgId) => {
   }
 };
 
-export const createWheel = async (tgId, userName) => {
+const createWheel = async (tgId, userName) => {
   try {
     const [record] = await base(tables.WHEEL_BALANCE).create([{
       fields: {
@@ -101,7 +101,7 @@ export const createWheel = async (tgId, userName) => {
   }
 };
 
-export const updateWheel = async (recordId, fields) => {
+const updateWheel = async (recordId, fields) => {
   try {
     await base(tables.WHEEL_BALANCE).update(recordId, fields, { typecast: true });
     return true;
@@ -111,7 +111,7 @@ export const updateWheel = async (recordId, fields) => {
   }
 };
 
-export const completeWheel = async (recordId, totalScore, analysis) => {
+const completeWheel = async (recordId, totalScore, analysis) => {
   try {
     await base(tables.WHEEL_BALANCE).update(recordId, {
       Status: 'Completed',
@@ -129,7 +129,7 @@ export const completeWheel = async (recordId, totalScore, analysis) => {
   }
 };
 
-export const canStartNewWheel = async (tgId) => {
+const canStartNewWheel = async (tgId) => {
   try {
     const lastCompleted = await getLatestCompletedWheel(tgId);
 
@@ -158,5 +158,14 @@ export const canStartNewWheel = async (tgId) => {
     return { allowed: true, reason: null };
   }
 };
-
+export {
+  getActiveWheel,
+  getLatestCompletedWheel,
+  createWheel,
+  updateWheel,
+  completeWheel,
+  cancelActiveWheel,
+  canStartNewWheel,
+  getUserWheelStats
+};
 console.log('✅ [services/wheelBalance/database] Завантажено');

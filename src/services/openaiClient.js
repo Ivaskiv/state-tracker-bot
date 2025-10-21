@@ -24,12 +24,9 @@ export const openai = new OpenAI({
 export const chat = async (messages, model = 'gpt-4o-mini', maxTokens = 1000) => {
   try {
     if (!apiKey) {
-      console.error('[openaiClient] ❌ OPENAI_API_KEY не встановлено в .env');
       throw new Error('Missing OPENAI_API_KEY');
     }
 
-    console.log('[openaiClient] 🤖 Відправка запиту до OpenAI...');
-    console.log('[openaiClient] 🔑 API Key (перші 10 символів):', apiKey.substring(0, 10) + '...');
 
     const response = await openai.chat.completions.create({
       model: model,
@@ -43,11 +40,13 @@ export const chat = async (messages, model = 'gpt-4o-mini', maxTokens = 1000) =>
     const result = response.choices?.[0]?.message?.content?.trim();
 
     if (!result) {
-      console.error('[openaiClient] ❌ Нема контенту у відповіді:', response);
-      throw new Error('No content in response');
-    }
-
-    console.log('[openaiClient] ✅ Відповідь отримано:', result.substring(0, 100) + '...');
+const fallbacks = [
+        "🎯 Для досягнення цілі розбий її на маленькі кроки та діяй послідовно.",
+        "💪 Твоя сила — в постійності. Щодня один крок — і досяжеш мети.",
+        "✨ Почни з однієї дії сьогодні. Довіряй процесу.",
+        "🌱 Кожен день — можливість рости. Що ти можеш зробити прямо зараз?"
+      ];        return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+  }
     return result;
 
   } catch (error) {
