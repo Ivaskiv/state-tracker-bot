@@ -4,32 +4,28 @@ import { MESSAGES, MENU_TEXTS, DASHBOARD_MESSAGES } from '../../config/index.js'
 import users from '../../services/users.js';
 import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
-import { getUserByTgId } from '../onboarding/handlers.js';
-import * as wheelBalance from '../wheelBalance/index.js';  
+import { startWheelBalance } from '../wheelBalance/flow.js';
 
-/**
- * Форматувати дату
- */
+// ── helpers ───────────────────────────────────────────────────
 const formatDate = (dateString) => {
   if (!dateString) return '—';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('uk-UA', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+  const d = new Date(dateString);
+  return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-/**
- * Показати головне меню
- */
+const safeAnswerCb = async (ctx, text = '') => {
+  if (ctx?.callbackQuery) {
+    try { await ctx.answerCbQuery(text); } catch {}
+  }
+};
+
+// ── UI: Головне меню ─────────────────────────────────────────
 export const showMainMenu = async (ctx) => {
   const tgId = ctx.from.id;
-
   try {
     await typing(ctx);
 
-    const user = await getUserByTgId(tgId);
+    const user = await users.getUserByTgId(tgId);
     if (!user) {
       await ctx.reply('Спочатку зареєструйся командою /start');
       return;
@@ -39,255 +35,167 @@ export const showMainMenu = async (ctx) => {
     const subscriptionStatus = user.fields['Subscription_Status'];
     const endDate = user.fields.End_Date;
 
-    // 🆕 ЗБИРАЄМО СТАТИСТИКУ
     const stats = {
       currentStreak: user.fields.Current_Streak || 0,
       completedSessions: user.fields.Total_Sessions || 0,
       wheelCompleted: user.fields.Wheel_Completed || false,
-      goalProgress: user.fields.Goal_Progress || 0
+      goalProgress: user.fields.Goal_Progress || 0,
     };
 
-    // ✅ ВИКОРИСТОВУЄМО MESSAGES з constants.js
-    let message;
-    if (subscriptionStatus === 'Active' && endDate) {
-      message = MESSAGES.WELCOME_BACK_ACTIVE(userName, formatDate(endDate), stats);
-    } else {
-      message = MESSAGES.WELCOME_BACK_INACTIVE(userName, stats);
-    }
+    const msg = (subscriptionStatus === 'Active' && endDate)
+      ? MESSAGES.WELCOME_BACK_ACTIVE(userName, formatDate(endDate), stats)
+      : MESSAGES.WELCOME_BACK_INACTIVE(userName, stats);
 
-    // ✅ ВИКОРИСТОВУЄМО КЛАВІАТУРУ з keyboards.js
-    await ctx.reply(message, keyboards.mainMenuKeyboard());
-  } catch (error) {
-    console.error('[dashboard/showMainMenu] ❌ Помилка:', error);
+    await ctx.reply(msg, keyboards.mainMenuKeyboard());
+  } catch (e) {
+    console.error('[dashboard/showMainMenu] ❌', e);
     await ctx.reply('Помилка завантаження меню', keyboards.mainMenuKeyboard());
   }
 };
+
+// ── AI Mentor ─────────────────────────────────────────────────
 export const startAIMentorFromText = async (ctx) => {
   try {
     const aiMentor = (await import('../aiMentor/index.js')).default;
     await aiMentor.showAIMentorChat(ctx);
-  } catch (error) {
-    console.error('[dashboard/startAIMentorFromText] ❌ Помилка:', error);
+  } catch (e) {
+    console.error('[dashboard/startAIMentorFromText] ❌', e);
     await ctx.reply('❌ Помилка запуску AI наставника', keyboards.mainMenuKeyboard());
   }
 };
-/**
- * Запустити колесо балансу з текстового меню
- */
+
+// ── Wheel Balance (з тексту) ──────────────────────────────────
 export const startWheelFromText = async (ctx) => {
   try {
     const tgId = ctx.from.id;
-    const user = await getUserByTgId(tgId);
-    
+    const user = await users.getUserByTgId(tgId);
     if (!user) {
       await ctx.reply('Спочатку зареєструйся командою /start', keyboards.mainMenuKeyboard());
       return;
     }
 
     const userName = user.fields['User Name'] || ctx.from.first_name || 'Користувач';
-    const result = await wheelBalance.startWheelBalance(tgId, userName);
-    
-    if (result.error) {
-      await ctx.reply(result.message, keyboards.mainMenuKeyboard());
-    } else {
-      await ctx.reply(result.message, result.keyboard);
-    }
-  } catch (error) {
-    console.error('[dashboard/startWheelFromText] ❌ Помилка:', error);
+    const res = await startWheelBalance(tgId, userName);
+
+    await ctx.reply(res.message, res.keyboard || keyboards.mainMenuKeyboard());
+  } catch (e) {
+    console.error('[dashboard/startWheelFromText] ❌', e);
     await ctx.reply('❌ Помилка запуску колеса', keyboards.mainMenuKeyboard());
   }
 };
-/**
- * Показати можливості бота
- */
+
+// ── Info / Help / Capabilities ────────────────────────────────
 export const showCapabilities = async (ctx) => {
-  await typing(ctx);
-
-  await ctx.reply(DASHBOARD_MESSAGES.CAPABILITIES, keyboards.infoMenuInline(false));
-
-  if (ctx.callbackQuery) {
-    try { await ctx.answerCbQuery('Можливості'); } catch {}
+  try {
+    await typing(ctx);
+    await ctx.reply(DASHBOARD_MESSAGES.CAPABILITIES, keyboards.infoMenuInline(false));
+    await safeAnswerCb(ctx, 'Можливості');
+  } catch (e) {
+    console.error('[dashboard/showCapabilities] ❌', e);
   }
 };
-/**
- * ✅ ВИНЕСЕНА ЛОГІКА - показати мій прогрес
- */
+
 export const showMyProgress = async (ctx) => {
   try {
-    const tgId = ctx.from.id;
     const gamification = (await import('../gamification/index.js')).default;
     await gamification.showAchievements(ctx);
-  } catch (error) {
-    console.error('[dashboard/showMyProgress] ❌ Помилка:', error);
+  } catch (e) {
+    console.error('[dashboard/showMyProgress] ❌', e);
     await ctx.reply('📊 Функція в розробці...', keyboards.mainMenuKeyboard());
   }
 };
-/**
- * Показати інструкції
- */
-export const showInstructions = async (ctx) => {
-  await typing(ctx);
-  
-  // ✅ ВИКОРИСТОВУЄМО MENU_TEXTS з constants.js
-  // showCapabilities = true → показує кнопку "Інструкції" (щоб повернути сюди)
-  await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.infoMenuInline(true));
 
-  if (ctx.callbackQuery) {
-    try { await ctx.answerCbQuery('Інструкції'); } catch {}
+export const showInstructions = async (ctx) => {
+  try {
+    await typing(ctx);
+    await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.infoMenuInline(true));
+    await safeAnswerCb(ctx, 'Інструкції');
+  } catch (e) {
+    console.error('[dashboard/showInstructions] ❌', e);
   }
 };
 
-/**
- * ✅ ВИНЕСЕНА ЛОГІКА - показати підписку
- */
 export const showSubscription = async (ctx) => {
   try {
-    const subscription = (await import('../subscription/index.js')).default;
     const controller = (await import('../subscription/controller.js')).default;
     await controller.handleSubscriptionInfo(ctx);
-  } catch (error) {
-    console.error('[dashboard/showSubscription] ❌ Помилка:', error);
+  } catch (e) {
+    console.error('[dashboard/showSubscription] ❌', e);
     await ctx.reply('💰 Функція в розробці...', keyboards.mainMenuKeyboard());
   }
 };
 
-/**
- * Показати контакти
- */
 export const showContact = async (ctx) => {
-  await typing(ctx);
-  
-  // ✅ ВИКОРИСТОВУЄМО MENU_TEXTS з constants.js
-  await ctx.reply(MENU_TEXTS.CONTACT, keyboards.contactMenuInline());
-
-  if (ctx.callbackQuery) {
-    try { await ctx.answerCbQuery('Контакти'); } catch {}
+  try {
+    await typing(ctx);
+    await ctx.reply(MENU_TEXTS.CONTACT, keyboards.contactMenuInline());
+    await safeAnswerCb(ctx, 'Контакти');
+  } catch (e) {
+    console.error('[dashboard/showContact] ❌', e);
   }
 };
 
-/**
- * Показати допомогу
- */
 export const showHelp = async (ctx) => {
-  await typing(ctx);
-  
-  // ✅ ВИКОРИСТОВУЄМО MENU_TEXTS з constants.js
-  await ctx.reply(MENU_TEXTS.HELP, keyboards.contactMenuInline());
-
-  if (ctx.callbackQuery) {
-    try { await ctx.answerCbQuery('Допомога'); } catch {}
+  try {
+    await typing(ctx);
+    await ctx.reply(MENU_TEXTS.HELP, keyboards.contactMenuInline());
+    await safeAnswerCb(ctx, 'Допомога');
+  } catch (e) {
+    console.error('[dashboard/showHelp] ❌', e);
   }
 };
 
-/**
- * Обробка callback для dashboard
- */
+// ── Callback router (тільки свої callback-и) ──────────────────
 export const handleCallback = async (ctx) => {
   const data = ctx.callbackQuery?.data;
-
   if (!data) return false;
 
-  const dashboardCallbacks = [
-    'main_menu',
-    'show_capabilities',
-    'instructions',
-    'contact_support',
-    'help'
-  ];
-
-  if (!dashboardCallbacks.includes(data)) {
+  if (!['main_menu','show_capabilities','instructions','contact_support','help'].includes(data)) {
     return false;
   }
 
   try {
-    await ctx.answerCbQuery();
-
     switch (data) {
-      case 'main_menu':
-        await showMainMenu(ctx);
-        break;
-
-      case 'show_capabilities':
-        await showCapabilities(ctx);
-        break;
-
-      case 'instructions':
-        await showInstructions(ctx);
-        break;
-
-      case 'contact_support':
-        await showContact(ctx);
-        break;
-
-      case 'help':
-        await showHelp(ctx);
-        break;
-
-      default:
-        return false;
+      case 'main_menu':         await showMainMenu(ctx); break;
+      case 'show_capabilities': await showCapabilities(ctx); break;
+      case 'instructions':      await showInstructions(ctx); break;
+      case 'contact_support':   await showContact(ctx); break;
+      case 'help':              await showHelp(ctx); break;
+      default: return false;
     }
-
+    await safeAnswerCb(ctx);
     return true;
-  } catch (error) {
-    console.error('[dashboard/handleCallback] ❌ Помилка:', error);
+  } catch (e) {
+    console.error('[dashboard/handleCallback] ❌', e);
     return false;
   }
 };
 
-/**
- * Обробка текстових команд з меню
- */
-export const handleText = async (ctx) => {
-  const text = ctx.message?.text?.trim();
-
+// ── Text router (тільки свої кнопки/написи) ───────────────────
+export const handleText = async (ctx, textRaw) => {
+  const text = (textRaw ?? ctx.message?.text ?? '').trim();
   if (!text) return false;
 
-try {
+  try {
     switch (text) {
-      // ── dashboard команди ──────────────────────────────────────
-      case 'ℹ️ Інформація про бота':
-        await showCapabilities(ctx);
-        return true;
-
-      case '📞 Звʼязок':
-        await showContact(ctx);
-        return true;
-
-      case '❓ Допомога':
-        await showHelp(ctx);
-        return true;
-
-      // ── основні фічі ───────────────────────────────────────────
-      case '🎯 Колесо балансу':
-        await startWheelFromText(ctx);
-        return true;
-
-      case '📊 Мій прогрес та Звіти':
-        await showMyProgress(ctx);
-        return true;
-
-      case '💰 Підписка':
-        await showSubscription(ctx);
-        return true;
-
-      case '🤖 AI Наставник':
-        await startAIMentorFromText(ctx);
-        return true;
-
-      default:
-        return false;
+      case 'ℹ️ Інформація про бота':  await showCapabilities(ctx);     return true;
+      case '📞 Звʼязок':               await showContact(ctx);          return true;
+      case '❓ Допомога':              await showHelp(ctx);             return true;
+      case '🎯 Колесо балансу':       await startWheelFromText(ctx);   return true;
+      case '📊 Мій прогрес та Звіти': await showMyProgress(ctx);       return true;
+      case '💰 Підписка':             await showSubscription(ctx);     return true;
+      case '🤖 AI Наставник':         await startAIMentorFromText(ctx);return true;
+      default: return false;
     }
-  } catch (error) {
-    console.error('[dashboard/handleText] ❌ Помилка:', error);
+  } catch (e) {
+    console.error('[dashboard/handleText] ❌', e);
     await ctx.reply('❌ Виникла помилка. Спробуй ще раз', keyboards.mainMenuKeyboard());
     return false;
   }
 };
 
-/**
- * Ініціалізація модуля
- */
-export default function initDashboard(bot) {
+// ── init (порожній, щоб легко підключати як модуль) ───────────
+export default function initDashboard(_bot) {
   console.log('🏠 [dashboard] Ініціалізація модуля...');
   console.log('✅ [dashboard] Модуль готовий');
 }

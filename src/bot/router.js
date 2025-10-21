@@ -1,525 +1,144 @@
-// src/bot/router.js — ВИПРАВЛЕНА ВЕРСІЯ (з правильною послідовністю)
+// src/bot/router.js
 
-import { handleStart, handleCallback, handleText } from '../features/onboarding/handlers.js';
-import * as dashboardModule from '../features/dashboard/index.js';
-import * as dailySessions from '../features/dailySessions/index.js';
-import * as wheelBalance from '../features/wheelBalance/index.js';
-import * as gamificationModule from '../features/gamification/index.js';
-import * as affirmationsModule from '../features/affirmations/index.js';
-import * as reportsModule from '../features/reports/index.js';
-import * as aiMentorModule from '../features/aiMentor/index.js';
-import * as subscriptionModule from '../features/subscription/index.js';
+import initOnboarding from '../features/onboarding/index.js';
+import {
+  startWheelBalance,
+  continueActiveWheel,
+  goBackWheelStep,
+  processWheelAnswer,
+  saveWheelNoteAndGoNext,
+  cancelWheelBalance,
+  isAwaitingNote,
+  startNewWheelIgnoreOld,
+} from '../features/wheelBalance/flow.js';
+import * as dailyController from '../features/dailySessions/controller.js';
+import subscriptionController from '../features/subscription/controller.js';
+
 import keyboards from '../utils/keyboards.js';
-import users from '../services/users.js';
 import logger from '../utils/logger.js';
+import * as dashboard from '../features/dashboard/index.js';
 
-// ── Обробка текстових повідомлень ────────────────────────────────────────────
-const handleDailySessionsText = async (ctx) => {
-  const tgId = ctx.from.id;
-  const text = ctx.message?.text?.trim();
-  
-  if (!text) return false;
+const attachRoutes = (bot) => {
+  // Onboarding реєструє /start
+  initOnboarding(bot);
 
-  try {
-    const user = await users.getUserByTgId(tgId);
-    if (!user) return false;
+  // Subscription callbacks
+  bot.action('subscription_info', subscriptionController.handleSubscriptionInfo);
+  bot.action('subscription_plans', subscriptionController.handleSubscriptionPlans);
+  bot.action('renew_subscription', subscriptionController.handleRenewSubscription);
+  bot.action('sync_subscription', subscriptionController.handleSyncSubscription);
+  bot.action('contact_support', subscriptionController.handleContactSupport);
+  bot.action('activate_trial', (ctx) => subscriptionController.handleSubscribe(ctx, 'trial'));
+  bot.action('subscribe_week', (ctx) => subscriptionController.handleSubscribe(ctx, 'week'));
+  bot.action('subscribe_month', (ctx) => subscriptionController.handleSubscribe(ctx, 'month'));
+  bot.action('subscribe_year', (ctx) => subscriptionController.handleSubscribe(ctx, 'year'));
+  bot.action(/^buy_course_(.+)$/, async (ctx) => {
+    const [, problemType] = ctx.match;
+    await subscriptionController.handleBuyCourse(ctx, problemType);
+  });
+  bot.action('book_consultation', subscriptionController.handleBookConsultation);
+  bot.action('dismiss_offer', subscriptionController.handleDismissOffer);
 
-    const answerStep = user.fields?.Answer_Step;
-    if (!answerStep) return false;
-
-    logger.info(`[router/text] Answer_Step: ${answerStep}`);
-
-    // ==========================================
-    // ✅ 1. ОНБОРДИНГ (ПЕРШІСТЬ!)
-    // ==========================================
-    if (answerStep === 'OB_NAME') {
-      return await handleText(ctx);
-    }
-    if (answerStep === 'OB_EMAIL') {
-      return await handleText(ctx);
-    }
-    if (answerStep === 'OB_PHONE') {
-      return await handleText(ctx);
-    }
-
-    // ==========================================
-    // ✅ 2. КОЛЕСО БАЛАНСУ (НОТАТКА)
-    // ==========================================
-    const awaitingNote = await wheelBalance.isAwaitingNote(tgId);
-    if (awaitingNote && awaitingNote !== null && awaitingNote !== undefined) {
-      logger.info(`[router/text] 💬 Чекаємо нотатку для колеса`);
-      
-      const result = await wheelBalance.saveWheelNoteAndGoNext(ctx, text);
-      
-      if (result.error) {
-        await ctx.reply(result.message, keyboards.mainMenuKeyboard());
-        return true;
-      }
-
-if (result.completed) {
-  await ctx.reply(result.message, { parse_mode: 'Markdown', ...keyboards.mainMenuKeyboard() });
-  return true;
-}
-      await ctx.reply(result.message, result.keyboard);
-      return true;
-    }
-
-    // ==========================================
-    // ✅ 3. ЩОДЕННІ СЕСІЇ (РАНОК/ВЕЧІР)
-    // ==========================================
-    const morningMatch = answerStep?.match(/Q_m_(\d+)/i);
-    const eveningMatch = answerStep?.match(/Q_e_(\d+)/i);
-
-    if (morningMatch) {
-      const questionNum = parseInt(morningMatch[1], 10);
-      logger.info(`[router/text] 🌞 Ранкове питання ${questionNum}`);
-      await dailySessions.handleMorningAnswer(ctx, text, questionNum);
-      return true;
-    }
-
-    if (eveningMatch) {
-      const questionNum = parseInt(eveningMatch[1], 10);
-      logger.info(`[router/text] 🌙 Вечірне питання ${questionNum}`);
-      await dailySessions.handleEveningAnswer(ctx, text, questionNum);
-      return true;
-    }
-
-    // ==========================================
-    // ✅ 4. AI НАСТАВНИК
-    // ==========================================
-    if (answerStep === 'ai_mentor_active') {
-      logger.info(`[router/text] 🤖 AI Mentor запит`);
-      if (await aiMentorModule.handleText?.(ctx)) {
-        return true;
-      }
-    }
-
-    logger.warn(`[router/text] ❓ Невідомий Answer_Step: ${answerStep}`);
-    return false;
-
-  } catch (error) {
-    logger.error('[router/text] ❌ Помилка:', error);
-    return false;
-  }
-};
-
-// ── Обробка callback_query (кнопки) ──────────────────────────────────────────
-const handleDailySessionsCallback = async (ctx) => {
-  const data = ctx.callbackQuery?.data;
-  if (!data) return false;
-
-  const dailyCallbacks = [
-    'start_morning', 'start_evening', 'later_morning', 'later_evening',
-    'exit_session', 'skip_morning_do_evening', 'restart_morning', 'restart_evening'
-  ];
-
-  if (!dailyCallbacks.includes(data)) return false;
-
-  const tgId = ctx.from.id;
-
-  try {
-    if (data === 'start_morning') {
-      await dailySessions.startMorningSession(ctx);
-      return true;
-    }
-
-    if (data === 'start_evening') {
-      await dailySessions.startEveningSession(ctx);
-      return true;
-    }
-
-    if (data === 'later_morning' || data === 'later_evening') {
-      await ctx.reply('✅ Добре! Можеш почати пізніше через меню.', keyboards.mainMenuKeyboard());
-      return true;
-    }
-
-    if (data === 'restart_morning') {
-      await dailySessions.restartMorningSession(ctx);
-      return true;
-    }
-
-    if (data === 'restart_evening') {
-      await dailySessions.restartEveningSession(ctx);
-      return true;
-    }
-
-    if (data === 'exit_session') {
-      const user = await users.getUserByTgId(tgId);
-      const step = user?.fields?.Answer_Step || '';
-      const sessionType = step.includes('Q_m_') ? 'morning' : 'evening';
-      
-      if (sessionType === 'morning') {
-        await dailySessions.exitMorningSession(ctx);
-      } else {
-        await dailySessions.exitEveningSession(ctx);
-      }
-      return true;
-    }
-
-    if (data === 'skip_morning_do_evening') {
-      await dailySessions.startEveningSession(ctx);
-      return true;
-    }
-if (data.startsWith('wheel_skip_note_')) {
-  logger.info(`[router/wheel] ⏭️ Пропуск нотатки: ${data}`);
-  const result = await wheelBalance.saveWheelNoteAndGoNext(ctx, 'Без нотатки');
-  logger.info(`[router/wheel] 📊 Результат: error=${result.error}, completed=${result.completed}`);
-  
-  if (result.error) {
-    logger.error(`[router/wheel] ❌ Помилка: ${result.message}`);
-    await ctx.reply(result.message, keyboards.mainMenuKeyboard());
-  } else if (result.completed) {
-    logger.info(`[router/wheel] ✅ Колесо завершено!`);
-    await ctx.reply(result.message, { parse_mode: 'Markdown', ...keyboards.mainMenuKeyboard() });
-  } else {
-    logger.info(`[router/wheel] ➡️ Наступний крок`);
-    await ctx.reply(result.message, result.keyboard);
-  }
-  return true;
-}
-
-if (data === 'wheel_go_back') {
-  logger.info(`[router/wheel] ⬅️ Повернення назад`);
-  const result = await wheelBalance.goBackWheelStep(tgId, ctx);
-  logger.info(`[router/wheel] 📊 Результат goBackWheelStep: ${JSON.stringify(result)}`);
-  try { await ctx.answerCbQuery('⬅️ Повертаємось назад'); } catch {}
-  return true;
-}
-    return false;
-  } catch (error) {
-    logger.error('[router/daily] ❌ Помилка:', error);
-    return false;
-  }
-};
-
-// ── Обробка Wheel callback'ів ────────────────────────────────────────────────
-const handleWheelCallback = async (ctx) => {
-  const data = ctx.callbackQuery?.data;
-  if (!data) return false;
-
-  const wheelCallbacks = [
-    'wheel_start', 'wheel_continue', 'wheel_exit', 'skip_first_wheel', 
-    'wheel_history', 'wheel_restart', 'wheel_restart_confirmed', 'wheel_view_analysis',
-    'wheel_go_back'
-  ];
-  
-  const isWheelCallback = wheelCallbacks.some(cb => data === cb) || 
-                          data.startsWith('wheel_score_') ||
-                          data.startsWith('wheel_skip_note_');  
-
-  if (!isWheelCallback) return false;
-
-  const tgId = ctx.from.id;
-
-  try {
-    logger.info(`[router/wheel] 🎯 Обробка: "${data}"`);
-if (data === 'main_menu') {
-  logger.info(`[router]`);
-  await dashboardModule.showMainMenu?.(ctx);
-  try { await ctx.answerCbQuery(); } catch {}
-  return;
-}
-
-    if (data === 'wheel_start') {
-      const user = await users.getUserByTgId(tgId);
-      const userName = user?.fields?.['User Name'] || ctx.from.first_name || 'Користувач';
-      const result = await wheelBalance.startWheelBalance(tgId, userName);
-      if (result.error) {
-        await ctx.reply(result.message, keyboards.mainMenuKeyboard());
-      } else {
-        await ctx.reply(result.message, result.keyboard);
-      }
-      return true;
-    }
-
-if (data === 'wheel_restart_confirmed') {
-  const user = await users.getUserByTgId(tgId);
-  const userName = user?.fields?.['User Name'] || ctx.from.first_name || 'Користувач';
-  const result = await wheelBalance.startNewWheelIgnoreOld(tgId, userName);
-      if (result.error) {
-        await ctx.reply(result.message, keyboards.mainMenuKeyboard());
-      } else {
-        await ctx.reply(result.message, result.keyboard);
-      }
-      return true;
-    }
-
-    if (data === 'wheel_history') {
-      const history = await wheelBalance.getWheelHistory(tgId);
-      if (!history || history.length === 0) {
-        await ctx.reply('📊 У тебе поки немає історії коліс балансу.', keyboards.mainMenuKeyboard());
-        return true;
-      }
-      let message = '📊 **ІСТОРІЯ КОЛІС БАЛАНСУ**\n\n';
-      history.forEach((wheel, index) => {
-        const date = wheel.fields.Created_Date || wheel.fields.Date;
-        const avgScore = wheel.fields.Total_Score || 'н/д';
-        message += `${index + 1}. ${date} — Загальна оцінка: ${avgScore}/80\n`;
-      });
-      await ctx.reply(message, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🎯 Пройти нове колесо', callback_data: 'wheel_restart_confirmed' }],
-          ]
-        }
-      });
-      return true;
-    }
-
-    if (data.startsWith('wheel_score_')) {
-      const score = parseInt(data.replace('wheel_score_', ''), 10);
-      if (isNaN(score) || score < 0 || score > 10) {
-        await ctx.reply('❌ Некоректна оцінка', keyboards.mainMenuKeyboard());
-        return true;
-      }
-      await wheelBalance.processWheelAnswer(tgId, score, ctx);
-      return true;
-    }
-
-if (data.startsWith('wheel_skip_note_')) {
-  const result = await wheelBalance.saveWheelNoteAndGoNext(ctx, 'Без нотатки');
-  if (result.error) {
-    await ctx.reply(result.message, keyboards.mainMenuKeyboard());
-  } else if (result.completed) {
-    // ✅ Нагородження вже відбулось у flow.js
-    await ctx.reply(result.message, { parse_mode: 'Markdown', ...keyboards.mainMenuKeyboard() });
-  } else {
-    await ctx.reply(result.message, result.keyboard);
-  }
-  return true;
-}
-    if (data === 'wheel_continue') {
-      const activeWheel = await wheelBalance.getActiveWheel(tgId);
-      if (!activeWheel) {
-        await ctx.reply('❌ Немає активного колеса', keyboards.mainMenuKeyboard());
-        return true;
-      }
-      const step = activeWheel.fields.Step || 1;
-      const LIFE_SPHERES = (await import('../config/constantsWheel.js')).LIFE_SPHERES;
-      if (step <= LIFE_SPHERES.length) {
-        const sphere = LIFE_SPHERES[step - 1];
-        await ctx.reply(
-          `🎯 КОЛЕСО БАЛАНСУ**\n\n📍 Сфера ${step}/${LIFE_SPHERES.length}: **${sphere.label}\n\n${sphere.description}\n\nОціни від 0 до 10:`,
-          keyboards.wheelScoreKeyboard()
-        );
-      }
-      return true;
-    }
-
-    if (data === 'wheel_restart') {
-      await ctx.reply(
-        '⚠️ Це скасує поточне колесо. Продовжити?',
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '✅ Так, почати заново', callback_data: 'wheel_restart_confirmed' }],
-              [{ text: '❌ Ні, продовжити поточне', callback_data: 'wheel_continue' }]
-            ]
-          }
-        }
-      );
-      return true;
-    }
-
-    if (data === 'wheel_exit') {
-      await wheelBalance.cancelWheelBalance(tgId);
-      await ctx.reply('✅ Колесо скасовано. Можеш почати заново будь-коли!', keyboards.mainMenuKeyboard());
-      return true;
-    }
-
-    if (data === 'wheel_go_back') {
-      await wheelBalance.goBackWheelStep(tgId, ctx);
-      try { await ctx.answerCbQuery('⬅️ Повертаємось назад'); } catch {}
-      return true;
-    }
-
-    if (data === 'wheel_view_analysis') {
-      const history = await wheelBalance.getWheelHistory(tgId);
-      if (!history || history.length === 0) {
-        await ctx.reply('📊 Поки немає завершених коліс для аналізу.', keyboards.mainMenuKeyboard());
-        return true;
-      }
-      const last = history[0];
-      const f = last.fields || {};
-      const date = f.Created_Date || f.Date || 'н/д';
-      const total = f.Total_Score ?? f.Total ?? f.Score ?? 'н/д';
-      const msg = `📊 *Останній аналіз колеса*\n\n🗓 Дата: *${date}*\n⭐ Загальна оцінка: *${total}*/80\n\nℹ️ Повну історію можна переглянути у «Історія коліс».`;
-      await ctx.reply(msg, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📊 Історія коліс', callback_data: 'wheel_history' }],
-            [{ text: '🔁 Пройти ще раз', callback_data: 'wheel_restart' }],
-          ]
-        }
-      });
-      return true;
-    }
-
-    return false;
-  } catch (error) {
-    logger.error('[router/wheel] ❌ Помилка:', error);
-    await ctx.reply('❌ Помилка обробки колеса. Спробуй ще раз.', keyboards.mainMenuKeyboard());
-    return true;
-  }
-};
-
-//  
-//   const text = ctx.message?.text?.trim();
-//   if (!text) return false;
-
-//   try {
-//     switch (text) {
-//       case '🎯 Колесо балансу':
-//         await dashboardModule.startWheelFromText(ctx);  
-//         return true;
-
-//       case '📊 Мій прогрес та Звіти':
-//         await ctx.reply('📊 Функція в розробці...', keyboards.mainMenuKeyboard());
-//         return true;
-
-//       case 'ℹ️ Інформація про бота':
-//         await dashboardModule.showCapabilities(ctx);
-//         return true;
-
-//       case '📞 Звʼязок':
-//         await dashboardModule.showContact(ctx);
-//         return true;
-
-//       case '❓ Допомога':
-//         await dashboardModule.showHelp(ctx);
-//         return true;
-
-//       case '💰 Підписка':
-//         await ctx.reply('💰 Функція в розробці...', keyboards.mainMenuKeyboard());
-//         return true;
-
-//       case '🤖 AI Наставник':
-//         await ctx.reply('🤖 Функція в розробці...', keyboards.mainMenuKeyboard());
-//         return true;
-
-//       default:
-//         return false;
-//     }
-//   } catch (e) {
-//     logger.error('[router/handleDashboardText]', e);
-//     return false;
-//   }
-// };
-
-// ── Ініціалізація роутера ────────────────────────────────────────────────────
-export const initRouter = (bot) => {
-  logger.info('🎮 [router] Ініціалізація…');
-
-  // /start команда
-  bot.start(async (ctx) => {
-    try {
-      logger.info('[router] /start від користувача:', ctx.from.id);
-      await handleStart(ctx);
-    } catch (error) {
-      logger.error('[router/start] ❌ Помилка:', error);
-      await ctx.reply('❌ Сталася помилка. Спробуй /start ще раз.');
-    }
+  // Wheel
+  bot.action('wheel_start', async (ctx) => {
+    const res = await startWheelBalance(ctx.from.id, ctx.from.first_name || '');
+    await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
+  });
+  bot.action('wheel_continue', async (ctx) => {
+    const res = await continueActiveWheel(ctx.from.id, ctx);
+    await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
+  });
+  bot.action('wheel_restart', async (ctx) => {
+    await ctx.reply(
+      'Почати колесо заново? Поточний прогрес буде збережено в історії.',
+      keyboards.buildRestartWarningKeyboard('wheel')
+    );
+  });
+  bot.action('wheel_restart_confirmed', async (ctx) => {
+    const res = await startNewWheelIgnoreOld(ctx.from.id, ctx.from.first_name || '', true);
+    await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
+  });
+  bot.action('wheel_go_back', async (ctx) => {
+    await goBackWheelStep(ctx.from.id, ctx);
+  });
+  bot.action(/^wheel_skip_note_(\d+)$/, async (ctx) => {
+    const res = await saveWheelNoteAndGoNext(ctx, '(пропущено)');
+    await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
+  });
+  bot.action(/^wheel_score_(\d{1,2})$/, async (ctx) => {
+    const score = Math.max(0, Math.min(10, Number(ctx.match[1])));
+    await processWheelAnswer(ctx.from.id, score, ctx);
+  });
+  bot.action('wheel_exit', async (ctx) => {
+    await cancelWheelBalance(ctx.from.id);
+    await ctx.reply('Сесію колеса завершено.', keyboards.mainMenuKeyboard());
   });
 
-  // ── Текстові повідомлення ────────────────────────────────────────────────
+  // Daily sessions
+  bot.action('start_morning', dailyController.handleStartMorning);
+  bot.action('later_morning', dailyController.handleLaterMorning);
+  bot.action('start_evening', dailyController.handleStartEvening);
+  bot.action('later_evening', dailyController.handleLaterEvening);
+  bot.action('exit_session', dailyController.handleExitSession);
+  bot.action('skip_morning_do_evening', dailyController.handleSkipMorningDoEvening);
+
+  // Навігація (через dashboard)
+  bot.action('main_menu', (ctx) => dashboard.showMainMenu);
+  bot.action('show_capabilities', dashboard.showCapabilities);
+  bot.action('instructions', dashboard.showInstructions);
+  bot.action('help', dashboard.showHelp);
+
+  // TEXT — один обробник
   bot.on('text', async (ctx) => {
+    const tgId = ctx.from.id;
+    const text = (ctx.message?.text || '').trim();
+
+    // 1) daily
     try {
-      const text = ctx.message?.text?.trim();
-      logger.info(`[router/text] 📝 Текст: "${text?.substring(0, 50)}..."`);
-
-      // Послідовність обробки:
-      // 1. Онбординг → 2. Колесо (нотатка) → 3. Щоденні сесії → 4. AI → 5. Меню
-      
- // Послідовність обробки:
-    // 1️⃣ Dashboard меню (ℹ️ Інформація, 📞 Звʼязок, 🎯 Колесо, тощо)
-    if (await dashboardModule.handleText(ctx)) return;  // ← ОДНА, з features/dashboard
-
-    // 2️⃣ Щоденні сесії (ранок/вечір)
-    if (await handleDailySessionsText(ctx)) return;
-
-    // 3️⃣ Онбординг (ім'я, email, тощо)
-    if (await handleText(ctx)) return;  // ← з onboarding
-
-    // 4️⃣ AI наставник
-    if (await aiMentorModule.handleText?.(ctx)) return;
-      logger.warn('[router/text] ❓ Жоден handler не спрацював');
-      await ctx.reply('❓ Невідома команда. Використай меню нижче.', keyboards.mainMenuKeyboard());
-    } catch (error) {
-      logger.error('[router/text] ❌ Помилка:', error);
-      await ctx.reply('❌ Виникла помилка. Спробуй ще раз або натисни /start', keyboards.mainMenuKeyboard());
+      const handledDaily = await dailyController.handleText?.(ctx, text);
+      if (handledDaily) return;
+    } catch (e) {
+      logger.error('[router] dailyController.handleText:', e.message);
     }
+
+    // 2) wheel note очікування
+    try {
+      const awaiting = await isAwaitingNote(tgId);
+      if (awaiting && text) {
+        const res = await saveWheelNoteAndGoNext(ctx, text);
+        await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
+        return;
+      }
+    } catch (e) {
+      logger.error('[router] wheel note flow:', e.message);
+    }
+
+    // 3) AI mentor (lazy)
+    try {
+      const aiMentorMod = await import('../features/aiMentor/index.js');
+      const aiMentor = aiMentorMod?.default || aiMentorMod;
+      const handledAi = await aiMentor?.handleText?.(ctx, text);
+      if (handledAi) return;
+    } catch (e) {
+      logger.warn('[router] AI mentor module not found or no handleText:', e.message);
+    }
+
+    // 4) dashboard
+    try {
+      const handledDash = await dashboard.handleText?.(ctx, text);
+      if (handledDash) return;
+    } catch (e) {
+      logger.error('[router] dashboard.handleText:', e.message);
+    }
+
+    await ctx.reply('Не зовсім зрозумів. Обери дію:', keyboards.mainMenuKeyboard());
   });
 
-  // ── Callback query (кнопки) ──────────────────────────────────────────────
-  bot.on('callback_query', async (ctx) => {
-    const data = ctx.callbackQuery?.data;
-    try {
-      logger.info(`[router/callback] 🎯 Обробка: "${data}"`);
-  if (data === 'main_menu') {
-  logger.info(`[router] 🏠 main_menu натиснуто`);
-  try { 
-    await ctx.answerCbQuery('Меню вже активне'); 
-  } catch {}
-  return;
-    }
-      if (await dashboardModule.handleCallback?.(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      if (await handleCallback(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      if (await handleDailySessionsCallback(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      if (await handleWheelCallback(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      if (await gamificationModule.handleCallback?.(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      if (await affirmationsModule.handleCallback?.(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      if (await reportsModule.handleCallback?.(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      if (await aiMentorModule.handleCallback?.(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      if (await subscriptionModule.handleCallback?.(ctx)) {
-        try { await ctx.answerCbQuery(); } catch {}
-        return;
-      }
-
-      logger.warn(`[router/callback] ❓ Невідома команда: ${data}`);
-      try { await ctx.answerCbQuery('❓ Невідома команда'); } catch {}
-      await ctx.reply('❓ Невідома команда. Використай меню нижче.', keyboards.mainMenuKeyboard());
-    } catch (error) {
-      logger.error('[router/callback] ❌ Помилка:', error);
-      try { await ctx.answerCbQuery('❌ Помилка'); } catch {}
-      await ctx.reply('❌ Виникла помилка. Спробуй ще раз.', keyboards.mainMenuKeyboard());
-    }
+  bot.catch((err, ctx) => {
+    logger.error(`[router] Global error for ${ctx.updateType}:`, err);
+    try { ctx.reply('Сталася помилка. Спробуй ще раз пізніше.', keyboards.mainMenuKeyboard()); } catch {}
   });
-
-  logger.info('✅ [router] Готовий');
 };
 
-console.log('✅ [bot/router] Router завантажено');
+export const initRouter = attachRoutes;
+export default attachRoutes;

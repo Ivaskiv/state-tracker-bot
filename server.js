@@ -18,7 +18,7 @@ import {
 import { testConnection, validateTables } from './src/config/database.js';
 
 // Services
-import { startScheduler, stopScheduler } from './src/services/scheduler.js';
+import {  initScheduler, stopScheduler } from './src/services/scheduler.js';
 
 // Webhook
 import subscriptionWebhook from './src/features/subscription/webhook.js';
@@ -140,13 +140,13 @@ bot.catch((err, ctx) => {
     // 4️⃣ ЗАПУСК SCHEDULER (ЗАМІСТЬ 3️⃣)
     console.log('⏰ [server] Запуск планувальника...');
     try {
-      startScheduler(bot);
+       initScheduler(bot);
       console.log('✅ [server] Планувальник активовано');
     } catch (schedulerError) {
       console.warn('⚠️ [server] Помилка запуску планувальника:', schedulerError.message);
       console.warn('💡 [server] Бот працюватиме без автоматичних нагадувань');
     }
-        
+
     // 5️⃣ ОЧИЩЕННЯ WEBHOOK
     console.log('🧹 [server] Очищення webhook...');
     await bot.telegram.deleteWebhook({ drop_pending_updates: true });

@@ -1,214 +1,196 @@
 // src/services/scheduler.js
-// Планувальник автоматичних нагадувань: ранкові/вечірні/звіти/колесо/підписки
 
 import cron from 'node-cron';
-import { CRON_SCHEDULES, SCHEDULER_MESSAGES } from '../config/index.js';
-import { tables, selectFromTable } from '../config/database.js';
-import keyboards, { menuKeyboard } from '../utils/keyboards.js';
+import logger from '../utils/logger.js';
+import keyboards from '../utils/keyboards.js';
+import { getBase, tables } from '../config/database.js';
+import subscriptionController from '../features/subscription/controller.js';
 
-const TZ = 'Europe/Prague';
-let jobs = [];
+const base = getBase();
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-const getActiveUsers = async () => {
-  try {
-    const formula = `AND({Status}='Active User', {Answer_Step}='COMPLETED')`;
-    return await selectFromTable(tables.USERS, { filterByFormula: formula }).all();
-  } catch (e) {
-    console.error('[scheduler/getActiveUsers] ❌', e?.message || e);
-    return [];
+// Тримаємо посилання на всі задачі, щоб зупиняти
+let tasks = [];
+
+const pushTask = (task) => {
+  tasks.push(task);
+  return task;
+};
+
+// 🌞 Morning (08:00)
+export const scheduleMorningReminders = (bot) =>
+  pushTask(
+    cron.schedule('0 8 * * *', async () => {
+      try {
+        logger.info('🌞 [scheduler] Ранкові нагадування…');
+
+        const users = await base(tables.USERS).select({ maxRecords: 500 }).all();
+        for (const user of users) {
+          const tgId = user.fields.TG_id;
+          try {
+            await bot.telegram.sendMessage(
+              tgId,
+              '🌞 **Добрий ранок!**\n\nГотовий почати ранкову рефлексію?',
+              { parse_mode: 'Markdown', ...keyboards.morningStartInline() }
+            );
+            await new Promise((r) => setTimeout(r, 500));
+          } catch (e) {
+            logger.warn(`[scheduler] ⚠️ Morning ${tgId}: ${e.message}`);
+          }
+        }
+
+        logger.info('✅ [scheduler] Morning done');
+      } catch (e) {
+        logger.error('❌ [scheduler] scheduleMorningReminders:', e.message);
+      }
+    })
+  );
+
+// 🌙 Evening (19:00)
+export const scheduleEveningReminders = (bot) =>
+  pushTask(
+    cron.schedule('0 19 * * *', async () => {
+      try {
+        logger.info('🌙 [scheduler] Вечірні нагадування…');
+
+        const users = await base(tables.USERS).select({ maxRecords: 500 }).all();
+        for (const user of users) {
+          const tgId = user.fields.TG_id;
+          try {
+            await bot.telegram.sendMessage(
+              tgId,
+              '🌙 **Вечір!**\n\nГотовий підвести підсумки дня?',
+              { parse_mode: 'Markdown', ...keyboards.eveningStartInline() }
+            );
+            await new Promise((r) => setTimeout(r, 500));
+          } catch (e) {
+            logger.warn(`[scheduler] ⚠️ Evening ${tgId}: ${e.message}`);
+          }
+        }
+
+        logger.info('✅ [scheduler] Evening done');
+      } catch (e) {
+        logger.error('❌ [scheduler] scheduleEveningReminders:', e.message);
+      }
+    })
+  );
+
+// 💰 Subscription check (10:00)
+export const scheduleSubscriptionCheck = (bot) =>
+  pushTask(
+    cron.schedule('0 10 * * *', async () => {
+      try {
+        logger.info('💰 [scheduler] Перевірка підписок…');
+        await subscriptionController.sendExpirationReminders(bot);
+        logger.info('✅ [scheduler] Перевірка підписок завершена');
+      } catch (e) {
+        logger.error('❌ [scheduler] scheduleSubscriptionCheck:', e.message);
+      }
+    })
+  );
+
+// 🔄 Inactive users (23:00)
+export const scheduleDailyInactiveCheck = (bot) =>
+  pushTask(
+    cron.schedule('0 23 * * *', async () => {
+      try {
+        logger.info('🔄 [scheduler] Перевірка неактивних користувачів…');
+
+        const users = await base(tables.USERS).select({ maxRecords: 500 }).all();
+        const today = new Date();
+
+        for (const user of users) {
+          const tgId = user.fields.TG_id;
+          const lastActive = user.fields.Last_Activity;
+          if (!lastActive) continue;
+
+          const lastDay = new Date(lastActive);
+          const diffDays = Math.floor((today - lastDay) / (1000 * 60 * 60 * 24));
+
+          if (diffDays >= 3) {
+            try {
+              await bot.telegram.sendMessage(
+                tgId,
+                '👋 **Ми по тобі скучаємо!**\n\nПовернися до своєї практики!',
+                { parse_mode: 'Markdown', ...keyboards.mainMenuKeyboard() }
+              );
+              await new Promise((r) => setTimeout(r, 500));
+            } catch (e) {
+              logger.warn(`[scheduler] ⚠️ Inactive ${tgId}: ${e.message}`);
+            }
+          }
+        }
+
+        logger.info('✅ [scheduler] Inactive done');
+      } catch (e) {
+        logger.error('❌ [scheduler] scheduleDailyInactiveCheck:', e.message);
+      }
+    })
+  );
+
+// 📊 Weekly reports (Mon 10:00)
+export const scheduleWeeklyReports = (bot) =>
+  pushTask(
+    cron.schedule('0 10 * * 1', async () => {
+      try {
+        logger.info('📊 [scheduler] Відправлення тижневих звітів…');
+
+        const users = await base(tables.USERS).select({ maxRecords: 500 }).all();
+        for (const user of users) {
+          const tgId = user.fields.TG_id;
+          try {
+            await bot.telegram.sendMessage(
+              tgId,
+              '📊 **Твій тижневий звіт готовий!**\n\nПереглянути деталі?',
+              { parse_mode: 'Markdown', ...keyboards.weeklyReportMenuKeyboard() }
+            );
+            await new Promise((r) => setTimeout(r, 500));
+          } catch (e) {
+            logger.warn(`[scheduler] ⚠️ Weekly ${tgId}: ${e.message}`);
+          }
+        }
+
+        logger.info('✅ [scheduler] Weekly done');
+      } catch (e) {
+        logger.error('❌ [scheduler] scheduleWeeklyReports:', e.message);
+      }
+    })
+  );
+
+// 🚀 Init + 🛑 Stop
+export const initScheduler = (bot) => {
+  logger.info('🚀 [scheduler] Ініціалізація…');
+
+  // якщо вже запущено — не дублюємо
+  if (tasks.length) {
+    logger.info(`[scheduler] вже активний (${tasks.length} задач)`);
+    return tasks.length;
   }
-};
 
-const chatIdOf = (user) => String(user?.fields?.TG_id || '').trim() || null;
-const nameOf = (user) => user?.fields?.['User Name'] || 'Користувач';
+  scheduleMorningReminders(bot);
+  scheduleEveningReminders(bot);
+  scheduleSubscriptionCheck(bot);
+  scheduleDailyInactiveCheck(bot);
+  scheduleWeeklyReports(bot);
 
-const safeSend = async (bot, tgId, text, extra) => {
-  try {
-    await bot.telegram.sendMessage(tgId, text, extra);
-    return true;
-  } catch (e) {
-    console.error(`[scheduler] ❌ send ${tgId}:`, e?.message || e);
-    return false;
-  }
-};
-
-const broadcastToActive = async (bot, buildPayload) => {
-  const users = await getActiveUsers();
-  console.log(`[scheduler] 👥 Активних: ${users.length}`);
-  for (const u of users) {
-    const tgId = chatIdOf(u);
-    if (!tgId) {
-      console.warn('[scheduler] ⚠️ Пропуск: TG_id порожній');
-      continue;
-    }
-    const payload = buildPayload(u, tgId);
-    if (!payload) continue;
-    await safeSend(bot, tgId, payload.text, payload.extra);
-  }
-};
-
-// ── tasks ─────────────────────────────────────────────────────────────────────
-const sendMorningQuestions = async (bot) => {
-  console.log('🌞 [scheduler] Ранкові нотифікації…');
-  await broadcastToActive(bot, (u) => ({
-    text: SCHEDULER_MESSAGES.MORNING_SESSION_START(nameOf(u)),
-    extra: keyboards.morningStartInline(),
-  }));
-};
-
-const sendEveningQuestions = async (bot) => {
-  console.log('🌙 [scheduler] Вечірні нотифікації…');
-  await broadcastToActive(bot, (u) => ({
-    text: SCHEDULER_MESSAGES.EVENING_SESSION_START(nameOf(u)), // ✅ fixed
-    extra: keyboards.eveningStartInline(),
-  }));
-};
-
-const sendWeeklyReports = async (bot) => {
-  console.log('📊 [scheduler] Щотижневі звіти…');
-  await broadcastToActive(bot, () => ({
-    text: SCHEDULER_MESSAGES.WEEKLY_PROMPT,
-    extra: menuKeyboard([
-      { text: '📊 Переглянути звіт', callback_data: 'show_weekly_report' },
-      { text: '⏭ Пізніше', callback_data: 'later_weekly' },
-    ]),
-  }));
-};
-
-const monthlyWheelCheck = async (bot) => {
-  console.log('🎯 [scheduler] Щомісячне колесо…');
-  await broadcastToActive(bot, (u) => ({
-    text:
-      `🎯 Привіт, ${nameOf(u)}!\n\n` +
-      `Настав час оновити твоє *Колесо балансу*. Це допоможе побачити прогрес і перефокусуватися на наступний місяць.`,
-    extra: menuKeyboard([
-      { text: '🎯 Почати колесо балансу', callback_data: 'wheel_start' },
-      { text: '⏭ Пізніше', callback_data: 'later_wheel' },
-    ]),
-  }));
-};
-let subscriptionService = null;
-
-const getSubscriptionService = async () => {
-  if (!subscriptionService) {
-    subscriptionService = (await import('../features/subscription/service.js')).default;
-  }
-  return subscriptionService;
-};
-/**
- * 🔔 Перевірка підписок:
- * 1) деактивація прострочених (в базі)
- * 2) нагадування тим, у кого завершується підписка (напр., за 1–3 дні)
- */
-const checkSubscriptions = async (bot) => {
-  try {
-    console.log('💰 [scheduler] Перевірка підписок…');
-
-    // 1) деактивуємо прострочені
-    const service = await getSubscriptionService();
-    const deactivated = await service.deactivateExpiredSubscriptions?.();
-    if (typeof deactivated === 'number') {
-      console.log(`💳 [scheduler] Деактивовано прострочених: ${deactivated}`);
-    }
-
-    // 2) надсилаємо нагадування (сьогодні-завтра)
-    const expiringSoon = await service.getUsersWithExpiringSubscriptions?.(1);
-    const expiringIn3 = await service.getUsersWithExpiringSubscriptions?.(3);
-
-    const map = new Map();
-    [...(expiringSoon || []), ...(expiringIn3 || [])].forEach((u) => map.set(u.TG_id, u));
-    const users = [...map.values()];
-    console.log(`💳 [scheduler] Нагадати користувачам: ${users.length}`);
-
-    for (const u of users) {
-      const tgId = u.TG_id;
-      const planName = u['Active Subscription Plan'] || 'План';
-      const endDate = u.End_Date
-        ? new Date(u.End_Date).toLocaleDateString('uk-UA')
-        : '—';
-
-      const msg = `⏳ Підписка *${planName}* завершується ${endDate}.\n\n` +
-                  `Щоб не втрачати доступ — продовжуй у один клік 👇`;
-
-      await safeSend(bot, tgId, msg, keyboards.subscriptionExpiringKeyboard());
-      await new Promise((r) => setTimeout(r, 400));
-    }
-  } catch (e) {
-    console.error('[scheduler/checkSubscriptions] ❌', e?.message || e);
-  }
-};
-// ── public API ────────────────────────────────────────────────────────────────
-export const startScheduler = (bot) => {
-  console.log('⏰ [scheduler] Старт…');
-
-  // idempotent: якщо вже запущено — спочатку зупиняємо
-  if (jobs.length) stopScheduler();
-
-  try {
-    jobs.push(
-      cron.schedule(CRON_SCHEDULES.MORNING_QUESTIONS, () => sendMorningQuestions(bot), { timezone: TZ }),
-    );
-    console.log(`[scheduler] ✅ Morning: ${CRON_SCHEDULES.MORNING_QUESTIONS}`);
-
-    jobs.push(
-      cron.schedule(CRON_SCHEDULES.EVENING_QUESTIONS, () => sendEveningQuestions(bot), { timezone: TZ }),
-    );
-    console.log(`[scheduler] ✅ Evening: ${CRON_SCHEDULES.EVENING_QUESTIONS}`);
-
-    jobs.push(
-      cron.schedule(CRON_SCHEDULES.WEEKLY_REPORTS, () => sendWeeklyReports(bot), { timezone: TZ }),
-    );
-    console.log(`[scheduler] ✅ Weekly: ${CRON_SCHEDULES.WEEKLY_REPORTS}`);
-
-    jobs.push(
-      cron.schedule(CRON_SCHEDULES.MONTHLY_WHEEL_CHECK, () => monthlyWheelCheck(bot), { timezone: TZ }),
-    );
-    console.log(`[scheduler] ✅ Monthly: ${CRON_SCHEDULES.MONTHLY_WHEEL_CHECK}`);
-
-    jobs.push(
-      cron.schedule(CRON_SCHEDULES.SUBSCRIPTION_CHECK, () => checkSubscriptions(bot), { timezone: TZ }),
-    );
-    console.log(`[scheduler] ✅ Subs: ${CRON_SCHEDULES.SUBSCRIPTION_CHECK}`);
-
-    console.log(`[scheduler] ▶️ Активних задач: ${jobs.length}`);
-  } catch (e) {
-    console.error('[scheduler/startScheduler] ❌', e?.message || e);
-    throw e;
-  }
+  logger.info(`✅ [scheduler] Активних задач: ${tasks.length}`);
+  return tasks.length;
 };
 
 export const stopScheduler = () => {
-  console.log('⏹️ [scheduler] Зупинка…');
-  for (const j of jobs) {
-    try { j.stop(); } catch (e) { console.error('[scheduler/stopScheduler] ❌', e?.message || e); }
+  for (const t of tasks) {
+    try { t.stop(); } catch {}
   }
-  jobs = [];
-  console.log('[scheduler] ✅ Зупинено');
+  tasks = [];
+  logger.info('🛑 [scheduler] Зупинено всі задачі');
+  return true;
 };
 
-/** Нагадування неактивним (48+ год) */
-export const checkInactiveUsers = async (bot) => {
-  const now = new Date();
-  const users = await getActiveUsers();
-
-  for (const u of users) {
-    const tgId = chatIdOf(u);
-    if (!tgId) continue;
-
-    const last = u?.fields?.Last_Activity ? new Date(u.fields.Last_Activity) : null;
-    if (!last || Number.isNaN(last.getTime())) continue;
-
-    const hours = Math.floor((now - last) / (1000 * 60 * 60));
-    if (hours >= 48) {
-      await safeSend(
-        bot,
-        tgId,
-        '⏰ Привіт! Давно не бачились. Хочеш повернутись у ритм?',
-        keyboards.morningStartInline(),
-      );
-    }
-  }
+export default {
+  initScheduler,
+  stopScheduler,
+  scheduleMorningReminders,
+  scheduleEveningReminders,
+  scheduleSubscriptionCheck,
+  scheduleDailyInactiveCheck,
+  scheduleWeeklyReports,
 };
-
-console.log('✅ [services/scheduler] Scheduler завантажено');
