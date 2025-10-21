@@ -22,10 +22,11 @@ const safeAnswerCb = async (ctx, text = '') => {
 // ── UI: Головне меню ─────────────────────────────────────────
 export const showMainMenu = async (ctx) => {
   const tgId = ctx.from.id;
+
   try {
     await typing(ctx);
 
-    const user = await users.getUserByTgId(tgId);
+    const user = await getUserByTgId(tgId);
     if (!user) {
       await ctx.reply('Спочатку зареєструйся командою /start');
       return;
@@ -39,16 +40,22 @@ export const showMainMenu = async (ctx) => {
       currentStreak: user.fields.Current_Streak || 0,
       completedSessions: user.fields.Total_Sessions || 0,
       wheelCompleted: user.fields.Wheel_Completed || false,
-      goalProgress: user.fields.Goal_Progress || 0,
+      goalProgress: user.fields.Goal_Progress || 0
     };
 
-    const msg = (subscriptionStatus === 'Active' && endDate)
+    const message = (subscriptionStatus === 'Active' && endDate)
       ? MESSAGES.WELCOME_BACK_ACTIVE(userName, formatDate(endDate), stats)
       : MESSAGES.WELCOME_BACK_INACTIVE(userName, stats);
 
-    await ctx.reply(msg, keyboards.mainMenuKeyboard());
-  } catch (e) {
-    console.error('[dashboard/showMainMenu] ❌', e);
+    // 🔧 КРОК 1: прибрати стару клавіатуру (Telegram інакше може не оновити)
+    await ctx.reply('⏳ Оновлюю меню…', {
+      reply_markup: { remove_keyboard: true }
+    });
+
+    // 🔧 КРОК 2: надіслати нову клавіатуру
+    await ctx.reply(message, keyboards.mainMenuKeyboard());
+  } catch (error) {
+    console.error('[dashboard/showMainMenu] ❌ Помилка:', error);
     await ctx.reply('Помилка завантаження меню', keyboards.mainMenuKeyboard());
   }
 };

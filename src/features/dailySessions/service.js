@@ -1,4 +1,4 @@
-// src/services/dailySessions/service.js — ВИПРАВЛЕНО + ДОПИСАНО
+// src/services/dailySessions/service.js 
 
 import { QUESTIONS, QUESTION_PARSERS } from '../../config/index.js';
 import logger from '../../utils/logger.js';
@@ -228,7 +228,100 @@ export const restartSession = async (ctx, tgId, sessionType, startFn) => {
     await ctx.reply('❌ Помилка перезавантаження сесії. Спробуй /start');
   }
 };
-
+//ОДИН парсер для всього
+export const parseFocus = async (focusText, existingGoals, monthlyGoals) => {
+  try {
+    // Надішли до AI для розбору
+    const aiAnalysis = await chat([
+      {
+        role: 'system',
+        content: `Ти експерт-розпарсер. На вхід: 
+          - Фокус дня (текст)
+          - 10 річних цілей
+          - 3 цілі місяця
+          
+        Повинен витягти:
+        1. Main_Priority (що найважливіше сьогодні)
+        2. 3 конкретні дії (action, час, тривалість, результат)
+        3. Connection_To_Goals (як це пов'язано з цілями)
+        
+        Формат JSON:
+        {
+          "main_priority": "...",
+          "daily_actions": [
+            {"action": "...", "time": "HH:MM або 'зараз'", "duration_min": 25, "result": "..."},
+            ...
+          ],
+          "connected_to_goal": "...",
+          "estimated_impact": "high|medium|low"
+        }`
+      },
+      {
+        role: 'user',
+        content: `
+          Мій фокус сьогодні: ${focusText}
+          
+          Річні цілі: ${existingGoals.map(g => g.Goal_Text).join(', ')}
+          Цілі місяця: ${monthlyGoals.map(g => g.text).join(', ')}
+        `
+      }
+    ], 'gpt-4o-mini', 800);
+    
+    const parsed = JSON.parse(aiAnalysis);
+    
+    // Записуємо розпарсені дії в MICRO_ACTIONS
+    for (let i = 0; i < parsed.daily_actions.length; i++) {
+      const action = parsed.daily_actions[i];
+      await base(tables.MICRO_ACTIONS).create([{
+        fields: {
+          TG_id: String(tgId),
+          Date: todayISO(),
+          Source: 'user_input',
+          Context_Type: 'daily_focus',
+          Original_Text: focusText,
+          Daily_Action_Number: i + 1,
+          Daily_Action_Text: action.action,
+          Action_Time: action.time,
+          Action_Duration_Min: action.duration_min,
+          Expected_Result: action.result,
+          Priority: parsed.estimated_impact === 'high' ? 'high' : 'medium',
+          Status: 'pending',
+          Connected_To_Goal: parsed.connected_to_goal,
+          Created_At: new Date().toISOString()
+        }
+      }]);
+    }
+    
+    // Записуємо AI аналіз для AI Mentor
+    await base(tables.AI_CONVERSATIONS).create([{
+      fields: {
+        TG_id: String(tgId),
+        Date: todayISO(),
+        Session_Type: 'morning_focus',
+        User_Input: focusText,
+        AI_Analysis: `🎯 Твій фокус: ${parsed.main_priority}`,
+        Suggested_Actions: JSON.stringify(parsed.daily_actions),
+        Context_Data: JSON.stringify({
+          yearly_goals: existingGoals.map(g => g.Goal_Text),
+          monthly_goals: monthlyGoals.map(g => g.text),
+          focus_priority: parsed.estimated_impact
+        }),
+        Feedback_Status: 'pending',
+        Timestamp: new Date().toISOString()
+      }
+    }]);
+    
+    return {
+      success: true,
+      analysis: parsed,
+      actions_count: parsed.daily_actions.length
+    };
+    
+  } catch (error) {
+    logger.error('[parseFocus] ❌', error);
+    return { success: false, error: error.message };
+  }
+};
 /**
  * Вийти з сесії
  */

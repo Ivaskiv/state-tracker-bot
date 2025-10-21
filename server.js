@@ -140,7 +140,7 @@ bot.catch((err, ctx) => {
     // 4️⃣ ЗАПУСК SCHEDULER (ЗАМІСТЬ 3️⃣)
     console.log('⏰ [server] Запуск планувальника...');
     try {
-       initScheduler(bot);
+      initScheduler(bot);
       console.log('✅ [server] Планувальник активовано');
     } catch (schedulerError) {
       console.warn('⚠️ [server] Помилка запуску планувальника:', schedulerError.message);
@@ -164,24 +164,17 @@ bot.catch((err, ctx) => {
     });
     
     console.log('');
-    console.log('═══════════════════════════════════════');
-    console.log('✅ БОТ УСПІШНО ЗАПУЩЕНО');
-    console.log('═══════════════════════════════════════');
     console.log(`📱 Режим: ${NODE_ENV || 'development'}`);
     console.log(`🌍 Часова зона: ${TZ || 'Europe/Kiev'}`);
     console.log(`🤖 Bot ID: @${(await bot.telegram.getMe()).username}`);
     console.log(`🌐 Webhook port: ${PORT_NUMBER}`);
-    console.log('═══════════════════════════════════════');
     console.log('');
     
   } catch (error) {
     console.error('');
-    console.error('═══════════════════════════════════════');
     console.error('❌ КРИТИЧНА ПОМИЛКА ЗАПУСКУ');
-    console.error('═══════════════════════════════════════');
     console.error('Помилка:', error.message);
     console.error('Stack:', error.stack);
-    console.error('═══════════════════════════════════════');
     console.error('');
     process.exit(1);
   }
@@ -190,9 +183,7 @@ bot.catch((err, ctx) => {
 // ===== GRACEFUL SHUTDOWN =====
 const shutdown = (signal) => async () => {
   console.log('');
-  console.log('═══════════════════════════════════════');
   console.log(`🛑 ${signal} отримано - зупинка бота...`);
-  console.log('═══════════════════════════════════════');
   
   try {
     console.log('⏰ [shutdown] Зупинка планувальника...');
@@ -208,19 +199,14 @@ const shutdown = (signal) => async () => {
     console.log('✅ [shutdown] Бот зупинено');
     
     console.log('');
-    console.log('═══════════════════════════════════════');
     console.log('👋 Зупинено чисто');
-    console.log('═══════════════════════════════════════');
     console.log('');
     
     process.exit(0);
   } catch (error) {
     console.error('');
-    console.error('═══════════════════════════════════════');
     console.error('❌ ПОМИЛКА ПРИ ЗУПИНЦІ');
-    console.error('═══════════════════════════════════════');
     console.error('Помилка:', error.message);
-    console.error('═══════════════════════════════════════');
     console.error('');
     process.exit(1);
   }

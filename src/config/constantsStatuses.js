@@ -31,6 +31,7 @@ export const CURRENT_ACTIVITY = Object.freeze({
   WEEKLY: 'weekly_report',
   MONTHLY: 'monthly_report',
   SUBSCRIPTION: 'subscription',
+DAILY_FOCUS:  'daily_focus',
   Q_M_1: 'Q_m_1', Q_M_2: 'Q_m_2', Q_M_3: 'Q_m_3', Q_M_4: 'Q_m_4', Q_M_5: 'Q_m_5', Q_M_6: 'Q_m_6',
   Q_E_1: 'Q_e_1', Q_E_2: 'Q_e_2', Q_E_3: 'Q_e_3', Q_E_4: 'Q_e_4', Q_E_5: 'Q_e_5', Q_E_6: 'Q_e_6', Q_E_7: 'Q_e_7',
 });
@@ -52,7 +53,9 @@ export const ANSWER_STEPS = Object.freeze({
   MORNING_1: 'Q_m_1', MORNING_2: 'Q_m_2', MORNING_3: 'Q_m_3', MORNING_4: 'Q_m_4', MORNING_5: 'Q_m_5', MORNING_6: 'Q_m_6',
   EVENING_1: 'Q_e_1', EVENING_2: 'Q_e_2', EVENING_3: 'Q_e_3', EVENING_4: 'Q_e_4', EVENING_5: 'Q_e_5', EVENING_6: 'Q_e_6', EVENING_7: 'Q_e_7',
   WHEEL_BALANCE_ACTIVE: 'WheelBalance',
-  AI_MENTOR_ACTIVE: 'ai_mentor_active'
+  AI_MENTOR_ACTIVE: 'ai_mentor_active',
+  DAILY_FOCUS:  'daily_focus',
+
 });
 
 export const DAILY_MESSAGES = Object.freeze({
@@ -83,3 +86,19 @@ export const OB_STEPS = Object.freeze({
   REMINDERS_INTRO: ANSWER_STEPS.OB_REMINDERS_INTRO,
   DONE: ANSWER_STEPS.OB_DONE,
 });
+/* ────────────────────────────────────────────────────────────
+   Порядок ранкових полів
+   ──────────────────────────────────────────────────────────── */
+export const MORNING_ORDER = [
+  'Daily_Focus',
+  'Q_m_1',
+  'Q_m_2',
+  'Q_m_3',
+  'Q_m_4',
+  'Q_m_5',
+  'Q_m_6',
+];
+export const EVENING_ORDER = [
+  'Q_e_1',
+  'Q_e_2',
+  'Q_e_3','Q_e_4','Q_e_5','Q_e_6','Q_e_7'];

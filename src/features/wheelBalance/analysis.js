@@ -1,166 +1,169 @@
-// src/features/wheelBalance/analysis.js — ФІНАЛЬНА ВЕРСІЯ (за ТЗ §5.5)
+// src/features/wheelBalance/analysis.js — ВИПРАВЛЕНО
 
 import { chat } from '../../services/openaiClient.js';
 import logger from '../../utils/logger.js';
-import { LIFE_SPHERES, WHEEL_ANALYSIS_PROMPT } from '../../config/index.js';
+import { LIFE_SPHERES } from '../../config/index.js';
 
 /**
- * Згенерувати аналіз колеса балансу
- * ТЗ §5.5: "Очікується введення 8 чисел 0–10 → зберегти WheelBalance, 
- * сгенерувати інсайти/плани, запропонувати місячні пріоритети (2–3)"
+ * ✅ ВИПРАВЛЕНО: Правильна генерація аналізу з конвертацією назв
  */
-export const generateWheelAnalysis = async (scoresArr) => {
-  try {
-    // ✅ Перевірка вхідних даних
-    if (!Array.isArray(scoresArr) || scoresArr.length !== 8) {
-      logger.error('[wheelBalance/analysis] ❌ Невірна кількість оцінок:', scoresArr.length);
-      return createFallbackAnalysis(scoresArr);
-    }
+export const generateWheelAnalysis = (scores = []) => {
+  const totalSpheres = LIFE_SPHERES.length;
+  const safe = Array.isArray(scores) ? scores.slice(0, totalSpheres) : [];
+  while (safe.length < totalSpheres) safe.push(0);
 
-    // ✅ Отримуємо назви сфер із config (ТЗ має 8 сфер)
-    const sphereNames = LIFE_SPHERES.map(s => s.label || s.key);
+  const total = safe.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+  const avg = +(total / totalSpheres).toFixed(1);
 
-    // ✅ Будуємо промпт відповідно до WHEEL_ANALYSIS_PROMPT
-    const prompt = WHEEL_ANALYSIS_PROMPT.buildWheelAnalysisPrompt(scoresArr, sphereNames);
+  const strong = [];
+  const weak = [];
 
-    logger.info('[wheelBalance/analysis] 📋 Промпт готово, відправляємо AI');
-
-    const analysis = await chat(
-      [
-        { 
-          role: 'system', 
-          content: WHEEL_ANALYSIS_PROMPT.SYSTEM_PROMPT 
-        },
-        { 
-          role: 'user', 
-          content: prompt 
-        }
-      ],
-      'gpt-4o-mini',
-      500 // Достатньо токенів для якісного аналізу
-    );
-
-    if (!analysis) {
-      logger.warn('[wheelBalance/analysis] ⚠️ Порожня відповідь від AI');
-      return createFallbackAnalysis(scoresArr, sphereNames);
-    }
-
-    logger.info('[wheelBalance/analysis] ✅ Аналіз отримано від AI');
-    return analysis;
-
-  } catch (error) {
-    logger.error('[wheelBalance/analysis] ❌ Помилка AI:', error.message);
-    const sphereNames = LIFE_SPHERES.map(s => s.label || s.key);
-    return createFallbackAnalysis(scoresArr, sphereNames);
+  for (let i = 0; i < totalSpheres; i++) {
+    const label = String(LIFE_SPHERES[i]?.label || LIFE_SPHERES[i]?.key || `Сфера ${i + 1}`);
+    const score = Number(safe[i]) || 0;
+    if (score >= 8) strong.push(`${label} (${score})`);
+    if (score <= 5) weak.push(`${label} (${score})`);
   }
+
+  let out = `✅ Середній бал: ${avg}/10\n\n`;
+  if (strong.length) out += `🌟 Сильні: ${strong.join(', ')}\n`;
+  if (weak.length)   out += `⚡ Увага: ${weak.join(', ')}\n`;
+  out += `\n🎯 Зосередься на сферах ≤5 — це точки росту.\n\n📈 Відстежуй прогрес щомісяця.`;
+
+  return out;
 };
 
 /**
- * Fallback аналіз (ТЗ §5.5: інсайти/плани + місячні пріоритети)
- * Структура: Середній → Сильні → Слабкі → Дії → Фокус місяця → Мотивація
+ * ✅ SYSTEM PROMPT для коуча
+ */
+const getSystemPrompt = () => {
+  return `Ти — експертний коуч з Life Wheel Analysis.
+Стиль: конкретний, без пафосу, практичний, емпатійний.
+Мова: українська.
+Довжина: 200-300 слів максимум.
+Завдання: дати короткий, дійсно корисний аналіз та 2-3 конкретні дії на місяць.`;
+};
+
+/**
+ * ✅ ВИПРАВЛЕНО: Промпт правильно готується
+ */
+const buildWheelAnalysisPrompt = (scoresArr, sphereNames) => {
+  const pairs = scoresArr.map((score, i) => ({
+    name: sphereNames[i] || `Сфера ${i + 1}`,
+    score: Number(score)
+  }));
+
+  const avg = (scoresArr.reduce((a, b) => a + b, 0) / 8).toFixed(1);
+  const weak = pairs.filter(p => p.score <= 5);
+  const strong = pairs.filter(p => p.score >= 8);
+
+  let prompt = `🎡 **АНАЛІЗ КОЛЕСА БАЛАНСУ**\n\n`;
+  
+  prompt += `Оцінки користувача (0-10):\n`;
+  pairs.forEach(p => {
+    prompt += `• ${p.name}: ${p.score}\n`;
+  });
+
+  prompt += `\n📊 Статистика:\n`;
+  prompt += `• Середня оцінка: ${avg}/10\n`;
+  prompt += `• Сильні сфери (≥8): ${strong.map(s => s.name).join(', ') || 'немає'}\n`;
+  prompt += `• Для розвитку (≤5): ${weak.map(s => s.name).join(', ') || 'немає'}\n`;
+
+  prompt += `\n✅ ТВОЯ ЗАДАЧА:\n`;
+  prompt += `1. Коротко оціни баланс (1 речення)\n`;
+  prompt += `2. Назви 1-2 найважливіші точки росту\n`;
+  prompt += `3. Дай 2-3 конкретних дій на місяць (з часом, тривалістю, результатом)\n`;
+  prompt += `4. Мотивуючий висновок (без пафосу)\n\n`;
+  prompt += `Форматуй як звіт для користувача (готовий для Telegram).`;
+
+  return prompt;
+};
+
+/**
+ * ✅ ВИПРАВЛЕНО: Fallback з правильною конвертацією
  */
 const createFallbackAnalysis = (scoresArr, sphereNames = null) => {
   try {
-    // ✅ Отримуємо назви сфер
-    const names = sphereNames || LIFE_SPHERES.map(s => s.label || s.key);
+    // ✅ ВИПРАВЛЕНО: Отримуємо РЯДКОВІ назви, а не об'єкти
+    const names = sphereNames && sphereNames.length === 8
+      ? sphereNames.map(n => String(n))
+      : LIFE_SPHERES.map(s => String(s.label || s.key));
 
-    // ✅ Базова статистика
-    const avgScore = scoresArr.length > 0 
-      ? (scoresArr.reduce((a, b) => a + b, 0) / scoresArr.length).toFixed(1)
-      : 0;
+    const avg = (scoresArr.reduce((a, b) => a + b, 0) / 8).toFixed(1);
 
-    const totalScore = scoresArr.reduce((a, b) => a + b, 0);
-
-    // ✅ Знаходимо сильні (≥8) та слабкі (≤5) сфери
+    // ✅ ВИПРАВЛЕНО: Правильно фільтруємо та показуємо
     const pairs = scoresArr.map((score, i) => ({
-      name: names[i] || `Сфера ${i + 1}`,
+      name: names[i],
       score
     }));
 
-    const strong = pairs.filter(s => s.score >= 8);
-    const weak = pairs.filter(s => s.score <= 5);
-    const medium = pairs.filter(s => s.score > 5 && s.score < 8);
+    const strong = pairs.filter(p => p.score >= 8);
+    const weak = pairs.filter(p => p.score <= 5);
 
-    // ✅ ФІНАЛЬНА СТРУКТУРА (відповідно до ТЗ та WHEEL_ANALYSIS_PROMPT)
     let analysis = '';
 
-    // 1️⃣ Заголовок та середній бал
-    analysis += `✅ Середній бал: ${avgScore}/10\n`;
-    analysis += `📊 Загальна оцінка: ${totalScore}/80\n\n`;
+    // 1️⃣ Середня оцінка
+    analysis += `✅ **Твій баланс: ${avg}/10**\n\n`;
 
-    // 2️⃣ Сильні сфери (ТЗ: запропонувати місячні пріоритети)
+    // 2️⃣ Сильні сфери
     if (strong.length > 0) {
       analysis += `🌟 **Сильні сфери (≥8):**\n`;
       strong.forEach(s => {
-        analysis += `• ${s.name}: ${s.score}/10\n`;
+        analysis += `• ${String(s.name)}: ${s.score}/10\n`;
       });
       analysis += '\n';
-    } else {
-      analysis += `🌟 **Сильні сфери:** немає (всі збалансовані)\n\n`;
     }
 
-    // 3️⃣ Сфери для розвитку (ТЗ: "точки росту")
+    // 3️⃣ Для розвитку
     if (weak.length > 0) {
       analysis += `⚡ **Для розвитку (≤5):**\n`;
-      weak.forEach(s => {
-        analysis += `• ${s.name}: ${s.score}/10\n`;
+      weak.forEach(w => {
+        analysis += `• ${String(w.name)}: ${w.score}/10\n`;
       });
       analysis += '\n';
     } else {
-      analysis += `⚡ **Для розвитку:** всі в нормі (≥6)\n\n`;
+      analysis += `⚡ **Для розвитку:** всі сфери в нормі!\n\n`;
     }
 
-    // 4️⃣ Збалансовані сфери (опціонально)
-    if (medium.length > 0 && medium.length <= 3) {
-      analysis += `⚖️ **Збалансовані (6–7):**\n`;
-      medium.forEach(s => {
-        analysis += `• ${s.name}: ${s.score}/10\n`;
-      });
-      analysis += '\n';
-    }
-
-    // 5️⃣ Конкретні дії (ТЗ §5.5: "місячні пріоритети (2–3)")
+    // 4️⃣ Конкретні дії
     analysis += `🎯 **Конкретні дії на місяць:**\n`;
-    
-    if (weak.length > 0) {
-      const topWeak = weak.slice(0, 2);
-      topWeak.forEach((w, idx) => {
-        analysis += `• Дія ${idx + 1}: Покращити "${w.name}" на 2–3 пункти через мікро-кроки (25 хв/день)\n`;
-      });
-    } else {
-      analysis += `• Дія 1: Зберегти висоти в сильних сферах\n`;
-      analysis += `• Дія 2: Дослідити можливості для глибшого розвитку\n`;
-    }
-    
-    analysis += `• Дія 3: Встановити один фокус на місяць\n\n`;
-
-    // 6️⃣ Місячний пріоритет (ТЗ §5.5)
     if (weak.length > 0) {
       const top = weak[0];
-      analysis += `💡 **Місячний пріоритет:** Покращити "${top.name}" \n`;
-      analysis += `Чому: це твоя найбільша точка росту\n\n`;
-    } else {
-      const worstMedium = medium.length > 0 ? medium[0] : pairs[0];
-      analysis += `💡 **Місячний пріоритет:** Досліджувати "${worstMedium.name}"\n`;
-      analysis += `Чому: це основа для стабільності\n\n`;
+      analysis += `• **Дія 1:** Покращити "${top.name}" на 2-3 пункти\n`;
+      analysis += `  ⏱️ 25 хв/день, щодня\n`;
+      analysis += `  📍 Результат: ${top.score} → ${top.score + 2}/10\n\n`;
     }
 
-    // 7️⃣ Мотивація (ТЗ: лаконічна, без пафосу)
-    analysis += `📈 Твій баланс > 7.5/10 — це чудовий результат! Продовжуй відстежувати прогрес щомісяця. 💪\n`;
+    analysis += `• **Дія 2:** Визнач одну сферу для глибокого дослідження\n`;
+    analysis += `  ⏱️ 1 година на рефлексію\n\n`;
+
+    analysis += `• **Дія 3:** Запиши одну дію на кожен день цього тижня\n`;
+    analysis += `  ⏱️ Вечір перед сном, 5 хв\n\n`;
+
+    // 5️⃣ Мотивація
+    if (avg >= 8) {
+      analysis += `📈 **Висновок:** Твій баланс практично ідеальний! Фокусуйся на утриманні висот. 🚀`;
+    } else if (avg >= 6) {
+      analysis += `📈 **Висновок:** Добрий прогрес! Обери 1-2 сфери на фокус і розвивай їх послідовно. 💪`;
+    } else if (avg >= 4) {
+      analysis += `📈 **Висновок:** Час для активних змін! Почни з найслабшої сфери, роб маленькі кроки. 🎯`;
+    } else {
+      analysis += `📈 **Висновок:** Баланс потребує серйозної роботи. Але ТИ можеш це змінити! Почни ЗАРАЗ. 🔥`;
+    }
 
     return analysis;
 
   } catch (error) {
     logger.error('[wheelBalance/analysis] ❌ Помилка fallback:', error.message);
     
-    // ✅ Ультра-fallback (якщо навіть fallback впав)
+    // Ультра-fallback
     return (
-      `✅ Колесо балансу завершено!\n\n` +
-      `📊 Твої оцінки збережено в Airtable.\n\n` +
+      `✅ **Колесо балансу завершено!**\n\n` +
+      `📊 Твої оцінки збережено.\n\n` +
       `🎯 Рекомендація: переглянь результати та встанови один фокус на наступний місяць.\n\n` +
-      `📈 Обновлюй коліс раз на місяць для відстеження прогресу. 💪`
+      `📈 Обновлюй колесо раз на місяць для відстеження прогресу. 💪`
     );
   }
 };
 
-console.log('✅ [wheelBalance/analysis] Аналіз завантажено (ТЗ §5.5)');
+console.log('✅ [wheelBalance/analysis] Аналіз ВИПРАВЛЕНО (без [object Object])');

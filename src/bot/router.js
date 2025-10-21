@@ -1,6 +1,6 @@
-// src/bot/router.js (COMPLETE FIX)
+// src/bot/router.js
 
-import initOnboarding, { handleCallback as obHandleCallback, handleText as obHandleText } from '../features/onboarding/index.js';
+import initOnboarding from '../features/onboarding/index.js';
 import {
   startWheelBalance,
   continueActiveWheel,
@@ -11,34 +11,68 @@ import {
   isAwaitingNote,
   startNewWheelIgnoreOld,
 } from '../features/wheelBalance/flow.js';
-import * as dailyController from '../features/dailySessions/controller.js';
+
 import subscriptionController from '../features/subscription/controller.js';
+import * as dailyController from '../features/dailySessions/controller.js';
+
 import keyboards from '../utils/keyboards.js';
 import logger from '../utils/logger.js';
-import * as dashboard from '../features/dashboard/index.js';
+
+// використовуємо твій features/dashboard (не controllers/)
+import dashboard from '../features/dashboard/index.js';
+
+// ──────────────────────────────────────────────────────────────
+// helpers: завжди передаємо валідний handler у Telegraf
+// ──────────────────────────────────────────────────────────────
+const ensureHandler = (fn, fallbackText = '⛔️ Тимчасово недоступно') => {
+  if (typeof fn === 'function') return fn;
+  return async (ctx) => {
+    try { await ctx.reply(fallbackText, keyboards.mainMenuKeyboard()); } catch {}
+  };
+};
+
+const wrap = (fnName, mod, fallbackText) =>
+  ensureHandler(mod?.[fnName], fallbackText);
+
+// ──────────────────────────────────────────────────────────────
 
 const attachRoutes = (bot) => {
-  // Onboarding реєструє /start
+  // Onboarding сам реєструє /start
   initOnboarding(bot);
 
-  // Subscription callbacks
-  bot.action('subscription_info', subscriptionController.handleSubscriptionInfo);
-  bot.action('subscription_plans', subscriptionController.handleSubscriptionPlans);
-  bot.action('renew_subscription', subscriptionController.handleRenewSubscription);
-  bot.action('sync_subscription', subscriptionController.handleSyncSubscription);
-  bot.action('contact_support', subscriptionController.handleContactSupport);
-  bot.action('activate_trial', (ctx) => subscriptionController.handleSubscribe(ctx, 'trial'));
-  bot.action('subscribe_week', (ctx) => subscriptionController.handleSubscribe(ctx, 'WEEK'));
-  bot.action('subscribe_month', (ctx) => subscriptionController.handleSubscribe(ctx, 'MONTH'));
-  bot.action('subscribe_year', (ctx) => subscriptionController.handleSubscribe(ctx, 'YEAR'));
-  bot.action(/^buy_course_(.+)$/, async (ctx) => {
-    const [, problemType] = ctx.match;
-    await subscriptionController.handleBuyCourse(ctx, problemType);
+  // ===== Subscription (через safe wrappers)
+  bot.action('subscription_info', wrap('handleSubscriptionInfo', subscriptionController));
+  bot.action('subscription_plans', wrap('handleSubscriptionPlans', subscriptionController));
+  bot.action('renew_subscription', wrap('handleRenewSubscription', subscriptionController));
+  bot.action('sync_subscription', wrap('handleSyncSubscription', subscriptionController));
+  bot.action('contact_support', wrap('handleContactSupport', subscriptionController));
+  bot.action('activate_trial', async (ctx) => {
+    const fn = subscriptionController?.handleSubscribe;
+    return ensureHandler((c) => fn(c, 'trial'))(ctx);
   });
-  bot.action('book_consultation', subscriptionController.handleBookConsultation);
-  bot.action('dismiss_offer', subscriptionController.handleDismissOffer);
+  bot.action('subscribe_week', async (ctx) => {
+    const fn = subscriptionController?.handleSubscribe;
+    return ensureHandler((c) => fn(c, 'week'))(ctx);
+  });
+  bot.action('subscribe_month', async (ctx) => {
+    const fn = subscriptionController?.handleSubscribe;
+    return ensureHandler((c) => fn(c, 'month'))(ctx);
+  });
+  bot.action('subscribe_year', async (ctx) => {
+    const fn = subscriptionController?.handleSubscribe;
+    return ensureHandler((c) => fn(c, 'year'))(ctx);
+  });
+  bot.action(/^buy_course_(.+)$/, async (ctx) => {
+    const fn = subscriptionController?.handleBuyCourse;
+    return ensureHandler(async (c) => {
+      const [, problemType] = c.match;
+      await fn(c, problemType);
+    })(ctx);
+  });
+  bot.action('book_consultation', wrap('handleBookConsultation', subscriptionController));
+  bot.action('dismiss_offer', wrap('handleDismissOffer', subscriptionController));
 
-  // Wheel
+  // ===== Wheel
   bot.action('wheel_start', async (ctx) => {
     const res = await startWheelBalance(ctx.from.id, ctx.from.first_name || '');
     await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
@@ -73,79 +107,80 @@ const attachRoutes = (bot) => {
     await ctx.reply('Сесію колеса завершено.', keyboards.mainMenuKeyboard());
   });
 
-  // Daily sessions
-  bot.action('start_morning', dailyController.handleStartMorning);
-  bot.action('later_morning', dailyController.handleLaterMorning);
-  bot.action('start_evening', dailyController.handleStartEvening);
-  bot.action('later_evening', dailyController.handleLaterEvening);
-  bot.action('exit_session', dailyController.handleExitSession);
-  bot.action('skip_morning_do_evening', dailyController.handleSkipMorningDoEvening);
+  // ===== Daily sessions (safe)
+  bot.action('start_morning', wrap('handleStartMorning', dailyController));
+  bot.action('later_morning', wrap('handleLaterMorning', dailyController));
+  bot.action('start_evening', wrap('handleStartEvening', dailyController));
+  bot.action('later_evening', wrap('handleLaterEvening', dailyController));
+  bot.action('exit_session', wrap('handleExitSession', dailyController));
+  bot.action('skip_morning_do_evening', wrap('handleSkipMorningDoEvening', dailyController));
 
-  // Navigation (dashboard)
-  bot.action('main_menu', dashboard.showMainMenu);
-  bot.action('show_capabilities', dashboard.showCapabilities);
-  bot.action('instructions', dashboard.showInstructions);
-  bot.action('help', dashboard.showHelp);
+  // Резюм-кнопки (щоб продовжити з місця зупинки)
+bot.action('continue_morning', dailyController.handleContinueMorning);
+bot.action('restart_morning',  dailyController.handleRestartMorning);
 
-  // TEXT HANDLER — Порядок важливий!
+bot.action('continue_evening', dailyController.handleContinueEvening);
+bot.action('restart_evening',  dailyController.handleRestartEvening);
+
+  // ===== Навігація (dashboard)
+  bot.action('main_menu', ensureHandler(dashboard?.showMainMenu));
+  bot.action('show_capabilities', ensureHandler(dashboard?.showCapabilities));
+  bot.action('instructions', ensureHandler(dashboard?.showInstructions));
+  bot.action('help', ensureHandler(dashboard?.showHelp));
+
+  // ===== TEXT — єдиний обробник
   bot.on('text', async (ctx) => {
     const tgId = ctx.from.id;
     const text = (ctx.message?.text || '').trim();
 
+    // 1) daily першим
     try {
-      // 1️⃣ Onboarding (повинен бути першим)
-      if (await obHandleText(ctx, text)) return;
-
-      // 2️⃣ Daily sessions
-      try {
-        const handledDaily = await dailyController.handleText?.(ctx, text);
-        if (handledDaily) return;
-      } catch (e) {
-        logger.error('[router] dailyController.handleText:', e.message);
-      }
-
-      // 3️⃣ Wheel note flow
-      try {
-        const awaiting = await isAwaitingNote(tgId);
-        if (awaiting && text) {
-          const res = await saveWheelNoteAndGoNext(ctx, text);
-          await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
-          return;
-        }
-      } catch (e) {
-        logger.error('[router] wheel note flow:', e.message);
-      }
-
-      // 4️⃣ AI mentor (lazy load)
-      try {
-        const aiMentorMod = await import('../features/aiMentor/index.js');
-        const aiMentor = aiMentorMod?.default || aiMentorMod;
-        const handledAi = await aiMentor?.handleText?.(ctx, text);
-        if (handledAi) return;
-      } catch (e) {
-        logger.warn('[router] AI mentor not ready:', e.message);
-      }
-
-      // 5️⃣ Dashboard
-      try {
-        const handledDash = await dashboard.handleText?.(ctx, text);
-        if (handledDash) return;
-      } catch (e) {
-        logger.error('[router] dashboard.handleText:', e.message);
-      }
-
-      // Fallback
-      await ctx.reply('Не зовсім зрозумів. Обери дію:', keyboards.mainMenuKeyboard());
-    } catch (error) {
-      logger.error('[router/text] ❌', error);
-      await ctx.reply('❌ Помилка. Спробуй ще раз', keyboards.mainMenuKeyboard());
+      const handledDaily = await dailyController?.handleText?.(ctx, text);
+      if (handledDaily) return;
+    } catch (e) {
+      logger.error('[router] dailyController.handleText:', e.message);
     }
+
+    // 2) wheel — якщо очікуємо нотатку
+    try {
+      const awaiting = await isAwaitingNote(tgId);
+      if (awaiting && text) {
+        const res = await saveWheelNoteAndGoNext(ctx, text);
+        await ctx.reply(res.message, res.keyboard || keyboards.wheelScoreKeyboard());
+        return;
+      }
+    } catch (e) {
+      logger.error('[router] wheel note flow:', e.message);
+    }
+
+    // 3) AI-Mentor (динамічно)
+    try {
+      const aiMentorMod = await import('../features/aiMentor/index.js');
+      const aiMentor = aiMentorMod?.default || aiMentorMod;
+      const handledAi = await aiMentor?.handleText?.(ctx, text);
+      if (handledAi) return;
+    } catch (e) {
+      logger.warn('[router] AI mentor module not found or no handleText:', e.message);
+    }
+
+    // 4) Dashboard
+    try {
+      const handledDash = await dashboard?.handleText?.(ctx, text);
+      if (handledDash) return;
+    } catch (e) {
+      logger.error('[router] dashboard.handleText:', e.message);
+    }
+
+    // fallback
+    await ctx.reply('Не зовсім зрозумів. Обери дію:', keyboards.mainMenuKeyboard());
   });
 
   bot.catch((err, ctx) => {
     logger.error(`[router] Global error for ${ctx.updateType}:`, err);
-    try { ctx.reply?.('Сталася помилка. Спробуй ще раз пізніше.', keyboards.mainMenuKeyboard()); } catch {}
+    try { ctx.reply('Сталася помилка. Спробуй ще раз пізніше.', keyboards.mainMenuKeyboard()); } catch {}
   });
+
+  logger.info('✅ [router] Підключено');
 };
 
 export const initRouter = attachRoutes;

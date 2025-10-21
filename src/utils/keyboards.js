@@ -12,6 +12,8 @@ const keyboards = {
         [{ text: '📊 Мій прогрес та Звіти' }, { text: 'ℹ️ Інформація про бота' }],
         [{ text: '💰 Підписка' }, { text: '📞 Звʼязок' }],
         [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }],
+        [{ text: '🌞 Ранкова сесія' }, { text: '🌙 Вечірня сесія' }],
+
       ],
       resize_keyboard: true,
       one_time_keyboard: false,
@@ -347,6 +349,22 @@ const keyboards = {
       ],
     },
   }),
+doneMorningKeyboard: () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '▶️ Продовжити ранок', callback_data: 'continue_morning' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ]
+  }
+}),
+doneEveningKeyboard: () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '▶️ Продовжити вечір', callback_data: 'continue_evening' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ]
+  }
+}),
 };
 
 // ── УНІВЕРСАЛЬНІ ГЕНЕРАТОРИ ──

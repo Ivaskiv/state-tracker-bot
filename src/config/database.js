@@ -50,8 +50,6 @@ export const tables = Object.freeze({
   
   // ===== ІНШІ ТАБЛИЦІ =====
   USER_REFLECTIONS: 'User Reflections',
-  MORNING_RESPONSES: 'Morning_Responses',
-  EVENING_RESPONSES: 'Evening_Responses',
   AFFIRMATIONS: 'Affirmations',
   USER_AFFIRMATIONS: 'User Affirmations',
   USER_REPORTS: 'User_Reports',

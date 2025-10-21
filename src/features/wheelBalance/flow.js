@@ -1,4 +1,4 @@
-// src/features/wheelBalance/flow.js — ВИПРАВЛЕНО
+// src/features/wheelBalance/flow.js — ВИПРАВЛЕНО (ВИДАЛЕНО ДУБЛЮВАННЯ)
 
 import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';
@@ -20,14 +20,29 @@ import {
 
 const base = getBase();
 
-// ===============================================================
+// ═══════════════════════════════════════════════════════════════
+// 🎯 ДОПОМІЖНА ФУНКЦІЯ ДЛЯ ПЕРШОЇ СФЕРИ
+// ═══════════════════════════════════════════════════════════════
+
+const getFirstSphereMessage = () => {
+  const firstSphere = LIFE_SPHERES[0];
+  const progressBar = getProgressBar(Math.round((1 / LIFE_SPHERES.length) * 100));
+  
+  return {
+    message: `🎡 **СФЕРА 1/${LIFE_SPHERES.length}: ${firstSphere.label}**\n\n${progressBar}\n\n${firstSphere.description}\n\nОціни від 0 до 10:`,
+    keyboard: keyboards.wheelScoreKeyboard()
+  };
+};
+
+// ═══════════════════════════════════════════════════════════════
 // 🎯 СТАРТ / ОНОВЛЕННЯ КОЛЕСА
-// ===============================================================
+// ═══════════════════════════════════════════════════════════════
 
 export const startWheelBalance = async (tgId, userName) => {
   try {
     logger.info(`🎯 [wheelBalance] Старт для ${tgId}`);
 
+    // 1. Перевіряємо активне колесо
     const existing = await getActiveWheel(tgId);
     if (existing) {
       const step = existing.fields.Step || 1;
@@ -42,6 +57,7 @@ export const startWheelBalance = async (tgId, userName) => {
       };
     }
 
+    // 2. Перевіряємо останнє завершене колесо
     const last = await getLatestCompletedWheel(tgId);
     if (last) {
       const analysis = last.fields.AI_Analysis || 'Аналіз недоступний';
@@ -56,14 +72,13 @@ export const startWheelBalance = async (tgId, userName) => {
       };
     }
 
-    const newWheel = await createWheel(tgId, userName);
-    const firstSphere = LIFE_SPHERES[0];
-    const progressBar = getProgressBar(Math.round((1 / LIFE_SPHERES.length) * 100));
+    // 3. Створюємо нове колесо
+    await createWheel(tgId, userName);
+    const firstSphere = getFirstSphereMessage();
 
     return {
       error: false,
-      message: `🎡 **СФЕРА 1/${LIFE_SPHERES.length}: ${firstSphere.label}**\n\n${progressBar}\n\n${firstSphere.description}\n\nОціни від 0 до 10:`,
-      keyboard: keyboards.wheelScoreKeyboard()
+      ...firstSphere
     };
   } catch (e) {
     logger.error('❌ [wheelBalance] startWheelBalance:', e);
@@ -226,17 +241,16 @@ export const startNewWheelIgnoreOld = async (tgId, userName, forceRestart = fals
       logger.info(`✅ [wheelBalance] Скасовано старе колесо ${existing.id}`);
     }
 
-    const newWheel = await createWheel(tgId, userName);
-    const firstSphere = LIFE_SPHERES[0];
-    const progressBar = getProgressBar(Math.round((1 / LIFE_SPHERES.length) * 100));
+    await createWheel(tgId, userName);
+    const firstSphere = getFirstSphereMessage();
 
     return {
       error: false,
       message: 
         `🎯 **НОВЕ КОЛЕСО БАЛАНСУ**\n\n` +
         `✅ Попереднє колесо збережено в історії.\n\n` +
-        `🎡 **СФЕРА 1/${LIFE_SPHERES.length}: ${firstSphere.label}**\n\n${progressBar}\n\n${firstSphere.description}\n\nОціни від 0 до 10:`,
-      keyboard: keyboards.wheelScoreKeyboard()
+        `${firstSphere.message}`,
+      keyboard: firstSphere.keyboard
     };
   } catch (e) {
     logger.error('❌ [wheelBalance] startNewWheelIgnoreOld:', e);
@@ -300,12 +314,10 @@ const completeWheelProcess = async (tgId, wheelId, ctx) => {
     const scores = LIFE_SPHERES.map((s) => fields[s.key] || 0);
     const total = scores.reduce((a, b) => a + b, 0);
 
-    let analysis = createFallbackAnalysis(scores);
+    let analysis = await generateWheelAnalysis(scores);
 
-    try {
-      analysis = await generateWheelAnalysis(scores);
-    } catch (error) {
-      logger.warn('[wheelBalance] ⚠️ Помилка AI аналізу:', error.message);
+    if (!analysis) {
+      analysis = 'Аналіз недоступний. Спробуй пізніше.';
     }
 
     await completeWheel(wheelId, total, analysis);
@@ -427,32 +439,4 @@ const formatSimpleWheel = (scores) => {
   return result;
 };
 
-const createFallbackAnalysis = (scores) => {
-  const total = scores.reduce((a, b) => a + b, 0);
-  const avg = (total / 8).toFixed(1);
-
-  let analysis = `✅ *Результат:* ${avg}/10\n\n`;
-
-  const weak = scores.filter(s => s <= 5);
-  const strong = scores.filter(s => s >= 8);
-
-  if (strong.length > 0) {
-    analysis += `🌟 *Сильні сфери:* ${strong.length}\n`;
-  }
-
-  if (weak.length > 0) {
-    analysis += `⚡ *Для розвитку:* ${weak.length}\n`;
-  }
-
-  if (avg >= 8) {
-    analysis += `\n🎉 Твій баланс практично ідеальний!`;
-  } else if (avg >= 5) {
-    analysis += `\n💪 Хороший прогрес! Продовжуй розвиватися.`;
-  } else {
-    analysis += `\n🎯 Час для дій! Вибери 1-2 сфери на фокус.`;
-  }
-
-  return analysis;
-};
-
-console.log('✅ [wheelBalance/flow] Flow логіка завантажена');
+console.log('✅ [wheelBalance/flow] Flow логіка ВИПРАВЛЕНА (ДУБЛЮВАННЯ ПЕРЕЛІК ФУНКЦІЇ ВИДАЛЕНО)');
