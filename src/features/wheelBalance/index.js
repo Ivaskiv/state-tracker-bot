@@ -1,3 +1,5 @@
+// src/features/wheelBalance/index.js
+// ОДНА функція: initFeature(bot) — реєструє всі action/command/on
 import * as flow from './flow.js';
 import * as analysis from './analysis.js';
 import { wheelController } from './controller.js';

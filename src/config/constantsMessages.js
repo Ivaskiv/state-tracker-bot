@@ -1,6 +1,6 @@
 //src/config/constantsMessages.js
 import { SCHEDULE } from './constantsSchedule.js';
-import { MORNING_QUESTIONS, EVENING_QUESTIONS } from './constantsQuestions.js';
+import { MORNING_QUESTIONS, EVENING_QUESTIONS } from '../features/dailySessions/constantsQuestions.js';
 import { CONSULTATION_OFFER } from './constantsCourses.js';
 
 // DRY-хелпери

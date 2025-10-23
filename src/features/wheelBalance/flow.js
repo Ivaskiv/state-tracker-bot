@@ -1,4 +1,4 @@
-// src/features/wheelBalance/flow.js — ВИПРАВЛЕНО (ВИДАЛЕНО ДУБЛЮВАННЯ)
+// src/features/wheelBalance/flow.js —Бізнес-логіка (DB, сервіси, перевірки)
 
 import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';

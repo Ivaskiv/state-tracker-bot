@@ -1,6 +1,6 @@
-// src/features/wheelBalance/service.js
+// src/features/wheelBalance/service.js - Утиліти (хелпери без знання про Telegram)
 import { LIFE_SPHERES } from '../../config/index.js';
-import { WHEEL_QUESTIONS } from '../../config/constantsWheel.js';
+import { WHEEL_QUESTIONS } from './constantsWheel.js';
 
 /**
  * Отримати питання за кроком
