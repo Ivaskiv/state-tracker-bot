@@ -520,7 +520,7 @@ export const handleText = async (ctx, textRaw) => {
 
     const q = questionForField(nextField);
     await ctx.reply(
-      `✅ Зберегла відповідь.\n\n${renderQuestionWithHint(q)}`,
+      `✅ Відповідь збережено\n\n${renderQuestionWithHint(q)}`,
       { parse_mode: 'Markdown', ...keyboards.buildExitKeyboard() }
     );
     return true;

@@ -425,7 +425,7 @@ const formatSimpleWheel = (scores) => {
   const total = scores.reduce((a, b) => a + b, 0);
   const avg = (total / 8).toFixed(1);
 
-  let result = `🎡 *КОЛЕСО БАЛАНСУ*\n━━━━━━━━━━━━━━━\n\n`;
+  let result = `🎡 *КОЛЕСО БАЛАНСУ*\n\n`;
 
   for (let i = 0; i < 8; i++) {
     const emoji = sphereEmojis[i];
@@ -435,8 +435,7 @@ const formatSimpleWheel = (scores) => {
     result += `${emoji} ${name}\n[${bar}] ${score}/10\n\n`;
   }
 
-  result += `━━━━━━━━━━━━━━━\n⭐ Середня: ${avg}/10\n📊 Всього: ${total}/80`;
+  result += `\n⭐ Середня: ${avg}/10\n📊 Всього: ${total}/80`;
   return result;
 };
 
-console.log('✅ [wheelBalance/flow] Flow логіка ВИПРАВЛЕНА (ДУБЛЮВАННЯ ПЕРЕЛІК ФУНКЦІЇ ВИДАЛЕНО)');
