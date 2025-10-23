@@ -1,11 +1,168 @@
-// src/services/dailySessions/service.js 
+// src/services/dailySessions/service.js
+// ✅ COMPLETE: Uses flow.js functions, no duplicate records, all saves go through flow
 
 import { QUESTIONS, QUESTION_PARSERS } from '../../config/index.js';
 import logger from '../../utils/logger.js';
 import keyboards from '../../utils/keyboards.js';
-import * as db from './repo.js';
+import * as flow from '../../features/dailySessions/flow.js';
+import { getBase, tables } from '../../config/database.js';
+import { chat } from './openaiClient.js';
+import { todayISO } from '../../utils/helpers.js';
 
-// ── formatter ─────────────────────────────────────────────────────────────────
+const base = getBase();
+
+// ════════════════════════════════════════════════════════════
+// 💾 SESSION STATE HELPERS — Always use flow.js
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Check if session is complete
+ * Returns true if all questions answered
+ */
+export const checkAndCompleteSession = async (tgId, sessionType) => {
+  try {
+    // ✅ Use flow.js
+    const rec = await flow.getOrCreateTodayResponse(tgId);
+    if (!rec) return false;
+
+    const questions = sessionType === 'morning' ? QUESTIONS.morning : QUESTIONS.evening;
+    const fields = rec.fields;
+
+    const allAnswered = questions.every((q, i) => {
+      const fieldName = `${sessionType === 'morning' ? 'Q_m_' : 'Q_e_'}${i + 1}`;
+      return fields[fieldName] && String(fields[fieldName]).trim() !== '';
+    });
+
+    if (allAnswered) {
+      logger.info(`[dailySessions] ✅ Session complete: ${sessionType} for ${tgId}`);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    logger.error('[dailySessions] checkAndCompleteSession:', e);
+    return false;
+  }
+};
+
+/**
+ * Restart a session (clear fields)
+ */
+export const restartSession = async (tgId, sessionType) => {
+  try {
+    // ✅ Use flow.js
+    const rec = await flow.getOrCreateTodayResponse(tgId);
+    
+    if (sessionType === 'morning') {
+      await flow.clearMorningFields(rec.id);
+      await flow.setResponsesCurrentActivity(rec.id, null);
+    } else {
+      await flow.clearEveningFields(rec.id);
+      await flow.setResponsesCurrentActivity(rec.id, null);
+    }
+    
+    logger.info(`[dailySessions] ✅ Session restarted: ${sessionType} for ${tgId}`);
+  } catch (e) {
+    logger.error('[dailySessions] restartSession:', e);
+  }
+};
+
+/**
+ * Exit session (set to pending)
+ */
+export const exitSession = async (tgId) => {
+  try {
+    // ✅ Use flow.js
+    const rec = await flow.getOrCreateTodayResponse(tgId);
+    const nextMorningField = flow.getNextMorningField(rec.fields);
+    
+    if (nextMorningField) {
+      await flow.setResponsesCurrentActivity(rec.id, 'morning_pending');
+    }
+    
+    logger.info(`[dailySessions] ✅ Session exited for ${tgId}`);
+  } catch (e) {
+    logger.error('[dailySessions] exitSession:', e);
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+// 🎯 FOCUS PARSING — ONE record, no duplicates
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Parse user's daily focus with AI and save to ONE record
+ * ✅ NO DUPLICATES: Uses getOrCreateTodayResponse()
+ */
+export const parseFocus = async (tgId, focusText, existingGoals = [], monthlyGoals = []) => {
+  try {
+    // ✅ Get ONE record for today
+    const rec = await flow.getOrCreateTodayResponse(tgId);
+    
+    logger.info(`[dailySessions] Parsing focus for ${tgId}`);
+
+    // Call AI to analyze focus
+    const aiAnalysis = await chat([
+      {
+        role: 'system',
+        content: `Ти експерт-розпарсер Daily Focus.
+        
+На вхід:
+- Фокус дня (текст користувача)
+- Річні цілі (опц.)
+- Цілі місяця (опц.)
+
+Видай JSON:
+{
+  "main_priority": "одна речення про основний фокус",
+  "daily_actions": [
+    {"action": "конкретна дія", "time": "HH:MM або 'зараз'", "duration_min": 25, "result": "вимірюваний результат"},
+    {"action": "...", "time": "...", "duration_min": 25, "result": "..."},
+    {"action": "...", "time": "...", "duration_min": 25, "result": "..."}
+  ],
+  "connected_to_goal": "яка із цілей це стосується",
+  "estimated_impact": "high|medium|low"
+}`
+      },
+      {
+        role: 'user',
+        content: `
+Мій фокус сьогодні: ${focusText}
+${existingGoals.length > 0 ? `Річні цілі: ${existingGoals.map(g => g.Goal_Text).join(', ')}` : ''}
+${monthlyGoals.length > 0 ? `Цілі місяця: ${monthlyGoals.map(g => g.text).join(', ')}` : ''}`
+      }
+    ], 'gpt-4o-mini', 800);
+    
+    const parsed = JSON.parse(aiAnalysis);
+    
+    // ✅ UPDATE the ONE record
+    await base(tables.RESPONSES).update(rec.id, {
+      Daily_Focus: focusText.substring(0, 500),
+      Daily_Action_1: parsed.daily_actions[0]?.action || null,
+      Daily_Action_2: parsed.daily_actions[1]?.action || null,
+      Daily_Action_3: parsed.daily_actions[2]?.action || null,
+      Goal_Connection: parsed.connected_to_goal || null,
+      Focus_Priority: parsed.estimated_impact || 'medium',
+      Focus_AI_Analysis: JSON.stringify(parsed)
+    });
+    
+    logger.info(`[dailySessions] ✅ Focus parsed and saved to record ${rec.id}`);
+    
+    return {
+      success: true,
+      analysis: parsed,
+      actions_count: parsed.daily_actions.length
+    };
+    
+  } catch (error) {
+    logger.error('[parseFocus] ❌', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+// 📊 FORMATTERS (no DB changes)
+// ════════════════════════════════════════════════════════════
+
 export const formatQuestionMessage = (sessionType, questionIndex) => {
   const questions = sessionType === 'morning' ? QUESTIONS.morning : QUESTIONS.evening;
   const question = questions[questionIndex];
@@ -14,7 +171,7 @@ export const formatQuestionMessage = (sessionType, questionIndex) => {
   const icon = sessionType === 'morning' ? '🌞' : '🌙';
   const title = sessionType === 'morning' ? 'РАНКОВА РЕФЛЕКСІЯ' : 'ВЕЧІРНЯ РЕФЛЕКСІЯ';
   const emojiNumbers = ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'];
-  const currentEmoji = emojiNumbers[questionIndex + 1];
+  const currentEmoji = emojiNumbers[questionIndex + 1] || '❓';
 
   const questionLines = question.text.split('\n');
   const questionTitle = questionLines[0];
@@ -53,95 +210,24 @@ export const formatEveningWithoutMorning = (userName) => (
   `Що робимо?`
 );
 
+// ════════════════════════════════════════════════════════════
+// 🔧 UTILS (no DB changes)
+// ════════════════════════════════════════════════════════════
+
 export const getStepNumber = (field) => {
   const match = field?.match(/Q_[me]_(\d+)/);
   return match ? parseInt(match[1], 10) : 1;
 };
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-export const parseMorningAnswer = (questionNumber, answer) => {
-  try {
-    switch (questionNumber) {
-      case 3: return QUESTION_PARSERS?.parseGoals?.(answer) || {};
-      case 4: return QUESTION_PARSERS?.parseDailyFocus?.(answer) || {};
-      case 5: return QUESTION_PARSERS?.parseState?.(answer) || {};
-      case 6: {
-        const parsed = QUESTION_PARSERS?.parseActions?.(answer) || {};
-        return parsed.affirmation ? { affirmation_m: parsed.affirmation } : parsed;
-      }
-      default: return {};
-    }
-  } catch (error) {
-    logger.error(`❌ [dailySessions] parseMorningAnswer Q${questionNumber}:`, error);
-    return {};
-  }
-};
-
-export const parseEveningAnswer = (questionNumber, answer, todayData) => {
-  try {
-    if (questionNumber === 5) return analyzeActionCompletion(answer || '', todayData || {});
-    if (questionNumber === 6) return analyzeGoalProgress(answer || '');
-    return {};
-  } catch (error) {
-    logger.error(`❌ [dailySessions] parseEveningAnswer Q${questionNumber}:`, error);
-    return {};
-  }
-};
-
-export const analyzeActionCompletion = (answer, todayData) => {
-  try {
-    const lower = (answer || '').toLowerCase();
-    const actions = [
-      todayData?.Daily_Action_1,
-      todayData?.Daily_Action_2,
-      todayData?.Daily_Action_3,
-    ].filter(Boolean);
-
-    const completed = [];
-    const skipped = [];
-    const doneMarkers = ['✅','зроблено','виконано','так','+','done'];
-    const skipMarkers = ['⏭','не зроблено','ні','-','пропустила','пропустив'];
-
-    actions.forEach((act, i) => {
-      const s = (act || '').toLowerCase().slice(0, 40);
-      const head = s.slice(0, 10);
-      const matchedDone = doneMarkers.some((m) => lower.includes(m) && lower.includes(head));
-      const matchedSkip = skipMarkers.some((m) => lower.includes(m) && lower.includes(head));
-      if (matchedDone) completed.push(i + 1);
-      else if (matchedSkip) skipped.push(i + 1);
-    });
-
-    return {
-      Actions_Completed_Count: completed.length || null,
-      Actions_Completed_List: completed.length ? completed.join(',') : null,
-      Actions_Skipped_List: skipped.length ? skipped.join(',') : null,
-      Completion_Rate: actions.length
-        ? Math.round((completed.length / actions.length) * 100)
-        : null,
-    };
-  } catch (error) {
-    logger.error('❌ [dailySessions] analyzeActionCompletion:', error);
-    return {};
-  }
-};
-
-export const analyzeGoalProgress = (answer) => {
-  try {
-    return { Goal_Progress: answer || null };
-  } catch (error) {
-    logger.error('❌ [dailySessions] analyzeGoalProgress:', error);
-    return {};
-  }
-};
-
-// ── utils ─────────────────────────────────────────────────────────────────────
 export const todayStr = () => new Date().toISOString().split('T')[0];
 
 export const normalize = (s) => String(s || '').trim();
 
 export const chunk = (arr, size = 10) => {
   const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
   return out;
 };
 
@@ -165,177 +251,84 @@ export const getDaysDiff = (date1, date2) => {
   }
 };
 
-// ── ПЕРЕНЕСЕНІ З shared.js ────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// 📊 ANALYSIS HELPERS
+// ════════════════════════════════════════════════════════════
 
 /**
- * Перевірити чи можна автоматично завершити сесію (якщо всі відповіді є)
+ * Analyze action completion from evening response
  */
-export const checkAndCompleteSession = async (ctx, tgId, sessionType) => {
+export const analyzeActionCompletion = (answer, todayData = {}) => {
   try {
-    const rec = await db.getTodayRecord(tgId);
-    if (!rec) return false;
+    const lower = (answer || '').toLowerCase();
+    const actions = [
+      todayData?.Daily_Action_1,
+      todayData?.Daily_Action_2,
+      todayData?.Daily_Action_3,
+    ].filter(Boolean);
 
-    const questions = sessionType === 'morning' ? QUESTIONS.morning : QUESTIONS.evening;
-    const fields = rec.fields;
+    const completed = [];
+    const skipped = [];
+    const doneMarkers = ['✅', 'зроблено', 'виконано', 'так', '+', 'done'];
+    const skipMarkers = ['⏭', 'не зроблено', 'ні', '-', 'пропустила', 'пропустив'];
 
-    // Перевіряємо чи всі питання заповнені
-    const allAnswered = questions.every((q, i) => {
-      const fieldName = `${sessionType === 'morning' ? 'Q_m_' : 'Q_e_'}${i + 1}`;
-      return fields[fieldName];
+    actions.forEach((act, i) => {
+      const s = (act || '').toLowerCase().slice(0, 40);
+      const head = s.slice(0, 10);
+      const matchedDone = doneMarkers.some((m) => lower.includes(m) && lower.includes(head));
+      const matchedSkip = skipMarkers.some((m) => lower.includes(m) && lower.includes(head));
+      
+      if (matchedDone) completed.push(i + 1);
+      else if (matchedSkip) skipped.push(i + 1);
     });
 
-    if (allAnswered) {
-      logger.info(`[dailySessions] ✅ Всі відповіді є для ${sessionType}`);
-      return true;
-    }
-
-    return false;
-  } catch (e) {
-    logger.error('[dailySessions] checkAndCompleteSession:', e);
-    return false;
-  }
-};
-
-/**
- * Показати аналіз та нагороди після завершення
- */
-export const showCompletionWithAnalysis = async (ctx, tgId, sessionType, fields) => {
-  try {
-    const msg = formatCompletionMessage(sessionType);
-    await ctx.reply(msg, keyboards.mainMenuKeyboard());
-
-    // Нагородження
-    try {
-      const rewardsService = (await import('../gamification/rewards.js')).default;
-      await rewardsService.rewardSession(tgId, sessionType, ctx.telegram);
-    } catch (e) {
-      logger.warn('[dailySessions] Помилка нагородження:', e);
-    }
-  } catch (e) {
-    logger.error('[dailySessions] showCompletionWithAnalysis:', e);
-  }
-};
-
-/**
- * Перезапустити сесію
- */
-export const restartSession = async (ctx, tgId, sessionType, startFn) => {
-  try {
-    await db.resetSession(tgId, sessionType);
-    await startFn(ctx);
-  } catch (e) {
-    logger.error('[dailySessions] restartSession:', e);
-    await ctx.reply('❌ Помилка перезавантаження сесії. Спробуй /start');
-  }
-};
-//ОДИН парсер для всього
-export const parseFocus = async (focusText, existingGoals, monthlyGoals) => {
-  try {
-    // Надішли до AI для розбору
-    const aiAnalysis = await chat([
-      {
-        role: 'system',
-        content: `Ти експерт-розпарсер. На вхід: 
-          - Фокус дня (текст)
-          - 10 річних цілей
-          - 3 цілі місяця
-          
-        Повинен витягти:
-        1. Main_Priority (що найважливіше сьогодні)
-        2. 3 конкретні дії (action, час, тривалість, результат)
-        3. Connection_To_Goals (як це пов'язано з цілями)
-        
-        Формат JSON:
-        {
-          "main_priority": "...",
-          "daily_actions": [
-            {"action": "...", "time": "HH:MM або 'зараз'", "duration_min": 25, "result": "..."},
-            ...
-          ],
-          "connected_to_goal": "...",
-          "estimated_impact": "high|medium|low"
-        }`
-      },
-      {
-        role: 'user',
-        content: `
-          Мій фокус сьогодні: ${focusText}
-          
-          Річні цілі: ${existingGoals.map(g => g.Goal_Text).join(', ')}
-          Цілі місяця: ${monthlyGoals.map(g => g.text).join(', ')}
-        `
-      }
-    ], 'gpt-4o-mini', 800);
-    
-    const parsed = JSON.parse(aiAnalysis);
-    
-    // Записуємо розпарсені дії в MICRO_ACTIONS
-    for (let i = 0; i < parsed.daily_actions.length; i++) {
-      const action = parsed.daily_actions[i];
-      await base(tables.MICRO_ACTIONS).create([{
-        fields: {
-          TG_id: String(tgId),
-          Date: todayISO(),
-          Source: 'user_input',
-          Context_Type: 'daily_focus',
-          Original_Text: focusText,
-          Daily_Action_Number: i + 1,
-          Daily_Action_Text: action.action,
-          Action_Time: action.time,
-          Action_Duration_Min: action.duration_min,
-          Expected_Result: action.result,
-          Priority: parsed.estimated_impact === 'high' ? 'high' : 'medium',
-          Status: 'pending',
-          Connected_To_Goal: parsed.connected_to_goal,
-          Created_At: new Date().toISOString()
-        }
-      }]);
-    }
-    
-    // Записуємо AI аналіз для AI Mentor
-    await base(tables.AI_CONVERSATIONS).create([{
-      fields: {
-        TG_id: String(tgId),
-        Date: todayISO(),
-        Session_Type: 'morning_focus',
-        User_Input: focusText,
-        AI_Analysis: `🎯 Твій фокус: ${parsed.main_priority}`,
-        Suggested_Actions: JSON.stringify(parsed.daily_actions),
-        Context_Data: JSON.stringify({
-          yearly_goals: existingGoals.map(g => g.Goal_Text),
-          monthly_goals: monthlyGoals.map(g => g.text),
-          focus_priority: parsed.estimated_impact
-        }),
-        Feedback_Status: 'pending',
-        Timestamp: new Date().toISOString()
-      }
-    }]);
-    
     return {
-      success: true,
-      analysis: parsed,
-      actions_count: parsed.daily_actions.length
+      Actions_Completed_Count: completed.length || null,
+      Actions_Completed_List: completed.length ? completed.join(',') : null,
+      Actions_Skipped_List: skipped.length ? skipped.join(',') : null,
+      Completion_Rate: actions.length
+        ? Math.round((completed.length / actions.length) * 100)
+        : null,
     };
-    
   } catch (error) {
-    logger.error('[parseFocus] ❌', error);
-    return { success: false, error: error.message };
-  }
-};
-/**
- * Вийти з сесії
- */
-export const exitSession = async (ctx, tgId, sessionType) => {
-  try {
-    await db.resetSession(tgId, sessionType);
-    await ctx.reply(
-      `✅ Зрозуміла! Повертайся коли будеш готова. 💪`,
-      keyboards.mainMenuKeyboard()
-    );
-  } catch (e) {
-    logger.error('[dailySessions] exitSession:', e);
-    await ctx.reply('❌ Помилка. Спробуй /start');
+    logger.error('[dailySessions] analyzeActionCompletion:', error);
+    return {};
   }
 };
 
-console.log('✅ [dailySessions/service] Завантажено');
+/**
+ * Analyze goal progress from evening response
+ */
+export const analyzeGoalProgress = (answer) => {
+  try {
+    return { Goal_Progress: answer || null };
+  } catch (error) {
+    logger.error('[dailySessions] analyzeGoalProgress:', error);
+    return {};
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+// 📤 EXPORTS
+// ════════════════════════════════════════════════════════════
+
+export default {
+  checkAndCompleteSession,
+  restartSession,
+  exitSession,
+  parseFocus,
+  formatQuestionMessage,
+  formatCompletionMessage,
+  formatRestartWarning,
+  formatEveningWithoutMorning,
+  getStepNumber,
+  todayStr,
+  normalize,
+  chunk,
+  getHoursSince,
+  getDaysDiff,
+  analyzeActionCompletion,
+  analyzeGoalProgress
+};
+
+console.log('✅ [dailySessions/service] Loaded - Uses flow.js, no duplicates');

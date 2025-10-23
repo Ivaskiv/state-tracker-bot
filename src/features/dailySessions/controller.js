@@ -1,48 +1,98 @@
 // src/features/dailySessions/controller.js
+// ✅ ПОВНИЙ РОБОЧИЙ КОД - Інтегрований з index.js та flow.js
+
 import * as flow from './flow.js';
 import keyboards from '../../utils/keyboards.js';
 import logger from '../../utils/logger.js';
-import { ANSWER_STEPS, CURRENT_ACTIVITY as CA } from '../../config/constantsStatuses.js';
+import { ANSWER_STEPS } from '../../config/constantsStatuses.js';
 
 const renderQuestionWithHint = (q) => `*${q.text}*\n\n_Підказка:_ ${q.hint}`;
 
 // ════════════════════════════════════════════════════════════
-// MORNING HANDLERS
+// HELPERS
+// ════════════════════════════════════════════════════════════
+
+function determineNextQuestion(currentActivity, sessionType, fields) {
+  if (!currentActivity) {
+    return sessionType === 'morning' ? 'Daily_Focus' : 'Q_e_1';
+  }
+  if (currentActivity.match(/^(Daily_Focus|Q_m_\d+|Q_e_\d+)$/)) {
+    return currentActivity;
+  }
+  return sessionType === 'morning'
+    ? flow.getNextMorningField(fields)
+    : flow.getNextEveningField(fields);
+}
+
+function getStepKey(field) {
+  if (field === 'Daily_Focus') return 'DAILY_FOCUS';
+  const match = field.match(/Q_([me])_(\d+)/);
+  if (!match) return 'IDLE';
+  const [, type, num] = match;
+  return type === 'm' ? `MORNING_${num}` : `EVENING_${num}`;
+}
+
+async function showQuestion(ctx, recId, userRec, questionField, sessionType) {
+  try {
+    const q = flow.questionForField(questionField);
+    
+    if (!ctx.session.daily) ctx.session.daily = {};
+    ctx.session.daily.awaiting = flow.fieldToAwaiting(questionField);
+
+    const stepKey = getStepKey(questionField);
+    await flow.setUserAnswerStep(userRec, ANSWER_STEPS[stepKey]);
+
+    const icon = sessionType === 'morning' ? '🌞' : '🌙';
+    await ctx.reply(
+      `${icon} ${renderQuestionWithHint(q)}`,
+      { parse_mode: 'Markdown', ...keyboards.buildExitKeyboard() }
+    );
+
+    logger.info(`[daily] Showed ${sessionType} - ${questionField}`);
+  } catch (e) {
+    logger.error('[showQuestion]', e);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 🌞 MORNING
 // ════════════════════════════════════════════════════════════
 
 export const handleStartMorning = async (ctx) => {
   try {
     const tgId = ctx.from.id;
     const userRec = await flow.getUserRecord(tgId);
-    const state = await flow.getMorningState(tgId);
+    if (!userRec) {
+      await ctx.reply('❌ Користувач не знайден', keyboards.mainMenuKeyboard());
+      return false;
+    }
 
-    if (state.status === 'not_created') {
-      const fresh = await flow.createTodayResponse(tgId);
-      if (!ctx.session.daily) ctx.session.daily = {};
-      ctx.session.daily.awaiting = 'focus';
+    const todayRec = await flow.getOrCreateTodayResponse(tgId);
+    const currentActivity = todayRec.fields.Current_Activity;
 
-      await flow.setResponsesCurrentActivity(fresh.id, CA.DAILY_FOCUS);
-      await flow.setUserAnswerStep(userRec, ANSWER_STEPS.DAILY_FOCUS);
+    logger.info(`[morning] handleStartMorning for ${tgId}, Current_Activity: ${currentActivity}`);
 
-      const q = flow.questionForField('Daily_Focus');
-      await ctx.reply(`🌞 Починаємо ранкову рефлексію.\n\n${renderQuestionWithHint(q)}`, {
-        parse_mode: 'Markdown',
-        ...keyboards.buildExitKeyboard()
-      });
+    // Determine which question to show
+    const questionField = determineNextQuestion(currentActivity, 'morning', todayRec.fields);
+
+    if (!questionField) {
+      // All completed
+      await ctx.reply('✅ Ранок вже завершено сьогодні.', keyboards.mainMenuKeyboard());
       return true;
     }
 
-    if (state.status === 'in_progress') {
-      const q = flow.questionForField(state.nextField);
+    if (currentActivity === 'morning_pending') {
+      // Offer resume or restart
+      const q = flow.questionForField(questionField);
       await ctx.reply(
-        `ℹ️ Схоже, *ранкова сесія вже почата*.\n\nПродовжити з питання:\n— ${q.text.split('\n')[0]}\n\nабо почати заново?`,
+        `ℹ️ Ранкова сесія паузована.\n\nПродовжити: *${q.text.split('\n')[0]}* ?`,
         {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [{ text: '▶️ Продовжити', callback_data: 'continue_morning' }],
-              [{ text: '🔄 Почати заново', callback_data: 'restart_morning' }],
-              [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+              [{ text: '🔄 Заново', callback_data: 'restart_morning' }],
+              [{ text: '🏠 Меню', callback_data: 'main_menu' }]
             ]
           }
         }
@@ -50,27 +100,13 @@ export const handleStartMorning = async (ctx) => {
       return true;
     }
 
-    if (state.status === 'completed') {
-      await ctx.reply('✅ Ранок вже завершено сьогодні.', keyboards.mainMenuKeyboard());
-      return true;
-    }
-
-    // not_started: рядок є, але ранок не розпочиналась
-    if (!ctx.session.daily) ctx.session.daily = {};
-    ctx.session.daily.awaiting = 'focus';
-    await flow.setResponsesCurrentActivity(state.rec.id, CA.DAILY_FOCUS);
-    await flow.setUserAnswerStep(userRec, ANSWER_STEPS.DAILY_FOCUS);
-
-    const q = flow.questionForField('Daily_Focus');
-    await ctx.reply(`🌞 Починаємо ранкову рефлексію.\n\n${renderQuestionWithHint(q)}`, {
-      parse_mode: 'Markdown',
-      ...keyboards.buildExitKeyboard()
-    });
+    // Show question
+    await showQuestion(ctx, todayRec.id, userRec, questionField, 'morning');
     return true;
 
   } catch (e) {
-    logger.error('[daily/handleStartMorning] ❌', e);
-    await ctx.reply('❌ Не вдалося стартувати ранкову сесію.', keyboards.mainMenuKeyboard());
+    logger.error('[handleStartMorning]', e);
+    await ctx.reply('❌ Помилка', keyboards.mainMenuKeyboard());
     return false;
   }
 };
@@ -79,61 +115,25 @@ export const handleRestartMorning = async (ctx) => {
   try {
     const tgId = ctx.from.id;
     const userRec = await flow.getUserRecord(tgId);
-    const todayRec = await flow.getTodayResponseOrNull(tgId);
-
-    if (!todayRec) {
-      return await handleStartMorning(ctx);
-    }
+    const todayRec = await flow.getOrCreateTodayResponse(tgId);
 
     await flow.clearMorningFields(todayRec.id);
+    await flow.setResponsesCurrentActivity(todayRec.id, null);
 
-    if (!ctx.session.daily) ctx.session.daily = {};
-    ctx.session.daily.awaiting = 'focus';
-
-    await flow.setResponsesCurrentActivity(todayRec.id, CA.DAILY_FOCUS);
-    await flow.setUserAnswerStep(userRec, ANSWER_STEPS.DAILY_FOCUS);
-
-    const q = flow.questionForField('Daily_Focus');
-    await ctx.reply(`🔄 Починаємо ранок заново.\n\n${renderQuestionWithHint(q)}`, {
-      parse_mode: 'Markdown',
-      ...keyboards.buildExitKeyboard()
-    });
-    try { await ctx.answerCbQuery(); } catch {}
+    await handleStartMorning(ctx);
     return true;
   } catch (e) {
-    logger.error('[daily/handleRestartMorning] ❌', e);
+    logger.error('[handleRestartMorning]', e);
     return false;
   }
 };
 
 export const handleContinueMorning = async (ctx) => {
   try {
-    const tgId = ctx.from.id;
-    const userRec = await flow.getUserRecord(tgId);
-    const todayRec = await flow.getOrCreateTodayResponse(tgId);
-
-    const nextField = flow.getNextMorningField(todayRec.fields);
-    if (!nextField) {
-      await flow.setResponsesCurrentActivity(todayRec.id, 'morning_completed');
-      await flow.setUserAnswerStep(userRec, ANSWER_STEPS.IDLE);
-      await ctx.reply('✅ Ранок вже завершено. Обери наступну дію:', keyboards.mainMenuKeyboard());
-      try { await ctx.answerCbQuery(); } catch {}
-      return true;
-    }
-
-    if (!ctx.session.daily) ctx.session.daily = {};
-    ctx.session.daily.awaiting = flow.fieldToAwaiting(nextField);
-
-    const stepKey = nextField === 'Daily_Focus' ? 'DAILY_FOCUS' : `MORNING_${nextField.split('_')[2]}`;
-    await flow.setResponsesCurrentActivity(todayRec.id, nextField);
-    await flow.setUserAnswerStep(userRec, ANSWER_STEPS[stepKey]);
-
-    const q = flow.questionForField(nextField);
-    await ctx.reply(renderQuestionWithHint(q), { parse_mode: 'Markdown', ...keyboards.buildExitKeyboard() });
-    try { await ctx.answerCbQuery(); } catch {}
+    await handleStartMorning(ctx);
     return true;
   } catch (e) {
-    logger.error('[daily/handleContinueMorning] ❌', e);
+    logger.error('[handleContinueMorning]', e);
     return false;
   }
 };
@@ -143,37 +143,47 @@ export const handleLaterMorning = async (ctx) => {
     const tgId = ctx.from.id;
     const todayRec = await flow.getOrCreateTodayResponse(tgId);
     const nextField = flow.getNextMorningField(todayRec.fields);
-    if (nextField) await flow.setResponsesCurrentActivity(todayRec.id, 'morning_pending');
-    await ctx.reply('⏭ Добре, нагадаю пізніше. Повертаємось у меню.', keyboards.mainMenuKeyboard());
-    try { await ctx.answerCbQuery(); } catch {}
+    
+    if (nextField) {
+      await flow.setResponsesCurrentActivity(todayRec.id, 'morning_pending');
+    }
+    
+    await ctx.reply('⏭ Добре, нагадаю пізніше.', keyboards.mainMenuKeyboard());
     return true;
   } catch (e) {
-    logger.error('[daily/handleLaterMorning] ❌', e);
+    logger.error('[handleLaterMorning]', e);
     return false;
   }
 };
 
 // ════════════════════════════════════════════════════════════
-// EVENING HANDLERS
+// 🌙 EVENING
 // ════════════════════════════════════════════════════════════
 
 export const handleStartEvening = async (ctx) => {
   try {
     const tgId = ctx.from.id;
     const userRec = await flow.getUserRecord(tgId);
-    const state = await flow.getEveningState(tgId);
+    if (!userRec) {
+      await ctx.reply('❌ Користувач не знайден', keyboards.mainMenuKeyboard());
+      return false;
+    }
 
-    if (state.status === 'in_progress') {
-      const q = flow.questionForField(state.nextField);
+    const todayRec = await flow.getOrCreateTodayResponse(tgId);
+    const currentActivity = todayRec.fields.Current_Activity;
+
+    logger.info(`[evening] handleStartEvening for ${tgId}, Current_Activity: ${currentActivity}`);
+
+    // Check if morning is done
+    const nextMorningField = flow.getNextMorningField(todayRec.fields);
+    if (nextMorningField && currentActivity !== 'morning_completed') {
       await ctx.reply(
-        `ℹ️ *Вечірня сесія вже почата*.\n\nПродовжити з питання:\n— ${q.text.split('\n')[0]}\n\nабо почати заново?`,
+        `⚠️ Спочатку закінчи ранок?`,
         {
-          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '▶️ Продовжити вечір', callback_data: 'continue_evening' }],
-              [{ text: '🔄 Почати вечір заново', callback_data: 'restart_evening' }],
-              [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+              [{ text: '🌞 Так', callback_data: 'start_morning' }],
+              [{ text: '🌙 Нi', callback_data: 'force_evening' }]
             ]
           }
         }
@@ -181,28 +191,42 @@ export const handleStartEvening = async (ctx) => {
       return true;
     }
 
-    if (state.status === 'completed') {
-      await ctx.reply('✅ Вечір вже завершено сьогодні.', keyboards.mainMenuKeyboard());
+    if (currentActivity === 'evening_completed') {
+      await ctx.reply('✅ Вечір уже завершено.', keyboards.mainMenuKeyboard());
       return true;
     }
 
-    // not_started: питаємо перше питання
-    const first = 'Q_e_1';
-    if (!ctx.session.daily) ctx.session.daily = {};
-    ctx.session.daily.awaiting = flow.fieldToAwaiting(first);
+    const questionField = determineNextQuestion(currentActivity, 'evening', todayRec.fields);
 
-    await flow.setResponsesCurrentActivity(state.rec.id, first);
-    await flow.setUserAnswerStep(userRec, ANSWER_STEPS.EVENING_1);
+    if (!questionField) {
+      await ctx.reply('✅ Вечір завершено.', keyboards.mainMenuKeyboard());
+      return true;
+    }
 
-    const q = flow.questionForField(first);
-    await ctx.reply(
-      `🌙 Починаємо вечірню рефлексію.\n\n${renderQuestionWithHint(q)}`,
-      { parse_mode: 'Markdown', ...keyboards.buildExitKeyboard() }
-    );
+    if (currentActivity === 'evening_pending') {
+      const q = flow.questionForField(questionField);
+      await ctx.reply(
+        `ℹ️ Вечірня сесія паузована.\n\nПродовжити: *${q.text.split('\n')[0]}* ?`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '▶️ Продовжити', callback_data: 'continue_evening' }],
+              [{ text: '🔄 Заново', callback_data: 'restart_evening' }],
+              [{ text: '🏠 Меню', callback_data: 'main_menu' }]
+            ]
+          }
+        }
+      );
+      return true;
+    }
+
+    await showQuestion(ctx, todayRec.id, userRec, questionField, 'evening');
     return true;
+
   } catch (e) {
-    logger.error('[daily/handleStartEvening] ❌', e);
-    await ctx.reply('❌ Не вдалося стартувати вечірню сесію.', keyboards.mainMenuKeyboard());
+    logger.error('[handleStartEvening]', e);
+    await ctx.reply('❌ Помилка', keyboards.mainMenuKeyboard());
     return false;
   }
 };
@@ -211,61 +235,25 @@ export const handleRestartEvening = async (ctx) => {
   try {
     const tgId = ctx.from.id;
     const userRec = await flow.getUserRecord(tgId);
-    const state = await flow.getEveningState(tgId);
+    const todayRec = await flow.getOrCreateTodayResponse(tgId);
 
-    await flow.clearEveningFields(state.rec.id);
+    await flow.clearEveningFields(todayRec.id);
+    await flow.setResponsesCurrentActivity(todayRec.id, null);
 
-    if (!ctx.session.daily) ctx.session.daily = {};
-    ctx.session.daily.awaiting = 'q_e_1';
-
-    await flow.setResponsesCurrentActivity(state.rec.id, 'Q_e_1');
-    await flow.setUserAnswerStep(userRec, ANSWER_STEPS.EVENING_1);
-
-    const q = flow.questionForField('Q_e_1');
-    await ctx.reply(`🔄 Починаємо вечір заново.\n\n${renderQuestionWithHint(q)}`, {
-      parse_mode: 'Markdown',
-      ...keyboards.buildExitKeyboard()
-    });
-    try { await ctx.answerCbQuery(); } catch {}
+    await handleStartEvening(ctx);
     return true;
   } catch (e) {
-    logger.error('[daily/handleRestartEvening] ❌', e);
+    logger.error('[handleRestartEvening]', e);
     return false;
   }
 };
 
 export const handleContinueEvening = async (ctx) => {
   try {
-    const tgId = ctx.from.id;
-    const userRec = await flow.getUserRecord(tgId);
-    const todayRec = await flow.getOrCreateTodayResponse(tgId);
-
-    const nextField = flow.getNextEveningField(todayRec.fields);
-    if (!nextField) {
-      await flow.setResponsesCurrentActivity(todayRec.id, 'evening_completed');
-      await flow.setUserAnswerStep(userRec, ANSWER_STEPS.IDLE);
-      await ctx.reply('✅ Вечір уже завершено. Обери наступну дію:', keyboards.mainMenuKeyboard());
-      try { await ctx.answerCbQuery(); } catch {}
-      return true;
-    }
-
-    if (!ctx.session.daily) ctx.session.daily = {};
-    ctx.session.daily.awaiting = flow.fieldToAwaiting(nextField);
-
-    const stepKey = `EVENING_${nextField.split('_')[2]}`;
-    await flow.setResponsesCurrentActivity(todayRec.id, nextField);
-    await flow.setUserAnswerStep(userRec, ANSWER_STEPS[stepKey]);
-
-    const q = flow.questionForField(nextField);
-    await ctx.reply(renderQuestionWithHint(q), {
-      parse_mode: 'Markdown',
-      ...keyboards.buildExitKeyboard()
-    });
-
-    try { await ctx.answerCbQuery(); } catch {}
+    await handleStartEvening(ctx);
     return true;
   } catch (e) {
-    logger.error('[daily/handleContinueEvening] ❌', e);
+    logger.error('[handleContinueEvening]', e);
     return false;
   }
 };
@@ -275,121 +263,108 @@ export const handleLaterEvening = async (ctx) => {
     const tgId = ctx.from.id;
     const todayRec = await flow.getOrCreateTodayResponse(tgId);
     await flow.setResponsesCurrentActivity(todayRec.id, 'evening_pending');
-    await ctx.reply('⏭ Ок, закриваю на зараз. Повертаємось у меню.', keyboards.mainMenuKeyboard());
-    try { await ctx.answerCbQuery(); } catch {}
+    await ctx.reply('⏭ Ок, закриваю.', keyboards.mainMenuKeyboard());
     return true;
   } catch (e) {
-    logger.error('[daily/handleLaterEvening] ❌', e);
-    return false;
-  }
-};
-
-// ════════════════════════════════════════════════════════════
-// COMMON
-// ════════════════════════════════════════════════════════════
-
-export const handleExitSession = async (ctx) => {
-  try {
-    const tgId = ctx.from.id;
-    const todayRec = await flow.getOrCreateTodayResponse(tgId);
-    const nextField = flow.getNextMorningField(todayRec.fields);
-    if (nextField) await flow.setResponsesCurrentActivity(todayRec.id, 'morning_pending');
-
-    const userRec = await flow.getUserRecord(tgId);
-    await flow.setUserAnswerStep(userRec, ANSWER_STEPS.IDLE);
-    ctx.session.daily = null;
-    await ctx.reply('🚪 Сесію завершено.', keyboards.mainMenuKeyboard());
-    return true;
-  } catch (e) {
-    logger.error('[daily/handleExitSession] ❌', e);
+    logger.error('[handleLaterEvening]', e);
     return false;
   }
 };
 
 export const handleSkipMorningDoEvening = async (ctx) => {
   try {
-    await ctx.reply('⏭ Пропускаємо ранок. Запускаю вечірню сесію…');
-    return await handleStartEvening(ctx);
+    const tgId = ctx.from.id;
+    const todayRec = await flow.getOrCreateTodayResponse(tgId);
+    await flow.setResponsesCurrentActivity(todayRec.id, 'morning_skipped');
+    await ctx.reply('⏭ Пропускаємо ранок. Запускаю вечір…');
+    await handleStartEvening(ctx);
+    return true;
   } catch (e) {
-    logger.error('[daily/handleSkipMorningDoEvening] ❌', e);
+    logger.error('[handleSkipMorningDoEvening]', e);
+    return false;
+  }
+};
+
+export const handleExitSession = async (ctx) => {
+  try {
+    const tgId = ctx.from.id;
+    const userRec = await flow.getUserRecord(tgId);
+    await flow.setUserAnswerStep(userRec, ANSWER_STEPS.IDLE);
+    ctx.session.daily = null;
+    await ctx.reply('🚪 Сесія закрита.', keyboards.mainMenuKeyboard());
+    return true;
+  } catch (e) {
+    logger.error('[handleExitSession]', e);
     return false;
   }
 };
 
 // ════════════════════════════════════════════════════════════
-// TEXT HANDLER
+// 📝 TEXT HANDLER — Універсальний для утра и вечера
 // ════════════════════════════════════════════════════════════
 
-export const handleText = async (ctx, textRaw) => {
-  const text = (textRaw ?? ctx.message?.text ?? '').trim();
-  const lower = text.toLowerCase();
-
+export const handleText = async (ctx) => {
   try {
-    // Прямі тригери
-    if (lower.includes('ранков')) return await handleStartMorning(ctx);
-    if (lower.includes('вечір')) return await handleStartEvening(ctx);
-
-    // Немає очікування — не наш кейс
-    const awaiting = ctx.session?.daily?.awaiting;
-    if (!awaiting) return false;
+    const text = (ctx.message?.text ?? '').trim();
+    if (!text) return false;
 
     const tgId = ctx.from.id;
+    const awaiting = ctx.session?.daily?.awaiting;
+
+    // If no awaiting — not our case
+    if (!awaiting) return false;
+
+    logger.info(`[text] Processing for ${tgId}, awaiting: ${awaiting}`);
+
     const userRec = await flow.getUserRecord(tgId);
+    if (!userRec) return false;
+
+    const todayRec = await flow.getOrCreateTodayResponse(tgId);
     const field = flow.awaitingToField(awaiting);
+    const sessionType = field.startsWith('Q_e_') ? 'evening' : 'morning';
 
-    const { nextField, rec } = await flow.saveMorningAnswer(tgId, field, text);
+    logger.info(`[text] ${sessionType} - ${field}`);
 
-    // Оновити кроки
-    if (field === 'Daily_Focus') {
-      await flow.setResponsesCurrentActivity(rec.id, CA.DAILY_FOCUS);
-      await flow.setUserAnswerStep(userRec, ANSWER_STEPS.DAILY_FOCUS);
-    } else if (field.startsWith('Q_m_')) {
-      const n = Number(field.split('_')[2]);
-      await flow.setResponsesCurrentActivity(rec.id, field);
-      await flow.setUserAnswerStep(userRec, ANSWER_STEPS[`MORNING_${n}`]);
+    // Save answer
+    let nextField;
+    if (sessionType === 'morning') {
+      const result = await flow.saveMorningAnswer(tgId, field, text);
+      nextField = result.nextField;
+    } else {
+      const result = await flow.saveEveningAnswer(tgId, field, text);
+      nextField = result.nextField;
     }
 
+    // Set current activity
+    await flow.setResponsesCurrentActivity(todayRec.id, field);
+
     if (!nextField) {
-      ctx.session.daily.awaiting = null;
+      // Session complete
+      const completedStatus = sessionType === 'morning' ? 'morning_completed' : 'evening_completed';
+      await flow.setResponsesCurrentActivity(todayRec.id, completedStatus);
       await flow.setUserAnswerStep(userRec, ANSWER_STEPS.IDLE);
-      await flow.setResponsesCurrentActivity(rec.id, 'morning_completed');
-
-      const doneKb = typeof keyboards.doneMorningKeyboard === 'function'
-        ? keyboards.doneMorningKeyboard()
-        : keyboards.mainMenuKeyboard();
-
-      await ctx.reply('✅ Ранковий блок завершено. Гарного дня!', doneKb);
+      
+      const msg = sessionType === 'morning'
+        ? '✅ Ранок завершено. Гарного дня!'
+        : '✅ Вечір завершено. Спи добре!';
+      
+      await ctx.reply(msg, keyboards.mainMenuKeyboard());
+      ctx.session.daily = null;
       return true;
     }
 
-    // Продовжуємо
-    ctx.session.daily.awaiting = flow.fieldToAwaiting(nextField);
-    const stepKey = nextField === 'Daily_Focus' ? 'DAILY_FOCUS' : `MORNING_${nextField.split('_')[2]}`;
-    await flow.setResponsesCurrentActivity(rec.id, nextField);
-    await flow.setUserAnswerStep(userRec, ANSWER_STEPS[stepKey]);
-
-    const q = flow.questionForField(nextField);
-    await ctx.reply(
-      `✅ Відповідь збережено\n\n${renderQuestionWithHint(q)}`,
-      { parse_mode: 'Markdown', ...keyboards.buildExitKeyboard() }
-    );
+    // Show next question
+    await showQuestion(ctx, todayRec.id, userRec, nextField, sessionType);
     return true;
+
   } catch (e) {
-    logger.error('[daily/handleText] ❌', e);
+    logger.error('[handleText]', e);
     return false;
   }
 };
-
-// ════════════════════════════════════════════════════════════
-// STUBS
-// ════════════════════════════════════════════════════════════
-
-export const sendMorningReminders = async () => { logger.info('[daily] sendMorningReminders stub'); };
-export const sendEveningReminders = async () => { logger.info('[daily] sendEveningReminders stub'); };
 
 export default {
   handleStartMorning, handleRestartMorning, handleContinueMorning, handleLaterMorning,
   handleStartEvening, handleRestartEvening, handleContinueEvening, handleLaterEvening,
-  handleExitSession, handleSkipMorningDoEvening,
-  handleText, sendMorningReminders, sendEveningReminders
+  handleSkipMorningDoEvening, handleExitSession, handleText
 };

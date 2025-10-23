@@ -1,7 +1,7 @@
 //src/config/constantsSchedule.js
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '17:58',
+  MORNING_TIME: '16:31',
   EVENING_TIME: '21:00',
   TIMEZONE: 'Europe/Kyiv'
 });

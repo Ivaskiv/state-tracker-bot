@@ -1,4 +1,6 @@
 // src/features/aiMentor/index.js
+// ✅ 3-LEVEL ARCHITECTURE
+// ONE export: initAIMentor(bot) registers ALL handlers
 
 import { getBase, tables } from '../../config/database.js';
 import { AI_MENTOR_CONFIG } from '../../config/index.js';
@@ -44,7 +46,7 @@ const saveConversationMessage = async (tgId, role, message) => {
       fields: {
         TG_id: String(tgId),
         Role: role === 'user' ? 'user' : 'assistant',
-        Message: message.substring(0, 50000), // Ліміт Airtable
+        Message: message.substring(0, 50000),
         Timestamp: new Date().toISOString()
       }
     }], { typecast: true });
@@ -60,10 +62,8 @@ const saveConversationMessage = async (tgId, role, message) => {
  */
 const getAIMentorResponse = async (tgId, userMessage) => {
   try {
-    // Отримуємо історію розмови
     const history = await getConversationHistory(tgId);
     
-    // Будуємо промпт
     const systemPrompt = 
       `Ти — експертний AI-наставник. Стиль: Gen Z, прямо, емпатійно, без води.
       Твоя задача — допомогти користувачу в досягненні цілей, мотивувати та давати конкретні дії.
@@ -77,17 +77,13 @@ const getAIMentorResponse = async (tgId, userMessage) => {
       { role: 'user', content: userMessage }
     ];
     
-    // Відправляємо запит до AI
-const response = await chat(messages, 'gpt-4o-mini', 1000);
+    const response = await chat(messages, 'gpt-4o-mini', 1000);
     
     if (!response) {
       return AI_MENTOR_CONFIG.FALLBACK_FEEDBACK;
     }
     
-    // Зберігаємо повідомлення користувача
     await saveConversationMessage(tgId, 'user', userMessage);
-    
-    // Зберігаємо відповідь AI
     await saveConversationMessage(tgId, 'assistant', response);
     
     return response;
@@ -132,116 +128,126 @@ const showAIMentorChat = async (ctx) => {
   }
 };
 
-/**
- * Обробка текстового повідомлення для AI
- */
-const handleText = async (ctx) => {
-  const tgId = ctx.from.id;
-  const text = ctx.message?.text?.trim();
-  
-  if (!text) return false;
-  
-  try {
-    const user = await users.getUserByTgId(tgId);
-    if (!user) return false;
-    
-    // Перевіряємо чи користувач у активному стані AI чату
-    const answerStep = user.fields.Answer_Step;
-    if (answerStep !== 'ai_mentor_active') {
+// ═══════════════════════════════════════════════════════════
+// 🤖 MAIN INIT FUNCTION
+// ═══════════════════════════════════════════════════════════
+
+export default function initAIMentor(bot) {
+  console.log('🤖 [aiMentor] Ініціалізація модуля…');
+
+  // ─────────────────────────────────────────────────────────
+  // 📢 КОМАНДИ
+  // ─────────────────────────────────────────────────────────
+
+  bot.command('ai', async (ctx) => {
+    try {
+      await showAIMentorChat(ctx);
+    } catch (e) {
+      logger.error('[aiMentor/command] ❌', e.message);
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // 🎯 CALLBACK ACTIONS
+  // ─────────────────────────────────────────────────────────
+
+  bot.action('show_ai_mentor', async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      const user = await users.getUserByTgId(ctx.from.id);
+      
+      if (user) {
+        await users.updateUserFields(ctx.from.id, { Answer_Step: 'ai_mentor_active' });
+      }
+      
+      await showAIMentorChat(ctx);
+    } catch (e) {
+      logger.error('[aiMentor/show] ❌', e.message);
+    }
+  });
+
+  bot.action('continue_ai_mentor', async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      const user = await users.getUserByTgId(ctx.from.id);
+      
+      if (user) {
+        await users.updateUserFields(ctx.from.id, { Answer_Step: 'ai_mentor_active' });
+      }
+      
+      await showAIMentorChat(ctx);
+    } catch (e) {
+      logger.error('[aiMentor/continue] ❌', e.message);
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // 📝 TEXT HANDLER — обробляє повідомлення для AI
+  // ─────────────────────────────────────────────────────────
+
+  bot.on('text', async (ctx) => {
+    try {
+      const tgId = ctx.from.id;
+      const text = ctx.message?.text?.trim();
+      
+      if (!text) return false;
+      
+      const user = await users.getUserByTgId(tgId);
+      if (!user) return false;
+      
+      // Перевіряємо чи користувач у активному стані AI чату
+      const answerStep = user.fields.Answer_Step;
+      if (answerStep !== 'ai_mentor_active') {
+        return false; // Не наш кейс
+      }
+      
+      await typing(ctx);
+      
+      // Показуємо що обробляємо
+      const processingMsg = await ctx.reply('⏳ Розмірковую...');
+      
+      // Отримуємо відповідь від AI
+      const response = await getAIMentorResponse(tgId, text);
+      
+      // Видаляємо повідомлення про обробку
+      try {
+        await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
+      } catch {}
+      
+      // Відправляємо відповідь
+      await ctx.reply(
+        `🤖 **РЕКОМЕНДАЦІЯ**\n\n${response}`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💬 Наступне питання', callback_data: 'continue_ai_mentor' }],
+              [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+            ]
+          }
+        }
+      );
+      
+      logger.info('[aiMentor] ✅ Відповідь надана');
+      return true;
+    } catch (error) {
+      logger.error('[aiMentor/text] ❌ Помилка:', error);
       return false;
     }
-    
-    await typing(ctx);
-    
-    // Показуємо що обробляємо
-    const processingMsg = await ctx.reply('⏳ Розмірковую...');
-    
-    // Отримуємо відповідь від AI
-    const response = await getAIMentorResponse(tgId, text);
-    
-    // Видаляємо повідомлення про обробку
-    try {
-      await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
-    } catch {}
-    
-    // Відправляємо відповідь
-    await ctx.reply(
-      `🤖 **РЕКОМЕНДАЦІЯ**\n\n${response}`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💬 Наступне питання', callback_data: 'continue_ai_mentor' }],
-            [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-          ]
-        }
-      }
-    );
-    
-    logger.info('[aiMentor] ✅ Відповідь надана');
-    return true;
-  } catch (error) {
-    logger.error('[aiMentor/handleText] ❌ Помилка:', error);
-    return false;
-  }
-};
+  });
 
-/**
- * Обробка callback для AI наставника
- */
-const handleCallback = async (ctx) => {
-  const data = ctx.callbackQuery?.data;
-  const tgId = ctx.from.id;
-  
-  if (!data) return false;
-  
-  const aiMentorCallbacks = [
-    'show_ai_mentor',
-    'continue_ai_mentor'
-  ];
-  
-  if (!aiMentorCallbacks.includes(data)) {
-    return false;
-  }
-  
-  try {
-    await ctx.answerCbQuery();
-    
-    switch (data) {
-      case 'show_ai_mentor':
-      case 'continue_ai_mentor':
-        // Встановлюємо статус "в чаті з AI"
-        await users.updateUserFields(tgId, { Answer_Step: 'ai_mentor_active' });
-        await showAIMentorChat(ctx);
-        break;
-      
-      default:
-        return false;
-    }
-    
-    return true;
-  } catch (error) {
-    logger.error('[aiMentor/handleCallback] ❌ Помилка:', error);
-    return false;
-  }
-};
-
-/**
- * Ініціалізація модуля
- */
-export default function initAIMentor(bot) {
-  console.log('🤖 [aiMentor] Ініціалізація модуля...');
-  console.log('✅ [aiMentor] Модуль готовий');
+  console.log('✅ [aiMentor] Всі хендлери зареєстровані');
 }
 
-// Експорт функцій
+// ═══════════════════════════════════════════════════════════
+// 📤 ЕКСПОРТИ (для використання з інших модулів)
+// ═══════════════════════════════════════════════════════════
+
 export {
   getConversationHistory,
   saveConversationMessage,
   getAIMentorResponse,
-  showAIMentorChat,
-  handleText,
-  handleCallback
+  showAIMentorChat
 };
 
 console.log('✅ [features/aiMentor] Модуль завантажено');

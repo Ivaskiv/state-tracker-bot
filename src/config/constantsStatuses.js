@@ -86,19 +86,3 @@ export const OB_STEPS = Object.freeze({
   REMINDERS_INTRO: ANSWER_STEPS.OB_REMINDERS_INTRO,
   DONE: ANSWER_STEPS.OB_DONE,
 });
-/* ────────────────────────────────────────────────────────────
-   Порядок ранкових полів
-   ──────────────────────────────────────────────────────────── */
-export const MORNING_ORDER = [
-  'Daily_Focus',
-  'Q_m_1',
-  'Q_m_2',
-  'Q_m_3',
-  'Q_m_4',
-  'Q_m_5',
-  'Q_m_6',
-];
-export const EVENING_ORDER = [
-  'Q_e_1',
-  'Q_e_2',
-  'Q_e_3','Q_e_4','Q_e_5','Q_e_6','Q_e_7'];

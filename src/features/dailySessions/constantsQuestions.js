@@ -1,4 +1,23 @@
 //src/config/constantsQuestions.js
+export const MORNING_ORDER = [
+  'Daily_Focus',
+  'Q_m_1',
+  'Q_m_2',
+  'Q_m_3',
+  'Q_m_4',
+  'Q_m_5',
+  'Q_m_6',
+];
+export const EVENING_ORDER = [
+  'Q_e_1',
+  'Q_e_2',
+  'Q_e_3',
+  'Q_e_4',
+  'Q_e_5',
+  'Q_e_6',
+  'Q_e_7'
+];
+
 export const QUESTIONS = {
   morning: [
     { text: 'Хто я сьогодні?\nОпиши себе як нову версію — з позиції сили. (1 речення)', hint: 'Опиши себе з позиції сили — яка ти сьогодні? (1 речення)', field: 'Q_m_1' },
