@@ -3,12 +3,12 @@
 // ONE export: initAIMentor(bot) registers ALL handlers
 
 import { getBase, tables } from '../../config/database.js';
-import { AI_MENTOR_CONFIG } from '../../config/index.js';
 import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
 import logger from '../../utils/logger.js';
 import users from '../../services/users.js';
 import { chat } from '../../services/openaiClient.js';
+import { AI_MENTOR_CONFIG } from './constantsAi.js';
 
 const base = getBase();
 

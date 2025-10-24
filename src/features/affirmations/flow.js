@@ -1,5 +1,5 @@
 // src/features/affirmations/flow.js
-import { MORNING_AFFIRMATIONS, EVENING_AFFIRMATIONS, GENERAL_AFFIRMATIONS } from '../../config/index.js';
+import { MORNING_AFFIRMATIONS, EVENING_AFFIRMATIONS, GENERAL_AFFIRMATIONS } from './constants.js';
 
 export const getRandomAffirmation = (type = 'general') => {
   const lists = {

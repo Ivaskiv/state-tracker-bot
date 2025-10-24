@@ -1,12 +1,9 @@
 // src/features/subscription/webhook.js — ВИПРАВЛЕНО ДЛЯ WAYFORPAY
 
 import crypto from 'crypto';
-import { tables, selectFromTable, updateRows } from '../../config/database.js';
-import { SUBSCRIPTION_STATUS } from '../../config/index.js';
-import users from '../../services/users.js';
 import service from './service.js';
 
-const secretKey = process.env.WAYFORPAY_SECRET || 'flk3409refn54t54t*FNJRET';
+const secretKey = process.env.WAYFORPAY_SECRET;
 
 /**
  * Перевірка підпису WayForPay webhook

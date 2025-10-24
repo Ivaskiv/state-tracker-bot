@@ -1,7 +1,7 @@
 // src/features/wheelBalance/controller.js - Форматування (текст, клавіатури, виклики flow)
 import { wheelService } from './service.js';
 import { LIFE_SPHERES } from '../../config/index.js';
-import { getNumberEmoji } from '../../config/constantsMisc.js';
+import { getNumberEmoji } from '../../config/constants.js';
 
 
 export const wheelController = {

@@ -4,7 +4,6 @@
 import * as flow from './flow.js';
 import keyboards from '../../utils/keyboards.js';
 import logger from '../../utils/logger.js';
-import { ANSWER_STEPS } from '../../config/constantsStatuses.js';
 
 const renderQuestionWithHint = (q) => `*${q.text}*\n\n_Підказка:_ ${q.hint}`;
 

@@ -1,26 +1,24 @@
-// src/services/user.js
-// Сервіс для роботи з користувачами (спрощена версія)
-
+// src/services/users.js
+import { ANSWER_STEPS, CONFIG, USER_STATUS } from '../config/constants.js';
 import { getBase, tables, updateRows } from '../config/database.js';
-import { USER_STATUS, ANSWER_STEPS, CONFIG } from '../config/index.js';
 
 const base = getBase();
 
 /**
- * Отримати користувача за TG_id
+ * Повернути Airtable record користувача за TG_id (працює і для string, і для number).
  */
 export const getUserByTgId = async (tgId) => {
   try {
-    const formula = `{TG_id} = "${tgId}"`;
-    
+    const num = Number(tgId);
+    const asNumber = Number.isFinite(num) ? num : -1;
+
+    const formula = `OR({TG_id} = "${tgId}", {TG_id} = ${asNumber})`;
+
     const records = await base(tables.USERS)
-      .select({
-        filterByFormula: formula,
-        maxRecords: 1
-      })
+      .select({ filterByFormula: formula, maxRecords: 1 })
       .firstPage();
 
-    if (records.length === 0) {
+    if (!records.length) {
       console.log(`[user] ❌ Користувач ${tgId} не знайдений`);
       return null;
     }
@@ -34,13 +32,13 @@ export const getUserByTgId = async (tgId) => {
 };
 
 /**
- * Створити нового користувача
+ * Створити нового користувача (мінімальний профіль + стартовий step).
  */
 export const createUser = async (tgId, userName) => {
   try {
     console.log(`[user] 📝 Створення користувача ${tgId}`);
 
-    const newUser = await base(tables.USERS).create([{
+    const [rec] = await base(tables.USERS).create([{
       fields: {
         TG_id: String(tgId),
         'User Name': userName || `User_${tgId}`,
@@ -50,8 +48,8 @@ export const createUser = async (tgId, userName) => {
       }
     }], { typecast: true });
 
-    console.log(`[user] ✅ Користувача створено: ${newUser[0].id}`);
-    return newUser[0];
+    console.log(`[user] ✅ Користувача створено: ${rec.id}`);
+    return rec;
   } catch (error) {
     console.error('[user] ❌ Помилка createUser:', error);
     throw error;
@@ -59,71 +57,34 @@ export const createUser = async (tgId, userName) => {
 };
 
 /**
- * Оновити поля користувача
+ * Оновити поля Users по TG_id та повернути оновлений запис.
  */
 export const updateUserFields = async (tgId, fields) => {
-  try {
-    console.log(`[user] 🔄 Оновлення полів для ${tgId}:`, Object.keys(fields));
+  const user = await getUserByTgId(tgId);
+  if (!user) throw new Error('User not found');
 
-    // Знаходимо користувача
-    const user = await getUserByTgId(tgId);
-    
-    if (!user) {
-      console.error(`[user] ❌ Користувач ${tgId} не знайдений для оновлення`);
-      throw new Error('User not found');
-    }
-
-    // Оновлюємо
-    await updateRows(tables.USERS, [{
-      id: user.id,
-      fields: fields
-    }]);
-
-    console.log(`[user] ✅ Поля оновлено для ${tgId}`);
-    
-    // Повертаємо оновленого користувача
-    return await getUserByTgId(tgId);
-  } catch (error) {
-    console.error('[user] ❌ Помилка updateUserFields:', error);
-    throw error;
-  }
+  await updateRows(tables.USERS, [{ id: user.id, fields }]);
+  return getUserByTgId(tgId);
 };
 
-/**
- * Оновити Answer_Step
- */
-export const updateUserStep = async (tgId, step) => {
-  console.log(`[user] 📍 Оновлення Answer_Step для ${tgId}: ${step}`);
-  return updateUserFields(tgId, { Answer_Step: step });
-};
+export const updateUserStep = (tgId, step) =>
+  updateUserFields(tgId, { Answer_Step: step });
 
-/**
- * Оновити Last_Activity
- */
 export const updateUserActivity = async (tgId) => {
-  const now = new Date();
-  now.setSeconds(0, 0); // Без секунд
-  
-  return updateUserFields(tgId, { 
+  const now = new Date(); now.setSeconds(0, 0);
+  return updateUserFields(tgId, {
     Last_Activity: now.toISOString(),
     Last_Answer_Date: new Date().toISOString().split('T')[0]
   });
 };
 
-/**
- * Фіналізувати реєстрацію
- */
 export const finalizeRegistration = async (tgId, data) => {
-  console.log(`[user] 🎉 Фіналізація реєстрації для ${tgId}`);
-
-  const now = new Date();
-  now.setSeconds(0, 0);
-  
+  const now = new Date(); now.setSeconds(0, 0);
   return updateUserFields(tgId, {
     'User Name': data.name,
     Email: data.email || null,
     Phone: data.phone || null,
-    'Time Zone': data.timezone || CONFIG.DEFAULT_TIMEZONE,
+    'Time_Zone': data.timezone || CONFIG.DEFAULT_TIMEZONE, // <— Time_Zone (як у тебе в Airtable)
     UserRegistered: true,
     Status: USER_STATUS.REGISTERED,
     Answer_Step: ANSWER_STEPS.COMPLETED,
@@ -132,66 +93,79 @@ export const finalizeRegistration = async (tgId, data) => {
   });
 };
 
-/**
- * Активувати trial підписку
- */
 export const activateTrial = async (tgId, days = 7) => {
   const start = new Date();
   const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-  
-  console.log(`[user] 🧪 Активація trial для ${tgId} на ${days} днів`);
-  
   return updateUserFields(tgId, {
-    'Active Subscription Plan': '🧪 Пробний період — 0€',
+    'Active_Subscription_Plan': '🧪 Пробний період — 0€',
     'Subscription_Status': 'Active',
     Start_Date: start.toISOString().split('T')[0],
     End_Date: end.toISOString().split('T')[0]
   });
 };
 
-/**
- * Перевірити чи має активний доступ
- */
-export const hasActiveAccess = (user) => {
-  if (!user || !user.fields) return false;
-  
-  const fields = user.fields;
-  const subStatus = (fields['Subscription_Status'] || '').trim().toLowerCase();
-  const plan = fields['Active Subscription Plan'] || '';
+/* ──────────────────────────────────────────────────────────
+   ✅ Централізовані хелпери доступу (single source of truth)
+   Використання: hasActiveAccess(userRecord або fields), 
+                 hasActiveAccessByFields(fields),
+                 getSubscriptionText(userRecord або fields)
+   ────────────────────────────────────────────────────────── */
 
-  // Перевірка статусу
-  if (subStatus === 'active' || plan.includes('Пробний')) {
-    return true;
-  }
+/** Базова логіка активного доступу по «плоских» fields */
+export const hasActiveAccessByFields = (fields = {}) => {
+  if (!fields) return false;
 
-  // Перевірка дат
+  const plan = String(fields['Active_Subscription_Plan'] || '');
+  const status = String(fields['Subscription_Status'] || '').trim().toLowerCase();
+
+  // Активна підписка або пробний план
+  if (status === 'active' || /пробний/i.test(plan)) return true;
+
+  // Перевірка End_Date (дійсна до кінця дня)
   const endDate = fields.End_Date;
   if (!endDate) return false;
 
-  const end = new Date(endDate + 'T23:59:59');
-  const now = new Date();
-  
-  return now <= end;
+  const end = new Date(`${endDate}T23:59:59`);
+  return new Date() <= end;
+};
+
+/** Адаптер: приймає Airtable record або fields */
+export const hasActiveAccess = (userOrFields) => {
+  const fields = userOrFields?.fields || userOrFields || {};
+  return hasActiveAccessByFields(fields);
+};
+
+/** Готовий текст для UI (враховує формульне поле Active_Subscription_Status, якщо є) */
+export const getSubscriptionText = (userOrFields) => {
+  const fields = userOrFields?.fields || userOrFields || {};
+  const formulaText = String(fields.Active_Subscription_Status || '').trim();
+
+  if (formulaText) return formulaText;
+
+  if (hasActiveAccessByFields(fields)) {
+    if (fields.End_Date) {
+      const [y, m, d] = fields.End_Date.split('-');
+      return `✅ Активна до ${[d, m, y].join('.')}`;
+    }
+    return '✅ Активна';
+  }
+  return '❌ Немає активної підписки';
 };
 
 /**
- * Отримати всіх активних користувачів
+ * Витяг активних користувачів (приклад використання у планувальнику).
  */
 export const getActiveUsers = async () => {
   try {
-    const formula = `{Status} = "Active User"`;
-    
     const records = await base(tables.USERS)
       .select({
-        filterByFormula: formula,
+        filterByFormula: `{Status} = "Active User"`,
         fields: ['TG_id', 'User Name', 'Subscription_Status', 'End_Date']
       })
       .all();
-
-    console.log(`[user] 📊 Знайдено ${records.length} активних користувачів`);
     return records;
-  } catch (error) {
-    console.error('[user] ❌ Помилка getActiveUsers:', error);
+  } catch (e) {
+    console.error('[user] ❌ Помилка getActiveUsers:', e);
     return [];
   }
 };
@@ -204,8 +178,9 @@ export default {
   updateUserActivity,
   finalizeRegistration,
   activateTrial,
+
+  hasActiveAccessByFields,
   hasActiveAccess,
+  getSubscriptionText,
   getActiveUsers
 };
-
-console.log('✅ [services/user] User сервіс завантажено');

@@ -3,17 +3,15 @@
 import service from './service.js';
 import keyboards from '../../utils/keyboards.js';
 import logger from '../../utils/logger.js';
-import { 
-  SUBSCRIPTION_PLANS, 
-  WAYFORPAY_LINKS,
-  COURSE_OFFERS,
-  PROBLEM_DESCRIPTIONS,
-  ACTIVITY_TRIGGERS,
-  SUBSCRIPTION_MESSAGES,
-  COURSE_MESSAGES
-} from '../../config/index.js';
 import users from '../../services/users.js';
 import { getBase, tables } from '../../config/database.js';
+import {
+  SUBSCRIPTION_PLANS, 
+  WAYFORPAY_LINKS,
+  SUBSCRIPTION_MESSAGES,
+ } from './constants.js';
+import { ACTIVITY_TRIGGERS, PROBLEM_DESCRIPTIONS } from '../gamification/constants.js';
+import { COURSE_MESSAGES, COURSE_OFFERS } from '../../config/constants.js';
 
 const base = getBase();
 
@@ -54,7 +52,7 @@ export const handleSubscriptionInfo = async (ctx) => {
     }
 
     const status = await service.checkSubscriptionStatus(tgId);
-    const plan = user.fields['Active Subscription Plan'] || '—';
+    const plan = user.fields['Active_Subscription_Plan'] || '—';
     const start = user.fields.Start_Date ? new Date(user.fields.Start_Date).toLocaleDateString('uk-UA') : '—';
     const end = user.fields.End_Date ? new Date(user.fields.End_Date).toLocaleDateString('uk-UA') : '—';
 
@@ -404,7 +402,7 @@ export const sendExpirationReminders = async (bot) => {
 
     for (const u of expiring) {
       const tgId = u.TG_id;
-      const planName = u['Active Subscription Plan'] || 'План';
+      const planName = u['Active_Subscription_Plan'] || 'План';
       const endDate = u.End_Date ? new Date(u.End_Date).toLocaleDateString('uk-UA') : '—';
 
       const message = SUBSCRIPTION_MESSAGES.EXPIRATION_REMINDER(planName, endDate);

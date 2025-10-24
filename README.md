@@ -392,13 +392,13 @@ Create an Airtable base with these tables:
 - `DateUserRegistered` (Date)
 - `Status` (Single select: New User, Active User, Inactive User)
 - `Active_Subscription_Status` (Single select: Empty, Active, Expired, Cancelled)
-- `Active Subscription Plan` (Single line text)
+- `Active_Subscription_Plan` (Single line text)
 - `Start_Date` (Date)
 - `End_Date` (Date)
 - `Active_Subscription_Status` (Single line text)
 - `Question Type` (Single select: Morning, Evening)
 - `Current_Activity` (Single line text)
-- `Time Zone` (Single line text)
+- `Time_Zone` (Single line text)
 
 #### Morning_Responses Table
 - `Reminder Key Morning` (Single line text)

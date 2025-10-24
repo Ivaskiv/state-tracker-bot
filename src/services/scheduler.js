@@ -4,8 +4,8 @@ import cron from 'node-cron';
 import logger from '../utils/logger.js';
 import keyboards from '../utils/keyboards.js';
 import { getBase, tables } from '../config/database.js';
-import { SCHEDULE, CRON_SCHEDULES, SCHEDULER_MESSAGES } from '../config/index.js';
 import subscriptionController from '../features/subscription/controller.js';
+import { CRON_SCHEDULES, SCHEDULE, SCHEDULER_MESSAGES } from '../config/constants.js';
 
 const base = getBase();
 const TZ = SCHEDULE.TIMEZONE; // ✅ ONE SOURCE OF TRUTH

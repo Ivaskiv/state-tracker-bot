@@ -156,4 +156,4 @@ export default {
   WHEEL_QUESTIONS_QUICK
 };
 
-console.log('✅ [constantsWheel] Питання завантажені');
+console.log('✅ [constants] Питання завантажені');

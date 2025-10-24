@@ -2,10 +2,8 @@
 
 import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';
-import { LIFE_SPHERES } from '../../config/index.js';
 import keyboards from '../../utils/keyboards.js';
 import { getProgressBar } from '../../utils/progress.js';
-import { todayISO, toISODate } from '../../utils/helpers.js';
 import { generateWheelAnalysis } from './analysis.js';
 
 import { 
@@ -17,6 +15,7 @@ import {
   cancelActiveWheel,
   canStartNewWheel
 } from './database.js';
+import { LIFE_SPHERES } from './constants.js';
 
 const base = getBase();
 

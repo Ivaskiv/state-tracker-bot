@@ -1,6 +1,6 @@
 // src/utils/antiSpam.js
 
-import { CONFIG } from '../config/index.js';
+import { CONFIG } from "../config/constants.js";
 
 const callbackCache = new Map();
 

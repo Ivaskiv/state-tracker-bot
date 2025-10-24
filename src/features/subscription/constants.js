@@ -1,4 +1,4 @@
-//src/config/constantsSubscription.js
+//src/config/constants.js
 export const SUBSCRIPTION_PLANS = Object.freeze({
   TRIAL:  { key: 'TRIAL',  userName: '🧪 Пробний період — 0€', price: 0,   duration: 7,   description: 'Повний доступ на 7 днів' },
   WEEK:   { key: 'WEEK',   userName: 'Тиждень фокусу — 7€',     price: 7,   duration: 7,   description: 'Ідеально для короткого фокусу або тесту системи' },

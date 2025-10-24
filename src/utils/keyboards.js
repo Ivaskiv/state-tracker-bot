@@ -1,6 +1,8 @@
 // src/utils/keyboards.js
 
-import { TIMEZONES } from "../config/index.js";
+import { TIMEZONES } from "../config/constants.js";
+
+// import { TIMEZONES } from "../config/index.js";
 
 const kbRow = (...btns) => btns.map((b) => ({ text: b.text, callback_data: b.callback_data }));
 
@@ -64,9 +66,9 @@ const keyboards = {
   }),
 
   // 🌍 ТАЙМЗОНИ
-  timezoneKeyboard: () => {
+  timezoneKeyboard: (TZ_PREFIX = 'ob_tz_') => {
     const rows = TIMEZONES.map((tz) =>
-      kbRow({ text: tz.label, callback_data: `tz_${tz.slug}` })
+      kbRow({ text: tz.label, callback_data: `${TZ_PREFIX}${tz.slug}` })
     );
     rows.push(kbRow({ text: '🔙 Назад', callback_data: 'back_to_phone' }));
     return { reply_markup: { inline_keyboard: rows } };

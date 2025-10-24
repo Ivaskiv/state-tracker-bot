@@ -1,27 +1,44 @@
 // src/features/onboarding/index.js
-// Роутинг для онбордингу
+import logger from '../../utils/logger.js';
+import { typing } from '../../utils/typing.js';
+import * as controller from './controller.js';
+import { CALLBACKS } from './constants.js';
 
-import { handleStart, handleCallback, handleText } from './handlers.js';
+const cbList = [
+  CALLBACKS.START_REGISTRATION,
+  CALLBACKS.SKIP_REGISTRATION,
+  CALLBACKS.CONFIRM_NAME,
+  CALLBACKS.CHANGE_NAME,
+  CALLBACKS.SKIP_NAME,
+  CALLBACKS.SKIP_EMAIL,
+  CALLBACKS.BACK_EMAIL,
+  CALLBACKS.SKIP_PHONE,
+  CALLBACKS.BACK_PHONE,
+  CALLBACKS.TRIAL,
+  CALLBACKS.WEEK,
+  CALLBACKS.MONTH,
+  CALLBACKS.YEAR,
+  CALLBACKS.NO_SUBSCRIPTION,
+].join('|');
 
-/**
- * Ініціалізація онбордингу
- */
+const cbRegex = new RegExp(`^(${cbList})$|^${CALLBACKS.TZ_PREFIX}`);
+
 export default function initOnboarding(bot) {
-  console.log('🎓 [onboarding] Ініціалізація модуля...');
-
-  // ВАЖЛИВО: /start команда реєструється ТУТ
   bot.start(async (ctx) => {
-    try {
-      console.log('[onboarding] /start від користувача:', ctx.from.id);
-      await handleStart(ctx);
-    } catch (error) {
-      console.error('[onboarding/start] ❌ Помилка:', error);
-      await ctx.reply('❌ Сталася помилка. Спробуй /start ще раз.');
-    }
+    logger.info(`[onboarding] /start ${ctx.from?.id}`);
+    await typing(ctx);
+    await controller.start(ctx);
   });
 
-  console.log('✅ [onboarding] Модуль готовий');
-}
+  bot.action(cbRegex, async (ctx) => {
+    logger.info(`[onboarding] cb ${ctx.callbackQuery?.data}`);
+    await typing(ctx);
+    await controller.onCallback(ctx);
+    await ctx.answerCbQuery().catch(() => {});
+  });
 
-// Експортуємо handlers для використання в bot/router.js
-export { handleStart, handleCallback, handleText };
+  bot.on('text', async (ctx) => {
+    logger.info(`[onboarding] text ${ctx.from?.id}`);
+    await controller.onText(ctx);
+  });
+}

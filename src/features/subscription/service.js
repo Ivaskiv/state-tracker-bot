@@ -2,8 +2,8 @@
 
 import { tables, selectFromTable, createRows, updateRows } from '../../config/database.js';
 import users from '../../services/users.js';
-import { SUBSCRIPTION_PLANS } from '../../config/index.js';
 import { addDays, toISODate } from '../../utils/helpers.js';
+import { SUBSCRIPTION_PLANS } from './constants.js';
 
 const findActiveSubscription = async (tgId) => {
   try {
@@ -61,7 +61,7 @@ export const createTrialSubscription = async (tgId, userName = 'Користув
 
     await users.updateUserFields(tgId, {
       Subscription_Status: 'Active',
-      'Active Subscription Plan': plan.name,
+      'Active_Subscription_Plan': plan.name,
       Start_Date: toISODate(start),
       End_Date: toISODate(end),
     });
@@ -134,7 +134,7 @@ export const activatePaidSubscription = async (paymentData) => {
 
     await users.updateUserFields(tgId, {
       Subscription_Status: 'Active',
-      'Active Subscription Plan': plan.name,
+      'Active_Subscription_Plan': plan.name,
       Start_Date: toISODate(start),
       End_Date: toISODate(end),
     });
@@ -158,7 +158,7 @@ export const syncUserSubscription = async (tgId) => {
     if (!sub) {
       await users.updateUserFields(tgId, {
         Subscription_Status: 'Inactive',
-        'Active Subscription Plan': '',
+        'Active_Subscription_Plan': '',
         Start_Date: null,
         End_Date: null,
       });
@@ -174,7 +174,7 @@ export const syncUserSubscription = async (tgId) => {
 
     await users.updateUserFields(tgId, {
       Subscription_Status: active ? 'Active' : 'Expired',
-      'Active Subscription Plan': sub.fields?.Plan_Name || '',
+      'Active_Subscription_Plan': sub.fields?.Plan_Name || '',
       Start_Date: sub.fields?.Start_Date || null,
       End_Date: sub.fields?.End_Date || null,
     });
@@ -207,7 +207,7 @@ export const getUsersWithExpiringSubscriptions = async (daysAhead = 1) => {
 
     return expiring.map((sub) => ({
       TG_id: sub.fields.TG_id,
-      'Active Subscription Plan': sub.fields.Plan_Name,
+      'Active_Subscription_Plan': sub.fields.Plan_Name,
       End_Date: sub.fields.End_Date,
     }));
   } catch (e) {

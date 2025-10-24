@@ -1,5 +1,4 @@
-//src/config/constantsGamification
-// .js
+//src/config/constants.js
 export const ACTIVITY_TRIGGERS = Object.freeze({
   MISSED_DAYS_THRESHOLD: 2,
   INACTIVE_HOURS_THRESHOLD: 48,

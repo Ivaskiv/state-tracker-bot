@@ -1,10 +1,11 @@
 // src/features/dashboard/index.js
 
-import { MESSAGES, MENU_TEXTS, DASHBOARD_MESSAGES } from '../../config/index.js';
 import users from '../../services/users.js';
 import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
+import { MENU_TEXTS, MESSAGES } from '../onboarding/constants.js';
 import { startWheelBalance } from '../wheelBalance/flow.js';
+import { DASHBOARD_MESSAGES } from './constantsDashboard.js';
 
 // ── helpers ───────────────────────────────────────────────────
 const formatDate = (dateString) => {
