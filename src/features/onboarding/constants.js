@@ -9,7 +9,7 @@ import {
   formatEmail,
   formatPhone
 } from '../../utils/validators.js';
-import { EVENING_QUESTIONS, MORNING_QUESTIONS } from '../dailySessions/constantsQuestions.js';
+import { EVENING_QUESTIONS, MORNING_QUESTIONS } from '../dailySessions/constants.js';
 
 export const STEPS = Object.freeze({
   PITCH: 'pitch',
@@ -59,34 +59,58 @@ export const MESSAGES = Object.freeze({
   TRIAL_ACTIVATED: `${REG_SUMMARY}\n\nГотова почати?`,
   ONBOARDING_NAME_CHOICE: (userName) =>
     `👋 Привіт, ${userName}!\n\n${FEATURES}\n\nЗалишити ім'я «${userName}» або ввести інше?`,
-  WELCOME_BACK_ACTIVE: (userName, endStr, stats = {}) =>
-    `👋 Привіт, ${userName}!\n\nЯ твій AI-мотиватор та коуч — твій особистий супутник у досягненні цілей! 🎯\n\n` +
-    `✅ Підписка активна до ${endStr}\n\n` +
-    `📊 **Твої досягнення:**\n` +
-    `• 🔥 Streak: ${stats.currentStreak || 0} днів поспіль\n` +
-    `• ✅ Виконано сесій: ${stats.completedSessions || 0}\n` +
-    `• 🎯 Колесо балансу: ${stats.wheelCompleted ? '✅ Заповнено' : '❌ Не заповнено'}\n` +
-    `• 📈 Прогрес по цілях: ${stats.goalProgress || 0}%\n\n` +
-    `⏰ **Нагадування:**\n` +
-    `• 🌞 Ранкова рефлексія — о ${SCHEDULE.MORNING_TIME}\n` +
-    `• 🌙 Вечірня — о ${SCHEDULE.EVENING_TIME}\n` +
-    `• 📊 Щотижневий звіт — щонеділі\n` +
-    `• 🛞 Колесо — 1 числа місяця\n\n` +
-    `💡 **Що можу для тебе зробити:**\n` +
-    `• 🤖 AI-наставник — 24/7\n` +
-    `• 🛞 Колесо балансу — аудит 8 сфер\n` +
-    `• 📊 Мій прогрес — звіти\n` +
-    `• 🧭 Фокус дня — щоденна мотивація\n\n` +
-    `Обирай дію 👇`,
-  WELCOME_BACK_INACTIVE: (userName, stats = {}) =>
-    `👋 Привіт, ${userName}!\n\n` +
-    `⚠️ **Підписка неактивна**\n` +
-    `Щоб продовжити користуватись усіма можливостями, оформи підписку 💰\n\n` +
-    `📊 **Досягнення:**\n` +
-    `• 🔥 Streak: ${stats.currentStreak || 0} днів\n` +
-    `• ✅ Сесій: ${stats.completedSessions || 0}\n` +
-    `• 🛞 Колесо: ${stats.wheelCompleted ? '✅' : '❌'}\n\n` +
-    `Доступно без підписки: статистика, оформлення підписки, зв'язок.`,
+  // WELCOME_BACK_ACTIVE: (userName, endStr, stats = {}) =>
+  //   `👋 Привіт, ${userName}!\n\nЯ твій AI-мотиватор та коуч — твій особистий супутник у досягненні цілей! 🎯\n\n` +
+  //   `✅ Підписка активна до ${endStr}\n\n` +
+  //   `📊 **Твої досягнення:**\n` +
+  //   `• 🔥 Streak: ${stats.currentStreak || 0} днів поспіль\n` +
+  //   `• ✅ Виконано сесій: ${stats.completedSessions || 0}\n` +
+  //   `• 🎯 Колесо балансу: ${stats.wheelCompleted ? '✅ Заповнено' : '❌ Не заповнено'}\n` +
+  //   `• 📈 Прогрес по цілях: ${stats.goalProgress || 0}%\n\n` +
+  //   `⏰ **Нагадування:**\n` +
+  //   `• 🌞 Ранкова рефлексія — о ${SCHEDULE.MORNING_TIME}\n` +
+  //   `• 🌙 Вечірня — о ${SCHEDULE.EVENING_TIME}\n` +
+  //   `• 📊 Щотижневий звіт — щонеділі\n` +
+  //   `• 🛞 Колесо — 1 числа місяця\n\n` +
+  //   `💡 **Що можу для тебе зробити:**\n` +
+  //   `• 🤖 AI-наставник — 24/7\n` +
+  //   `• 🛞 Колесо балансу — аудит 8 сфер\n` +
+  //   `• 📊 Мій прогрес — звіти\n` +
+  //   `• 🧭 Фокус дня — щоденна мотивація\n\n` +
+  //   `Обирай дію 👇`,
+  // WELCOME_BACK_INACTIVE: (userName, stats = {}) =>
+  //   `👋 Привіт, ${userName}!\n\n` +
+  //   `⚠️ **Підписка неактивна**\n` +
+  //   `Щоб продовжити користуватись усіма можливостями, оформи підписку 💰\n\n` +
+  //   `📊 **Досягнення:**\n` +
+  //   `• 🔥 Streak: ${stats.currentStreak || 0} днів\n` +
+  //   `• ✅ Сесій: ${stats.completedSessions || 0}\n` +
+  //   `• 🛞 Колесо: ${stats.wheelCompleted ? '✅' : '❌'}\n\n` +
+  //   `Доступно без підписки: статистика, оформлення підписки, зв'язок.`,
+  
+  // src/features/onboarding/constants.js - MESSAGES
+
+  WELCOME_BACK_ACTIVE: (userName, endDate, stats) => {
+    return (
+      `👋 Рада вітати тебе знову, ${userName}!\n\n` +
+      `Ось коротко про твої справи:\n\n` +
+      `🛞 Колесо балансу — ${stats.wheelStatus}\n` +
+      `🔥 Активність — ${stats.streakText}\n` +
+      `📊 Остання сесія — ${stats.lastSessionDate}\n` +
+      `💰 Підписка — ✅ Активна до ${endDate}`
+    );
+  },
+  WELCOME_BACK_INACTIVE: (userName, stats) => {
+    return (
+      `👋 Рада вітати тебе знову, ${userName}!\n\n` +
+      `Ось коротко про твої справи:\n\n` +
+      `🛞 Колесо балансу — ${stats.wheelStatus}\n` +
+      `🔥 Активність —  ${stats.streakText}\n` +
+      `📊 Остання сесія — ${stats.lastSessionDate}\n` +
+      `💰 Підписка — ❌ Немає активної підписки`
+    );
+  },
+
   REGISTRATION_INFO: (userData) =>
     `🎉 ВІТАЮ! РЕЄСТРАЦІЮ ЗАВЕРШЕНО!\n\n` +
     `👤 **Профіль:**\n` +

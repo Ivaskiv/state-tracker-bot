@@ -1,4 +1,4 @@
-//src/config/constantsQuestions.js
+// src/features/dailySessions/constants.js
 export const MORNING_ORDER = [
   'Daily_Focus',
   'Q_m_1',

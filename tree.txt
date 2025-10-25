@@ -14,7 +14,7 @@ features
   dailySessions
     prompts.js
     flow.js
-    constantsQuestions.js
+    constants.js
     service.js
     sync.js
     index.js
@@ -52,7 +52,7 @@ features
     shared.js
   dashboard
     index.js
-    constantsDashboard.js
+    constants.js
   onboarding
     constants.js
     service.js

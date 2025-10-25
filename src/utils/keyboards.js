@@ -256,7 +256,14 @@ const keyboards = {
       ],
     },
   }),
-
+ morningEveningChoiceKeyboard: () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🌞 Так', callback_data: 'start_morning' }],
+      [{ text: '🌙 Нi', callback_data: 'force_evening' }]
+    ]
+  }
+}),
   // 📊 ЗВІТИ
   weeklyReportMenuKeyboard: () => ({
     parse_mode: 'Markdown',
@@ -367,6 +374,17 @@ doneEveningKeyboard: () => ({
     ]
   }
 }),
+wheelCtaInline: () => ({
+    reply_markup: {
+      inline_keyboard: [
+        kbRow({ text: '🎡 Пройти зараз', callback_data: 'start_wheel_now' }),
+        kbRow(
+          { text: '⏳ Пізніше', callback_data: 'wheel_later' },
+          { text: 'ℹ️ Більше про колесо', callback_data: 'wheel_info' }
+        ),
+      ],
+    },
+  }),
 };
 
 // ── УНІВЕРСАЛЬНІ ГЕНЕРАТОРИ ──

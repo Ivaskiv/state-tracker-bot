@@ -43,10 +43,10 @@ export const tables = Object.freeze({
   AI_CONVERSATIONS_FEEDBACK: 'AI_Conversations_Feedback_Advice', 
   
   // ===== МІКРО-ДІЇ =====
-  MICRO_ACTIONS: 'MICRO_ACTIONS', 
+  MICRO_ACTIONS: 'Micro_Actions', 
   
   // ===== СТАТИСТИКА =====
-  ACTIVITY_STATS: 'ACTIVITY_STATS', 
+  ACTIVITY_STATS: 'Activiti_Stats', 
   
   // ===== ІНШІ ТАБЛИЦІ =====
   USER_REFLECTIONS: 'User Reflections',
@@ -58,7 +58,7 @@ export const tables = Object.freeze({
   OFFERS_LOG: 'Offers_Log',
   
   // ===== DEPRECATED (для зворотної сумісності) =====
-  DAILY_MICRO_ACTIONS: 'MICRO_ACTIONS' 
+  DAILY_MICRO_ACTIONS: 'Micro_Actions' 
 });
 
 // ---- Утиліти

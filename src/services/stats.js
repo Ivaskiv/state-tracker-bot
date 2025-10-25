@@ -1,6 +1,8 @@
 // src/services/stats.js
+
 import { getBase, tables } from '../config/database.js';
 import { toISODate as toISODateHelper } from '../utils/helpers.js';
+import logger from '../utils/logger.js';
 
 const base = getBase();
 
@@ -39,8 +41,8 @@ export const getUserStats = async (tgId) => {
         fields: [
           'User Name',
           'Status',
-          'Active_Subscription_Plan',   
-          'Active_Subscription_Status', 
+          'Active_Subscription_Plan',
+          'Active_Subscription_Status',
           'Subscription_Status',
           'End_Date',
           'Total_Sessions',
@@ -59,8 +61,8 @@ export const getUserStats = async (tgId) => {
           fields: ['Date_Response']
         })
         .all();
-    } catch {
-
+    } catch (e) {
+      logger.warn('[stats] Error loading responses:', e.message);
     }
 
     const currentStreak = calcStreak(responses);
@@ -79,8 +81,8 @@ export const getUserStats = async (tgId) => {
           fields: ['Created_At']
         })
         .all();
-    } catch {
-      
+    } catch (e) {
+      logger.warn('[stats] Error loading AI convos:', e.message);
     }
 
     const lastAiDate = aiConvos
@@ -97,18 +99,47 @@ export const getUserStats = async (tgId) => {
       : null;
 
     let wheelCompleted = false;
+    let wheelCompletedDate = null;
+    let nextWheelDate = null;
+
     try {
       const wheels = await base(tables.WHEEL_BALANCE)
         .select({
-          filterByFormula: `AND({TG_id} = "${tgId}", {Status} = "Completed")`,
+          filterByFormula: `{TG_id} = "${tgId}"`,
           sort: [{ field: 'Completed_Date', direction: 'desc' }],
           maxRecords: 1,
-          fields: ['Status', 'Completed_Date', 'Total_Score']
+          fields: ['Status', 'Completed_Date', 'Next_Wheel_Date', 'Total_Score']
         })
-        .firstPage();
-      wheelCompleted = (wheels?.length || 0) > 0;
-    } catch {
-      
+        .all();
+
+      if (wheels.length > 0) {
+        const wheel = wheels[0];
+        const status = String(wheel.fields?.Status || '').trim().toLowerCase();
+
+        if (status === 'completed' || status === 'done') {
+          wheelCompleted = true;
+          wheelCompletedDate = wheel.fields?.Completed_Date;
+          nextWheelDate = wheel.fields?.Next_Wheel_Date;
+
+          console.log('[DEBUG wheel]', { wheelCompletedDate, nextWheelDate });
+
+          if (!nextWheelDate && wheelCompletedDate) {
+            const nextDate = new Date(wheelCompletedDate);
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            nextWheelDate = nextDate.toISOString().split('T')[0];
+
+            await base(tables.WHEEL_BALANCE).update(wheel.id, {
+              Next_Wheel_Date: nextWheelDate
+            });
+
+            logger.info(`[stats] Updated Next_Wheel_Date: ${nextWheelDate}`);
+          }
+
+          logger.info(`[stats] ✅ Wheel completed for ${tgId}`);
+        }
+      }
+    } catch (e) {
+      logger.error('[stats] Error loading wheel balance:', e.message);
     }
 
     let maxGoalProgress = 0;
@@ -120,32 +151,32 @@ export const getUserStats = async (tgId) => {
           fields: ['Progress']
         })
         .all();
+
       if (goals.length) {
         const arr = goals.map((g) => Number(g.fields?.Progress || 0));
         maxGoalProgress = Math.max(...arr);
         avgCompletionRate = Math.round(arr.reduce((s, v) => s + v, 0) / arr.length);
       }
-    } catch { 
-      
+    } catch (e) {
+      logger.warn('[stats] Error loading goals:', e.message);
     }
 
     let weeklyReportsCompleted = 0;
     try {
       const reps = await base(tables.USER_REPORTS)
         .select({
-          filterByFormula: `{TG_id} = "${tgId}"`,
-          fields: ['TG_id']
+          maxRecords: 100
         })
         .all();
-      weeklyReportsCompleted = reps.length;
-    } catch { 
-      
-     }
+      weeklyReportsCompleted = reps.filter(r => String(r.fields.TG_id || '') === tgId).length;
+    } catch (e) {
+      logger.warn('[stats] Error loading reports:', e.message);
+    }
 
     const plan = String(userFields['Active_Subscription_Plan'] || '');
-    const status = String(userFields['Subscription_Status'] || '').toLowerCase();
+    const subStatus = String(userFields['Subscription_Status'] || '').toLowerCase();
 
-    let hasAccess = status === 'active' || /пробний|trial/i.test(plan);
+    let hasAccess = subStatus === 'active' || /пробний|trial/i.test(plan);
     if (!hasAccess && userFields.End_Date) {
       const end = new Date(`${userFields.End_Date}T23:59:59`);
       hasAccess = new Date() <= end;
@@ -158,13 +189,16 @@ export const getUserStats = async (tgId) => {
     return {
       userName: userFields['User Name'] || '',
       subscriptionStatus: hasAccess ? 'active' : 'inactive',
-      subscriptionLabel, 
+      subscriptionLabel,
 
       currentStreak,
       lastSessionDate: lastSessionStr,
       completedSessions: Number(userFields.Total_Sessions || 0),
 
       wheelCompleted,
+      wheelCompletedDate,
+      nextWheelDate,
+
       weeklyReportsCompleted,
       totalAIInteractions: aiConvos.length,
 
@@ -173,7 +207,7 @@ export const getUserStats = async (tgId) => {
       totalPoints: Number(userFields.Total_Points || 0)
     };
   } catch (e) {
-    console.error('[stats/getUserStats] error:', e.message);
+    logger.error('[stats/getUserStats]', e);
     return {
       userName: '',
       subscriptionStatus: 'inactive',
@@ -182,6 +216,8 @@ export const getUserStats = async (tgId) => {
       lastSessionDate: null,
       completedSessions: 0,
       wheelCompleted: false,
+      wheelCompletedDate: null,
+      nextWheelDate: null,
       weeklyReportsCompleted: 0,
       totalAIInteractions: 0,
       maxGoalProgress: 0,
@@ -190,5 +226,4 @@ export const getUserStats = async (tgId) => {
     };
   }
 };
-
 export default { getUserStats };

@@ -116,4 +116,11 @@ export const getDateTimeWithoutSeconds = () => {
   return now.toISOString();
 };
 
+export const getNextWheelDate = (lastWheelDate) => {
+  if (!lastWheelDate) return null;
+  const date = new Date(lastWheelDate);
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().split('T')[0];
+};
+
 console.log('✅ [utils/helpers] Завантажено хелпери');
