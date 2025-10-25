@@ -218,13 +218,20 @@ callbacks.on('start_wheel_now', async (ctx) => {
   return startWheelFromText(ctx);
 });
 callbacks.on('wheel_later', async (ctx) => {
-  await ctx.reply('Ок! Можеш пройти колесо з меню: «🎯 Колесо балансу».', keyboards.mainMenuKeyboard());
+  await ctx.answerCbQuery('✅ Добре!');
+  const message = 
+    `✅ Без проблем!\n\n` +
+    `🎡 Колесо чекає на тебе в меню:\n` +
+    `👉 **🎯 Колесо балансу**\n\n` +
+    `Займе всього 5–10 хвилин, а результат допоможе визначити пріоритети на місяць 📊`;
+  
+  await ctx.reply(message, keyboards.mainMenuKeyboard());
   return true;
 });
 callbacks.on('wheel_info', async (ctx) => {
-  await ctx.reply('Колесо балансу — швидка оцінка 8 сфер життя, щоб вибрати 2–3 пріоритети на місяць.');
-  return true;
+  await ctx.answerCbQuery('ℹ️ Інформація...');
+  const { showWheelInfo } = await import('../dashboard/index.js');
+  return showWheelInfo(ctx);
 });
-
 
 export default { start, onText };

@@ -2,26 +2,72 @@
 
 import { TIMEZONES } from "../config/constants.js";
 
-// import { TIMEZONES } from "../config/index.js";
-
 const kbRow = (...btns) => btns.map((b) => ({ text: b.text, callback_data: b.callback_data }));
+
+// ═══════════════════════════════════════════════════════════
+// 📌 KEYBOARD КОНСТАНТИ (готові об'єкти - БЕЗ виклику!)
+// ═══════════════════════════════════════════════════════════
+
+const KB_WHEEL_SCORE = {
+  reply_markup: {
+    inline_keyboard: [
+      kbRow(
+        { text: '0', callback_data: 'wheel_score_0' },
+        { text: '1', callback_data: 'wheel_score_1' },
+        { text: '2', callback_data: 'wheel_score_2' },
+        { text: '3', callback_data: 'wheel_score_3' },
+        { text: '4', callback_data: 'wheel_score_4' },
+        { text: '5', callback_data: 'wheel_score_5' },
+      ),
+      kbRow(
+        { text: '6', callback_data: 'wheel_score_6' },
+        { text: '7', callback_data: 'wheel_score_7' },
+        { text: '8', callback_data: 'wheel_score_8' },
+        { text: '9', callback_data: 'wheel_score_9' },
+        { text: '10', callback_data: 'wheel_score_10' },
+      ),
+      kbRow({ text: '🚪 Вийти', callback_data: 'wheel_exit' }),
+    ],
+  },
+};
+
+const KB_WHEEL_COMPLETED = {
+  reply_markup: {
+    inline_keyboard: [
+      kbRow({ text: '🔄 Пройти колесо ще раз', callback_data: 'wheel_restart_confirmed' }),
+      kbRow({ text: '📊 Історія коліс', callback_data: 'wheel_history' }),
+      kbRow({ text: '🏠 До меню', callback_data: 'main_menu' }),
+    ],
+  },
+};
+
+const KB_WHEEL_EXIT = {
+  reply_markup: {
+    inline_keyboard: [kbRow({ text: '🚪 Вийти', callback_data: 'wheel_exit' })],
+  },
+};
+
+const KB_MAIN_MENU = {
+  reply_markup: {
+    keyboard: [
+      [{ text: '📊 Мій прогрес та Звіти' }, { text: 'ℹ️ Інформація про бота' }],
+      [{ text: '💰 Підписка' }, { text: '📞 Звʼязок' }],
+      [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }],
+      [{ text: '🌞 Ранкова сесія' }, { text: '🌙 Вечірня сесія' }],
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: false,
+    is_persistent: true,
+  },
+};
+
+// ═══════════════════════════════════════════════════════════
+// 📋 KEYBOARDS OBJECT (для сумісності зі старим кодом)
+// ═══════════════════════════════════════════════════════════
 
 const keyboards = {
   // 🏠 ГОЛОВНЕ МЕНЮ
-  mainMenuKeyboard: () => ({
-    reply_markup: {
-      keyboard: [
-        [{ text: '📊 Мій прогрес та Звіти' }, { text: 'ℹ️ Інформація про бота' }],
-        [{ text: '💰 Підписка' }, { text: '📞 Звʼязок' }],
-        [{ text: '🤖 AI Наставник' }, { text: '🎯 Колесо балансу' }],
-        [{ text: '🌞 Ранкова сесія' }, { text: '🌙 Вечірня сесія' }],
-
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false,
-      is_persistent: true,
-    },
-  }),
+  mainMenuKeyboard: () => KB_MAIN_MENU,
 
   infoMenuInline: (showCapabilities = false) => ({
     reply_markup: {
@@ -93,11 +139,7 @@ const keyboards = {
     },
   }),
 
-  buildExitKeyboard: () => ({
-    reply_markup: {
-      inline_keyboard: [kbRow({ text: '🚪 Вийти з сесії', callback_data: 'exit_session' })],
-    },
-  }),
+  buildExitKeyboard: () => KB_WHEEL_EXIT,
 
   buildRestartWarningKeyboard: (type) => ({
     reply_markup: {
@@ -192,38 +234,10 @@ const keyboards = {
   }),
 
   // 🎡 КОЛЕСО БАЛАНСУ
-  wheelScoreKeyboard: () => ({
-    reply_markup: {
-      inline_keyboard: [
-        kbRow(
-          { text: '0', callback_data: 'wheel_score_0' },
-          { text: '1', callback_data: 'wheel_score_1' },
-          { text: '2', callback_data: 'wheel_score_2' },
-          { text: '3', callback_data: 'wheel_score_3' },
-          { text: '4', callback_data: 'wheel_score_4' },
-          { text: '5', callback_data: 'wheel_score_5' },
-        ),
-        kbRow(
-          { text: '6', callback_data: 'wheel_score_6' },
-          { text: '7', callback_data: 'wheel_score_7' },
-          { text: '8', callback_data: 'wheel_score_8' },
-          { text: '9', callback_data: 'wheel_score_9' },
-          { text: '10', callback_data: 'wheel_score_10' },
-        ),
-        kbRow({ text: '🚪 Вийти', callback_data: 'wheel_exit' }),
-      ],
-    },
-  }),
+  wheelNumberKeyboard: () => KB_WHEEL_SCORE,
+  wheelScoreKeyboard: () => KB_WHEEL_SCORE,
 
-  wheelCompletedKeyboard: () => ({
-    reply_markup: {
-      inline_keyboard: [
-        kbRow({ text: '🔄 Пройти колесо ще раз', callback_data: 'wheel_restart_confirmed' }),
-        kbRow({ text: '📊 Історія коліс', callback_data: 'wheel_history' }),
-        kbRow({ text: '🏠 До меню', callback_data: 'main_menu' }),
-      ],
-    },
-  }),
+  wheelCompletedKeyboard: () => KB_WHEEL_COMPLETED,
 
   wheelActiveKeyboard: () => ({
     reply_markup: {
@@ -256,14 +270,16 @@ const keyboards = {
       ],
     },
   }),
- morningEveningChoiceKeyboard: () => ({
-  reply_markup: {
-    inline_keyboard: [
-      [{ text: '🌞 Так', callback_data: 'start_morning' }],
-      [{ text: '🌙 Нi', callback_data: 'force_evening' }]
-    ]
-  }
-}),
+
+  morningEveningChoiceKeyboard: () => ({
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🌞 Так', callback_data: 'start_morning' }],
+        [{ text: '🌙 Нi', callback_data: 'force_evening' }]
+      ]
+    }
+  }),
+
   // 📊 ЗВІТИ
   weeklyReportMenuKeyboard: () => ({
     parse_mode: 'Markdown',
@@ -358,28 +374,32 @@ const keyboards = {
       ],
     },
   }),
-doneMorningKeyboard: () => ({
-  reply_markup: {
-    inline_keyboard: [
-      [{ text: '▶️ Продовжити ранок', callback_data: 'continue_morning' }],
-      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
-    ]
-  }
-}),
-doneEveningKeyboard: () => ({
-  reply_markup: {
-    inline_keyboard: [
-      [{ text: '▶️ Продовжити вечір', callback_data: 'continue_evening' }],
-      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
-    ]
-  }
-}),
-wheelCtaInline: () => ({
+
+  doneMorningKeyboard: () => ({
     reply_markup: {
       inline_keyboard: [
-        kbRow({ text: '🎡 Пройти зараз', callback_data: 'start_wheel_now' }),
+        [{ text: '▶️ Продовжити ранок', callback_data: 'continue_morning' }],
+        [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+      ]
+    }
+  }),
+
+  doneEveningKeyboard: () => ({
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '▶️ Продовжити вечір', callback_data: 'continue_evening' }],
+        [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+      ]
+    }
+  }),
+
+  wheelCtaInline: () => ({
+    reply_markup: {
+      inline_keyboard: [
+        kbRow({ text: '🎡 Пройти зараз', callback_data: 'start_wheel_now' }, 
+          { text: '⏳ Пізніше', callback_data: 'wheel_later' }
+        ),
         kbRow(
-          { text: '⏳ Пізніше', callback_data: 'wheel_later' },
           { text: 'ℹ️ Більше про колесо', callback_data: 'wheel_info' }
         ),
       ],
@@ -418,4 +438,15 @@ keyboards.skipKeyboard = (field, withBack = false) => {
 
 export default keyboards;
 
-console.log('✅ [utils/keyboards] Keyboards завантажено');
+// ═══════════════════════════════════════════════════════════
+// 📌 ЕКСПОРТ КОНСТАНТ (для прямого імпорту без функцій!)
+// ═══════════════════════════════════════════════════════════
+
+export {
+  KB_WHEEL_SCORE,
+  KB_WHEEL_COMPLETED,
+  KB_WHEEL_EXIT,
+  KB_MAIN_MENU,
+};
+
+console.log('✅ [utils/keyboards] Keyboards завантажено + константи');

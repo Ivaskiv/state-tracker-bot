@@ -53,7 +53,6 @@ export default function initWheelBalance(bot) {
   });
 
   // ─────────────────────────────────────────────────────────
-
   // 🗒️ НОТАТКА І ПЕРЕХІД
   // ─────────────────────────────────────────────────────────
 
@@ -91,7 +90,6 @@ export default function initWheelBalance(bot) {
   });
 
   // ─────────────────────────────────────────────────────────
-
   // 🔄 ПЕРЕЗАПУСК КОЛЕСА
   // ─────────────────────────────────────────────────────────
 
@@ -101,7 +99,7 @@ export default function initWheelBalance(bot) {
       const result = await flow.startNewWheelIgnoreOld(
         ctx.from.id,
         ctx.from.first_name,
-        true // forceRestart
+        true 
       );
       
       await ctx.reply(result.message, result.keyboard || keyboards.wheelScoreKeyboard());
@@ -126,7 +124,6 @@ export default function initWheelBalance(bot) {
   });
 
   // ─────────────────────────────────────────────────────────
-
   // 🚪 ВИХІД ІЗ КОЛЕСА
   // ─────────────────────────────────────────────────────────
 
@@ -141,7 +138,6 @@ export default function initWheelBalance(bot) {
   });
 
   // ─────────────────────────────────────────────────────────
-
   // 📊 ІСТОРІЯ КОЛІС
   // ─────────────────────────────────────────────────────────
 
@@ -171,7 +167,6 @@ export default function initWheelBalance(bot) {
   });
 
   // ─────────────────────────────────────────────────────────
-
   // 📝 TEXT HANDLER — обробляє нотатки
   // ─────────────────────────────────────────────────────────
 
@@ -208,8 +203,6 @@ export default function initWheelBalance(bot) {
 // ═══════════════════════════════════════════════════════════
 // 📤 ЕКСПОРТИ (для використання з інших модулів)
 // ═══════════════════════════════════════════════════════════
-
-// Flow функції
 export const startWheelBalance = flow.startWheelBalance;
 export const getLatestCompletedWheel = flow.getLatestCompletedWheel;
 export const isAwaitingNote = flow.isAwaitingNote;

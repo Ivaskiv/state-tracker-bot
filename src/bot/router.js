@@ -26,26 +26,26 @@ export const initRouter = (bot) => {
 
   bot.on('text', async (ctx) => {
     try {
-      logger.info(`[router/text] "${ctx.message.text}" від ${ctx.from.id}`);
-
-      // Спробуємо обробити у dashboard
       if (await dashboard.handleText(ctx)) {
-        logger.info('[router/text] ✅ Оброблено dashboard');
         return;
       }
-
-      logger.warn(`[router/text] ⚠️ Невідоме повідомлення: "${ctx.message.text}"`);
     } catch (e) {
       logger.error('[router/text]', e);
     }
   });
 
-  bot.on('callback_query', async (ctx) => {
+ bot.on('callback_query', async (ctx) => {
     try {
       const data = ctx.callbackQuery.data;
       logger.info(`[router/callback] "${data}" від ${ctx.from.id}`);
 
-      if (await dashboard.handleCallback(ctx)) {
+      if (await callbacks.handle(ctx)) {
+        logger.info('[router/callback] ✅ Оброблено callbacks router');
+        return;
+      }
+
+      // 2️⃣ Потім спробуємо dashboard
+      if (await dashboard.handleCallback?.(ctx)) {
         logger.info('[router/callback] ✅ Оброблено dashboard');
         return;
       }

@@ -55,8 +55,6 @@ const bot = new Telegraf(TELEGRAM_BOT_TOKEN, {
 });
 
 // ===== MIDDLEWARE STACK (ПОРЯДОК ВАЖЛИВИЙ!) =====
-
-// 1️⃣ Session - завжди першим
 bot.use(session({ 
   defaultSession: () => ({
     wheel: null,
@@ -64,14 +62,8 @@ bot.use(session({
     ai: null
   }) 
 }));
-
-// 2️⃣ Anti-spam protection (опціонально - розкоментуй для production)
 bot.use(antiSpamMiddleware());
-
-// 3️⃣ Performance logging (опціонально - для моніторингу повільних запитів)
-// bot.use(performanceMiddleware());
-
-// 4️⃣ Main middleware - логування + typing + error handling
+bot.use(performanceMiddleware(2000));
 bot.use(initMiddleware());
 
 // ===== ГЛОБАЛЬНИЙ ERROR HANDLER =====

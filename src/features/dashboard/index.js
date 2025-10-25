@@ -58,7 +58,20 @@ export const showMainMenu = async (ctx) => {
       : MESSAGES.WELCOME_BACK_INACTIVE(stats.userName, statsData);
 
     await ctx.reply('⏳ Оновлюю меню…', { reply_markup: { remove_keyboard: true } });
+    
+    // ✅ ОСНОВНЕ МЕНЮ
     await ctx.reply(message, keyboards.mainMenuKeyboard());
+
+    // ✅ ЯКЩО КОЛЕСО НЕ ПРОЙДЕНО - ПОКАЗУЄМО CTA
+    if (!stats.wheelCompleted) {
+      const wheelCTAMessage = 
+        `🎡 **КОЛЕСО БАЛАНСУ** — швидка оцінка 8 сфер твого життя (5–10 хв)\n\n` +
+        `📊 Визнач пріоритети на місяць і отримай AI-аналіз для кожної сфери.\n\n` +
+        `🌟 Перша оцінка допоможе зрозуміти де потрібен фокус.`;
+      
+      await ctx.reply(wheelCTAMessage, keyboards.wheelCtaInline());
+    }
+
   } catch (error) {
     logger.error('[dashboard/showMainMenu]', error);
     await ctx.reply('Помилка завантаження меню', keyboards.mainMenuKeyboard());
@@ -95,6 +108,44 @@ export const startWheelFromText = async (ctx) => {
     logger.error('[dashboard/startWheelFromText]', e);
     await ctx.reply('❌ Помилка запуску колеса', keyboards.mainMenuKeyboard());
     return true;
+  }
+};
+
+export const showWheelInfo = async (ctx) => {
+  try {
+    await typing(ctx);
+    
+    const infoMessage = 
+      `🎡 **ЧОМ КОЛЕСО БАЛАНСУ?**\n\n` +
+      `Життя складається з 8 ключових сфер:\n\n` +
+      `❤️ Здоров'я — енергія, сон, фізкультура\n` +
+      `📚 Ріст — навчання, розвиток навичок\n` +
+      `👥 Стосунки — сімʼя, друзі, любов\n` +
+      `💼 Карʼєра — сенс, результати, вплив\n` +
+      `💰 Фінанси — дохід, заощадження, достаток\n` +
+      `🎨 Дозвілля — хобі, розслаблення, радість\n` +
+      `🧘 Духовність — сенс, цінності, практика\n` +
+      `🏠 Оточення — дім, порядок, простір\n\n` +
+      `📊 **ЧОМ ОЦІНЮВАТИ?**\n` +
+      `Бачиш дисбаланс → визнаєш пріоритети → діяш → рухаєшся до гармонії 🌟\n\n` +
+      `⏱ Займає 5–10 хвилин\n` +
+      `🎯 Результат — конкретні рекомендації на місяць\n` +
+      `📈 Оновлюй кожен місяць і відстежуй прогрес`;
+    
+    await ctx.reply(infoMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🎡 Почати колесо', callback_data: 'wheel_start' }],
+          [{ text: '⏭️ Пізніше', callback_data: 'main_menu' }]
+        ]
+      }
+    });
+    
+    await safeAnswerCb(ctx, 'Інформація про колесо');
+  } catch (e) {
+    logger.error('[dashboard/showWheelInfo]', e);
+    await ctx.reply('❌ Помилка', keyboards.mainMenuKeyboard());
   }
 };
 
@@ -170,34 +221,16 @@ export const showHelp = async (ctx) => {
   }
 };
 
-// export const handleCallback = async (ctx) => {
-//   const data = ctx.callbackQuery?.data;
-//   if (!data) return false;
+// ═══════════════════════════════════════════════════════════
+// 📡 CALLBACK РОУТЕР
+// ═══════════════════════════════════════════════════════════
 
-//   const callbacks = {
-//     'main_menu': showMainMenu,
-//     'show_capabilities': showCapabilities,
-//     'instructions': showInstructions,
-//     'contact_support': showContact,
-//     'help': showHelp
-//   };
-
-//   if (!callbacks[data]) return false;
-
-//   try {
-//     await callbacks[data](ctx);
-//     await safeAnswerCb(ctx);
-//     return true;
-//   } catch (e) {
-//     logger.error('[dashboard/handleCallback]', e);
-//     return false;
-//   }
-// };
 callbacks.on('main_menu', (ctx) => showMainMenu(ctx));
 callbacks.on('show_capabilities', (ctx) => showCapabilities(ctx));
 callbacks.on('instructions', (ctx) => showInstructions(ctx));
 callbacks.on('contact_support', (ctx) => showContact(ctx));
 callbacks.on('help', (ctx) => showHelp(ctx));
+callbacks.on('wheel_info', (ctx) => showWheelInfo(ctx));
 
 export const handleText = async (ctx) => {
   const text = (ctx.message?.text ?? '').trim();
@@ -231,5 +264,3 @@ export default function initDashboard(_bot) {
   logger.info('🏠 [dashboard] Init');
   logger.info('✅ [dashboard] Ready');
 }
-
-logger.info('✅ [features/dashboard] Loaded');
