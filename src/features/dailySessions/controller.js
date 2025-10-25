@@ -80,7 +80,7 @@ async function handleSessionStart(ctx, type) {
 
     const { tgId, todayRec } = records;
     const config = getConfig(type);
-    const activity = todayRec.fields.Current_Activity;
+    const activity = todayRec.fields.Current_Activity || ''; 
 
     logger.info(`[${type}] Початок для ${tgId}, Current_Activity: ${activity}`);
 
@@ -224,30 +224,29 @@ export const handleText = async (ctx) => {
 
     const idx = await getFieldIndex(config, field);
     const stepIdx = parseInt(idx);
-    const q = QE.getQuestion(config, stepIdx);
 
-    const validation = QE.validateAnswer(text, q, config);
-    if (!validation.valid) {
-      await ctx.reply(validation.error || '❌ Невірна відповідь', keyboards.buildExitKeyboard());
-      return true;
-    }
+    logger.info(`[text] field=${field}, idx=${idx}, stepIdx=${stepIdx}`);
 
     await QE.saveAnswer(tgId, cfgWithRecord(config, todayRec.id), stepIdx, text);
     
     const stepKey = getStepKey(field);
+    logger.info(`[text] stepKey=${stepKey}`);
+    
     await syncProgressState(userRec, todayRec, stepKey, field);
 
     const nextStep = QE.getNextStep(config, stepIdx);
+    const nextField = config.fieldMap[nextStep.nextIndex];
+    
+    logger.info(`[text] nextField=${nextField}, isCompleted=${nextStep.isCompleted}`);
+
     if (nextStep.isCompleted) {
       const completed = type === 'morning' ? 'morning_completed' : 'evening_completed';
-      await syncProgressState(userRec, todayRec, 'IDLE', completed);
+      await flow.setResponsesCurrentActivity(todayRec.id, completed);
       await ctx.reply(config.completionMessage, keyboards.mainMenuKeyboard());
       ctx.session.daily = null;
-      logger.info(`[text] ${type} завершено для ${tgId}`);
       return true;
     }
 
-    const nextField = config.fieldMap[nextStep.nextIndex];
     await showQuestion(ctx, userRec, todayRec, nextField, type);
     return true;
   } catch (e) {

@@ -1,6 +1,6 @@
 // src/features/dailySessions/constants.js
 export const MORNING_ORDER = [
-  'Daily_Focus',
+  'daily_focus',
   'Q_m_1',
   'Q_m_2',
   'Q_m_3',

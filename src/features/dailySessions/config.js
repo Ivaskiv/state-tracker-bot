@@ -9,11 +9,19 @@ const createFieldMap = (order) =>
 export const MORNING_CONFIG = {
   tableName: tables.RESPONSES,
   questionType: 'morning',
-  questions: QUESTIONS.morning.map((q, i) => ({
+  questions: [
+    {
+      emoji: '🔑',
+      title: 'Фокус на сьогодні',
+      question: 'Який фокус на сьогодні?',
+      hint: 'Коротко одним-двома реченнями про головний намір дня.',
+      field: 'Daily_Focus'
+    },
+    QUESTIONS.morning.map((q, i) => ({
     ...q,
     emoji: '🌞',
     question: q.text,
-  })),
+  }))],
   fieldMap: createFieldMap(MORNING_ORDER),
   initialFields: { Current_Activity: null },
   completionMessage: '✅ Ранок завершено!',

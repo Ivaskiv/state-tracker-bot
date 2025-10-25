@@ -21,7 +21,7 @@ export const CONTACTS = Object.freeze({
 //src/config/constants.js
 // ONE SOURCE OF TRUTH
 export const SCHEDULE = Object.freeze({
-  MORNING_TIME: '16:31',
+  MORNING_TIME: '14:37',
   EVENING_TIME: '21:00',
   TIMEZONE: 'Europe/Kyiv'
 });

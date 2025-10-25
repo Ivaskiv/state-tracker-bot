@@ -1,5 +1,4 @@
 // src/features/dailySessions/flow.js
-// ✅ COMPLETE: One record per day, Current_Activity stores field names
 
 import logger from '../../utils/logger.js';
 import { getBase, tables } from '../../config/database.js';
@@ -9,70 +8,43 @@ import { EVENING_ORDER, MORNING_ORDER, QUESTIONS } from './constants.js';
 const base = getBase();
 const trim = (v, n) => String(v ?? '').slice(0, n);
 
-// ════════════════════════════════════════════════════════════
-// 🔒 SINGLETON RECORD GETTER — NO DUPLICATES
-// ════════════════════════════════════════════════════════════
-
-/**
- * ✅ CRITICAL: Get or create ONE record per user per day
- * - If no record exists today → create with Current_Activity=null
- * - If record exists → return it (no duplicates)
- * - If duplicates exist → delete extras and keep first
- */
 export const getOrCreateTodayResponse = async (tgId) => {
   const iso = todayISO();
-  const formula = `AND({TG_id}="${tgId}", {Date_Response}="${iso}")`;
+  const formula = `AND({TG_id}="${tgId}", DATESTR({Date_Response})="${iso}")`;
   
   try {
+    logger.info(`[daily] DEBUG query: ${formula}`);
+    
     const recs = await base(tables.RESPONSES)
       .select({
         filterByFormula: formula,
-        maxRecords: 5
+        maxRecords: 1
       })
       .firstPage();
 
-    // Remove duplicates if any exist
-    if (recs.length > 1) {
-      logger.warn(`⚠️ [daily] ДУБЛІКАТИ! ${recs.length} записів для ${tgId}. Видаляємо зайві...`);
-      const toDelete = recs.slice(1);
-      for (const rec of toDelete) {
-        try {
-          await base(tables.RESPONSES).destroy(rec.id);
-          logger.warn(`✅ [daily] Видалено дублікат ${rec.id}`);
-        } catch (e) {
-          logger.error(`❌ [daily] Не вдалося видалити дублікат:`, e.message);
-        }
-      }
-    }
-
-    if (recs.length >= 1) {
-      logger.info(`[daily] ✅ Запис існує: ${recs[0].id}`);
+    if (recs.length > 0) {
+      logger.info(`[daily] ✅ Запис знайдено: ${recs[0].id}`);
       return recs[0];
     }
 
-    // Create new record — Current_Activity is NULL initially
-    logger.info(`[daily] 📝 Створюємо новий запис для ${tgId}`);
+    logger.info(`[daily] 📝 CREATE для ${tgId} на ${iso}`);
     const [created] = await base(tables.RESPONSES).create([{
       fields: {
         TG_id: String(tgId),
         Date_Response: iso,
-        Current_Activity: null  // ✅ NULL — will be set when user starts
+        Current_Activity: null
       }
     }], { typecast: true });
 
-    logger.info(`[daily] ✅ Новий запис створено: ${created.id}`);
+    logger.info(`[daily] ✅ Новий: ${created.id}`);
     return created;
 
   } catch (error) {
-    logger.error('[daily/getOrCreateTodayResponse] ❌ Критична помилка:', error);
+    logger.error('[daily/getOrCreateTodayResponse]', error);
     throw error;
   }
 };
 
-/**
- * ⛔ DEPRECATED: getTodayResponseOrNull
- * Always use getOrCreateTodayResponse() instead
- */
 export const getTodayResponseOrNull = async (tgId) => {
   const iso = todayISO();
   const recs = await base(tables.RESPONSES)
