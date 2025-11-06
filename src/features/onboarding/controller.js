@@ -3,7 +3,7 @@ import * as QE from '../../services/questionEngine.js';
 import keyboards from '../../utils/keyboards.js';
 import { ONBOARDING_CONFIG } from './config.js';
 import { MESSAGES, CALLBACKS } from './constants.js';
-import { getUserByTgId, createUser } from '../../services/users.js';
+import { getUserByTgId, createUser, ensureUserExists } from '../../services/users.js';
 import { getUserStats } from '../../services/stats.js';
 import { formatDate, getDaysWord } from '../../utils/helpers.js';
 import callbacks from '../../services/callbacks.js';
@@ -48,34 +48,70 @@ const wheelLine = wheelCompleted
   );
 };
 
-const looksRegisteredByFields = (f = {}) => {
-  const hasProfile = Boolean(f['User Name'] || f.Email || f.Phone || f.Time_Zone);
-  const step = String(f.Answer_Step || '').trim();
-  const isDoneStep = ['COMPLETED', 'ob_done', 'OB_DONE'].includes(step);
-  const status = String(f.Status || '').toLowerCase();
-  const regStatus = status.includes('registered') || status.includes('active');
-  return Boolean(
-    f.UserRegistered ||
-      isDoneStep ||
-      regStatus ||
-      (hasProfile && step && !/^ob_/i.test(step))
-  );
-};
+// const looksRegisteredByFields = (f = {}) => {
+//   if (f.UserRegistered === true) {
+//     return true;
+//   }
+//   const status = String(f.Status || '').toLowerCase();
+//   const step = String(f.Answer_Step || '').trim();
 
-const isRegistered = async (user, tgId) => {
-  const f = user?.fields || {};
-  if (looksRegisteredByFields(f)) return true;
-  const state = await QE.getSessionState(tgId, ONBOARDING_CONFIG);
-  return Boolean(state && state.isCompleted);
-};
+//  if (status === 'new user' || status === 'new' || status === '') {
+//     return false;
+//   }
+//   const isOnboardingStep = /^ob_/i.test(step) || step === 'pitch' || step === '';
+//   if (isOnboardingStep) {
+//     return false;
+//   }
+//   const hasProfile = Boolean(f['User Name'] || f.Email || f.Phone || f.Time_Zone);
+//   const isDoneStep = ['COMPLETED', 'ob_done', 'OB_DONE'].includes(step);
+
+//   const regStatus = status.includes('registered') || status.includes('active');
+//   return Boolean(
+//     f.UserRegistered ||
+//       isDoneStep ||
+//       regStatus ||
+//       (hasProfile && step && !/^ob_/i.test(step))
+//   );
+// };
+
+// const isRegistered = async (user, tgId) => {
+//   const f = user?.fields || {};
+//   if (looksRegisteredByFields(f)) return true;
+//   const state = await QE.getSessionState(tgId, ONBOARDING_CONFIG);
+//   return Boolean(state && state.isCompleted);
+// };
 
 const askCurrent = async (ctx) => {
   const tgId = tgIdOf(ctx);
+  console.log('📝 [askCurrent] START:', { tgId });
+  
   let session = await QE.getSessionState(tgId, ONBOARDING_CONFIG);
-  if (!session) session = await QE.initializeSession(tgId, ONBOARDING_CONFIG);
+  console.log('📝 [askCurrent] Session state:', { 
+    exists: !!session, 
+    currentIndex: session?.currentIndex,
+    isCompleted: session?.isCompleted,
+    recordId: session?.recordId
+  });
+  
+  if (!session) {
+    console.log('📝 [askCurrent] Initializing new session...');
+    session = await QE.initializeSession(tgId, ONBOARDING_CONFIG);
+    console.log('📝 [askCurrent] New session created:', session);
+  }
+  
   const { currentIndex, isCompleted } = session;
-  if (isCompleted) return true;
+  if (isCompleted) {
+    console.log('✅ [askCurrent] Session already completed');
+    return true;
+  }
+  
   const q = QE.getQuestion(ONBOARDING_CONFIG, currentIndex);
+  console.log('❓ [askCurrent] Showing question:', { 
+    index: currentIndex, 
+    title: q?.title,
+    hasKeyboard: !!q?.keyboard
+  });
+  
   const text = `${q.emoji || '❓'} *${q.title}*\n\n${q.question}${
     q.hint ? `\n\n💡 ${q.hint}` : ''
   }`;
@@ -86,14 +122,35 @@ const askCurrent = async (ctx) => {
 
 const writeAnswerAndMove = async (ctx, rawAnswer) => {
   const tgId = tgIdOf(ctx);
+  console.log('💾 [writeAnswerAndMove] START:', { tgId, rawAnswer });
+  
   let session = await QE.getSessionState(tgId, ONBOARDING_CONFIG);
-  if (!session) session = await QE.initializeSession(tgId, ONBOARDING_CONFIG);
+  console.log('💾 [writeAnswerAndMove] Session:', { 
+    exists: !!session,
+    currentIndex: session?.currentIndex,
+    recordId: session?.recordId
+  });
+  
+  if (!session) {
+    console.log('⚠️ [writeAnswerAndMove] No session, initializing...');
+    session = await QE.initializeSession(tgId, ONBOARDING_CONFIG);
+  }
+  
   const { currentIndex, recordId } = session;
-
   const q = QE.getQuestion(ONBOARDING_CONFIG, currentIndex);
-  if (!q) return false;
+  
+  if (!q) {
+    console.error('❌ [writeAnswerAndMove] No question found for index:', currentIndex);
+    return false;
+  }
 
   const v = QE.validateAnswer(rawAnswer, q, ONBOARDING_CONFIG);
+  console.log('🔍 [writeAnswerAndMove] Validation:', { 
+    valid: v.valid, 
+    error: v.error,
+    value: v.value
+  });
+  
   if (!v.valid) {
     const err = v.error || '❌ Дані не відповідають формату. Спробуй ще раз.';
     await ctx.reply(err, QE.getKeyboardForQuestion(q));
@@ -104,10 +161,23 @@ const writeAnswerAndMove = async (ctx, rawAnswer) => {
     ? ONBOARDING_CONFIG.processAnswer(v.value ?? rawAnswer, currentIndex)
     : v.value ?? rawAnswer;
 
+  console.log('💾 [writeAnswerAndMove] Saving answer:', { 
+    tgId, 
+    recordId, 
+    currentIndex, 
+    processed 
+  });
+  
   await QE.saveAnswer(tgId, cfgWithRecord(recordId), currentIndex, processed);
 
   const stepNext = QE.getNextStep(ONBOARDING_CONFIG, currentIndex);
+  console.log('➡️ [writeAnswerAndMove] Next step:', { 
+    isCompleted: stepNext.isCompleted,
+    nextIndex: stepNext.nextQuestion?.index
+  });
+  
   if (stepNext.isCompleted) {
+    console.log('✅ [writeAnswerAndMove] Onboarding completed!');
     await ctx.reply(
       stepNext.completionMessage || '✅ Готово!',
       keyboards.afterRegistrationKeyboard()
@@ -125,10 +195,18 @@ const writeAnswerAndMove = async (ctx, rawAnswer) => {
 };
 
 const sendWelcomeBack = async (ctx, user) => {
+  console.log('👋 [sendWelcomeBack] START:', { 
+    tgId: tgIdOf(ctx),
+    userName: user?.fields?.['User Name']
+  });
+  
   let stats = {};
   try {
     stats = await getUserStats(String(ctx.from?.id || ctx.chat?.id));
-  } catch {}
+    console.log('📊 [sendWelcomeBack] Stats loaded:', stats);
+  } catch (e) {
+    console.error('❌ [sendWelcomeBack] Stats error:', e);
+  }
 
   const text = buildWelcomeBackText({
     userName: user.fields['User Name'] || ctx.from?.first_name,
@@ -143,28 +221,82 @@ const sendWelcomeBack = async (ctx, user) => {
   await ctx.reply(text, keyboards.mainMenuKeyboard());
 
   if (!stats?.wheelCompleted) {
-  const oneLiner = 'Колесо балансу допомагає швидко оцінити 8 сфер життя і вибрати 2–3 пріоритети на місяць.';
-  await ctx.reply(`${oneLiner}\n\nГотова пройти зараз?`, keyboards.wheelCtaInline());
-}
+    const oneLiner = 'Колесо балансу допомагає швидко оцінити 8 сфер життя і вибрати 2–3 пріоритети на місяць.';
+    await ctx.reply(`${oneLiner}\n\nГотова пройти зараз?`, keyboards.wheelCtaInline());
+  }
+  
+  console.log('✅ [sendWelcomeBack] DONE');
 };
-
 
 export const start = async (ctx) => {
   const tgId = tgIdOf(ctx);
   const firstName = ctx.from?.first_name || '';
+await ensureUserExists(tgId, firstName); 
+  console.log('🚀 [START] ============================================');
+  console.log('🚀 [START] New /start command:', { 
+    tgId, 
+    firstName,
+    username: ctx.from?.username,
+    timestamp: new Date().toISOString()
+  });
 
   let user = await getUserByTgId(tgId);
+  
+  console.log('👤 [START] getUserByTgId result:', {
+    userExists: !!user,
+    userId: user?.id,
+    recordId: user?.recordId,
+    status: user?.fields?.Status,
+    userName: user?.fields?.['User Name'],
+    createdTime: user?.fields?.Created,
+    allFields: user?.fields ? Object.keys(user.fields) : []
+  });
 
-  if (user && (await isRegistered(user, tgId))) {
-    return sendWelcomeBack(ctx, user);
+  // КРИТИЧНА ПЕРЕВІРКА: чи користувач дійсно існує в базі?
+  if (user && !user.id) {
+    console.error('⚠️ [START] USER HAS NO ID - POSSIBLE CACHE ISSUE!', user);
+    console.error('⚠️ [START] This might be a deleted user from cache!');
+    user = null; // Вважаємо його відсутнім
   }
 
-  if (user) {
+  // 1️⃣ Користувача немає → створити + онбординг
+  if (!user) {
+    console.log('➕ [START] No user found, creating new user...');
+    user = await createUser(tgId, firstName);
+    console.log('✅ [START] New user created:', {
+      userId: user?.id,
+      recordId: user?.recordId,
+      status: user?.fields?.Status
+    });
+    
     await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
     return askCurrent(ctx);
   }
 
-  user = await createUser(tgId, firstName);
+  // 2️⃣ Перевіряємо ТІЛЬКИ Status
+  const status = String(user.fields?.Status || '').trim();
+  
+  console.log('🔍 [START] Status check:', { 
+    rawStatus: user.fields?.Status,
+    normalizedStatus: status,
+    isEmpty: !status,
+    isNewUser: status === 'New User'
+  });
+  
+  if (!status || status === 'New User') {
+    console.log('👶 [START] Status is empty or "New User" → showing onboarding');
+    await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
+    return askCurrent(ctx);
+  }
+
+  // 3️⃣ Welcome back тільки для чітких статусів
+  if (status === 'Registered User' || status === 'Active User') {
+    console.log('🎉 [START] Registered/Active user → showing welcome back');
+    return sendWelcomeBack(ctx, user);
+  }
+
+  // 4️⃣ Будь-який інший випадок
+  console.log('⚠️ [START] Unknown status, defaulting to onboarding:', status);
   await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
   return askCurrent(ctx);
 };
@@ -172,16 +304,35 @@ export const start = async (ctx) => {
 export const onText = async (ctx) => {
   const tgId = tgIdOf(ctx);
   const text = String(ctx.message?.text || '').trim();
-  if (!text) return false;
+  
+  console.log('💬 [onText] Received:', { tgId, text: text.substring(0, 50) });
+  
+  if (!text) {
+    console.log('⚠️ [onText] Empty text, ignoring');
+    return false;
+  }
 
   const user = await getUserByTgId(tgId);
+  console.log('👤 [onText] User lookup:', { 
+    exists: !!user,
+    status: user?.fields?.Status
+  });
+  
   const state = await QE.getSessionState(tgId, ONBOARDING_CONFIG);
+  console.log('📝 [onText] Session state:', { 
+    exists: !!state,
+    isCompleted: state?.isCompleted
+  });
 
   if (user && state && !state.isCompleted) {
+    console.log('✍️ [onText] Processing answer in onboarding');
     return writeAnswerAndMove(ctx, text);
   }
+  
+  console.log('⏭️ [onText] Not in onboarding, skipping');
   return false;
 };
+
 
 callbacks.onPrefix(CALLBACKS.TZ_PREFIX, (ctx, data) => {
   const slug = data.slice(CALLBACKS.TZ_PREFIX.length);

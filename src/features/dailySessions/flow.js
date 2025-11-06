@@ -97,29 +97,36 @@ export const setUserAnswerStep = async (userRec, step) => {
 // ════════════════════════════════════════════════════════════
 
 export const morningStarted = (fields = {}) => {
+  // ✅ ПРАВИЛЬНА НАЗВА ПОЛЯ
   if (fields.Daily_Focus && String(fields.Daily_Focus).trim() !== '') return true;
-  return MORNING_ORDER.slice(1).some(f => {
-    const v = fields[f];
-    return v && String(v).trim() !== '';
-  });
+  
+  // Або перевірити Q_m_* поля
+  for (const field of MORNING_ORDER.slice(1)) {
+    const v = fields[field];
+    if (v && String(v).trim() !== '') return true;
+  }
+  return false;
 };
-
 /**
  * Get next incomplete morning field
  * Returns: 'Daily_Focus', 'Q_m_1', 'Q_m_2', etc.
  * Returns: null if all completed
  */
-export const getNextMorningField = (fields) => {
-  for (const f of MORNING_ORDER) {
-    const v = fields?.[f];
-    if (v === undefined || v === null || String(v).trim() === '') return f;
+export const getNextMorningField = (fields = {}) => {
+  // ✅ ПРОХОДИМО ЧЕРЕЗ ПРАВИЛЬНИЙ ПОРЯДОК
+  for (const field of MORNING_ORDER) {
+    const v = fields[field];
+    if (v === undefined || v === null || String(v).trim() === '') {
+      return field;  // ✅ Повертаємо поле (напр. 'Daily_Focus' або 'Q_m_1')
+    }
   }
-  return null;  // All fields completed
+  return null;  // Усі поля заповнені
 };
 
 export const clearMorningFields = async (respId) => {
   const patch = {};
-  MORNING_ORDER.forEach(f => patch[f] = null);
+  // ✅ ОЧИЩУЄМО У ПРАВИЛЬНОМУ ПОРЯДКУ
+  MORNING_ORDER.forEach(field => patch[field] = null);
   await base(tables.RESPONSES).update(respId, patch);
   logger.info(`[daily] Morning fields cleared for ${respId}`);
 };
@@ -128,32 +135,37 @@ export const clearMorningFields = async (respId) => {
 // 🌙 EVENING HELPERS
 // ════════════════════════════════════════════════════════════
 
-export const eveningStarted = (fields = {}) =>
-  EVENING_ORDER.some(f => {
-    const v = fields[f];
-    return v && String(v).trim() !== '';
-  });
-
+export const eveningStarted = (fields = {}) => {
+  // ✅ ПРОХОДИМО ЧЕРЕЗ ПРАВИЛЬНИЙ ПОРЯДОК
+  for (const field of EVENING_ORDER) {
+    const v = fields[field];
+    if (v && String(v).trim() !== '') return true;
+  }
+  return false;
+};
 /**
  * Get next incomplete evening field
  * Returns: 'Q_e_1', 'Q_e_2', etc.
  * Returns: null if all completed
  */
 export const getNextEveningField = (fields = {}) => {
-  for (const f of EVENING_ORDER) {
-    const v = fields[f];
-    if (!v || String(v).trim() === '') return f;
+  // ✅ ПРОХОДИМО ЧЕРЕЗ ПРАВИЛЬНИЙ ПОРЯДОК
+  for (const field of EVENING_ORDER) {
+    const v = fields[field];
+    if (!v || String(v).trim() === '') {
+      return field;  // ✅ Повертаємо поле (напр. 'Q_e_1')
+    }
   }
-  return null;  // All fields completed
+  return null;  // Усі поля заповнені
 };
 
 export const clearEveningFields = async (respId) => {
   const patch = {};
-  EVENING_ORDER.forEach(f => patch[f] = null);
+  // ✅ ОЧИЩУЄМО У ПРАВИЛЬНОМУ ПОРЯДКУ
+  EVENING_ORDER.forEach(field => patch[field] = null);
   await base(tables.RESPONSES).update(respId, patch);
   logger.info(`[daily] Evening fields cleared for ${respId}`);
 };
-
 // ════════════════════════════════════════════════════════════
 // 🔄 FIELD ⇄ AWAITING MAPPING
 // ════════════════════════════════════════════════════════════
@@ -164,20 +176,52 @@ export const clearEveningFields = async (respId) => {
  * 'Q_m_1' → 'q_m_1'
  */
 export const fieldToAwaiting = (field) => {
-  if (field === 'Daily_Focus') return 'focus';
+  if (!field) return 'idle';
   return field.toLowerCase();
 };
-
 /**
  * Convert session awaiting state to field name
  * 'focus' → 'Daily_Focus'
  * 'q_m_1' → 'Q_m_1'
  */
 export const awaitingToField = (awaiting) => {
-  if (awaiting === 'focus') return 'Daily_Focus';
-  return awaiting.replace(/^q_m_/, 'Q_m_').replace(/^q_e_/, 'Q_e_');
+  if (!awaiting) return null;
+  
+  const lower = String(awaiting).toLowerCase();
+  
+  if (lower === 'daily_focus' || lower === 'focus') return 'Daily_Focus';
+  
+  // Q_m_N -> Q_m_N (вже правильний формат)
+  const match = lower.match(/^q_([me])_(\d+)$/);
+  if (match) {
+    const [, type, num] = match;
+    return `Q_${type.toUpperCase()}_${num}`;
+  }
+  
+  return null;
 };
-
+export const getNextFieldAndIndex = (fields = {}, isEvening = false) => {
+  const order = isEvening ? EVENING_ORDER : MORNING_ORDER;
+  
+  for (let idx = 0; idx < order.length; idx++) {
+    const field = order[idx];
+    const value = fields[field];
+    
+    if (!value || String(value).trim() === '') {
+      return {
+        field,
+        index: idx,
+        isCompleted: false
+      };
+    }
+  }
+  
+  return {
+    field: null,
+    index: -1,
+    isCompleted: true  
+  };
+};
 // ════════════════════════════════════════════════════════════
 // 💬 QUESTION HELPERS
 // ════════════════════════════════════════════════════════════

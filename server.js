@@ -1,4 +1,4 @@
-// server.js — ВИПРАВЛЕНА ВЕРСІЯ З РОЗШИРЕНИМ MIDDLEWARE
+// server.js 
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -18,10 +18,12 @@ import {
 import { testConnection, validateTables } from './src/config/database.js';
 
 // Services
-import {  initScheduler, stopScheduler } from './src/services/scheduler.js';
+import { initScheduler, stopScheduler } from './src/services/scheduler.js';
+import { clearAllUserCache } from './src/services/users.js';
 
 // Webhook
 import subscriptionWebhook from './src/features/subscription/webhook.js';
+import { handleAirtableWebhook } from './src/webhooks/airtable.js';
 
 const { TELEGRAM_BOT_TOKEN, NODE_ENV, TZ, PORT } = process.env;
 
@@ -39,12 +41,23 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Webhook endpoint
+// Webhook endpoints
+app.post('/webhooks/airtable', handleAirtableWebhook);
 app.post('/api/wayforpay/webhook', subscriptionWebhook);
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ✅ ВИПРАВЛЕНО: Admin endpoint для очистки кешу
+app.get('/admin/clear-cache', (req, res) => {
+  try {
+    const cleared = clearAllUserCache(); // Тепер працює!
+    res.json({ success: true, cleared });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 const PORT_NUMBER = parseInt(PORT || '3000', 10);
@@ -54,7 +67,7 @@ const bot = new Telegraf(TELEGRAM_BOT_TOKEN, {
   handlerTimeout: 15_000,
 });
 
-// ===== MIDDLEWARE STACK (ПОРЯДОК ВАЖЛИВИЙ!) =====
+// ===== MIDDLEWARE STACK =====
 bot.use(session({ 
   defaultSession: () => ({
     wheel: null,
@@ -120,7 +133,8 @@ bot.catch((err, ctx) => {
       console.log('✅ [server] Всі критичні таблиці доступні');
     }
     
- console.log('🎮 [server] Ініціалізація роутера...');
+    // 3️⃣ ІНІЦІАЛІЗАЦІЯ РОУТЕРА
+    console.log('🎮 [server] Ініціалізація роутера...');
     try {
       initRouter(bot);
       console.log('✅ [server] Роутер готовий');
@@ -129,7 +143,7 @@ bot.catch((err, ctx) => {
       throw routerError;
     }
 
-    // 4️⃣ ЗАПУСК SCHEDULER (ЗАМІСТЬ 3️⃣)
+    // 4️⃣ ЗАПУСК SCHEDULER
     console.log('⏰ [server] Запуск планувальника...');
     try {
       initScheduler(bot);
@@ -153,6 +167,7 @@ bot.catch((err, ctx) => {
     app.listen(PORT_NUMBER, () => {
       console.log(`🌐 [server] Express server запущено на порту ${PORT_NUMBER}`);
       console.log(`🔗 [server] Webhook URL: http://localhost:${PORT_NUMBER}/api/wayforpay/webhook`);
+      console.log(`🗑️ [server] Clear cache: http://localhost:${PORT_NUMBER}/admin/clear-cache`);
     });
     
     console.log('');
