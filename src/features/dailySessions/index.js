@@ -31,7 +31,17 @@ export default function initDailySessions(bot) {
       }
     });
   });
-
+bot.action(/^exit_session(?::(morning|evening))?$/, async (ctx) => {
+  try {
+    // ctx.match[1] => 'morning' | 'evening' | undefined
+    ctx.state = { ...ctx.state, exitType: ctx.match?.[1] || null };
+    await controller.handleExitSession(ctx);
+    await ctx.answerCbQuery();
+  } catch (e) {
+    logger.error(`[daily/exit_session]`, e.message);
+    await ctx.reply('❌ Помилка', keyboards.mainMenuKeyboard()).catch(() => {});
+  }
+});
   bot.on('text', async (ctx) => {
     try {
       await controller.handleText(ctx);

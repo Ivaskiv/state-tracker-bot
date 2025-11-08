@@ -66,8 +66,7 @@ async function showQuestion(ctx, userRec, todayRec, field, type) {
       text = `${icon} ${title}${qLine}${hint}`;
     }
 
-    await ctx.reply(text, { ...keyboards.buildExitKeyboard() });
-    logger.info(`[daily] Показано ${type} - ${field}`);
+await ctx.reply(text, { ...keyboards.sessionExitInline() });
     return true;
   } catch (e) {
     logger.error('[showQuestion]', e);

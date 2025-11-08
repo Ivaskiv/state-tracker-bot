@@ -405,6 +405,13 @@ const keyboards = {
       ],
     },
   }),
+sessionExitInline: () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🚪 Вийти із сесії', callback_data: 'exit_session' }],
+    ],
+  },
+}),
 };
 
 // ── УНІВЕРСАЛЬНІ ГЕНЕРАТОРИ ──

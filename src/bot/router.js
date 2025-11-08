@@ -14,8 +14,8 @@ import logger from '../utils/logger.js';
 export const initRouter = (bot) => {
   logger.info('🤖 [router] Підключення модулів…');
 
+  // Кожен модуль сам реєструє текст/колбек хендлери всередині
   initOnboarding(bot);
-
   initDailySessions(bot);
   initWheelBalance(bot);
   initAIMentor(bot);
@@ -24,35 +24,33 @@ export const initRouter = (bot) => {
   initAffirmations(bot);
   initGamification(bot);
 
+  // Текст: спочатку даємо шанс dashboard, інакше інші фічі вже підписані
   bot.on('text', async (ctx) => {
     try {
-      if (await dashboard.handleText(ctx)) {
-        return;
-      }
+      if (await dashboard.handleText?.(ctx)) return;
     } catch (e) {
       logger.error('[router/text]', e);
     }
   });
 
- bot.on('callback_query', async (ctx) => {
+  // Fallback для callback_query: лог, шанс dashboard, і тихе ACK щоб не крутився спінер
+  bot.on('callback_query', async (ctx) => {
     try {
-      const data = ctx.callbackQuery.data;
+      const data = ctx.callbackQuery?.data;
       logger.info(`[router/callback] "${data}" від ${ctx.from.id}`);
 
-      if (await callbacks.handle(ctx)) {
-        logger.info('[router/callback] ✅ Оброблено callbacks router');
-        return;
-      }
-
-      // 2️⃣ Потім спробуємо dashboard
+      // Якщо у dashboard є централізований обробник — спробуємо
       if (await dashboard.handleCallback?.(ctx)) {
         logger.info('[router/callback] ✅ Оброблено dashboard');
+        try { await ctx.answerCbQuery(); } catch {}
         return;
       }
 
-      logger.warn(`[router/callback] ⚠️ Невідомий callback: "${data}"`);
+      // Тихе підтвердження будь-якого не перехопленого callback'а
+      try { await ctx.answerCbQuery(); } catch {}
     } catch (e) {
       logger.error('[router/callback]', e);
+      try { await ctx.answerCbQuery('Помилка'); } catch {}
     }
   });
 

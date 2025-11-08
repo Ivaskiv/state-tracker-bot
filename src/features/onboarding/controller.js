@@ -3,10 +3,10 @@ import * as QE from '../../services/questionEngine.js';
 import keyboards from '../../utils/keyboards.js';
 import { ONBOARDING_CONFIG } from './config.js';
 import { MESSAGES, CALLBACKS, PITCH_TILDA, shouldShowPitch } from './constants.js';
-import { upsertAttribution, parseStartPayload, createUser, getUserByTgId } from '../../services/users.js';
 import { getUserStats } from '../../services/stats.js';
-import { formatDate, getDaysWord } from '../../utils/helpers.js';
+import { formatDate, getDaysWord, parseStartPayload } from '../../utils/helpers.js';
 import callbacks from '../../services/callbacks.js';
+import { createUser, getUserByTgId, upsertAttribution } from '../../services/users.js';
 
 const tgIdOf = (ctx) => String(ctx.from?.id || ctx.chat?.id);
 const cfgWithRecord = (recordId) => ({ ...ONBOARDING_CONFIG, recordId });
@@ -97,6 +97,7 @@ const sendWelcomeBack = async (ctx, user) => {
   try {
     stats = await getUserStats(String(ctx.from?.id || ctx.chat?.id));
   } catch {}
+  
   const text = buildWelcomeBackText({
     userName: user.fields['User Name'] || ctx.from?.first_name,
     wheelCompleted: !!stats?.wheelCompleted,
@@ -121,48 +122,42 @@ export const start = async (ctx) => {
   const tgId = tgIdOf(ctx);
   const firstName = ctx.from?.first_name || 'Користувач';
 
-  // payload (deep-link): беремо або з ctx.state (задано в index.js), або з тексту
   const rawPayload =
     ctx.state?.rawPayload || ctx.startPayload || (ctx.message?.text?.split(' ')[1] || '');
   const meta = rawPayload ? parseStartPayload(rawPayload) : null;
 
-  // 1) шукаємо користувача
   let user = await getUserByTgId(tgId);
 
-  // 2) якщо немає — СТВОРЮЄМО з Registered та стартом онбордингу
   if (!user) {
     const nowIso = new Date().toISOString();
     user = await createUser(tgId, firstName, {
       'User Name': firstName,
-      Status: 'Registered User',
+      Status: 'New User',
       UserRegistered: true,
       'Subscription Status': 'New',
-      Answer_Step: 'ob_name', // ← примус онбордингу
+      Answer_Step: 'ob_name',
       Created_At: nowIso,
       Last_Activity: nowIso,
     });
   }
 
-  // 3) атрибуція (не блокує UX)
   if (meta) upsertAttribution(tgId, meta).catch(() => {});
 
-  // 4) якщо нова/з Tilda/ще в онбордингу — показуємо PITCH + Welcome + питання
   if (shouldShowPitch(meta, user)) {
     await ctx.reply(PITCH_TILDA);
     await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
     return askCurrent(ctx);
   }
 
-  // 5) перевірка, чи ще триває онбординг (навіть без PITCH)
   const fields = user?.fields || {};
   const step = String(fields.Answer_Step || '').trim();
   const isOnboarding = /^ob_/i.test(step);
+  
   if (isOnboarding) {
     await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
     return askCurrent(ctx);
   }
 
-  // 6) інакше — «повернення»
   return sendWelcomeBack(ctx, user);
 };
 
@@ -180,13 +175,11 @@ export const onText = async (ctx) => {
   return false;
 };
 
-// індекс викликає controller.onCallback — зробимо no-op,
-// бо всі обробники callback зареєстровані нижче через callbacks.*
 export const onCallback = async () => true;
 
-// ───────────────────────────────────────────────────────────────────────────────
-// CALLBACK-и
-// ───────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🔘 CALLBACKS REGISTRATION
+// ═══════════════════════════════════════════════════════════════════════════════
 callbacks.onPrefix(CALLBACKS.TZ_PREFIX, (ctx, data) => {
   const slug = data.slice(CALLBACKS.TZ_PREFIX.length);
   return writeAnswerAndMove(ctx, slug);
@@ -217,6 +210,7 @@ callbacks.on('start_wheel_now', async (ctx) => {
   const { startWheelFromText } = await import('../dashboard/index.js');
   return startWheelFromText(ctx);
 });
+
 callbacks.on('wheel_later', async (ctx) => {
   await ctx.answerCbQuery('✅ Добре!');
   const message =
@@ -227,10 +221,29 @@ callbacks.on('wheel_later', async (ctx) => {
   await ctx.reply(message, keyboards.mainMenuKeyboard());
   return true;
 });
+
 callbacks.on('wheel_info', async (ctx) => {
   await ctx.answerCbQuery('ℹ️ Інформація...');
   const { showWheelInfo } = await import('../dashboard/index.js');
   return showWheelInfo(ctx);
+});
+
+callbacks.on('skip_first_wheel', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.reply(
+    `⚠️ Колесо балансу обов'язкове!\n\n` +
+    `Без нього пробний період не активується.\n` +
+    `Займе лише 5-10 хвилин.\n\n` +
+    `Готова почати?`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🎯 Так, почати', callback_data: 'wheel_start' }],
+          [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
+        ]
+      }
+    }
+  );
 });
 
 export default { start, onText, onCallback };
