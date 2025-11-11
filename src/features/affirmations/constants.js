@@ -1,4 +1,4 @@
-//src/config/constants.js
+//src/features/affirmations/constants.js
 export const MORNING_AFFIRMATIONS = [
   "Моє бачення — мій вибір. Моя сила — в мені. Я вже йду своїм шляхом.",
   "Кожне рішення прокачує мою рішучість. Використовуй її щодня.",

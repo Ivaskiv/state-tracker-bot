@@ -8,18 +8,18 @@ const VERBOSE = AIRTABLE_VERBOSE === '1';
 
 // ---- Перевірка ENV
 if (!AIRTABLE_API_KEY) {
-  console.error('❌ AIRTABLE_API_KEY не встановлено в .env');
+  // console.error('❌ AIRTABLE_API_KEY не встановлено в .env');
   process.exit(1);
 }
 if (!AIRTABLE_BASE_ID) {
-  console.error('❌ AIRTABLE_BASE_ID не встановлено в .env');
+  // console.error('❌ AIRTABLE_BASE_ID не встановлено в .env');
   process.exit(1);
 }
 
-console.log('🔗 [database] Ініціалізація Airtable…');
-console.log(`📋 [database] BASE_ID: ${AIRTABLE_BASE_ID}`);
-console.log(`🔑 [database] API_KEY: ${AIRTABLE_API_KEY.slice(0, 10)}...`);
-if (VERBOSE) console.log('🕵️ [database] VERBOSE=1');
+// console.log('🔗 [database] Ініціалізація Airtable…');
+// console.log(`📋 [database] BASE_ID: ${AIRTABLE_BASE_ID}`);
+// console.log(`🔑 [database] API_KEY: ${AIRTABLE_API_KEY.slice(0, 10)}...`);
+// if (VERBOSE) console.log('🕵️ [database] VERBOSE=1');
 
 // ---- Один інстанс base на весь процес
 let baseSingleton = null;
@@ -38,6 +38,11 @@ export const tables = Object.freeze({
   SUBSCRIPTIONS: 'Subscriptions',
   RESPONSES: 'Responses',
   
+// ===== AI-ВОРОНКИ (НОВІ!) =====
+  FREE_FUNNEL: 'Free_Funnel',           
+  FUNNEL_7DAYS: 'Funnel_7Days',       
+
+
   // ===== AI НАСТАВНИК =====
   AI_CONVERSATIONS: 'AI_Conversations', 
   AI_CONVERSATIONS_FEEDBACK: 'AI_Conversations_Feedback_Advice', 
@@ -176,6 +181,8 @@ export const validateTables = async () => {
   
   const criticalTables = [
     'USERS',
+    'FREE_FUNNEL',         
+    'FUNNEL_7DAYS',       
     'AI_CONVERSATIONS', 
     'MICRO_ACTIONS',
     'ACTIVITY_STATS'

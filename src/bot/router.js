@@ -8,8 +8,9 @@ import initSubscription from '../features/subscription/index.js';
 import * as dashboard from '../features/dashboard/index.js';
 import initReports from '../features/reports/index.js';
 import initAffirmations from '../features/affirmations/index.js';
-import initGamification from '../features/gamification/index.js';
 import logger from '../utils/logger.js';
+import initGamification from '../features/gamification/index.js';
+import initFreeVideoFunnel from '../features/freeVideoFunnel/index.js';
 
 export const initRouter = (bot) => {
   logger.info('🤖 [router] Підключення модулів…');
@@ -23,6 +24,8 @@ export const initRouter = (bot) => {
   initReports(bot);
   initAffirmations(bot);
   initGamification(bot);
+  initFreeVideoFunnel(bot);
+
 
   // Текст: спочатку даємо шанс dashboard, інакше інші фічі вже підписані
   bot.on('text', async (ctx) => {

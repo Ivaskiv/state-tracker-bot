@@ -1,4 +1,7 @@
 //src/config/constants.js
+
+// ===== ІСНУЮЧІ КОНСТАНТИ (БЕЗ ЗМІН) =====
+
 export const CONFIG = Object.freeze({
   ANTI_SPAM_TTL_MS: 3000,
   NAME_MIN_LENGTH: 2,
@@ -7,19 +10,19 @@ export const CONFIG = Object.freeze({
   PHONE_REGEX: /^\+380\d{9}$/,
   DEFAULT_TIMEZONE: 'Europe/Kyiv'
 });
+
 export const getNumberEmoji = (num) => {
   const emojis = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
   return emojis[num] || num;
 };
-// src/config/constantsContacts.js
+
 export const CONTACTS = Object.freeze({
   MENTOR_EMAIL: 'nadyastarway@gmail.com',
   MENTOR_TELEGRAM: '@Nadya2316',
   TECH_SUPPORT_TELEGRAM: '@vira_333',
   SUPPORT_RESPONSE_TIME: '2–4 години у робочі дні'
 });
-//src/config/constants.js
-// ONE SOURCE OF TRUTH
+
 export const SCHEDULE = Object.freeze({
   MORNING_TIME: '15:15',
   EVENING_TIME: '21:00',
@@ -36,7 +39,6 @@ const parseHm = (t) => {
 const { h: MH, m: MM } = parseHm(SCHEDULE.MORNING_TIME);
 const { h: EH, m: EM } = parseHm(SCHEDULE.EVENING_TIME);
 
-// cron: формат "M H * * *"
 export const CRON_SCHEDULES = Object.freeze({
   MORNING_QUESTIONS: `${MM} ${MH} * * *`,
   EVENING_QUESTIONS: `${EM} ${EH} * * *`,
@@ -65,8 +67,6 @@ export const SCHEDULER_MESSAGES = Object.freeze({
   TASK_REMINDER: (task) =>
     `⏰ НАГАДУВАННЯ\n\nЧерез 5 хв стартує:\n${task.action}\n\n🎯 Результат: ${task.result_metric}\n⏱ Тривалість: ${task.duration_min} хв\n\n💪 Тримай фокус!`
 });
-// 🌍 Глобальні статуси/кроки/активності — без жодних OB_*
-// Якщо переносиш у /constants, просто збережи той самий експорт.
 
 export const USER_STATUS = Object.freeze({
   NEW: 'New User',
@@ -98,6 +98,10 @@ export const CURRENT_ACTIVITY = Object.freeze({
   MONTHLY: 'monthly_report',
   SUBSCRIPTION: 'subscription',
   DAILY_FOCUS: 'daily_focus',
+  
+  // AI-воронки (НОВІ!)
+  FREE_FUNNEL: 'free_funnel',
+  FUNNEL_7DAYS: 'funnel_7days',
 
   // daily sessions
   Q_M_1: 'Q_m_1', Q_M_2: 'Q_m_2', Q_M_3: 'Q_m_3', Q_M_4: 'Q_m_4', Q_M_5: 'Q_m_5', Q_M_6: 'Q_m_6',
@@ -117,9 +121,12 @@ export const ANSWER_STEPS = Object.freeze({
   WHEEL_BALANCE_ACTIVE: 'WheelBalance',
   AI_MENTOR_ACTIVE: 'ai_mentor_active',
   DAILY_FOCUS: 'daily_focus',
+  
+  // AI-воронки (НОВІ!)
+  FREE_FUNNEL_ACTIVE: 'free_funnel_active',
+  FUNNEL_7DAYS_ACTIVE: 'funnel_7days_active',
 });
 
-// Залишаємо тут лише не-онбординг тексти
 export const DAILY_MESSAGES = Object.freeze({
   EVENING_WITHOUT_MORNING: (userName) =>
     `🌙 Добрий вечір, ${userName}!\n\n⚠️ Ти ще не пройшла ранкові питання сьогодні.\n\nЩо робимо?`,
@@ -127,7 +134,6 @@ export const DAILY_MESSAGES = Object.freeze({
   SESSION_EXITED: '✅ Зрозуміла! Повертайся коли будеш готова. 💪',
 });
 
-//src/config/constantsCourses.js
 export const COURSE_OFFERS = Object.freeze({
   low_activity:   { title: "Система 21",          price: 33, description: "Для подолання прокрастинації та відкладання", benefit: "21 день до нової звички дії", duration: 21 },
   fear:           { title: "Страхи",               price: 33, description: "Робота з блоками та внутрішніми страхами",    benefit: "Техніки подолання страхів та тривоги", duration: 30 },
@@ -146,6 +152,7 @@ export const CONSULTATION_OFFER = Object.freeze({
     "Підтримка 7 днів після сесії"
   ]
 });
+
 export const COURSE_MESSAGES = Object.freeze({
   OFFER: (offerTitle, price, description, benefit, triggerMessage) =>
     `💡 ПЕРСОНАЛЬНА РЕКОМЕНДАЦІЯ\n\n${triggerMessage}\n\n` +
@@ -158,8 +165,7 @@ export const COURSE_MESSAGES = Object.freeze({
     `${CONSULTATION_OFFER.benefits.map(b => `• ${b}`).join('\n')}\n\nКонтакт: email або @Nadya2316\nID: ${tgId}`,
   DISMISS: '✅ Добре! Якщо передумаєш — я завжди тут. 💪'
 });
-//src/config/constants.js
-// ===== ЧАСОВІ ЗОНИ =====
+
 export const TIMEZONES = [
   { label: 'Europe/Kyiv (UTC+3)', slug: 'Europe/Kyiv' },
   { label: 'Europe/Warsaw (UTC+2)', slug: 'Europe/Warsaw' },
@@ -189,3 +195,180 @@ export const getTzLabel = (slug) => {
 };
 
 export const parseTz = getTzLabel;
+
+// ========================================
+// ===== AI-ВОРОНКИ (НОВІ КОНСТАНТИ) =====
+// ========================================
+
+// ===== СТАТУСИ ВОРОНКИ =====
+export const FUNNEL_STATUS = Object.freeze({
+  NOT_STARTED: 'not_started',
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  DROPPED: 'dropped'
+});
+
+// ===== ТИПИ БОНУСІВ =====
+export const BONUS_TYPES = Object.freeze({
+  FULL: 'full',       // 5/5 життів
+  PARTIAL: 'partial', // 1-4 життя
+  NONE: 'none'        // 0 життів
+});
+
+// ===== ЦІНИ (в гривнях) =====
+export const FUNNEL_PRICING = Object.freeze({
+  REGULAR: 2500,        // Звичайна ціна
+  FULL_BONUS: 1750,     // З 5/5 життів (-30%)
+  PARTIAL_BONUS: 2125,  // З 1-4 життів (-15%)
+  DISCOUNT_FULL: 30,    // % знижки для 5/5
+  DISCOUNT_PARTIAL: 15  // % знижки для 1-4
+});
+
+// ===== ТАЙМЕРИ (в годинах) =====
+export const FUNNEL_TIMERS = Object.freeze({
+  VIDEO_RESPONSE_HOURS: 24,        // Скільки годин на відповідь
+  REMINDER_HOURS: 12,              // Нагадування через 12 год якщо не відповів
+  PAYMENT_REMINDER_HOURS: 24       // Нагадування про покупку через 24 год
+});
+
+// ===== ЛІМИТИ =====
+export const FUNNEL_LIMITS = Object.freeze({
+  MAX_LIVES: 5,
+  MAX_VIDEOS: 5,
+  MAX_DAYS: 7,
+  ACCESS_DAYS: 30       // Днів доступу після покупки
+});
+
+// ===== ТЕКСТИ ПОВІДОМЛЕНЬ ВОРОНКИ =====
+export const FUNNEL_MESSAGES = Object.freeze({
+  WELCOME: (firstName) => 
+    `👋 *Привіт, ${firstName}!*\n\n` +
+    `Ти щойно зробила перший крок до змін.\n\n` +
+    `Протягом наступних 5 днів я проведу тебе через систему, яка допомагає ` +
+    `вийти з кола "почала — зупинилась" і почати діяти без страху.\n\n` +
+    `🎮 *ПРАВИЛА ГРИ:*\n` +
+    `У тебе є 5 життів 💚💚💚💚💚\n\n` +
+    `Кожне відео завершується коротким завданням.\n` +
+    `Якщо ти не відповідаєш протягом ${FUNNEL_TIMERS.VIDEO_RESPONSE_HOURS} годин — втрачаєш 1 життя.\n\n` +
+    `🎁 *ЩО ОТРИМАЄШ:*\n` +
+    `✅ 5 потужних відео про вихід зі стану\n` +
+    `✅ Практичні завдання після кожного\n` +
+    `✅ Бонуси за проходження\n` +
+    `✅ Доступ до 7-денної програми зі знижкою\n\n` +
+    `Готова почати? 👇`,
+
+  LIFE_LOST: (livesLeft) => {
+    const emoji = '💚'.repeat(livesLeft) + '💔'.repeat(FUNNEL_LIMITS.MAX_LIVES - livesLeft);
+    return `💔 *Ти втратила життя!*\n\n` +
+           `Життя: ${emoji}\n` +
+           `Залишилось: ${livesLeft}/${FUNNEL_LIMITS.MAX_LIVES}\n\n` +
+           `Продовжуй воронку, щоб не втратити більше!`;
+  },
+
+  VIDEO_COMPLETED: (videoNum) => 
+    videoNum < FUNNEL_LIMITS.MAX_VIDEOS
+      ? `✅ Відповідь збережено!\n\nЧудово! Переходимо до наступного відео 👇`
+      : `✅ Відповідь збережено!\n\n🎉 Ти завершила всі відео!`,
+
+  PROGRESS: (currentVideo, lives) => {
+    const emoji = '💚'.repeat(lives) + '💔'.repeat(FUNNEL_LIMITS.MAX_LIVES - lives);
+    return `📊 *Твій прогрес:*\n\n` +
+           `Відео: ${currentVideo}/${FUNNEL_LIMITS.MAX_VIDEOS}\n` +
+           `Життя: ${emoji}\n\n` +
+           `Продовжуй звідси 👇`;
+  },
+
+  FULL_BONUS_REWARD: 
+    `🎉 *ВІТАЮ! Ти пройшла всі 5 відео без втрат!*\n\n` +
+    `Життя: 💚💚💚💚💚\n\n` +
+    `Ти довела собі, що готова змінюватись.\n\n` +
+    `🎁 *ТВОЇ БОНУСИ:*\n\n` +
+    `🎧 Аудіопрактика "Ресурсний стан за 10 хвилин"\n` +
+    `📄 PDF-чек-лист "Алгоритм виходу з ступору"\n` +
+    `🎁 Доступ до безкоштовного уроку з 7-денної програми\n` +
+    `💰 Спеціальна ціна ${FUNNEL_PRICING.FULL_BONUS} грн замість ${FUNNEL_PRICING.REGULAR} грн`,
+
+  PARTIAL_BONUS_REWARD: (livesLost) =>
+    `👏 *Ти пройшла всі 5 відео!*\n\n` +
+    `Хоча ти втратила ${livesLost} ${livesLost === 1 ? 'життя' : 'життів'}, ` +
+    `ти все одно дійшла до кінця. Це вже результат.\n\n` +
+    `🎁 *ТВІЙ БОНУС:*\n\n` +
+    `🎧 Аудіопрактика "Ресурсний стан за 10 хвилин"\n` +
+    `💰 Знижка ${FUNNEL_PRICING.DISCOUNT_PARTIAL}% на 7-денну програму`,
+
+  NO_LIVES_LEFT:
+    `На жаль, ти втратила всі життя 💔💔💔💔💔\n\n` +
+    `Але це не кінець! Ти можеш:\n` +
+    `• Спробувати воронку ще раз 🔄\n` +
+    `• Або одразу перейти до 7-денної програми`,
+
+  PAID_PROGRAM_OFFER: (price, discount) =>
+    `🚀 *Програма "Вихід зі стану за 7 днів"*\n\n` +
+    `*Що тебе чекає:*\n\n` +
+    `📚 7 модулів з покроковими уроками\n` +
+    `🎯 Щоденні практики і завдання\n` +
+    `💬 Підтримка в чаті\n` +
+    `🎁 Бонусні матеріали\n\n` +
+    `*Структура:*\n` +
+    `День 1-2: Діагностика і усвідомлення\n` +
+    `День 3-4: Перепрограмування патернів\n` +
+    `День 5-7: Нова реальність і перші дії\n\n` +
+    `Після проходження ти зможеш:\n` +
+    `✅ Легко виходити зі станів застою\n` +
+    `✅ Приймати рішення без страху\n` +
+    `✅ Рухатись до цілей постійно\n\n` +
+    `*Вартість:*\n` +
+    `~~${FUNNEL_PRICING.REGULAR} грн~~ → *${price} грн* (-${discount}%)\n\n` +
+    `💡 Спеціальна ціна тільки для тебе!\n\n` +
+    `Готова почати трансформацію?`,
+
+  PAYMENT_SUCCESS: (firstName) =>
+    `🎉 *Оплата успішна, ${firstName}!*\n\n` +
+    `Вітаю! Тепер у тебе є повний доступ до програми ` +
+    `"Вихід зі стану за 7 днів".\n\n` +
+    `📚 Починаємо з Дня 1!\n\n` +
+    `Готова? 👇`,
+
+  PAYMENT_PENDING:
+    `💳 *Оформлення оплати*\n\n` +
+    `Програма: "Вихід зі стану за 7 днів"\n\n` +
+    `Після оплати ти одразу отримаєш доступ!\n\n` +
+    `Обери спосіб оплати:`,
+
+  RESTART_FUNNEL: 
+    `Окей, починаємо спочатку! 🔄\n\n` +
+    `У тебе знову є 5 життів 💚💚💚💚💚`,
+
+  THINK_ABOUT_IT:
+    `Розумію, це важливе рішення 💭\n\n` +
+    `Я нагадаю тобі через 24 години.\n\n` +
+    `А поки можеш дізнатись більше про програму.`,
+});
+
+// ===== ТЕКСТИ ДЛЯ 7-ДЕННОЇ ПРОГРАМИ =====
+export const PROGRAM_7DAYS_MESSAGES = Object.freeze({
+  DAY_WELCOME: (day) =>
+    `🎉 *День ${day} доступний!*\n\n` +
+    `Готова почати? 👇`,
+
+  DAY_COMPLETED: (day) =>
+    `✅ *День ${day} завершено!*\n\n` +
+    `Чудова робота! Ти рухаєшся вперед.\n\n` +
+    `${day < FUNNEL_LIMITS.MAX_DAYS ? `Побачимося завтра на Дні ${day + 1}! 🚀` : 'Вітаю з завершенням програми! 🎉'}`,
+
+  ALL_COMPLETED:
+    `🎉 *ВІТАЮ!*\n\n` +
+    `Ти завершила всю 7-денну програму!\n\n` +
+    `Тепер у тебе є:\n` +
+    `✅ Інструменти для виходу зі стану\n` +
+    `✅ Практики для підтримки\n` +
+    `✅ Алгоритм дій на майбутнє\n\n` +
+    `Продовжуй практикувати і пам'ятай:\n` +
+    `*Ти завжди можеш повернутися до матеріалів курсу.*\n\n` +
+    `Бажаєш поділитися своїм досвідом? 💬`,
+
+  PROGRESS: (currentDay, totalDays) =>
+    `📊 *Твій прогрес у програмі:*\n\n` +
+    `День: ${currentDay}/${totalDays}\n\n` +
+    `Продовжуй звідси 👇`,
+});

@@ -414,6 +414,121 @@ sessionExitInline: () => ({
 }),
 };
 
+// ───────────────────────────────────────────────────────────
+// 🎥 FREE VIDEO FUNNEL (клавіатури)
+// ───────────────────────────────────────────────────────────
+
+// Підписка на канал (передаємо URL каналу з constants)
+keyboards.funnelSubscribe = (channelUrl) => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🔗 Відкрити канал', url: channelUrl }],
+      [{ text: '✅ Я підписався', callback_data: 'check_subscription' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+// Дії під відео
+// unlocked=true показує кнопку "✅ Завершив"; якщо false — тільки "Показати таймер" / "Головне меню"
+keyboards.funnelVideoAction = (videoNumber, livesRemaining, unlocked = true) => ({
+  reply_markup: {
+    inline_keyboard: [
+      unlocked ? [{ text: '✅ Завершив це відео', callback_data: `complete_${videoNumber}` }] : [],
+      [
+        { text: '⏱️ Показати таймер', callback_data: 'show_timer' },
+        { text: `💝 ${livesRemaining}/5`, callback_data: 'show_lives' },
+      ],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ].filter(Boolean),
+  },
+});
+
+// Коли всі відео пройдені — показати кнопку активувати бонус
+keyboards.funnelActivateBonus = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🎁 Активувати бонус 7 днів', callback_data: 'activate_bonus' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+// Після активації бонусу — CTA на колесо
+keyboards.startWheelInline = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🎡 Почати колесо', callback_data: 'wheel_start' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+// Екран "час вийшов"
+keyboards.funnelExpired = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🔄 Почати заново', callback_data: 'restart_funnel' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+// Втрата життя
+keyboards.funnelLifeLost = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '▶️ Продовжити', callback_data: 'continue_funnel' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+// Всі життя втрачені
+keyboards.funnelAllLivesLost = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🔄 Почати заново', callback_data: 'restart_funnel' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+// Відео заблоковане — повернутися на попереднє
+keyboards.funnelLocked = (prevVideo) => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '◀️ Повернутися', callback_data: `video_${Math.max(1, prevVideo)}` }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+// Кнопка в пуш-нагадуваннях "Продовжити воронку"
+keyboards.funnelContinue = (nextVideoNumber, livesRemaining) => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: `▶️ Продовжити (відео ${nextVideoNumber})`, callback_data: `video_${nextVideoNumber}` }],
+      [
+        { text: '⏱️ Таймер', callback_data: 'show_timer' },
+        { text: `💝 ${livesRemaining}/5`, callback_data: 'show_lives' },
+      ],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+// Повернення на Tilda з URL
+keyboards.returnToTilda = (tildaUrl) => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '↩️ Повернутись на сайт', url: tildaUrl }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
+
+
 // ── УНІВЕРСАЛЬНІ ГЕНЕРАТОРИ ──
 keyboards.menuKeyboard = (options, withNavigation = true) => {
   const rows = options.map((opt) => kbRow({ text: opt.text, callback_data: opt.callback_data }));

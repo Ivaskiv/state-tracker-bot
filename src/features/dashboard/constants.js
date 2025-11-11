@@ -1,4 +1,4 @@
-// src/config/constants.js
+// src/features/dashboard/constants.js
 export const DASHBOARD_MESSAGES = Object.freeze({
   CAPABILITIES: 
     `📋 МОЖЛИВОСТІ БОТА:\n\n` +
