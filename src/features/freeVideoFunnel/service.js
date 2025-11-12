@@ -1,10 +1,10 @@
 // 📁 src/features/freeVideoFunnel/service.js
 // # Логіка перевірки підписки, відстеження прогресу
 // Логіка перевірки підписки, прогрес, бонус
-import * as storage from './storage.js';
-import { TOTAL_VIDEOS, CHANNEL_URL, LIFE_LOSS_TRIGGERS, TIME_LIMIT_HOURS } from './constants.js';
-import { activateFreeTrial } from '../aiMentor/storage.js';
+import * as storage from './database.js';
 import logger from '../../utils/logger.js';
+import { TOTAL_VIDEOS, CHANNEL_URL, LIFE_LOSS_TRIGGERS, TIME_LIMIT_HOURS } from './constants.js';
+import { activateTrial } from '../../services/users.js';
 
 /** Перевірка підписки на канал */
 export async function checkChannelSubscription(telegram, userId) {
@@ -88,7 +88,7 @@ export async function activateSevenDayBonus(userId) {
     }
     if (progress.bonus_activated) return { success: false, reason: 'bonus_already_activated' };
 
-    await activateFreeTrial(userId, 7);
+    await activateTrial(userId, 7);
     await storage.activateBonus(userId);
     logger.info(`7-day bonus activated for user ${userId}`);
     return { success: true, daysGranted: 7, livesRemaining: progress.lives_remaining };

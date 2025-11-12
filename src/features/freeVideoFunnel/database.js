@@ -73,7 +73,7 @@ async function patch(recordId, partial) {
   return mapRow(updated);
 }
 
-/** Публічні методи (інтерфейс як у твоєму попередньому storage.js) */
+/** Публічні методи (інтерфейс як у твоєму попередньому database.js) */
 
 // 1) Отримати або створити прогрес
 export async function getOrCreateFunnelProgress(userId) {

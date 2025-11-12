@@ -6,10 +6,86 @@ import { MESSAGES, CALLBACKS, PITCH_TILDA, shouldShowPitch } from './constants.j
 import { getUserStats } from '../../services/stats.js';
 import { formatDate, getDaysWord, parseStartPayload } from '../../utils/helpers.js';
 import callbacks from '../../services/callbacks.js';
-import { createUser, getUserByTgId, upsertAttribution } from '../../services/users.js';
+import { createUser, getUserByTgId, updateUserFields, hasActiveAccess } from '../../services/users.js'; // ДОДАТИ: hasActiveAccess
 
 const tgIdOf = (ctx) => String(ctx.from?.id || ctx.chat?.id);
 const cfgWithRecord = (recordId) => ({ ...ONBOARDING_CONFIG, recordId });
+
+export const start = async (ctx) => {
+  try {
+    const tgId = ctx.from.id;
+    const firstName = (ctx.from.first_name || 'друже').trim();
+    const payload =
+      (ctx.startPayload || ctx.state?.rawPayload || ctx.message?.text?.split(' ')[1] || '')
+        .toString()
+        .trim()
+        .toLowerCase();
+
+    // 1) Є користувач? якщо ні — створюємо мінімальний профіль
+    let user = await getUserByTgId(tgId);
+    if (!user) {
+      user = await ensureUserExists(tgId, firstName);
+      await setUserAnswerStep(tgId, 'idle');
+    }
+
+    // 2) Спец-пейлоади з Tilda
+    //    - src_tilda__seg_burnout__*  → одразу у freeVideoFunnel
+    //    - trial7_from_tilda__seg_burnout__* → активує 7-денний доступ і кличе колесо
+    if (payload.startsWith('src_tilda__seg_burnout__')) {
+      await ctx.reply(
+        `Вітаю, ${firstName}! Це 5-денний mini-шлях «Поверни себе з вигорання». Натисни, щоб почати 👇`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎬 Почати 5-денний шлях', callback_data: 'start_funnel' }],
+              [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+            ],
+          },
+        }
+      );
+      return;
+    }
+
+    if (payload.startsWith('trial7_from_tilda__seg_burnout__')) {
+      try {
+        await activateTrial(tgId, 7);
+        await ctx.reply(
+          `🎁 Активовано 7 днів доступу до AI-наставника!\nПочнемо з «Колеса балансу» 👇`,
+          keyboards.startWheelInline()
+        );
+      } catch (e) {
+        await ctx.reply('❌ Не вдалося активувати пробний період. Спробуй ще раз пізніше.');
+      }
+      return;
+    }
+
+    // 3) Новий або повернувшийся юзер без спец-пейлоаду:
+    //    показуємо короткий пітч про AI-воронку + лінк «Дізнатись більше» (Tilda) + старт у Telegram
+    await setUserAnswerStep(tgId, 'idle');
+
+    await ctx.reply(
+      [
+        `Привіт, ${firstName}!`,
+        `Тут твій AI-наставник: фокус → дія → результат.`,
+        `Почати можна з 5-денного mini-шляху «Поверни себе з вигорання».`,
+        `Спершу глянь деталі на сайті або стартуй одразу в Telegram👇`,
+      ].join('\n'),
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'ℹ️ Дізнатись більше', url: TILDA_FUNNEL_URL }],
+            [{ text: '🎬 Почати 5-денний шлях', callback_data: 'start_funnel' }],
+            [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+          ],
+        },
+      }
+    );
+  } catch (err) {
+    logger.error('[start]', err);
+    await ctx.reply('❌ Помилка. Спробуй ще раз: /start');
+  }
+};
+
 
 const buildWelcomeBackText = ({
   userName,
@@ -118,48 +194,7 @@ const sendWelcomeBack = async (ctx, user) => {
   return true;
 };
 
-export const start = async (ctx) => {
-  const tgId = tgIdOf(ctx);
-  const firstName = ctx.from?.first_name || 'Користувач';
 
-  const rawPayload =
-    ctx.state?.rawPayload || ctx.startPayload || (ctx.message?.text?.split(' ')[1] || '');
-  const meta = rawPayload ? parseStartPayload(rawPayload) : null;
-
-  let user = await getUserByTgId(tgId);
-
-  if (!user) {
-    const nowIso = new Date().toISOString();
-    user = await createUser(tgId, firstName, {
-      'User Name': firstName,
-      Status: 'New User',
-      UserRegistered: true,
-      'Subscription Status': 'New',
-      Answer_Step: 'ob_name',
-      Created_At: nowIso,
-      Last_Activity: nowIso,
-    });
-  }
-
-  if (meta) upsertAttribution(tgId, meta).catch(() => {});
-
-  if (shouldShowPitch(meta, user)) {
-    await ctx.reply(PITCH_TILDA);
-    await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
-    return askCurrent(ctx);
-  }
-
-  const fields = user?.fields || {};
-  const step = String(fields.Answer_Step || '').trim();
-  const isOnboarding = /^ob_/i.test(step);
-  
-  if (isOnboarding) {
-    await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
-    return askCurrent(ctx);
-  }
-
-  return sendWelcomeBack(ctx, user);
-};
 
 export const onText = async (ctx) => {
   const tgId = tgIdOf(ctx);
@@ -177,6 +212,30 @@ export const onText = async (ctx) => {
 
 export const onCallback = async () => true;
 
+export const start5v = async (ctx) => {
+  const { sendWelcomeMessage } = await import('../freeVideoFunnel/flow.js');
+  await sendWelcomeMessage(ctx);
+};
+
+export const startTrial = async (ctx) => {
+  const tgId = ctx.from.id;
+  const user = await getUserByTgId(tgId);
+  
+  if (!hasActiveAccess(user)) {
+    const end = new Date();
+    end.setDate(end.getDate() + 7);
+    await updateUserFields(tgId, { 
+      'Subscription Status': 'Trial',
+      'Start_Date': new Date().toISOString().split('T')[0],
+      'End_Date': end.toISOString().split('T')[0],
+    });
+  }
+  await ctx.reply(MESSAGES.TRIAL_WELCOME, keyboards.wheelCtaInline());
+};
+
+// ДОДАТИ callbacks
+callbacks.on('start_5video', start5v);
+callbacks.on('start_7day_trial', startTrial);
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🔘 CALLBACKS REGISTRATION
 // ═══════════════════════════════════════════════════════════════════════════════

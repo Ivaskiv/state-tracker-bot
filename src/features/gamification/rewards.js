@@ -315,6 +315,33 @@ export const showRewards = () => {
   );
 };
 
+
+
+export const rewardRegistration = async (tgId) => {
+  await levelsService.addPoints(tgId, 10, 'Реєстрація');
+  await levelsService.checkLevelUp(tgId);
+};
+
+export const penalizeLifeLost = async (tgId) => {
+  await levelsService.addPoints(tgId, -5, 'Втрата життя в funnel');
+};
+/**
+ * Нагородити за завершення відео
+ */
+
+export const rewardVideoCompleted = async (tgId, videoNum) => {
+  await levelsService.addPoints(tgId, 10, `Відео ${videoNum}`);
+  await levelsService.checkLevelUp(tgId);
+};
+/**
+ * Нагородити за активацію бонусу
+ */
+
+export const rewardBonus = async (tgId) => {
+  await levelsService.addPoints(tgId, 50, 'Trial 7 днів');
+  await levelsService.checkLevelUp(tgId);
+};
+
 export default {
   REWARDS,
   rewardSession,
@@ -323,7 +350,12 @@ export default {
   rewardWeeklyReport,
   rewardGoalProgress,
   rewardAIInteraction,
-  showRewards
+  showRewards,
+
+  rewardBonus,
+  rewardVideoCompleted,
+  rewardRegistration,
+  penalizeLifeLost,
 };
 
 console.log('✅ [gamification/rewards] Rewards система завантажено');

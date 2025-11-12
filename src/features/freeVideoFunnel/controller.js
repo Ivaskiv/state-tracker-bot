@@ -1,11 +1,10 @@
-// 📁 src/features/freeVideoFunnel/controller.js
-// # Обробка callback_query для кнопок
 // src/features/freeVideoFunnel/controller.js
 
 import * as flow from './flow.js';
 import * as service from './service.js';
 import logger from '../../utils/logger.js';
 import { ANALYTICS_EVENTS } from './constants.js';
+import * as gamification from '../gamification/rewards.js'; // ДОДАТИ: import rewards
 
 /**
  * Запуск воронки
@@ -15,7 +14,7 @@ export async function handleStartFunnel(ctx) {
     const userId = ctx.from.id;
     
     // Створюємо або отримуємо прогрес
-    await database.getOrCreateFunnelProgress(userId);
+    await service.getOrCreateFunnelProgress(userId); // ВИПРАВИТИ: database → service
     
     // Відправляємо привітальне повідомлення
     await flow.sendWelcomeMessage(ctx);
@@ -91,6 +90,9 @@ export async function handleVideoComplete(ctx, videoNumber) {
     const result = await service.completeVideo(userId, videoNumber);
     
     if (result.success) {
+      // ДОДАТИ: Нагорода за відео
+      await gamification.rewardVideoCompleted(userId, videoNumber);
+      
       // Відправляємо повідомлення про завершення
       await flow.sendVideoCompletedMessage(ctx, videoNumber);
       
@@ -113,7 +115,12 @@ export async function handleVideoComplete(ctx, videoNumber) {
     await ctx.reply('❌ Помилка збереження прогресу');
   }
 }
-
+export async function handleLifeLoss(ctx) {
+  const userId = ctx.from.id;
+  await service.handleLifeLoss(userId, 'skip'); // Логіка втрати
+  await gamification.penalizeLifeLost(userId); // -5
+  await flow.sendLifeLostMessage(ctx);
+}
 /**
  * Активація бонусу
  */
@@ -125,6 +132,9 @@ export async function handleActivateBonus(ctx) {
     const result = await service.activateSevenDayBonus(userId);
     
     if (result.success) {
+      // ДОДАТИ: Нагорода за бонус
+      await gamification.rewardBonus(userId);
+      
       // Відправляємо повідомлення
       await flow.sendBonusActivatedMessage(ctx);
       

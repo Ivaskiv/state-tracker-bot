@@ -18,9 +18,17 @@ export const getRegistrationData = async (tgId) => {
     if (!user.length) return null;
     return user[0].fields;
   } catch (error) {
-    logger.error('[onboarding/service]', error);
+    logger.error('[onboarding/service] getUserRegistrationData:', error);
     return null;
   }
+};
+
+export const isUserRegistered = (userData) => {
+  return !!userData && userData.UserRegistered === true && !/^ob_/i.test(userData.Answer_Step || '');
+};
+
+export const getOnboardingStep = (userData) => {
+  return userData?.Answer_Step || 'ob_name';
 };
 
 export const sendWelcomeEmail = async (email, userName) => {

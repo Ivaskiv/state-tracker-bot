@@ -11,7 +11,8 @@ import { initRouter } from './src/bot/router.js';
 import { 
   initMiddleware, 
   performanceMiddleware, 
-  antiSpamMiddleware 
+  antiSpamMiddleware, 
+  checkAccessMiddleware
 } from './src/bot/middleware.js';
 
 // Config
@@ -53,7 +54,7 @@ app.get('/health', (req, res) => {
 // ✅ ВИПРАВЛЕНО: Admin endpoint для очистки кешу
 app.get('/admin/clear-cache', (req, res) => {
   try {
-    const cleared = clearAllUserCache(); // Тепер працює!
+    const cleared = clearAllUserCache(); 
     res.json({ success: true, cleared });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -76,6 +77,7 @@ bot.use(session({
   }) 
 }));
 bot.use(antiSpamMiddleware());
+bot.use(checkAccessMiddleware());
 bot.use(performanceMiddleware(2000));
 bot.use(initMiddleware());
 

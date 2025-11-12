@@ -241,3 +241,30 @@ export async function sendScheduledReminder(bot, userId, reminderType, state) {
     logger.error(`Error sending scheduled reminder to user ${userId}:`, error);
   }
 }
+
+/**
+ * Відправка запланованих нагадувань (cron)
+ */
+export async function sendScheduledReminders(bot) {
+  try {
+    for (const { hours, message: type } of REMINDER_SCHEDULE) {
+      const users = await storage.getUsersForReminders(hours);
+      for (const u of users) {
+        const userId = u.user_id;
+        const state = {
+          livesRemaining: u.lives_remaining,
+          videosCompleted: u.videos_completed.length,
+          currentVideo: u.current_video
+        };
+        let message = MESSAGES[type]
+          .replace('{lives}', state.livesRemaining)
+          .replace('{completed}', state.videosCompleted)
+          .replace('{remaining}', TOTAL_VIDEOS - state.videosCompleted);
+        
+        await bot.telegram.sendMessage(userId, message, keyboards.funnelContinue(state.currentVideo || 1));
+      }
+    }
+  } catch (e) {
+    logger.error('[flow/sendScheduledReminders]', e);
+  }
+}

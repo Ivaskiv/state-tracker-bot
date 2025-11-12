@@ -6,9 +6,10 @@ import keyboards from '../utils/keyboards.js';
 import { getBase, tables } from '../config/database.js';
 import subscriptionController from '../features/subscription/controller.js';
 import { CRON_SCHEDULES, SCHEDULE, SCHEDULER_MESSAGES } from '../config/constants.js';
+import { sendScheduledReminders } from '../features/freeVideoFunnel/flow.js';
 
 const base = getBase();
-const TZ = SCHEDULE.TIMEZONE; // ✅ ONE SOURCE OF TRUTH
+const TZ = SCHEDULE.TIMEZONE; 
 
 let tasks = [];
 
@@ -231,6 +232,23 @@ export const scheduleMonthlyWheelCheck = (bot) =>
     }, { timezone: TZ })
   );
 
+// ─────────────────────────────────────────────────────────────────
+// 📬 FUNNEL REMINDERS (щогодини — CRON_SCHEDULES.FUNNEL_REMINDERS)
+// ─────────────────────────────────────────────────────────────────
+
+export const scheduleFunnelReminders = (bot) =>
+  pushTask(
+    cron.schedule(CRON_SCHEDULES.FUNNEL_REMINDERS, async () => { 
+      try {
+        logger.info('📬 [scheduler] Нагадування для funnel…');
+        await sendScheduledReminders(bot);
+        logger.info('✅ [scheduler] Funnel reminders done');
+      } catch (e) {
+        logger.error('❌ [scheduler] scheduleFunnelReminders:', e.message);
+      }
+    }, { timezone: TZ })
+  );
+
 // ═════════════════════════════════════════════════════════════════
 // 🚀 INIT & 🛑 STOP
 // ═════════════════════════════════════════════════════════════════
@@ -247,16 +265,18 @@ export const initScheduler = (bot) => {
   logger.info(`  🌞 Ранок:        ${CRON_SCHEDULES.MORNING_QUESTIONS}`);
   logger.info(`  🌙 Вечір:        ${CRON_SCHEDULES.EVENING_QUESTIONS}`);
   logger.info(`  💰 Підписка:     ${CRON_SCHEDULES.SUBSCRIPTION_CHECK}`);
+  logger.info(`  🔄 Неактивні:    ${CRON_SCHEDULES.DAILY_FINALIZATION}`);
   logger.info(`  📊 Тижневий:     ${CRON_SCHEDULES.WEEKLY_REPORTS}`);
   logger.info(`  🎡 Місячне коло: ${CRON_SCHEDULES.MONTHLY_WHEEL_CHECK}`);
-  logger.info(`  🔄 Неактивні:    ${CRON_SCHEDULES.DAILY_FINALIZATION}`);
+  logger.info(`  📬 Funnel:       ${CRON_SCHEDULES.FUNNEL_REMINDERS || '0 * * * *'}`); // ДОДАТИ: лог
 
   scheduleMorningReminders(bot);
   scheduleEveningReminders(bot);
   scheduleSubscriptionCheck(bot);
   scheduleDailyInactiveCheck(bot);
   scheduleWeeklyReports(bot);
-  scheduleMonthlyWheelCheck(bot); // ✅ ДОДАТИ
+  scheduleMonthlyWheelCheck(bot);
+  scheduleFunnelReminders(bot); 
 
   logger.info(`✅ [scheduler] Активних задач: ${tasks.length}`);
   return tasks.length;
@@ -283,7 +303,8 @@ export default {
   scheduleSubscriptionCheck,
   scheduleDailyInactiveCheck,
   scheduleWeeklyReports,
-  scheduleMonthlyWheelCheck, 
+  scheduleMonthlyWheelCheck,
+  scheduleFunnelReminders, 
 };
 
 console.log('✅ [services/scheduler] Scheduler завантажено (з CRON_SCHEDULES)');

@@ -46,7 +46,9 @@ export const CRON_SCHEDULES = Object.freeze({
   WEEKLY_ACTIVITY: '0 20 * * 0',
   MONTHLY_WHEEL_CHECK: '0 10 1 * *',
   SUBSCRIPTION_CHECK: '0 10 * * *',
-  DAILY_FINALIZATION: '59 23 * * *'
+  DAILY_FINALIZATION: '59 23 * * *',
+
+  FUNNEL_REMINDERS: '0 * * * *'
 });
 
 export const SCHEDULER_MESSAGES = Object.freeze({

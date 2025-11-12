@@ -4,7 +4,7 @@ import { tables, selectFromTable, createRows, updateRows } from '../../config/da
 import users from '../../services/users.js';
 import { addDays, toISODate } from '../../utils/helpers.js';
 import { SUBSCRIPTION_PLANS } from './constants.js';
-
+const USER_STATUS_FIELD = 'Subscription Status';
 const findActiveSubscription = async (tgId) => {
   try {
     const rows = await selectFromTable(tables.SUBSCRIPTIONS, {
@@ -60,7 +60,7 @@ export const createTrialSubscription = async (tgId, userName = 'Користув
     ]);
 
     await users.updateUserFields(tgId, {
-      Subscription_Status: 'Active',
+      [USER_STATUS_FIELD]: 'Trial',
       'Active_Subscription_Plan': plan.name,
       Start_Date: toISODate(start),
       End_Date: toISODate(end),
@@ -133,7 +133,7 @@ export const activatePaidSubscription = async (paymentData) => {
     ]);
 
     await users.updateUserFields(tgId, {
-      Subscription_Status: 'Active',
+[USER_STATUS_FIELD]: 'Active',
       'Active_Subscription_Plan': plan.name,
       Start_Date: toISODate(start),
       End_Date: toISODate(end),
@@ -157,7 +157,7 @@ export const syncUserSubscription = async (tgId) => {
 
     if (!sub) {
       await users.updateUserFields(tgId, {
-        Subscription_Status: 'Inactive',
+[USER_STATUS_FIELD]: 'Inactive',
         'Active_Subscription_Plan': '',
         Start_Date: null,
         End_Date: null,
@@ -173,7 +173,7 @@ export const syncUserSubscription = async (tgId) => {
     const active = !!end && end > new Date();
 
     await users.updateUserFields(tgId, {
-      Subscription_Status: active ? 'Active' : 'Expired',
+      [USER_STATUS_FIELD]: active ? 'Active' : 'Expired',
       'Active_Subscription_Plan': sub.fields?.Plan_Name || '',
       Start_Date: sub.fields?.Start_Date || null,
       End_Date: sub.fields?.End_Date || null,
@@ -243,7 +243,32 @@ export const deactivateExpiredSubscriptions = async () => {
     console.error('[subscription/service.deactivateExpiredSubscriptions] ❌', e?.message || e);
     return 0;
   }
-};
+  };
+  export async function activateFreeTrial(tgId, days = 7, userName = 'Користувач') {
+  // Використовуємо вже готову логіку створення записи в SUBSCRIPTIONS
+  const plan = SUBSCRIPTION_PLANS.TRIAL;
+  if (plan?.duration && plan.duration !== days) {
+    // Якщо хочеш гнучко — створюй тимчасовий об’єкт plan із days
+  }
+  await createTrialSubscription(tgId, userName);
+  return users.getUserByTgId(String(tgId));
+}
+
+export async function hasActiveAccess(userOrTgId) {
+  // 1) швидка перевірка за записом SUBSCRIPTIONS
+  const tgId = typeof userOrTgId === 'object' ? userOrTgId?.fields?.TG_id || userOrTgId?.id || userOrTgId?.tg_id : userOrTgId;
+  const status = await checkSubscriptionStatus(String(tgId));
+  if (status.active) return true;
+
+  // 2) fallback: перевірка полів Users (на випадок розсинхрону)
+  const user = typeof userOrTgId === 'object' && userOrTgId.fields ? userOrTgId : await users.getUserByTgId(String(tgId));
+  if (!user?.fields) return false;
+  const s = String(user.fields[USER_STATUS_FIELD] || '').toLowerCase();
+  const endIso = user.fields.End_Date;
+  const notExpired = endIso ? new Date(endIso).getTime() > Date.now() : false;
+  return (['trial','active','month','year','mentorship'].includes(s)) && notExpired;
+}
+
 
 export default {
   createTrialSubscription,
@@ -252,4 +277,7 @@ export default {
   syncUserSubscription,
   getUsersWithExpiringSubscriptions,
   deactivateExpiredSubscriptions,
+
+  activateFreeTrial,
+  activateFreeTrial
 };

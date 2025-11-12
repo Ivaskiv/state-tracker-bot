@@ -137,8 +137,31 @@ export const antiSpamMiddleware = () => {
   };
 };
 
+export const checkAccessMiddleware = () => {
+  return async (ctx, next) => {
+    const protectedActions = [
+      'start_morning', 'start_evening',
+      'show_ai_mentor', 'show_weekly_report',
+      'continue_morning', 'continue_evening'
+    ];
+    
+const data = ctx.callbackQuery?.data || ctx.message?.text;
+    if (!protectedActions.includes(data)) return next();
+    if (protectedActions.includes(data) && !hasActiveAccess(user)) {
+  await ctx.reply('⚠️ Доступ завершено. Пройди 5 відео!', keyboards.trialExpiredKeyboard());
+  return;
+}
+    const user = await getUserByTgId(ctx.from.id);
+    if (!hasActiveAccess(user)) {
+      await ctx.reply('⚠️ Доступ завершено. Пройди 5 відео або підпишись!', keyboards.trialExpiredKeyboard());
+      return;
+    }
+    return next();
+  };
+};
 export default {
   initMiddleware,
   performanceMiddleware,
   antiSpamMiddleware,
+  checkAccessMiddleware
 };

@@ -430,6 +430,15 @@ keyboards.funnelSubscribe = (channelUrl) => ({
 });
 
 // Дії під відео
+keyboards.trialExpiredKeyboard = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🎬 Пройти 5 відео', callback_data: 'start_5video' }],
+      [{ text: '💳 Купити підписку', callback_data: 'subscription_plans' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }],
+    ],
+  },
+});
 // unlocked=true показує кнопку "✅ Завершив"; якщо false — тільки "Показати таймер" / "Головне меню"
 keyboards.funnelVideoAction = (videoNumber, livesRemaining, unlocked = true) => ({
   reply_markup: {
@@ -557,6 +566,33 @@ keyboards.skipKeyboard = (field, withBack = false) => {
   if (withBack) rows.push(kbRow({ text: '🔙 Назад', callback_data: `back_${field}` }));
   return { reply_markup: { inline_keyboard: rows } };
 };
+
+keyboards.welcomeMenu = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🎬 5 відео курс', callback_data: 'start_5video' }],
+      [{ text: '🤖 7 днів AI', callback_data: 'start_7day_trial' }],
+      [{ text: '🎡 Колесо балансу', callback_data: 'wheel_start' }],
+    ],
+  },
+});
+
+keyboards.trialExpiredKeyboard = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🎬 Пройти 5 відео', callback_data: 'start_5video' }],
+      [{ text: '💳 Продовжити підписку', callback_data: 'subscription_plans' }],
+    ],
+  },
+});
+
+keyboards.wheelCtaInline = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🎡 Почати Колесо балансу', callback_data: 'wheel_start' }],
+    ],
+  },
+});
 
 export default keyboards;
 
