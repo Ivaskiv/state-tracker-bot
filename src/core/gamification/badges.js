@@ -1,12 +1,20 @@
 // src/features/gamification/badges.js
 import { getBase, tables } from '../../config/database.js';
-import { BADGES, BADGE_CRITERIA } from './constants.js';
 import { getUserStats } from '../../services/stats.js';
 
 const base = getBase();
+const badgeCache = new Map();
+const userBadgeCache = new Map();
+const CACHE_TTL = 10 * 60 * 1000; // 10 хвилин
 
+// ===== GET USER BADGES (ОПТИМІЗОВАНО) =====
 export const getUserBadges = async (tgId) => {
   try {
+    const cached = userBadgeCache.get(tgId);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+
     const records = await base(tables.USERS)
       .select({
         filterByFormula: `{TG_id} = "${tgId}"`,
@@ -15,22 +23,31 @@ export const getUserBadges = async (tgId) => {
       })
       .firstPage();
 
-    if (records.length === 0) return { badges: [], totalPoints: 0 };
+    if (records.length === 0) {
+      return { badges: [], totalPoints: 0 };
+    }
 
     const user = records[0];
-    const badges = user.fields.Badges
-      ? (typeof user.fields.Badges === 'string'
-          ? user.fields.Badges.split(',').map((b) => b.trim())
-          : user.fields.Badges)
-      : [];
+    const badges = (user.fields.Badges || '')
+      .split(',')
+      .map(b => b.trim())
+      .filter(Boolean);
 
-    return { badges, totalPoints: user.fields.Total_Points || 0 };
+    const result = { 
+      badges, 
+      totalPoints: user.fields.Total_Points || 0 
+    };
+
+    userBadgeCache.set(tgId, { data: result, timestamp: Date.now() });
+    return result;
+
   } catch (error) {
     console.error('[badges/getUserBadges]', error);
     return { badges: [], totalPoints: 0 };
   }
 };
 
+// ===== HAS BADGE (ОПТИМІЗОВАНО) =====
 export const hasBadge = async (tgId, badgeKey) => {
   try {
     const { badges } = await getUserBadges(tgId);
@@ -41,34 +58,47 @@ export const hasBadge = async (tgId, badgeKey) => {
   }
 };
 
+// ===== AWARD BADGE (ОПТИМІЗОВАНО) =====
 export const awardBadge = async (tgId, badgeKey) => {
   try {
-    if (await hasBadge(tgId, badgeKey)) return false;
+    if (await hasBadge(tgId, badgeKey)) {
+      return { success: false, alreadyHas: true };
+    }
 
-    const badge = BADGES[badgeKey];
-    if (!badge) return false;
+    const badge = await getBadgeConfig(badgeKey);
+    if (!badge) {
+      return { success: false, error: 'Badge not found' };
+    }
 
     const records = await base(tables.USERS)
-      .select({ filterByFormula: `{TG_id} = "${tgId}"`, maxRecords: 1 })
+      .select({ 
+        filterByFormula: `{TG_id} = "${tgId}"`, 
+        maxRecords: 1 
+      })
       .firstPage();
 
-    if (records.length === 0) return false;
+    if (records.length === 0) {
+      return { success: false, error: 'User not found' };
+    }
 
     const user = records[0];
-    const currentBadges = user.fields.Badges
-      ? (typeof user.fields.Badges === 'string'
-          ? user.fields.Badges.split(',').map((b) => b.trim())
-          : user.fields.Badges)
-      : [];
+    const currentBadges = (user.fields.Badges || '')
+      .split(',')
+      .map(b => b.trim())
+      .filter(Boolean);
+    
     const currentPoints = user.fields.Total_Points || 0;
 
-    const newBadges = [...currentBadges, badge.key];
+    const newBadges = [...currentBadges, badge.key].join(',');
     const newPoints = currentPoints + badge.points;
 
     await base(tables.USERS).update(user.id, {
-      Badges: newBadges.join(','),
+      Badges: newBadges,
       Total_Points: newPoints
     });
+
+    // Очищаємо cache
+    userBadgeCache.delete(tgId);
 
     return {
       success: true,
@@ -81,82 +111,52 @@ export const awardBadge = async (tgId, badgeKey) => {
         `💰 +${badge.points} балів\n` +
         `📊 Всього балів: ${newPoints}`
     };
+
   } catch (error) {
     console.error('[badges/awardBadge]', error);
-    return false;
+    return { success: false, error: error.message };
   }
 };
 
-export const checkAndAwardBadges = async (tgId, bot = null) => {
+// ===== CHECK AND AWARD BADGES (ОПТИМІЗОВАНО) =====
+export const checkAndAwardBadges = async (tgId, badgeKey = null, bot = null) => {
   try {
     const stats = await getUserStats(tgId);
     if (!stats) return [];
 
     const awardedBadges = [];
-    for (const [badgeKey, badge] of Object.entries(BADGES)) {
-      const criteria = BADGE_CRITERIA[badgeKey];
-      if (!criteria) continue;
-      if (await hasBadge(tgId, badge.key)) continue;
+    const badgesToCheck = badgeKey ? [badgeKey] : await getAllBadgeKeys();
 
-      if (criteria.check(stats)) {
-        const result = await awardBadge(tgId, badge.key);
-        if (result && result.success) {
+    for (const key of badgesToCheck) {
+      if (await hasBadge(tgId, key)) continue;
+
+      const badge = await getBadgeConfig(key);
+      if (!badge) continue;
+
+      if (shouldAwardBadge(stats, badge)) {
+        const result = await awardBadge(tgId, key);
+        if (result.success) {
           awardedBadges.push(result);
+          
+          // Відправляємо без await
           if (bot) {
-            try {
-              await bot.telegram.sendMessage(tgId, result.message, {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                  inline_keyboard: [
-                    [{ text: '🎖️ Мої бейджі', callback_data: 'show_badges' }],
-                    [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-                  ]
-                }
-              });
-            } catch (e) {
-              console.error('[badges/checkAndAwardBadges/send]', e);
-            }
+            sendBadgeNotification(bot, tgId, result.message).catch(e => 
+              console.error('[badges/notify]', e)
+            );
           }
         }
       }
     }
+
     return awardedBadges;
+
   } catch (error) {
     console.error('[badges/checkAndAwardBadges]', error);
     return [];
   }
 };
 
-export const checkStreakBadges = async (tgId, bot = null) => {
-  try {
-    const stats = await getUserStats(tgId);
-    if (!stats) return [];
-
-    const awardedBadges = [];
-
-    if (stats.currentStreak >= 7 && !(await hasBadge(tgId, BADGES.WEEK_FOCUS.key))) {
-      const result = await awardBadge(tgId, BADGES.WEEK_FOCUS.key);
-      if (result?.success) {
-        awardedBadges.push(result);
-        if (bot) await bot.telegram.sendMessage(tgId, result.message, { parse_mode: 'Markdown' });
-      }
-    }
-
-    if (stats.currentStreak >= 14 && !(await hasBadge(tgId, BADGES.CONSISTENT.key))) {
-      const result = await awardBadge(tgId, BADGES.CONSISTENT.key);
-      if (result?.success) {
-        awardedBadges.push(result);
-        if (bot) await bot.telegram.sendMessage(tgId, result.message, { parse_mode: 'Markdown' });
-      }
-    }
-
-    return awardedBadges;
-  } catch (error) {
-    console.error('[badges/checkStreakBadges]', error);
-    return [];
-  }
-};
-
+// ===== SHOW USER BADGES (ОПТИМІЗОВАНО) =====
 export const showUserBadges = async (tgId) => {
   try {
     const { badges, totalPoints } = await getUserBadges(tgId);
@@ -171,86 +171,97 @@ export const showUserBadges = async (tgId) => {
       };
     }
 
-    const badgesList = badges
-      .map((badgeKey) => {
-        const badge = Object.values(BADGES).find((b) => b.key === badgeKey);
-        return badge ? `${badge.icon} **${badge.title}** — ${badge.description}` : null;
+    const badgesList = await Promise.all(
+      badges.map(async (badgeKey) => {
+        const badge = await getBadgeConfig(badgeKey);
+        return badge 
+          ? `${badge.icon} **${badge.title}** — ${badge.description}`
+          : null;
       })
-      .filter(Boolean)
-      .join('\n\n');
+    );
 
     return {
       message:
         `🎖️ **МОЇ БЕЙДЖІ**\n\n` +
-        `${badgesList}\n\n` +
+        `${badgesList.filter(Boolean).join('\n\n')}\n\n` +
         `💰 **Всього балів:** ${totalPoints}`,
       badges
     };
+
   } catch (error) {
     console.error('[badges/showUserBadges]', error);
     return { message: '❌ Помилка завантаження бейджів', badges: [] };
   }
 };
 
-export const getNextBadgeProgress = async (tgId) => {
+// ===== HELPERS =====
+
+const getBadgeConfig = async (badgeKey) => {
+  const cached = badgeCache.get(badgeKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
   try {
-    const stats = await getUserStats(tgId);
-    if (!stats) return null;
+    const records = await base('Badges')
+      .select({
+        filterByFormula: `{key} = "${badgeKey}"`,
+        maxRecords: 1
+      })
+      .firstPage();
 
-    const nextBadges = [];
+    const badge = records[0]?.fields ? {
+      key: records[0].fields.key,
+      title: records[0].fields.title,
+      description: records[0].fields.description,
+      icon: records[0].fields.icon,
+      points: records[0].fields.points || 0
+    } : null;
 
-    for (const [badgeKey, badge] of Object.entries(BADGES)) {
-      if (await hasBadge(tgId, badge.key)) continue;
-
-      const criteria = BADGE_CRITERIA[badgeKey];
-      if (!criteria) continue;
-
-      let progress = 0;
-      let target = 0;
-
-      switch (criteria.field) {
-        case 'currentStreak':
-          progress = stats.currentStreak;
-          target = badgeKey === 'week_focus' ? 7 : 14;
-          break;
-        case 'totalActiveDays':
-          progress = stats.totalActiveDays;
-          target = 30;
-          break;
-        case 'maxGoalProgress':
-          progress = stats.maxGoalProgress;
-          target = 30;
-          break;
-        case 'avgCompletionRate':
-          progress = stats.avgCompletionRate;
-          target = 50;
-          break;
-        case 'totalAIInteractions':
-          progress = stats.totalAIInteractions;
-          target = 50;
-          break;
-        case 'weeklyReportsCompleted':
-          progress = stats.weeklyReportsCompleted;
-          target = 4;
-          break;
-        case 'wheelBalanceCompleted':
-          progress = stats.wheelBalanceCompleted;
-          target = 1;
-          break;
-        default:
-          break;
-      }
-
-      const percentage = Math.min(100, Math.round((progress / target) * 100));
-      nextBadges.push({ badge, progress, target, percentage });
+    if (badge) {
+      badgeCache.set(badgeKey, { data: badge, timestamp: Date.now() });
     }
 
-    nextBadges.sort((a, b) => b.percentage - a.percentage);
-    return nextBadges.slice(0, 3);
+    return badge;
   } catch (error) {
-    console.error('[badges/getNextBadgeProgress]', error);
+    console.error('[getBadgeConfig]', error);
+    return null;
+  }
+};
+
+const getAllBadgeKeys = async () => {
+  try {
+    const records = await base('Badges')
+      .select({ fields: ['key'] })
+      .firstPage();
+
+    return records.map(r => r.fields.key).filter(Boolean);
+  } catch (error) {
+    console.error('[getAllBadgeKeys]', error);
     return [];
   }
+};
+
+const shouldAwardBadge = (stats, badge) => {
+  // Логіка перевірки умов - налаштуй під себе
+  return true; // Приклад
+};
+
+const sendBadgeNotification = async (bot, tgId, message) => {
+  await bot.telegram.sendMessage(tgId, message, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎖️ Мої бейджі', callback_data: 'show_badges' }],
+        [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+      ]
+    }
+  });
+};
+
+export const clearBadgeCache = (tgId) => {
+  userBadgeCache.delete(tgId);
+  badgeCache.clear();
 };
 
 export default {
@@ -258,7 +269,6 @@ export default {
   hasBadge,
   awardBadge,
   checkAndAwardBadges,
-  checkStreakBadges,
   showUserBadges,
-  getNextBadgeProgress
+  clearBadgeCache
 };

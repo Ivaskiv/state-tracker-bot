@@ -4,13 +4,13 @@ import service from './service.js';
 import keyboards from '../../utils/keyboards.js';
 import logger from '../../utils/logger.js';
 import { getBase, tables } from '../../config/database.js';
-import {
+import { 
+  COURSE_MESSAGES, 
+  COURSE_OFFERS, 
+  SUBSCRIPTION_MESSAGES, 
   SUBSCRIPTION_PLANS, 
-  WAYFORPAY_LINKS,
-  SUBSCRIPTION_MESSAGES,
- } from './constants.js';
-import { ACTIVITY_TRIGGERS, PROBLEM_DESCRIPTIONS } from '../gamification/constants.js';
-import { COURSE_MESSAGES, COURSE_OFFERS } from '../../config/constants.js';
+  WAYFORPAY_LINKS 
+} from '../../config/constants.js';
 
 const base = getBase();
 

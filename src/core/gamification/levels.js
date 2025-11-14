@@ -2,15 +2,59 @@
 // Система рівнів та прогресу
 
 import { getBase, tables } from '../../config/database.js';
-import { getProgressLevel, PROGRESS_LEVELS } from './constants.js';
+import logger from '../../utils/logger.js';
 
 const base = getBase();
 
-/**
- * Отримати поточний рівень користувача
- */
+// ===== CONSTANTS (замість констант.js) =====
+
+const PROGRESS_LEVELS = {
+  NOVICE: { level: 1, userName: 'Новачок', icon: '🌱', pointsRequired: 0, nextLevel: 2 },
+  APPRENTICE: { level: 2, userName: 'Учень', icon: '📚', pointsRequired: 100, nextLevel: 3 },
+  STUDENT: { level: 3, userName: 'Студент', icon: '🎓', pointsRequired: 500, nextLevel: 4 },
+  PRACTITIONER: { level: 4, userName: 'Практик', icon: '💼', pointsRequired: 1000, nextLevel: 5 },
+  EXPERT: { level: 5, userName: 'Експерт', icon: '🎯', pointsRequired: 2000, nextLevel: 6 },
+  MASTER: { level: 6, userName: 'Майстер', icon: '👑', pointsRequired: 5000, nextLevel: null }
+};
+
+const getProgressLevel = (points) => {
+  if (points < 100) return PROGRESS_LEVELS.NOVICE;
+  if (points < 500) return PROGRESS_LEVELS.APPRENTICE;
+  if (points < 1000) return PROGRESS_LEVELS.STUDENT;
+  if (points < 2000) return PROGRESS_LEVELS.PRACTITIONER;
+  if (points < 5000) return PROGRESS_LEVELS.EXPERT;
+  return PROGRESS_LEVELS.MASTER;
+};
+
+// ===== CACHE =====
+
+const levelCache = new Map();
+const CACHE_TTL = 10 * 60 * 1000;
+
+const getCachedLevel = (tgId) => {
+  const cached = levelCache.get(tgId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  return null;
+};
+
+const setCachedLevel = (tgId, data) => {
+  levelCache.set(tgId, { data, timestamp: Date.now() });
+};
+
+const clearCachedLevel = (tgId) => {
+  levelCache.delete(tgId);
+};
+
+// ===== GET USER LEVEL =====
+
 export const getUserLevel = async (tgId) => {
   try {
+    // Перевіримо cache
+    const cached = getCachedLevel(tgId);
+    if (cached) return cached;
+
     const formula = `{TG_id} = "${tgId}"`;
     
     const records = await base(tables.USERS)
@@ -22,27 +66,42 @@ export const getUserLevel = async (tgId) => {
       .firstPage();
 
     if (records.length === 0) {
-      return {
+      const result = {
         level: PROGRESS_LEVELS.NOVICE,
         totalPoints: 0,
         nextLevel: PROGRESS_LEVELS.APPRENTICE,
         progress: 0
       };
+      setCachedLevel(tgId, result);
+      return result;
     }
 
     const user = records[0].fields;
     const totalPoints = user.Total_Points || 0;
     const levelData = getProgressLevel(totalPoints);
 
-    return {
+    const nextLevel = levelData.nextLevel 
+      ? PROGRESS_LEVELS[Object.keys(PROGRESS_LEVELS).find(k => 
+          PROGRESS_LEVELS[k].level === levelData.nextLevel)]
+      : null;
+
+    const progress = nextLevel 
+      ? Math.min(100, Math.round(((totalPoints - levelData.pointsRequired) / 
+          (nextLevel.pointsRequired - levelData.pointsRequired)) * 100))
+      : 100;
+
+    const result = {
       level: levelData,
       totalPoints,
-      nextLevel: levelData.nextLevel,
-      progress: levelData.progress
+      nextLevel,
+      progress
     };
 
+    setCachedLevel(tgId, result);
+    return result;
+
   } catch (error) {
-    console.error('[levels/getUserLevel] ❌ Помилка:', error);
+    logger.error('[levels/getUserLevel]', error);
     return {
       level: PROGRESS_LEVELS.NOVICE,
       totalPoints: 0,
@@ -52,12 +111,11 @@ export const getUserLevel = async (tgId) => {
   }
 };
 
-/**
- * Додати бали користувачу
- */
+// ===== ADD POINTS =====
+
 export const addPoints = async (tgId, points, reason = '') => {
   try {
-    console.log(`[levels/addPoints] ➕ Додаємо ${points} балів для ${tgId} (${reason})`);
+    logger.info(`[levels/addPoints] +${points} для ${tgId} (${reason})`);
 
     const formula = `{TG_id} = "${tgId}"`;
     const records = await base(tables.USERS)
@@ -65,62 +123,57 @@ export const addPoints = async (tgId, points, reason = '') => {
       .firstPage();
 
     if (records.length === 0) {
-      console.error('[levels/addPoints] ❌ Користувач не знайдений');
-      return false;
+      logger.error('[levels/addPoints] User not found');
+      return { success: false, error: 'User not found' };
     }
 
     const user = records[0];
     const currentPoints = user.fields.Total_Points || 0;
     const newPoints = currentPoints + points;
 
-    // Визначаємо старий та новий рівень
     const oldLevel = getProgressLevel(currentPoints);
     const newLevel = getProgressLevel(newPoints);
 
-    // Оновлюємо бали
     await base(tables.USERS).update(user.id, {
       Total_Points: newPoints,
-      Current_Level: newLevel.level,
-      // Last_Points_Added: new Date().toISOString()
+      Current_Level: newLevel.level
     });
 
-    console.log(`[levels/addPoints] ✅ Додано ${points} балів (всього: ${newPoints})`);
+    clearCachedLevel(tgId);
 
-    // Перевіряємо чи підвищився рівень
     const leveledUp = oldLevel.level < newLevel.level;
+
+    logger.info(`[levels/addPoints] ✅ +${points} (total: ${newPoints})${leveledUp ? ' LEVEL UP!' : ''}`);
 
     return {
       success: true,
       points,
       totalPoints: newPoints,
-      oldLevel: oldLevel,
-      newLevel: newLevel,
+      oldLevel,
+      newLevel,
       leveledUp
     };
 
   } catch (error) {
-    console.error('[levels/addPoints] ❌ Помилка:', error);
-    return false;
+    logger.error('[levels/addPoints]', error);
+    return { success: false, error: error.message };
   }
 };
 
-/**
- * Перевірити та оновити рівень
- */
+// ===== CHECK LEVEL UP =====
+
 export const checkLevelUp = async (tgId, bot = null) => {
   try {
     const { level, totalPoints, nextLevel } = await getUserLevel(tgId);
 
     if (!nextLevel) {
-      console.log(`[levels/checkLevelUp] ℹ️ Користувач на максимальному рівні`);
+      logger.info(`[levels/checkLevelUp] Max level reached for ${tgId}`);
       return null;
     }
 
-    // Перевіряємо чи досяг наступного рівня
     if (totalPoints >= nextLevel.pointsRequired) {
-      console.log(`[levels/checkLevelUp] 🎉 LEVEL UP для ${tgId}!`);
+      logger.info(`[levels/checkLevelUp] LEVEL UP for ${tgId}!`);
 
-      // Оновлюємо рівень в базі
       const formula = `{TG_id} = "${tgId}"`;
       const records = await base(tables.USERS)
         .select({ filterByFormula: formula, maxRecords: 1 })
@@ -132,7 +185,8 @@ export const checkLevelUp = async (tgId, bot = null) => {
         });
       }
 
-      // Відправляємо повідомлення про підвищення рівня
+      clearCachedLevel(tgId);
+
       if (bot) {
         const message = formatLevelUpMessage(nextLevel, totalPoints);
         
@@ -147,7 +201,7 @@ export const checkLevelUp = async (tgId, bot = null) => {
             }
           });
         } catch (sendError) {
-          console.error('[levels/checkLevelUp] ❌ Помилка відправки:', sendError);
+          logger.error('[levels/checkLevelUp/send]', sendError);
         }
       }
 
@@ -161,14 +215,13 @@ export const checkLevelUp = async (tgId, bot = null) => {
     return null;
 
   } catch (error) {
-    console.error('[levels/checkLevelUp] ❌ Помилка:', error);
+    logger.error('[levels/checkLevelUp]', error);
     return null;
   }
 };
 
-/**
- * Форматувати повідомлення про підвищення рівня
- */
+// ===== FORMAT LEVEL UP MESSAGE =====
+
 const formatLevelUpMessage = (newLevel, totalPoints) => {
   return (
     `🎉 **ПІДВИЩЕННЯ РІВНЯ!**\n\n` +
@@ -179,14 +232,12 @@ const formatLevelUpMessage = (newLevel, totalPoints) => {
   );
 };
 
-/**
- * Показати прогрес користувача
- */
+// ===== SHOW PROGRESS =====
+
 export const showProgress = async (tgId) => {
   try {
     const { level, totalPoints, nextLevel, progress } = await getUserLevel(tgId);
 
-    // Прогрес-бар
     const filledBlocks = Math.floor(progress / 10);
     const emptyBlocks = 10 - filledBlocks;
     const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
@@ -197,11 +248,12 @@ export const showProgress = async (tgId) => {
       `💰 Балів: ${totalPoints}\n\n`;
 
     if (nextLevel) {
+      const pointsLeft = nextLevel.pointsRequired - totalPoints;
       message += 
         `🎯 **До наступного рівня:**\n` +
         `${progressBar} ${progress}%\n` +
         `${nextLevel.icon} ${nextLevel.userName} — ${nextLevel.pointsRequired} балів\n` +
-        `Залишилось: ${nextLevel.pointsRequired - totalPoints} балів\n\n`;
+        `Залишилось: ${pointsLeft} балів\n\n`;
     } else {
       message += `👑 **Ти досяг максимального рівня!**\n\n`;
     }
@@ -216,7 +268,7 @@ export const showProgress = async (tgId) => {
     return { message, level, totalPoints };
 
   } catch (error) {
-    console.error('[levels/showProgress] ❌ Помилка:', error);
+    logger.error('[levels/showProgress]', error);
     return {
       message: '❌ Помилка завантаження прогресу',
       level: null,
@@ -225,9 +277,8 @@ export const showProgress = async (tgId) => {
   }
 };
 
-/**
- * Отримати топ користувачів за балами
- */
+// ===== GET LEADERBOARD =====
+
 export const getLeaderboard = async (limit = 10) => {
   try {
     const records = await base(tables.USERS)
@@ -248,14 +299,13 @@ export const getLeaderboard = async (limit = 10) => {
     }));
 
   } catch (error) {
-    console.error('[levels/getLeaderboard] ❌ Помилка:', error);
+    logger.error('[levels/getLeaderboard]', error);
     return [];
   }
 };
 
-/**
- * Форматувати таблицю лідерів
- */
+// ===== FORMAT LEADERBOARD =====
+
 export const formatLeaderboard = async (limit = 10) => {
   try {
     const leaders = await getLeaderboard(limit);
@@ -280,7 +330,7 @@ export const formatLeaderboard = async (limit = 10) => {
     return message;
 
   } catch (error) {
-    console.error('[levels/formatLeaderboard] ❌ Помилка:', error);
+    logger.error('[levels/formatLeaderboard]', error);
     return '❌ Помилка завантаження таблиці лідерів';
   }
 };
@@ -291,7 +341,10 @@ export default {
   checkLevelUp,
   showProgress,
   getLeaderboard,
-  formatLeaderboard
+  formatLeaderboard,
+  clearCachedLevel,
+  PROGRESS_LEVELS,
+  getProgressLevel
 };
 
-console.log('✅ [gamification/levels] Levels система завантажено');
+logger.info('✅ [gamification/levels] Loaded');

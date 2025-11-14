@@ -1,8 +1,8 @@
 // src/features/subscription/service.js
 
+import { SUBSCRIPTION_PLANS } from '../../config/constants.js';
 import { tables, selectFromTable, createRows, updateRows } from '../../config/database.js';
 import { addDays, toISODate } from '../../utils/helpers.js';
-import { SUBSCRIPTION_PLANS } from './constants.js';
 const USER_STATUS_FIELD = 'Subscription Status';
 const findActiveSubscription = async (tgId) => {
   try {

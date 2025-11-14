@@ -9,13 +9,36 @@ import { MENU_TEXTS, MESSAGES } from '../registration/constants.js';
 import { startWheelBalance } from '../wheelBalance/flow.js';
 import { DASHBOARD_MESSAGES } from './constants.js';
 import logger from '../../utils/logger.js';
-import callbacks from '../../services/callbacks.js';
+
+// ===== CALLBACK REGISTRY (замість callbacks.js) =====
+const callbackRegistry = new Map();
+
+export const registerCallback = (action, handler) => {
+  callbackRegistry.set(action, handler);
+};
+
+export const handleCallback = async (ctx, action) => {
+  const handler = callbackRegistry.get(action);
+  if (handler) {
+    try {
+      await handler(ctx);
+    } catch (error) {
+      logger.error(`[dashboard/callback/${action}]`, error);
+    }
+  }
+};
+
+// ===== HELPERS =====
 
 const safeAnswerCb = async (ctx, text = '') => {
   if (ctx?.callbackQuery) {
-    try { await ctx.answerCbQuery(text); } catch {}
+    try { 
+      await ctx.answerCbQuery(text); 
+    } catch {}
   }
 };
+
+// ===== MAIN MENU =====
 
 export const showMainMenu = async (ctx) => {
   const tgId = ctx.from.id;
@@ -59,10 +82,8 @@ export const showMainMenu = async (ctx) => {
 
     await ctx.reply('⏳ Оновлюю меню…', { reply_markup: { remove_keyboard: true } });
     
-    // ✅ ОСНОВНЕ МЕНЮ
     await ctx.reply(message, keyboards.mainMenuKeyboard());
 
-    // ✅ ЯКЩО КОЛЕСО НЕ ПРОЙДЕНО - ПОКАЗУЄМО CTA
     if (!stats.wheelCompleted) {
       const wheelCTAMessage = 
         `🎡 **КОЛЕСО БАЛАНСУ** — швидка оцінка 8 сфер твого життя (5–10 хв)\n\n` +
@@ -78,15 +99,15 @@ export const showMainMenu = async (ctx) => {
   }
 };
 
+// ===== MENU HANDLERS =====
+
 export const startAIMentorFromText = async (ctx) => {
   try {
     const aiMentor = (await import('../aiMentor/index.js')).default;
     await aiMentor.showAIMentorChat(ctx);
-    return true;
   } catch (e) {
     logger.error('[dashboard/startAIMentorFromText]', e);
     await ctx.reply('❌ Помилка запуску AI наставника', keyboards.mainMenuKeyboard());
-    return true;
   }
 };
 
@@ -94,20 +115,20 @@ export const startWheelFromText = async (ctx) => {
   try {
     const tgId = ctx.from.id;
     const user = await users.getUserByTgId(tgId);
+    
     if (!user) {
       await ctx.reply('Спочатку зареєструйся командою /start', keyboards.mainMenuKeyboard());
-      return true;
+      return;
     }
 
     const userName = user.fields['User Name'] || ctx.from.first_name || 'Користувач';
     const res = await startWheelBalance(tgId, userName);
 
     await ctx.reply(res.message, res.keyboard || keyboards.mainMenuKeyboard());
-    return true;
+
   } catch (e) {
     logger.error('[dashboard/startWheelFromText]', e);
     await ctx.reply('❌ Помилка запуску колеса', keyboards.mainMenuKeyboard());
-    return true;
   }
 };
 
@@ -143,6 +164,7 @@ export const showWheelInfo = async (ctx) => {
     });
     
     await safeAnswerCb(ctx, 'Інформація про колесо');
+
   } catch (e) {
     logger.error('[dashboard/showWheelInfo]', e);
     await ctx.reply('❌ Помилка', keyboards.mainMenuKeyboard());
@@ -154,10 +176,8 @@ export const showCapabilities = async (ctx) => {
     await typing(ctx);
     await ctx.reply(DASHBOARD_MESSAGES.CAPABILITIES, keyboards.infoMenuInline(false));
     await safeAnswerCb(ctx, 'Можливості');
-    return true;
   } catch (e) {
     logger.error('[dashboard/showCapabilities]', e);
-    return false;
   }
 };
 
@@ -165,11 +185,9 @@ export const showMyProgress = async (ctx) => {
   try {
     const gamification = (await import('../../core/gamification/index.js')).default;
     await gamification.showAchievements(ctx);
-    return true;
   } catch (e) {
     logger.error('[dashboard/showMyProgress]', e);
     await ctx.reply('📊 Функція в розробці...', keyboards.mainMenuKeyboard());
-    return true;
   }
 };
 
@@ -178,10 +196,8 @@ export const showInstructions = async (ctx) => {
     await typing(ctx);
     await ctx.reply(MENU_TEXTS.INSTRUCTIONS, keyboards.infoMenuInline(true));
     await safeAnswerCb(ctx, 'Інструкції');
-    return true;
   } catch (e) {
     logger.error('[dashboard/showInstructions]', e);
-    return false;
   }
 };
 
@@ -189,11 +205,9 @@ export const showSubscription = async (ctx) => {
   try {
     const controller = (await import('../../core/subscription/controller.js')).default;
     await controller.handleSubscriptionInfo(ctx);
-    return true;
   } catch (e) {
     logger.error('[dashboard/showSubscription]', e);
     await ctx.reply('💰 Функція в розробці...', keyboards.mainMenuKeyboard());
-    return true;
   }
 };
 
@@ -202,10 +216,8 @@ export const showContact = async (ctx) => {
     await typing(ctx);
     await ctx.reply(MENU_TEXTS.CONTACT, keyboards.contactMenuInline());
     await safeAnswerCb(ctx, 'Контакти');
-    return true;
   } catch (e) {
     logger.error('[dashboard/showContact]', e);
-    return false;
   }
 };
 
@@ -214,23 +226,21 @@ export const showHelp = async (ctx) => {
     await typing(ctx);
     await ctx.reply(MENU_TEXTS.HELP, keyboards.contactMenuInline());
     await safeAnswerCb(ctx, 'Допомога');
-    return true;
   } catch (e) {
     logger.error('[dashboard/showHelp]', e);
-    return false;
   }
 };
 
-// ═══════════════════════════════════════════════════════════
-// 📡 CALLBACK РОУТЕР
-// ═══════════════════════════════════════════════════════════
+// ===== CALLBACK REGISTRATION =====
 
-callbacks.on('main_menu', (ctx) => showMainMenu(ctx));
-callbacks.on('show_capabilities', (ctx) => showCapabilities(ctx));
-callbacks.on('instructions', (ctx) => showInstructions(ctx));
-callbacks.on('contact_support', (ctx) => showContact(ctx));
-callbacks.on('help', (ctx) => showHelp(ctx));
-callbacks.on('wheel_info', (ctx) => showWheelInfo(ctx));
+registerCallback('main_menu', showMainMenu);
+registerCallback('show_capabilities', showCapabilities);
+registerCallback('instructions', showInstructions);
+registerCallback('contact_support', showContact);
+registerCallback('help', showHelp);
+registerCallback('wheel_info', showWheelInfo);
+
+// ===== TEXT HANDLER =====
 
 export const handleText = async (ctx) => {
   const text = (ctx.message?.text ?? '').trim();
@@ -259,6 +269,8 @@ export const handleText = async (ctx) => {
     return true;
   }
 };
+
+// ===== INIT =====
 
 export default function initDashboard(_bot) {
   logger.info('🏠 [dashboard] Init');
