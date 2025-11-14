@@ -106,7 +106,7 @@ export async function handleVideoComplete(ctx, videoNumber) {
         logAnalytics(userId, ANALYTICS_EVENTS.ALL_VIDEOS_COMPLETED);
       }
       
-      await ctx.answerCbQuery('✅ Відео пройдено!');
+      await ctx.answerCbQuery('✅ Відео переглянуто!');
     } else {
       await ctx.answerCbQuery('❌ Помилка збереження прогресу');
     }

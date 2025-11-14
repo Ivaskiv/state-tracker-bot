@@ -31,6 +31,7 @@ export const scheduleMorningReminders = (bot) =>
         const users = await base(tables.USERS).select({ maxRecords: 500 }).all();
         for (const user of users) {
           const tgId = user.fields.TG_id;
+          if (!tgId || isNaN(Number(tgId))) continue; 
           const userName = user.fields['User Name'] || 'Користувач';
           
           try {

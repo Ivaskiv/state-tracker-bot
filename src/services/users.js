@@ -62,26 +62,28 @@ export const clearAllUserCache = () => {
 
 export const createUser = async (tgId, firstName = '', overrides = {}) => {
   console.log('➕ [createUser]', { tgId, firstName, overrides: Object.keys(overrides) });
-  const nowIso = new Date().toISOString();
 
   const fields = {
-    'TG_id': String(tgId),
+    TG_id: String(tgId),
     'User Name': firstName || 'Користувач',
-    'Status': 'Registered User',
+    Status: 'Registered User',
     'UserRegistered': true,
     'Subscription Status': 'New',
-    'Answer_Step': ANSWER_STEPS.IDLE,
-    'Created_At': nowIso,
-    'Last_Activity': nowIso,
+    Answer_Step: ANSWER_STEPS.IDLE,
+    Last_Activity: new Date().toISOString(),
+    ...overrides,
   };
 
-  Object.assign(fields, overrides);
-
-  const records = await base(tables.USERS).create([{ fields }]);
-  const user = { id: records[0].id, recordId: records[0].id, fields: records[0].fields };
-  cache.set(`user:${tgId}`, user, CACHE_TTL);
-  console.log('✅ [createUser] created', { tgId, userId: user.id });
-  return user;
+  try {
+    const records = await base(tables.USERS).create([{ fields }]);
+    const user = { id: records[0].id, recordId: records[0].id, fields: records[0].fields };
+    cache.set(`user:${tgId}`, user, CACHE_TTL);
+    console.log('✅ [createUser] created', { tgId, userId: user.id });
+    return user;
+  } catch (e) {
+    console.error('[createUser] Error:', e?.response?.data || e.message || e);
+    throw e;
+  }
 };
 
 export const ensureUserExists = async (tgId, firstName = '') => {

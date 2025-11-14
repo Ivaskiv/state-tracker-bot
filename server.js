@@ -45,7 +45,42 @@ app.use(express.urlencoded({ extended: true }));
 // Webhook endpoints
 app.post('/webhooks/airtable', handleAirtableWebhook);
 app.post('/api/wayforpay/webhook', subscriptionWebhook);
-
+app.post('/api/tilda/user-status', async (req, res) => {
+  try {
+    const { tgId } = req.body;
+    
+    const user = await getUserByTgId(tgId);
+    if (!user) {
+      return res.json({ error: 'User not found' });
+    }
+    
+    const stats = await getUserStats(tgId);
+    const level = getProgressLevel(stats.totalPoints);
+    
+    // Funnel progress
+    const funnelProgress = await getFunnelProgress(tgId, tables.FREE_FUNNEL);
+    const funnelPercent = funnelProgress 
+      ? Math.round((funnelProgress.fields.current_step / funnelProgress.fields.total_steps) * 100)
+      : 0;
+    
+    res.json({
+      level_icon: level.icon,
+      level_name: level.userName,
+      total_points: stats.totalPoints,
+      progress: level.progress,
+      points_to_next: level.nextLevel ? level.nextLevel.pointsRequired - stats.totalPoints : 0,
+      streak: stats.currentStreak,
+      badges: user.fields.Badges || [],
+      funnel_progress: funnelPercent,
+      wheel_completed: stats.wheelCompleted,
+      sessions_completed: stats.completedSessions
+    });
+    
+  } catch (error) {
+    console.error('[api/tilda/user-status]', error);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

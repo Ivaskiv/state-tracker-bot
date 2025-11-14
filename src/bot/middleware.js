@@ -142,7 +142,9 @@ export const checkAccessMiddleware = () => {
     const protectedActions = [
       'start_morning', 'start_evening',
       'show_ai_mentor', 'show_weekly_report',
-      'continue_morning', 'continue_evening'
+      'continue_morning', 'continue_evening', 
+      'show_monthly_report',
+      'wheel_start', 'wheel_continue'
     ];
     
 const data = ctx.callbackQuery?.data || ctx.message?.text;

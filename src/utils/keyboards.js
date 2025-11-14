@@ -569,12 +569,13 @@ keyboards.skipKeyboard = (field, withBack = false) => {
 
 keyboards.welcomeMenu = () => ({
   reply_markup: {
-    inline_keyboard: [
-      [{ text: '🎬 5 відео курс', callback_data: 'start_5video' }],
-      [{ text: '🤖 7 днів AI', callback_data: 'start_7day_trial' }],
+ inline_keyboard: [
+      [{ text: '🎬 5 відео про вигорання', callback_data: 'start_5video' }],
+      [{ text: '🤖 7 днів з AI-наставником', callback_data: 'start_7day_trial' }],
       [{ text: '🎡 Колесо балансу', callback_data: 'wheel_start' }],
-    ],
-  },
+      [{ text: 'ℹ️ Дізнатись більше', callback_data: 'show_info' }],
+    ]
+  }
 });
 
 keyboards.trialExpiredKeyboard = () => ({

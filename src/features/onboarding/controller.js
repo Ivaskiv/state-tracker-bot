@@ -6,86 +6,14 @@ import { MESSAGES, CALLBACKS, PITCH_TILDA, shouldShowPitch } from './constants.j
 import { getUserStats } from '../../services/stats.js';
 import { formatDate, getDaysWord, parseStartPayload } from '../../utils/helpers.js';
 import callbacks from '../../services/callbacks.js';
-import { createUser, getUserByTgId, updateUserFields, hasActiveAccess } from '../../services/users.js'; // ДОДАТИ: hasActiveAccess
+import { createUser, getUserByTgId, updateUserFields, hasActiveAccess } from '../../services/users.js'; 
+
+import { getRegistrationData } from './service.js'; 
+import * as gamification from '../gamification/rewards.js'; 
+import logger from '../../utils/logger.js';
 
 const tgIdOf = (ctx) => String(ctx.from?.id || ctx.chat?.id);
 const cfgWithRecord = (recordId) => ({ ...ONBOARDING_CONFIG, recordId });
-
-export const start = async (ctx) => {
-  try {
-    const tgId = ctx.from.id;
-    const firstName = (ctx.from.first_name || 'друже').trim();
-    const payload =
-      (ctx.startPayload || ctx.state?.rawPayload || ctx.message?.text?.split(' ')[1] || '')
-        .toString()
-        .trim()
-        .toLowerCase();
-
-    // 1) Є користувач? якщо ні — створюємо мінімальний профіль
-    let user = await getUserByTgId(tgId);
-    if (!user) {
-      user = await ensureUserExists(tgId, firstName);
-      await setUserAnswerStep(tgId, 'idle');
-    }
-
-    // 2) Спец-пейлоади з Tilda
-    //    - src_tilda__seg_burnout__*  → одразу у freeVideoFunnel
-    //    - trial7_from_tilda__seg_burnout__* → активує 7-денний доступ і кличе колесо
-    if (payload.startsWith('src_tilda__seg_burnout__')) {
-      await ctx.reply(
-        `Вітаю, ${firstName}! Це 5-денний mini-шлях «Поверни себе з вигорання». Натисни, щоб почати 👇`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🎬 Почати 5-денний шлях', callback_data: 'start_funnel' }],
-              [{ text: '🏠 До меню', callback_data: 'main_menu' }],
-            ],
-          },
-        }
-      );
-      return;
-    }
-
-    if (payload.startsWith('trial7_from_tilda__seg_burnout__')) {
-      try {
-        await activateTrial(tgId, 7);
-        await ctx.reply(
-          `🎁 Активовано 7 днів доступу до AI-наставника!\nПочнемо з «Колеса балансу» 👇`,
-          keyboards.startWheelInline()
-        );
-      } catch (e) {
-        await ctx.reply('❌ Не вдалося активувати пробний період. Спробуй ще раз пізніше.');
-      }
-      return;
-    }
-
-    // 3) Новий або повернувшийся юзер без спец-пейлоаду:
-    //    показуємо короткий пітч про AI-воронку + лінк «Дізнатись більше» (Tilda) + старт у Telegram
-    await setUserAnswerStep(tgId, 'idle');
-
-    await ctx.reply(
-      [
-        `Привіт, ${firstName}!`,
-        `Тут твій AI-наставник: фокус → дія → результат.`,
-        `Почати можна з 5-денного mini-шляху «Поверни себе з вигорання».`,
-        `Спершу глянь деталі на сайті або стартуй одразу в Telegram👇`,
-      ].join('\n'),
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: 'ℹ️ Дізнатись більше', url: TILDA_FUNNEL_URL }],
-            [{ text: '🎬 Почати 5-денний шлях', callback_data: 'start_funnel' }],
-            [{ text: '🏠 До меню', callback_data: 'main_menu' }],
-          ],
-        },
-      }
-    );
-  } catch (err) {
-    logger.error('[start]', err);
-    await ctx.reply('❌ Помилка. Спробуй ще раз: /start');
-  }
-};
-
 
 const buildWelcomeBackText = ({
   userName,
@@ -162,7 +90,7 @@ const writeAnswerAndMove = async (ctx, rawAnswer) => {
   }
 
   const nextQ = stepNext.nextQuestion;
-  const text = `${nextQ.emoji || '❓'} *${nextQ.title}*\n\n${nextQ.question}${nextQ.hint ? `\n\n💡 ${nextQ.hint}` : ''}`;
+  const text = `${nextQ.emoji || '❓'} *${nextQ.title}*\n\n${nextQ.question}${nextQ.hint ? `\n\n💡 ${q.hint}` : ''}`;
   const kb = QE.getKeyboardForQuestion(nextQ);
   await ctx.reply(text, { parse_mode: 'Markdown', ...kb });
   return true;
@@ -193,6 +121,116 @@ const sendWelcomeBack = async (ctx, user) => {
   }
   return true;
 };
+export const start = async (ctx) => {
+  try {
+    const tgId = tgIdOf(ctx);
+    const firstName = (ctx.from.first_name || '').trim();
+    const rawPayload = 
+      ctx.startPayload || 
+      ctx.state?.rawPayload || 
+      ctx.message?.text?.split(' ')[1] || 
+      '';
+    const payload = parseStartPayload(rawPayload);
+    console.log('[start] 🎯 Payload:', { raw: rawPayload, parsed: payload });
+
+    // 1) Перевірка користувача з service.js
+    const userData = await getRegistrationData(tgId);
+    
+if (!userData) {
+  console.log('[start] 📝 Новий користувач → створюємо профіль');
+  // const nowIso = new Date().toISOString();
+
+  // const newUserFields = {
+  //   'User Name': firstName,
+  //   Status: 'New User',
+  //   UserRegistered: false,
+  //   'Subscription Status': 'New',
+  //   Answer_Step: 'Registration',
+  //   Last_Activity: nowIso,
+  // };
+
+  await createUser(tgId, firstName);
+
+  // 🎮 Гейміфікація
+  await gamification.rewardRegistration(tgId);
+
+  // 📊 Attribution (але треба імпорт і nowIso)
+  if (payload.source) {
+    await upsertAttribution(tgId, {
+      source: payload.source,
+      segment: payload.segment,
+      utm: payload.utm,
+      timestamp: nowIso,
+    });
+  }
+
+  if (shouldShowPitch(payload, { fields: {} })) {
+    await ctx.reply(PITCH_TILDA);
+  }
+
+  await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
+  return askCurrent(ctx);
+}
+
+    // 2) Користувач існує — продовжити з поточного кроку
+    const step = userData.Answer_Step || 'ob_name';
+    const isOnboarding = /^ob_/i.test(step);
+
+    if (isOnboarding) {
+      console.log('[start] 📝 Продовження онбордингу з кроку:', step);
+      await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
+      return askCurrent(ctx);
+    }
+
+    // 3) Спец-пейлоади з Tilda
+    if (payload.source === 'tilda' && payload.segment === 'burnout') {
+      console.log('[start] 🎬 Маршрутизація → 5-video funnel');
+      
+      await ctx.reply(
+        `👋 Вітаю, ${firstName}!\n\n` +
+        `Це 5-денний курс «Поверни себе з вигорання».\n\n` +
+        `Ти отримаєш:\n` +
+        `🎥 5 потужних відео\n` +
+        `💪 Практичні завдання\n` +
+        `🎁 7 днів AI-наставника при завершенні\n\n` +
+        `Готова почати? 👇`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🎬 Почати курс', callback_data: 'start_funnel' }],
+              [{ text: 'ℹ️ Дізнатись більше', url: 'https://yoursite.tilda.ws/free-course' }],
+            ]
+          }
+        }
+      );
+      return;
+    }
+
+    if (payload.raw.startsWith('trial7_from_tilda')) {
+      console.log('[start] 🎁 Маршрутизація → 7-day trial + wheel');
+      
+      // Активувати 7-денний trial
+      await activateTrial(tgId, 7);
+      
+      await ctx.reply(
+        `🎉 Активовано 7 днів з AI-наставником!\n\n` +
+        `Перший крок — заповнити «Колесо балансу».\n` +
+        `Це швидкий аудит 8 сфер життя (5-10 хвилин).\n\n` +
+        `Готова? 👇`,
+        keyboards.wheelCtaInline()
+      );
+      return;
+    }
+
+    // 4) Повністю зареєстрований — welcome back
+    console.log('[start] 🏠 Маршрутизація → General welcome back');
+    await sendWelcomeBack(ctx, { fields: userData });
+
+  } catch (err) {
+    logger.error('[start]', err);
+    await ctx.reply('❌ Помилка. Спробуй ще раз: /start');
+  }
+};
 
 
 
@@ -222,13 +260,7 @@ export const startTrial = async (ctx) => {
   const user = await getUserByTgId(tgId);
   
   if (!hasActiveAccess(user)) {
-    const end = new Date();
-    end.setDate(end.getDate() + 7);
-    await updateUserFields(tgId, { 
-      'Subscription Status': 'Trial',
-      'Start_Date': new Date().toISOString().split('T')[0],
-      'End_Date': end.toISOString().split('T')[0],
-    });
+ await activateTrial(tgId, 7);
   }
   await ctx.reply(MESSAGES.TRIAL_WELCOME, keyboards.wheelCtaInline());
 };

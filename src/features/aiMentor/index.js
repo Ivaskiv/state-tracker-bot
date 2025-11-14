@@ -213,7 +213,9 @@ export default function initAIMentor(bot) {
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
       } catch {}
-      
+      // 🎮 ГЕЙМІФІКАЦІЯ: +2 за AI взаємодію
+    await gamification.rewardAIInteraction(tgId, ctx._bot);
+    
       // Відправляємо відповідь
       await ctx.reply(
         `🤖 **РЕКОМЕНДАЦІЯ**\n\n${response}`,

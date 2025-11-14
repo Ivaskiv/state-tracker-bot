@@ -11,7 +11,7 @@ export const getRegistrationData = async (tgId) => {
       .select({
         filterByFormula: `{TG_id} = "${tgId}"`,
         maxRecords: 1,
-        fields: ['User Name', 'Email', 'Phone', 'Time_Zone', 'End_Date']
+        fields: ['User Name', 'Email', 'Phone', 'Time Zone', 'End_Date']
       })
       .firstPage();
 
