@@ -1,298 +1,92 @@
-// server.js 
-
+// server.js
 import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
 import { Telegraf, session } from 'telegraf';
 import { initRouter } from './src/bot/router.js';
-
-// ✅ ІМПОРТ ВСІХ MIDDLEWARE
 import { 
   initMiddleware, 
   performanceMiddleware, 
   antiSpamMiddleware, 
-  checkAccessMiddleware
-} from './src/bot/middleware.js';
-
-// Config
+  checkAccessMiddleware, 
+  errorMiddleware,
+  activityMiddleware
+ } from './src/bot/middleware.js';
 import { testConnection, validateTables } from './src/config/database.js';
-
-// Services
 import { initScheduler, stopScheduler } from './src/services/scheduler.js';
 import { clearAllUserCache } from './src/services/users.js';
-
-// Webhook
-import subscriptionWebhook from './src/features/subscription/webhook.js';
+import subscriptionWebhook from './src/core/subscription/webhook.js';
 import { handleAirtableWebhook } from './src/webhooks/airtable.js';
 
-const { TELEGRAM_BOT_TOKEN, NODE_ENV, TZ, PORT } = process.env;
+const { TELEGRAM_BOT_TOKEN, NODE_ENV, PORT = 3000 } = process.env;
 
-// ===== ПЕРЕВІРКА ENV =====
 if (!TELEGRAM_BOT_TOKEN) {
-  console.error('❌ TELEGRAM_BOT_TOKEN відсутній у .env');
+  console.error('❌ TELEGRAM_BOT_TOKEN відсутній');
   process.exit(1);
 }
 
-console.log('🚀 [server] Запуск бота...');
-console.log(`🟢 MODE=${NODE_ENV || 'development'} | TZ=${TZ || 'Europe/Kiev'}`);
-
-// ===== EXPRESS SERVER ДЛЯ WEBHOOK =====
+// Express
 const app = express();
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Webhook endpoints
 app.post('/webhooks/airtable', handleAirtableWebhook);
 app.post('/api/wayforpay/webhook', subscriptionWebhook);
-app.post('/api/tilda/user-status', async (req, res) => {
-  try {
-    const { tgId } = req.body;
-    
-    const user = await getUserByTgId(tgId);
-    if (!user) {
-      return res.json({ error: 'User not found' });
-    }
-    
-    const stats = await getUserStats(tgId);
-    const level = getProgressLevel(stats.totalPoints);
-    
-    // Funnel progress
-    const funnelProgress = await getFunnelProgress(tgId, tables.FREE_FUNNEL);
-    const funnelPercent = funnelProgress 
-      ? Math.round((funnelProgress.fields.current_step / funnelProgress.fields.total_steps) * 100)
-      : 0;
-    
-    res.json({
-      level_icon: level.icon,
-      level_name: level.userName,
-      total_points: stats.totalPoints,
-      progress: level.progress,
-      points_to_next: level.nextLevel ? level.nextLevel.pointsRequired - stats.totalPoints : 0,
-      streak: stats.currentStreak,
-      badges: user.fields.Badges || [],
-      funnel_progress: funnelPercent,
-      wheel_completed: stats.wheelCompleted,
-      sessions_completed: stats.completedSessions
-    });
-    
-  } catch (error) {
-    console.error('[api/tilda/user-status]', error);
-    res.status(500).json({ error: 'Internal error' });
-  }
-});
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// ✅ ВИПРАВЛЕНО: Admin endpoint для очистки кешу
+app.get('/health', (req, res) => res.json({ ok: true }));
 app.get('/admin/clear-cache', (req, res) => {
   try {
-    const cleared = clearAllUserCache(); 
-    res.json({ success: true, cleared });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    const cleared = clearAllUserCache();
+    res.json({ cleared });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
-const PORT_NUMBER = parseInt(PORT || '3000', 10);
+// Bot
+const bot = new Telegraf(TELEGRAM_BOT_TOKEN, { handlerTimeout: 15_000 });
 
-// ===== ІНІЦІАЛІЗАЦІЯ БОТА =====
-const bot = new Telegraf(TELEGRAM_BOT_TOKEN, {
-  handlerTimeout: 15_000,
-});
+bot.use(session({ defaultSession: () => ({ wheel: null, registration: null, ai: null }) }));
+bot.use(errorMiddleware);           // 1️⃣ Ловимо помилки
+bot.use(antiSpamMiddleware());      // 2️⃣ Захист від спаму
+bot.use(initMiddleware());          // 3️⃣ Auth + State (автоматично)
+bot.use(activityMiddleware);        // 4️⃣ Оновлення активності
+bot.use(checkAccessMiddleware());   // 5️⃣ Перевірка підписки
+bot.use(performanceMiddleware(2000)); // 6️⃣ Моніторинг швидкості
 
-// ===== MIDDLEWARE STACK =====
-bot.use(session({ 
-  defaultSession: () => ({
-    wheel: null,
-    onboarding: null,
-    ai: null
-  }) 
-}));
-bot.use(antiSpamMiddleware());
-bot.use(checkAccessMiddleware());
-bot.use(performanceMiddleware(2000));
-bot.use(initMiddleware());
-
-// ===== ГЛОБАЛЬНИЙ ERROR HANDLER =====
 bot.catch((err, ctx) => {
-  console.error('❌ [bot] Unhandled error:', {
-    error: err.message,
-    stack: err.stack?.split('\n')[0],
-    user: ctx.from?.id,
-    update: ctx.updateType
-  });
-  
-  try {
-    ctx.reply?.('❌ Виникла помилка. Спробуй ще раз або використай /start', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 Спробувати знову', callback_data: 'main_menu' }],
-          [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
-        ]
-      }
-    }).catch(() => {});
-  } catch (replyError) {
-    console.error('❌ [bot] Помилка відправки error message:', replyError.message);
-  }
+  console.error('❌ Error:', err.message, 'User:', ctx.from?.id);
+  ctx.reply('❌ Помилка. Спробуй /start').catch(() => {});
 });
 
-// ===== ЗАПУСК =====
+// Startup
 (async () => {
   try {
-    console.log('🔧 [server] Ініціалізація системи...');
-    
-    // 1️⃣ ТЕСТ ПІДКЛЮЧЕННЯ ДО AIRTABLE
-    console.log('📊 [server] Перевірка підключення до Airtable...');
     const db = await testConnection();
+    if (!db?.success) throw new Error('Airtable недоступний');
     
-    if (!db?.success) {
-      console.error('❌ [server] Airtable недоступний:', db?.error);
-      console.error('💡 [server] Перевір AIRTABLE_API_KEY та AIRTABLE_BASE_ID в .env');
-      process.exit(1);
-    }
+    await validateTables();
+    initRouter(bot);
+    initScheduler(bot);
     
-    console.log('✅ [server] Airtable підключено успішно');
-    
-    // 2️⃣ ВАЛІДАЦІЯ КРИТИЧНИХ ТАБЛИЦЬ
-    console.log('🔍 [server] Валідація таблиць...');
-    const validation = await validateTables();
-    
-    if (!validation.valid) {
-      console.warn('⚠️ [server] Деякі таблиці недоступні:');
-      validation.results
-        .filter(r => r.status === '❌')
-        .forEach(r => console.warn(`   ❌ ${r.table}: ${r.error}`));
-      console.warn('💡 [server] Бот продовжить роботу, але функціонал може бути обмежений');
-    } else {
-      console.log('✅ [server] Всі критичні таблиці доступні');
-    }
-    
-    // 3️⃣ ІНІЦІАЛІЗАЦІЯ РОУТЕРА
-    console.log('🎮 [server] Ініціалізація роутера...');
-    try {
-      initRouter(bot);
-      console.log('✅ [server] Роутер готовий');
-    } catch (routerError) {
-      console.error('❌ [server] Помилка роутера:', routerError.message);
-      throw routerError;
-    }
-
-    // 4️⃣ ЗАПУСК SCHEDULER
-    console.log('⏰ [server] Запуск планувальника...');
-    try {
-      initScheduler(bot);
-      console.log('✅ [server] Планувальник активовано');
-    } catch (schedulerError) {
-      console.warn('⚠️ [server] Помилка запуску планувальника:', schedulerError.message);
-      console.warn('💡 [server] Бот працюватиме без автоматичних нагадувань');
-    }
-
-    // 5️⃣ ОЧИЩЕННЯ WEBHOOK
-    console.log('🧹 [server] Очищення webhook...');
     await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+    await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
     
-    // 6️⃣ ЗАПУСК LONG POLLING
-    console.log('🚀 [server] Запуск long polling...');
-    await bot.launch({
-      allowedUpdates: ['message', 'callback_query'],
+    app.listen(PORT, () => {
+      console.log(`✅ Bot: @${bot.botInfo.username}`);
+      console.log(`✅ Server: http://localhost:${PORT}`);
     });
-    
-    // 7️⃣ ЗАПУСК EXPRESS SERVER
-    app.listen(PORT_NUMBER, () => {
-      console.log(`🌐 [server] Express server запущено на порту ${PORT_NUMBER}`);
-      console.log(`🔗 [server] Webhook URL: http://localhost:${PORT_NUMBER}/api/wayforpay/webhook`);
-      console.log(`🗑️ [server] Clear cache: http://localhost:${PORT_NUMBER}/admin/clear-cache`);
-    });
-    
-    console.log('');
-    console.log(`📱 Режим: ${NODE_ENV || 'development'}`);
-    console.log(`🌍 Часова зона: ${TZ || 'Europe/Kiev'}`);
-    console.log(`🤖 Bot ID: @${(await bot.telegram.getMe()).username}`);
-    console.log(`🌐 Webhook port: ${PORT_NUMBER}`);
-    console.log('');
-    
-  } catch (error) {
-    console.error('');
-    console.error('❌ КРИТИЧНА ПОМИЛКА ЗАПУСКУ');
-    console.error('Помилка:', error.message);
-    console.error('Stack:', error.stack);
-    console.error('');
+  } catch (e) {
+    console.error('❌ Startup:', e.message);
     process.exit(1);
   }
 })();
 
-// ===== GRACEFUL SHUTDOWN =====
+// Shutdown
 const shutdown = (signal) => async () => {
-  console.log('');
-  console.log(`🛑 ${signal} отримано - зупинка бота...`);
-  
-  try {
-    console.log('⏰ [shutdown] Зупинка планувальника...');
-    try {
-      stopScheduler();
-      console.log('✅ [shutdown] Планувальник зупинено');
-    } catch (schedulerError) {
-      console.warn('⚠️ [shutdown] Помилка зупинки планувальника:', schedulerError.message);
-    }
-    
-    console.log('🤖 [shutdown] Зупинка бота...');
-    await bot.stop(signal);
-    console.log('✅ [shutdown] Бот зупинено');
-    
-    console.log('');
-    console.log('👋 Зупинено чисто');
-    console.log('');
-    
-    process.exit(0);
-  } catch (error) {
-    console.error('');
-    console.error('❌ ПОМИЛКА ПРИ ЗУПИНЦІ');
-    console.error('Помилка:', error.message);
-    console.error('');
-    process.exit(1);
-  }
+  console.log(`🛑 ${signal}`);
+  stopScheduler();
+  await bot.stop(signal);
+  process.exit(0);
 };
 
 process.once('SIGINT', shutdown('SIGINT'));
 process.once('SIGTERM', shutdown('SIGTERM'));
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('');
-  console.error('🔴 [process] Unhandled Rejection:');
-  console.error('Promise:', promise);
-  console.error('Reason:', reason);
-  console.error('Stack:', reason?.stack);
-  console.error('');
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('');
-  console.error('🔴 [process] Uncaught Exception:');
-  console.error('Error:', error.message);
-  console.error('Stack:', error.stack);
-  console.error('');
-  
-  if (error.code === 'EADDRINUSE' || error.code === 'ECONNREFUSED') {
-    console.error('💀 [process] Критична помилка - завершення процесу');
-    process.exit(1);
-  }
-});
-
-process.on('warning', (warning) => {
-  console.warn('⚠️ [process] Warning:', warning.name);
-  console.warn('Message:', warning.message);
-  if (warning.stack) {
-    console.warn('Stack:', warning.stack);
-  }
-});
-
-console.log('📋 [process] Node.js версія:', process.version);
-console.log('💾 [process] Пам\'ять:', {
-  heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
-  heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`
-});
-console.log('🔧 [process] PID:', process.pid);
-console.log('');

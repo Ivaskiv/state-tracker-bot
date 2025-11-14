@@ -6,7 +6,6 @@ import { getBase, tables } from '../../config/database.js';
 import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
 import logger from '../../utils/logger.js';
-import users from '../../services/users.js';
 import { chat } from '../../services/openaiClient.js';
 import { AI_MENTOR_CONFIG } from './constantsAi.js';
 
@@ -154,10 +153,10 @@ export default function initAIMentor(bot) {
   bot.action('show_ai_mentor', async (ctx) => {
     try {
       await ctx.answerCbQuery();
-      const user = await users.getUserByTgId(ctx.from.id);
+      const user = await getUserByTgId(ctx.from.id);
       
       if (user) {
-        await users.updateUserFields(ctx.from.id, { Answer_Step: 'ai_mentor_active' });
+        await updateUserFields(ctx.from.id, { Answer_Step: 'ai_mentor_active' });
       }
       
       await showAIMentorChat(ctx);
@@ -169,10 +168,10 @@ export default function initAIMentor(bot) {
   bot.action('continue_ai_mentor', async (ctx) => {
     try {
       await ctx.answerCbQuery();
-      const user = await users.getUserByTgId(ctx.from.id);
+      const user = await getUserByTgId(ctx.from.id);
       
       if (user) {
-        await users.updateUserFields(ctx.from.id, { Answer_Step: 'ai_mentor_active' });
+        await updateUserFields(ctx.from.id, { Answer_Step: 'ai_mentor_active' });
       }
       
       await showAIMentorChat(ctx);
@@ -192,7 +191,7 @@ export default function initAIMentor(bot) {
       
       if (!text) return false;
       
-      const user = await users.getUserByTgId(tgId);
+      const user = await getUserByTgId(tgId);
       if (!user) return false;
       
       // Перевіряємо чи користувач у активному стані AI чату

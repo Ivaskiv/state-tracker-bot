@@ -1,7 +1,6 @@
 // src/features/subscription/service.js
 
 import { tables, selectFromTable, createRows, updateRows } from '../../config/database.js';
-import users from '../../services/users.js';
 import { addDays, toISODate } from '../../utils/helpers.js';
 import { SUBSCRIPTION_PLANS } from './constants.js';
 const USER_STATUS_FIELD = 'Subscription Status';
@@ -59,7 +58,7 @@ export const createTrialSubscription = async (tgId, userName = 'Користув
       },
     ]);
 
-    await users.updateUserFields(tgId, {
+    await updateUserFields(tgId, {
       [USER_STATUS_FIELD]: 'Trial',
       'Active_Subscription_Plan': plan.name,
       Start_Date: toISODate(start),
@@ -132,7 +131,7 @@ export const activatePaidSubscription = async (paymentData) => {
       },
     ]);
 
-    await users.updateUserFields(tgId, {
+    await updateUserFields(tgId, {
 [USER_STATUS_FIELD]: 'Active',
       'Active_Subscription_Plan': plan.name,
       Start_Date: toISODate(start),
@@ -156,7 +155,7 @@ export const syncUserSubscription = async (tgId) => {
     const sub = await findActiveSubscription(tgId);
 
     if (!sub) {
-      await users.updateUserFields(tgId, {
+      await updateUserFields(tgId, {
 [USER_STATUS_FIELD]: 'Inactive',
         'Active_Subscription_Plan': '',
         Start_Date: null,
@@ -172,7 +171,7 @@ export const syncUserSubscription = async (tgId) => {
     const end = sub.fields?.End_Date ? new Date(sub.fields.End_Date) : null;
     const active = !!end && end > new Date();
 
-    await users.updateUserFields(tgId, {
+    await updateUserFields(tgId, {
       [USER_STATUS_FIELD]: active ? 'Active' : 'Expired',
       'Active_Subscription_Plan': sub.fields?.Plan_Name || '',
       Start_Date: sub.fields?.Start_Date || null,
@@ -251,7 +250,7 @@ export const deactivateExpiredSubscriptions = async () => {
     // Якщо хочеш гнучко — створюй тимчасовий об’єкт plan із days
   }
   await createTrialSubscription(tgId, userName);
-  return users.getUserByTgId(String(tgId));
+  return getUserByTgId(String(tgId));
 }
 
 export async function hasActiveAccess(userOrTgId) {
@@ -261,7 +260,7 @@ export async function hasActiveAccess(userOrTgId) {
   if (status.active) return true;
 
   // 2) fallback: перевірка полів Users (на випадок розсинхрону)
-  const user = typeof userOrTgId === 'object' && userOrTgId.fields ? userOrTgId : await users.getUserByTgId(String(tgId));
+  const user = typeof userOrTgId === 'object' && userOrTgId.fields ? userOrTgId : await getUserByTgId(String(tgId));
   if (!user?.fields) return false;
   const s = String(user.fields[USER_STATUS_FIELD] || '').toLowerCase();
   const endIso = user.fields.End_Date;

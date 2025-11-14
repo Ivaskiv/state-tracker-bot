@@ -4,9 +4,9 @@ import cron from 'node-cron';
 import logger from '../utils/logger.js';
 import keyboards from '../utils/keyboards.js';
 import { getBase, tables } from '../config/database.js';
-import subscriptionController from '../features/subscription/controller.js';
+import subscriptionController from '../core/subscription/controller.js';
 import { CRON_SCHEDULES, SCHEDULE, SCHEDULER_MESSAGES } from '../config/constants.js';
-import { sendScheduledReminders } from '../features/freeVideoFunnel/flow.js';
+import { sendScheduledReminders } from '../features/free5videos/flow.js';
 
 const base = getBase();
 const TZ = SCHEDULE.TIMEZONE; 

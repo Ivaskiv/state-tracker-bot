@@ -1,169 +1,87 @@
-import { typingMiddleware } from '../utils/typing.js';
-import { isSpam } from '../utils/antiSpam.js';
-import { logError } from '../utils/errorHandler.js';
-import keyboards from '../utils/keyboards.js';
-import logger from '../utils/logger.js';
+// src/bot/middleware.js
+import { ensureUserExists, updateUserActivity, hasActiveAccess } from '../services/users.js';
 
-const safeMainMenu = () => {
-  try {
-    return keyboards?.mainMenuKeyboard?.() || undefined;
-  } catch (e) {
-    logger.warn('[middleware] Помилка завантаження меню:', e.message);
-    return undefined;
+// ========== AUTH + STATE ==========
+export const initMiddleware = () => async (ctx, next) => {
+  const tgId = ctx.from?.id;
+  if (!tgId) return next();
+  
+  ctx.state = ctx.state || {};
+  ctx.state.user = await ensureUserExists(tgId, ctx.from.first_name || '');
+  ctx.state.step = ctx.state.user.fields?.Answer_Step || 'idle';
+  ctx.state.isOnboarded = ctx.state.user.fields?.UserRegistered || false;
+  
+  await next();
+};
+
+// ========== ACCESS ==========
+export const checkAccessMiddleware = () => async (ctx, next) => {
+  const freeCommands = ['/start', '/help'];
+  if (freeCommands.includes(ctx.message?.text)) {
+    return next();
+  }
+  
+  const { user } = ctx.state;
+  if (!user) return next();
+  
+  ctx.state.hasAccess = hasActiveAccess(user);
+  
+  if (!ctx.state.hasAccess && ctx.callbackQuery?.data !== 'subscribe') {
+    return ctx.reply('❌ Підписка неактивна', {
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '💳 Оформити підписку', callback_data: 'subscribe' }
+        ]]
+      }
+    });
+  }
+  
+  await next();
+};
+
+// ========== ANTI-SPAM ==========
+const userTimestamps = new Map();
+const SPAM_THRESHOLD = 1000;
+
+export const antiSpamMiddleware = () => async (ctx, next) => {
+  const tgId = ctx.from?.id;
+  if (!tgId) return next();
+  
+  const now = Date.now();
+  const last = userTimestamps.get(tgId) || 0;
+  
+  if (now - last < SPAM_THRESHOLD) {
+    return ctx.answerCbQuery?.('⏳ Повільніше').catch(() => {});
+  }
+  
+  userTimestamps.set(tgId, now);
+  await next();
+};
+
+// ========== PERFORMANCE ==========
+export const performanceMiddleware = (warningMs = 2000) => async (ctx, next) => {
+  const start = Date.now();
+  await next();
+  const duration = Date.now() - start;
+  
+  if (duration > warningMs) {
+    console.warn('⚠️ Slow:', ctx.from?.id, ctx.updateType, `${duration}ms`);
   }
 };
 
-const typingMw = typingMiddleware?.() || (async (_ctx, next) => next());
-
-export const initMiddleware = () => {
-  return async (ctx, next) => {
-    const type = ctx.updateType;
-    const userId = ctx.from?.id;
-    const username = ctx.from?.username || ctx.from?.first_name || 'Unknown';
-    const timestamp = new Date().toISOString();
-
-    if (type === 'callback_query') {
-      const data = ctx.callbackQuery?.data;
-      logger.info(`[${type}] від ${userId} (@${username}) | callback: "${data}"`);
-    } else if (type === 'message') {
-      const text = ctx.message?.text?.slice(0, 100) || '[не текст]';
-      logger.info(`[${type}] від ${userId} (@${username}) | text: "${text}"`);
-    } else {
-      logger.info(`[${type}] від ${userId} (@${username})`);
-    }
-
-    try {
-      if (type === 'message' && ctx.message?.text) {
-        try {
-          await typingMw(ctx, async () => {});
-        } catch (typingError) {
-          logger.warn('[middleware] Помилка при показанні typing:', typingError.message);
-        }
-      }
-
-      await next();
-      logger.debug(`[${type}] успішно оброблено для ${userId}`);
-    } catch (error) {
-      const errorContext = {
-        userId,
-        updateType: type,
-        username,
-        timestamp,
-        data: type === 'callback_query'
-          ? ctx.callbackQuery?.data
-          : ctx.message?.text?.slice(0, 100),
-      };
-
-      logError(error, errorContext);
-
-      try {
-        if (ctx.callbackQuery) {
-          try {
-            await ctx.answerCbQuery('❌ Сталася помилка');
-          } catch (cbError) {
-            logger.warn('[middleware] Помилка answerCbQuery:', cbError.message);
-          }
-        }
-
-        if (ctx.chat?.id) {
-          await ctx.reply(
-            '❌ Виникла помилка. Спробуй ще раз або натисни /start',
-            safeMainMenu()
-          );
-        }
-      } catch (replyError) {
-        logger.error('[middleware] Не вдалося відправити помилку користувачу', {
-          userId,
-          originalError: error.message,
-          replyError: replyError.message,
-        });
-      }
-    }
-  };
+// ========== ACTIVITY ==========
+export const activityMiddleware = async (ctx, next) => {
+  await next();
+  const tgId = ctx.from?.id;
+  if (tgId) updateUserActivity(tgId).catch(() => {});
 };
 
-export const performanceMiddleware = (thresholdMs = 2000) => {
-  return async (ctx, next) => {
-    const userId = ctx.from?.id;
-    const type = ctx.updateType;
-    const t0 = Date.now();
-
-    try {
-      await next();
-    } finally {
-      const executionTime = Date.now() - t0;
-
-      if (executionTime > thresholdMs) {
-        logger.warn(`[performance] Повільна операція`, {
-          updateType: type,
-          userId,
-          executionTimeMs: executionTime,
-          threshold: thresholdMs,
-        });
-      }
-      if (executionTime > 500) {
-        logger.debug(`[performance] ${type} для ${userId} займав ${executionTime}ms`);
-      }
-    }
-  };
-};
-
-export const antiSpamMiddleware = () => {
-  return async (ctx, next) => {
-    const userId = ctx.from?.id;
-    const data = ctx.callbackQuery?.data;
-    const type = ctx.updateType;
-
-    if (type !== 'callback_query' || !userId || !data) {
-      return next();
-    }
-
-    if (isSpam(userId, data)) {
-      logger.warn(`[antiSpam] Заблокована спама`, {
-        userId,
-        callback: data,
-        timestamp: new Date().toISOString(),
-      });
-
-      try {
-        await ctx.answerCbQuery('⏳ Зачекай трохи, не спішіш');
-      } catch (cbError) {
-        logger.warn('[antiSpam] Помилка answerCbQuery:', cbError.message);
-      }
-      return;
-    }
-
+// ========== ERROR ==========
+export const errorMiddleware = async (ctx, next) => {
+  try {
     await next();
-  };
-};
-
-export const checkAccessMiddleware = () => {
-  return async (ctx, next) => {
-    const protectedActions = [
-      'start_morning', 'start_evening',
-      'show_ai_mentor', 'show_weekly_report',
-      'continue_morning', 'continue_evening', 
-      'show_monthly_report',
-      'wheel_start', 'wheel_continue'
-    ];
-    
-const data = ctx.callbackQuery?.data || ctx.message?.text;
-    if (!protectedActions.includes(data)) return next();
-    if (protectedActions.includes(data) && !hasActiveAccess(user)) {
-  await ctx.reply('⚠️ Доступ завершено. Пройди 5 відео!', keyboards.trialExpiredKeyboard());
-  return;
-}
-    const user = await getUserByTgId(ctx.from.id);
-    if (!hasActiveAccess(user)) {
-      await ctx.reply('⚠️ Доступ завершено. Пройди 5 відео або підпишись!', keyboards.trialExpiredKeyboard());
-      return;
-    }
-    return next();
-  };
-};
-export default {
-  initMiddleware,
-  performanceMiddleware,
-  antiSpamMiddleware,
-  checkAccessMiddleware
+  } catch (e) {
+    console.error('❌', e.message, 'User:', ctx.from?.id);
+    await ctx.reply('❌ Помилка. /start').catch(() => {});
+  }
 };

@@ -1,4 +1,4 @@
-// 📁 src/features/freeVideoFunnel/database.js
+// 📁 src/features/free5videos/database.js
 // Airtable-only CRUD для прогресу відео-воронки
 
 import { getBase, tables, getOneByFormula, createRows, updateRows } from '../../config/database.js';

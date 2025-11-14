@@ -3,9 +3,12 @@ src
 config
   constants.js
   database.js
+  funnels.js
   prompts.js
   airtableClient.js
 features
+  miniCourse
+    index.js
   .DS_Store
   aiMentor
     handlers.js
@@ -16,16 +19,12 @@ features
     constants.js
     flow.js
     service.js
-    sync.js
     index.js
     config.js
     controller.js
-    repo.js
   wheelBalance
     constants.js
     database.js
-    visualization.js
-    reminders.js
     flow.js
     service.js
     index.js
@@ -50,19 +49,20 @@ features
     index.js
     wayforpay.js
     controller.js
-    shared.js
   dashboard
     constants.js
     index.js
-  freeVideoFunnel
+  free5videos
     constants.js
     database.js
     flow.js
     service.js
     index.js
+    config.js
     controller.js
-  onboarding
+  registration
     constants.js
+    handlers.js
     service.js
     index.js
     config.js
@@ -90,14 +90,29 @@ utils
 bot
   router.js
   middleware.js
+funnels
+  trial7days
+  registration
+    constants.js
+    flow.js
+    handlers.js
+  video5
+  universalHandler.js
 webhooks
   airtable.js
+  tilda.js
 services
   goals.js
   responses.js
+  reminderScheduler.js
   questionEngine.js
+  tilda.js
   users.js
   openaiClient.js
+  gamificationHub.js
   scheduler.js
+  funnelEngine.js
+  progressTracker.js
+  analyticsLogger.js
   stats.js
   callbacks.js

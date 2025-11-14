@@ -3,7 +3,6 @@
 import service from './service.js';
 import keyboards from '../../utils/keyboards.js';
 import logger from '../../utils/logger.js';
-import users from '../../services/users.js';
 import { getBase, tables } from '../../config/database.js';
 import {
   SUBSCRIPTION_PLANS, 
@@ -45,7 +44,7 @@ export const handleSubscriptionInfo = async (ctx) => {
   const tgId = ctx.from.id;
 
   try {
-    const user = await users.getUserByTgId(tgId);
+    const user = await getUserByTgId(tgId);
     if (!user) {
       await ctx.reply('Спочатку зареєструйся командою /start');
       return;
@@ -110,7 +109,7 @@ export const handleSubscribe = async (ctx, planKey) => {
   const tgId = ctx.from.id;
 
   try {
-    const user = await users.getUserByTgId(tgId);
+    const user = await getUserByTgId(tgId);
     if (!user) {
       try { await ctx.answerCbQuery(); } catch {}
       await ctx.reply('Спочатку зареєструйся командою /start');

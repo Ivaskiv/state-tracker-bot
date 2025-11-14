@@ -1,7 +1,7 @@
 //src/services/gamificationHub.js
 // Централізована система нагород
-import levelsService from '../features/gamification/levels.js';
-import badgesService from '../features/gamification/badges.js';
+import levelsService from '../core/gamification/levels.js';
+import badgesService from '../core/gamification/badges.js';
 import logger from '../utils/logger.js';
 
 const REWARDS = {

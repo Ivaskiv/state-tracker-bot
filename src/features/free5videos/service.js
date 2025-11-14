@@ -1,4 +1,4 @@
-// 📁 src/features/freeVideoFunnel/service.js
+// 📁 src/features/free5videos/service.js
 // # Логіка перевірки підписки, відстеження прогресу
 // Логіка перевірки підписки, прогрес, бонус
 import * as storage from './database.js';

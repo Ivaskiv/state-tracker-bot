@@ -1,4 +1,4 @@
-// src/features/onboarding/controller.js
+// src/features/registration/controller.js
 import * as QE from '../../services/questionEngine.js';
 import keyboards from '../../utils/keyboards.js';
 import { ONBOARDING_CONFIG } from './config.js';
@@ -9,7 +9,7 @@ import callbacks from '../../services/callbacks.js';
 import { createUser, getUserByTgId, updateUserFields, hasActiveAccess } from '../../services/users.js'; 
 
 import { getRegistrationData } from './service.js'; 
-import * as gamification from '../gamification/rewards.js'; 
+import * as gamification from '../../core/gamification/rewards.js'; 
 import logger from '../../utils/logger.js';
 
 const tgIdOf = (ctx) => String(ctx.from?.id || ctx.chat?.id);
@@ -251,7 +251,7 @@ export const onText = async (ctx) => {
 export const onCallback = async () => true;
 
 export const start5v = async (ctx) => {
-  const { sendWelcomeMessage } = await import('../freeVideoFunnel/flow.js');
+  const { sendWelcomeMessage } = await import('../free5videos/flow.js');
   await sendWelcomeMessage(ctx);
 };
 

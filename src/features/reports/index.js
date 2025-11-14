@@ -1,11 +1,10 @@
 // src/features/reports/index.js
 
 import { getBase, tables } from '../../config/database.js';
-// import keyboards, { weeklyReportMenuKeyboard, monthlyReportMenuKeyboard } from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
 import logger from '../../utils/logger.js';
-import users from '../../services/users.js';
 import keyboards from '../../utils/keyboards.js';
+import { getUserByTgId } from '../../services/users.js';
 
 const base = getBase();
 
@@ -14,7 +13,7 @@ const base = getBase();
  */
 const getWeeklyReport = async (tgId) => {
   try {
-    const user = await users.getUserByTgId(tgId);
+    const user = await getUserByTgId(tgId);
     if (!user) return null;
     
     // Отримуємо дані за останні 7 днів
@@ -63,7 +62,7 @@ const getWeeklyReport = async (tgId) => {
  */
 const getMonthlyReport = async (tgId) => {
   try {
-    const user = await users.getUserByTgId(tgId);
+    const user = await getUserByTgId(tgId);
     if (!user) return null;
     
     // Отримуємо дані за останні 30 днів

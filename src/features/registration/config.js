@@ -1,4 +1,4 @@
-// src/features/onboarding/config.js
+// src/features/registration/config.js
 import { tables } from '../../config/database.js';
 import keyboards from '../../utils/keyboards.js';
 import {
@@ -60,7 +60,7 @@ const QUESTIONS = [
 export const ONBOARDING_CONFIG = {
   tableName: tables.USERS,
   questions: QUESTIONS,
-  questionType: 'onboarding',
+  questionType: 'registration',
   fieldMap: {
     0: 'User Name',
     1: 'Email',

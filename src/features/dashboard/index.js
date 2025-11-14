@@ -5,7 +5,7 @@ import keyboards from '../../utils/keyboards.js';
 import { typing } from '../../utils/typing.js';
 import { formatDate, getDaysWord } from '../../utils/helpers.js';
 import { getUserStats } from '../../services/stats.js';
-import { MENU_TEXTS, MESSAGES } from '../onboarding/constants.js';
+import { MENU_TEXTS, MESSAGES } from '../registration/constants.js';
 import { startWheelBalance } from '../wheelBalance/flow.js';
 import { DASHBOARD_MESSAGES } from './constants.js';
 import logger from '../../utils/logger.js';
@@ -163,7 +163,7 @@ export const showCapabilities = async (ctx) => {
 
 export const showMyProgress = async (ctx) => {
   try {
-    const gamification = (await import('../gamification/index.js')).default;
+    const gamification = (await import('../../core/gamification/index.js')).default;
     await gamification.showAchievements(ctx);
     return true;
   } catch (e) {
@@ -187,7 +187,7 @@ export const showInstructions = async (ctx) => {
 
 export const showSubscription = async (ctx) => {
   try {
-    const controller = (await import('../subscription/controller.js')).default;
+    const controller = (await import('../../core/subscription/controller.js')).default;
     await controller.handleSubscriptionInfo(ctx);
     return true;
   } catch (e) {

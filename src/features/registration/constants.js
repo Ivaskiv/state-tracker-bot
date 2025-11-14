@@ -1,4 +1,4 @@
-// src/features/onboarding/constants.js
+// src/features/registration/constants.js
 import { CONFIG, TIMEZONES as TZ_LIST, getTzLabel, SCHEDULE, USER_STATUS } from '../../config/constants.js';
 
 import {
@@ -176,21 +176,36 @@ export const MENU = MENU_BUTTONS;
 
 // ───────────────────────────────────────────────────────────────────────────────
 export const CALLBACKS = Object.freeze({
-  START_REGISTRATION: 'start_registration',
-  SKIP_REGISTRATION: 'skip_registration',
-  CONFIRM_NAME: 'confirm_name',
-  CHANGE_NAME: 'change_name',
-  SKIP_NAME: 'skip_name',
-  SKIP_EMAIL: 'skip_email',
-  BACK_EMAIL: 'back_email',
-  SKIP_PHONE: 'skip_phone',
-  BACK_PHONE: 'back_phone',
-  TZ_PREFIX: 'tz_',
-  TRIAL: 'trial',
-  WEEK: 'week',
-  MONTH: 'month',
-  YEAR: 'year',
-  NO_SUBSCRIPTION: 'no_subscription',
+  // START_REGISTRATION: 'start_registration',
+  // SKIP_REGISTRATION: 'skip_registration',
+  // CONFIRM_NAME: 'confirm_name',
+  // CHANGE_NAME: 'change_name',
+  // SKIP_NAME: 'skip_name',
+  // SKIP_EMAIL: 'skip_email',
+  // BACK_EMAIL: 'back_email',
+  // SKIP_PHONE: 'skip_phone',
+  // BACK_PHONE: 'back_phone',
+  // TZ_PREFIX: 'tz_',
+  // TRIAL: 'trial',
+  // WEEK: 'week',
+  // MONTH: 'month',
+  // YEAR: 'year',
+  // NO_SUBSCRIPTION: 'no_subscription',
+  TZ_PREFIX: 'ob_tz_',
+  SKIP_EMAIL: 'ob_skip_email',
+  SKIP_PHONE: 'ob_skip_phone',
+  TRIAL: 'ob_plan_trial',
+  WEEK: 'ob_plan_week',
+  MONTH: 'ob_plan_month',
+  YEAR: 'ob_plan_year',
+  NO_SUBSCRIPTION: 'ob_no_subscription',
+  START_REGISTRATION: 'ob_start_reg',
+  SKIP_REGISTRATION: 'ob_skip_reg',
+  CONFIRM_NAME: 'ob_confirm_name',
+  CHANGE_NAME: 'ob_change_name',
+  BACK_EMAIL: 'ob_back_email',
+  BACK_PHONE: 'ob_back_phone',
+  SKIP_NAME: 'ob_skip_name',
 });
 
 export const BUTTONS = Object.freeze({

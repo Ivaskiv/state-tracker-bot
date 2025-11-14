@@ -331,7 +331,7 @@ const completeWheelProcess = async (tgId, wheelId, ctx) => {
     await ctx.reply(completionMessage, keyboards.wheelCompletedKeyboard());
 
     try {
-      const rewardsService = (await import('../gamification/rewards.js')).default;
+      const rewardsService = (await import('../../core/gamification/rewards.js')).default;
       await rewardsService.rewardWheel(tgId, ctx.telegram);
     } catch (e) {
       logger.warn('[wheelBalance] ⚠️ Помилка нагородження:', e.message);

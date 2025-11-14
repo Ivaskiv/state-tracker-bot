@@ -1,16 +1,16 @@
 // src/bot/router.js
 
-import initOnboarding from '../features/onboarding/index.js';
+import initOnboarding from '../features/registration/index.js';
 import initDailySessions from '../features/dailySessions/index.js';
 import initWheelBalance from '../features/wheelBalance/index.js';
 import initAIMentor from '../features/aiMentor/index.js';
-import initSubscription from '../features/subscription/index.js';
+import initSubscription from '../core/subscription/index.js';
 import * as dashboard from '../features/dashboard/index.js';
 import initReports from '../features/reports/index.js';
 import initAffirmations from '../features/affirmations/index.js';
 import logger from '../utils/logger.js';
-import initGamification from '../features/gamification/index.js';
-import initFreeVideoFunnel from '../features/freeVideoFunnel/index.js';
+import initGamification from '../core/gamification/index.js';
+import initFreeVideoFunnel from '../features/free5videos/index.js';
 
 export const initRouter = (bot) => {
   logger.info('🤖 [router] Підключення модулів…');

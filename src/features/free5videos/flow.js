@@ -1,4 +1,4 @@
-// 📁 src/features/freeVideoFunnel/flow.js
+// 📁 src/features/free5videos/flow.js
 // Послідовність повідомлень та кнопки
 import * as service from './service.js';
 import { MESSAGES, VIDEOS, TOTAL_VIDEOS, CHANNEL_URL, TILDA_PROFILE_URL, TILDA_FUNNEL_URL } from './constants.js';

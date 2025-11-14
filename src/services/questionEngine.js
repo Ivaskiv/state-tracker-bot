@@ -1,6 +1,6 @@
 // src/services/questionEngine.js
 // 🎯 УНІВЕРСАЛЬНИЙ QUESTION ENGINE
-// Одна функція для всіх типів питань (onboarding, daily, wheel)
+// Одна функція для всіх типів питань (registration, daily, wheel)
 
 import { getBase, tables, updateRows } from '../config/database.js';
 import logger from '../utils/logger.js';
@@ -12,7 +12,7 @@ const base = getBase();
  * 
  * @param {Object} config - конфігурація модуля
  *   config.questions[] - масив питань
- *   config.questionType - для логування (наприклад 'morning', 'onboarding')
+ *   config.questionType - для логування (наприклад 'morning', 'registration')
  * @param {number} stepIndex - індекс питання (0-based)
  * @returns {Object} питання або null
  */

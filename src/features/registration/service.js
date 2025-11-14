@@ -1,4 +1,4 @@
-// src/features/onboarding/service.js
+// src/features/registration/service.js
 
 import { getBase, tables } from '../../config/database.js';
 import logger from '../../utils/logger.js';
@@ -18,7 +18,7 @@ export const getRegistrationData = async (tgId) => {
     if (!user.length) return null;
     return user[0].fields;
   } catch (error) {
-    logger.error('[onboarding/service] getUserRegistrationData:', error);
+    logger.error('[registration/service] getUserRegistrationData:', error);
     return null;
   }
 };
@@ -32,5 +32,5 @@ export const getOnboardingStep = (userData) => {
 };
 
 export const sendWelcomeEmail = async (email, userName) => {
-  logger.info(`[onboarding/service] welcome email -> ${email} (${userName})`);
+  logger.info(`[registration/service] welcome email -> ${email} (${userName})`);
 };
