@@ -8,7 +8,7 @@ export const startHandler = async (ctx) => {
   
   // Вже зареєстрований
   if (isOnboarded) {
-    return ctx.reply('Привіт! 👋', keyboards.mainMenu());
+    return ctx.reply('Привіт! 👋', keyboards.mainMenuKeyboard());
   }
   
   // Продовжуємо онбординг
@@ -74,7 +74,7 @@ export const nameActions = {
       phone: null,
     });
     
-    await ctx.reply('✅ Реєстрація завершена!', keyboards.mainMenu());
+    await ctx.reply('✅ Реєстрація завершена!', keyboards.mainMenuKeyboard());
   }
 };
 
@@ -113,7 +113,7 @@ export const textHandler = async (ctx) => {
         phone: text,
       });
       
-      await ctx.reply('✅ Реєстрація завершена!', keyboards.mainMenu());
+      await ctx.reply('✅ Реєстрація завершена!', keyboards.mainMenuKeyboard());
     }
   };
   

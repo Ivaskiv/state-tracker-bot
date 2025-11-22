@@ -11,7 +11,6 @@ import {
   antiSpamMiddleware, 
   checkAccessMiddleware, 
   errorMiddleware,
-  activityMiddleware
  } from './src/bot/middleware.js';
 import { testConnection, validateTables } from './src/config/database.js';
 import { initScheduler, stopScheduler } from './src/services/scheduler.js';
@@ -48,7 +47,6 @@ bot.use(session({ defaultSession: () => ({ wheel: null, registration: null, ai: 
 bot.use(errorMiddleware);           // 1️⃣ Ловимо помилки
 bot.use(antiSpamMiddleware());      // 2️⃣ Захист від спаму
 bot.use(initMiddleware());          // 3️⃣ Auth + State (автоматично)
-bot.use(activityMiddleware);        // 4️⃣ Оновлення активності
 bot.use(checkAccessMiddleware());   // 5️⃣ Перевірка підписки
 bot.use(performanceMiddleware(2000)); // 6️⃣ Моніторинг швидкості
 

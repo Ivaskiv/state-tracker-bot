@@ -6,14 +6,22 @@ import { MESSAGES, CALLBACKS, PITCH_TILDA, shouldShowPitch } from './constants.j
 import { getUserStats } from '../../services/stats.js';
 import { formatDate, getDaysWord, parseStartPayload } from '../../utils/helpers.js';
 import callbacks from '../../services/callbacks.js';
-import { createUser, getUserByTgId, updateUserFields, hasActiveAccess } from '../../services/users.js'; 
-
-import { getRegistrationData } from './service.js'; 
-import * as gamification from '../../core/gamification/rewards.js'; 
+import { 
+  createUser, 
+  getUserByTgId, 
+  updateUserFields, 
+  hasActiveAccess,
+  activateTrial 
+} from '../../services/users.js';
+import { getRegistrationData } from './service.js';
 import logger from '../../utils/logger.js';
 
 const tgIdOf = (ctx) => String(ctx.from?.id || ctx.chat?.id);
 const cfgWithRecord = (recordId) => ({ ...ONBOARDING_CONFIG, recordId });
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
 
 const buildWelcomeBackText = ({
   userName,
@@ -41,8 +49,7 @@ const buildWelcomeBackText = ({
     `📊 Остання сесія — ${lastStr}\n\n` +
     `💰 Підписка — ${subscriptionLabel}\n\n` +
     `🛞 Нагадую:\n` +
-    `Я — твій AI-ментор. Допомагаю тримати фокус і рухатись до балансу.\n` +
-    `Підтримувати твою мотивацію, баланс і регулярний прогрес у головних сферах життя.\n\n` +
+    `Я — твій AI-ментор. Допомагаю тримати фокус і рухатись до балансу.\n\n` +
     `Можеш обрати дію в меню нижче — або просто чекати на автоматичні нагадування.`
   );
 };
@@ -84,13 +91,20 @@ const writeAnswerAndMove = async (ctx, rawAnswer) => {
   await QE.saveAnswer(tgId, cfgWithRecord(recordId), currentIndex, processed);
 
   const stepNext = QE.getNextStep(ONBOARDING_CONFIG, currentIndex);
+  
   if (stepNext.isCompleted) {
-    await ctx.reply(stepNext.completionMessage || '✅ Готово!', keyboards.afterRegistrationKeyboard());
+    // ✅ АКТИВУЄМО TRIAL ПІСЛЯ ЗАВЕРШЕННЯ РЕЄСТРАЦІЇ
+    await activateTrial(tgId, 7);
+    
+    await ctx.reply(
+      stepNext.completionMessage || '✅ Реєстрація завершена!',
+      keyboards.afterRegistrationKeyboard()
+    );
     return true;
   }
 
   const nextQ = stepNext.nextQuestion;
-  const text = `${nextQ.emoji || '❓'} *${nextQ.title}*\n\n${nextQ.question}${nextQ.hint ? `\n\n💡 ${q.hint}` : ''}`;
+  const text = `${nextQ.emoji || '❓'} *${nextQ.title}*\n\n${nextQ.question}${nextQ.hint ? `\n\n💡 ${nextQ.hint}` : ''}`;
   const kb = QE.getKeyboardForQuestion(nextQ);
   await ctx.reply(text, { parse_mode: 'Markdown', ...kb });
   return true;
@@ -121,6 +135,11 @@ const sendWelcomeBack = async (ctx, user) => {
   }
   return true;
 };
+
+// ═══════════════════════════════════════════════════════════
+// MAIN START HANDLER
+// ═══════════════════════════════════════════════════════════
+
 export const start = async (ctx) => {
   try {
     const tgId = tgIdOf(ctx);
@@ -130,69 +149,69 @@ export const start = async (ctx) => {
       ctx.state?.rawPayload || 
       ctx.message?.text?.split(' ')[1] || 
       '';
+    
     const payload = parseStartPayload(rawPayload);
-    console.log('[start] 🎯 Payload:', { raw: rawPayload, parsed: payload });
+    logger.info('[start] 🎯 Payload:', { raw: rawPayload, parsed: payload });
 
-    // 1) Перевірка користувача з service.js
+    // 1️⃣ Отримуємо дані користувача
     const userData = await getRegistrationData(tgId);
     
-if (!userData) {
-  console.log('[start] 📝 Новий користувач → створюємо профіль');
-  // const nowIso = new Date().toISOString();
+    // 2️⃣ НОВИЙ КОРИСТУВАЧ
+    if (!userData) {
+      logger.info('[start] 📝 Новий користувач → створюємо профіль');
+      
+      await createUser(tgId, firstName);
 
-  // const newUserFields = {
-  //   'User Name': firstName,
-  //   Status: 'New User',
-  //   UserRegistered: false,
-  //   'Subscription Status': 'New',
-  //   Answer_Step: 'Registration',
-  //   Last_Activity: nowIso,
-  // };
+      // Показуємо pitch якщо з Tilda
+      if (shouldShowPitch(payload, { fields: {} })) {
+        await ctx.reply(PITCH_TILDA);
+      }
 
-  await createUser(tgId, firstName);
-
-  // 🎮 Гейміфікація
-  await gamification.rewardRegistration(tgId);
-
-  // 📊 Attribution (але треба імпорт і nowIso)
-  if (payload.source) {
-    await upsertAttribution(tgId, {
-      source: payload.source,
-      segment: payload.segment,
-      utm: payload.utm,
-      timestamp: nowIso,
-    });
-  }
-
-  if (shouldShowPitch(payload, { fields: {} })) {
-    await ctx.reply(PITCH_TILDA);
-  }
-
-  await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
-  return askCurrent(ctx);
-}
-
-    // 2) Користувач існує — продовжити з поточного кроку
-    const step = userData.Answer_Step || 'ob_name';
-    const isOnboarding = /^ob_/i.test(step);
-
-    if (isOnboarding) {
-      console.log('[start] 📝 Продовження онбордингу з кроку:', step);
       await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
       return askCurrent(ctx);
     }
 
-    // 3) Спец-пейлоади з Tilda
+    // 3️⃣ КОРИСТУВАЧ ІСНУЄ — ПЕРЕВІРЯЄМО СТАТУС
+    const step = userData.Answer_Step || 'ob_name';
+    const isOnboarding = /^ob_/i.test(step);
+    const isRegistered = userData.UserRegistered === true;
+
+    // 3.1 — Незавершена реєстрація
+    if (isOnboarding && !isRegistered) {
+      logger.info('[start] 📝 Продовження онбордингу з кроку:', step);
+      
+      if (shouldShowPitch(payload, { fields: userData })) {
+        await ctx.reply(PITCH_TILDA);
+      }
+      
+      await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
+      return askCurrent(ctx);
+    }
+
+    // 3.2 — Реєстрація завершена, але немає підписки
+    const user = await getUserByTgId(tgId);
+    const hasAccess = hasActiveAccess(user);
+    
+    if (isRegistered && !hasAccess) {
+      logger.info('[start] 🧪 Користувач без підписки → активуємо trial');
+      
+      await activateTrial(tgId, 7);
+      
+      await ctx.reply(
+        '🎉 Активовано пробний період на 7 днів!\n\n' +
+        'Почни з «Колеса балансу» 🎯',
+        keyboards.wheelCtaInline()
+      );
+      return;
+    }
+
+    // 3.3 — Спец-пейлоади з Tilda
     if (payload.source === 'tilda' && payload.segment === 'burnout') {
-      console.log('[start] 🎬 Маршрутизація → 5-video funnel');
+      logger.info('[start] 🎬 Маршрутизація → 5-video funnel');
       
       await ctx.reply(
         `👋 Вітаю, ${firstName}!\n\n` +
         `Це 5-денний курс «Поверни себе з вигорання».\n\n` +
-        `Ти отримаєш:\n` +
-        `🎥 5 потужних відео\n` +
-        `💪 Практичні завдання\n` +
-        `🎁 7 днів AI-наставника при завершенні\n\n` +
         `Готова почати? 👇`,
         {
           reply_markup: {
@@ -207,32 +226,37 @@ if (!userData) {
     }
 
     if (payload.raw.startsWith('trial7_from_tilda')) {
-      console.log('[start] 🎁 Маршрутизація → 7-day trial + wheel');
+      logger.info('[start] 🎁 Маршрутизація → 7-day trial + wheel');
       
-      // Активувати 7-денний trial
       await activateTrial(tgId, 7);
       
       await ctx.reply(
         `🎉 Активовано 7 днів з AI-наставником!\n\n` +
-        `Перший крок — заповнити «Колесо балансу».\n` +
-        `Це швидкий аудит 8 сфер життя (5-10 хвилин).\n\n` +
+        `Перший крок — заповнити «Колесо балансу».\n\n` +
         `Готова? 👇`,
         keyboards.wheelCtaInline()
       );
       return;
     }
 
-    // 4) Повністю зареєстрований — welcome back
-    console.log('[start] 🏠 Маршрутизація → General welcome back');
+    // 4️⃣ ПОВНІСТЮ ЗАРЕЄСТРОВАНИЙ — WELCOME BACK
+    logger.info('[start] 🏠 Маршрутизація → General welcome back');
     await sendWelcomeBack(ctx, { fields: userData });
 
-  } catch (err) {
-    logger.error('[start]', err);
-    await ctx.reply('❌ Помилка. Спробуй ще раз: /start');
-  }
-};
+} catch (err) {
+  logger.error('[start] ❌ ПОМИЛКА:', err.message);
+  logger.error('[start] Stack:', err.stack);
+  
+  await ctx.reply(
+    '❌ Виникла помилка при реєстрації.\n\n' +
+    'Спробуй ще раз: /start\n\n' +
+    'Якщо проблема повториться — напиши @vira_333'
+  );
+}};
 
-
+// ═══════════════════════════════════════════════════════════
+// TEXT & CALLBACK HANDLERS
+// ═══════════════════════════════════════════════════════════
 
 export const onText = async (ctx) => {
   const tgId = tgIdOf(ctx);
@@ -250,27 +274,10 @@ export const onText = async (ctx) => {
 
 export const onCallback = async () => true;
 
-export const start5v = async (ctx) => {
-  const { sendWelcomeMessage } = await import('../free5videos/flow.js');
-  await sendWelcomeMessage(ctx);
-};
+// ═══════════════════════════════════════════════════════════
+// CALLBACK REGISTRATION
+// ═══════════════════════════════════════════════════════════
 
-export const startTrial = async (ctx) => {
-  const tgId = ctx.from.id;
-  const user = await getUserByTgId(tgId);
-  
-  if (!hasActiveAccess(user)) {
- await activateTrial(tgId, 7);
-  }
-  await ctx.reply(MESSAGES.TRIAL_WELCOME, keyboards.wheelCtaInline());
-};
-
-// ДОДАТИ callbacks
-callbacks.on('start_5video', start5v);
-callbacks.on('start_7day_trial', startTrial);
-// ═══════════════════════════════════════════════════════════════════════════════
-// 🔘 CALLBACKS REGISTRATION
-// ═══════════════════════════════════════════════════════════════════════════════
 callbacks.onPrefix(CALLBACKS.TZ_PREFIX, (ctx, data) => {
   const slug = data.slice(CALLBACKS.TZ_PREFIX.length);
   return writeAnswerAndMove(ctx, slug);
@@ -289,13 +296,6 @@ callbacks.on(CALLBACKS.WEEK, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.WEEK));
 callbacks.on(CALLBACKS.MONTH, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.MONTH));
 callbacks.on(CALLBACKS.YEAR, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.YEAR));
 callbacks.on(CALLBACKS.NO_SUBSCRIPTION, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.NO_SUBSCRIPTION));
-callbacks.on(CALLBACKS.START_REGISTRATION, (ctx) => askCurrent(ctx));
-callbacks.on(CALLBACKS.SKIP_REGISTRATION, (ctx) => askCurrent(ctx));
-callbacks.on(CALLBACKS.CONFIRM_NAME, (ctx) => askCurrent(ctx));
-callbacks.on(CALLBACKS.CHANGE_NAME, (ctx) => askCurrent(ctx));
-callbacks.on(CALLBACKS.BACK_EMAIL, (ctx) => askCurrent(ctx));
-callbacks.on(CALLBACKS.BACK_PHONE, (ctx) => askCurrent(ctx));
-callbacks.on(CALLBACKS.SKIP_NAME, (ctx) => askCurrent(ctx));
 
 callbacks.on('start_wheel_now', async (ctx) => {
   const { startWheelFromText } = await import('../dashboard/index.js');
@@ -304,12 +304,11 @@ callbacks.on('start_wheel_now', async (ctx) => {
 
 callbacks.on('wheel_later', async (ctx) => {
   await ctx.answerCbQuery('✅ Добре!');
-  const message =
+  await ctx.reply(
     `✅ Без проблем!\n\n` +
-    `🎡 Колесо чекає на тебе в меню:\n` +
-    `👉 **🎯 Колесо балансу**\n\n` +
-    `Займе всього 5–10 хвилин, а результат допоможе визначити пріоритети на місяць 📊`;
-  await ctx.reply(message, keyboards.mainMenuKeyboard());
+    `🎡 Колесо чекає на тебе в меню 📊`,
+    keyboards.mainMenuKeyboard()
+  );
   return true;
 });
 
@@ -323,8 +322,7 @@ callbacks.on('skip_first_wheel', async (ctx) => {
   await ctx.answerCbQuery();
   await ctx.reply(
     `⚠️ Колесо балансу обов'язкове!\n\n` +
-    `Без нього пробний період не активується.\n` +
-    `Займе лише 5-10 хвилин.\n\n` +
+    `Без нього пробний період не активується.\n\n` +
     `Готова почати?`,
     {
       reply_markup: {
@@ -338,3 +336,5 @@ callbacks.on('skip_first_wheel', async (ctx) => {
 });
 
 export default { start, onText, onCallback };
+
+console.log('✅ [registration/controller] Завантажено');

@@ -39,6 +39,9 @@ export const getUserByTgId = async (tgId, forceRefresh = false) => {
 };
 
 export const createUser = async (tgId, firstName = '', overrides = {}) => {
+  const now = new Date();
+  const isoDate = now.toISOString(); // ✅ Повний ISO формат
+  
   const fields = {
     TG_id: String(tgId),
     'User Name': firstName || 'Користувач',
@@ -46,7 +49,7 @@ export const createUser = async (tgId, firstName = '', overrides = {}) => {
     UserRegistered: true,
     'Subscription Status': 'New',
     Answer_Step: ANSWER_STEPS.IDLE,
-    Last_Activity: new Date().toISOString(),
+    Last_Activity: isoDate, // ✅ Повний ISO
     ...overrides,
   };
   
@@ -60,7 +63,6 @@ export const createUser = async (tgId, firstName = '', overrides = {}) => {
   cache.set(cacheKey(tgId), user, CACHE_TTL);
   return user;
 };
-
 export const ensureUserExists = async (tgId, firstName = '') => {
   let user = await getUserByTgId(tgId);
   if (user) return user;
@@ -83,18 +85,17 @@ export const updateUserStep = (tgId, step) =>
   updateUserFields(tgId, { Answer_Step: step });
 
 export const updateUserActivity = async (tgId) => {
-  const now = new Date();
   now.setSeconds(0, 0);
   
   return updateUserFields(tgId, {
-    Last_Activity: now.toISOString(),
-    Last_Answer_Date: now.toISOString().split('T')[0]
+    Last_Activity: new Date().toISOString(),
+    Last_Answer_Date: new Date().toISOString().split('T')[0]
   });
 };
 
 export const finalizeRegistration = async (tgId, data) => {
   const now = new Date();
-  now.setSeconds(0, 0);
+  const isoDate = now.toISOString(); // ✅ Повний ISO формат
   
   return updateUserFields(tgId, {
     'User Name': data.name,
@@ -104,8 +105,8 @@ export const finalizeRegistration = async (tgId, data) => {
     UserRegistered: true,
     Status: USER_STATUS.REGISTERED,
     Answer_Step: ANSWER_STEPS.COMPLETED,
-    Last_Activity: now.toISOString(),
-    Last_Answer_Date: now.toISOString().split('T')[0],
+    Last_Activity: isoDate, // ✅ Повний ISO
+    Last_Answer_Date: isoDate.split('T')[0], // YYYY-MM-DD
   });
 };
 
@@ -248,6 +249,7 @@ export const updateUser = async (recordId, fields) => {
     fields: updated[0].fields 
   };
 };
+
 
 export const setUserName = (tgId, name) =>
   updateUserFields(tgId, { 'User Name': name });

@@ -116,6 +116,11 @@ export const getDateTimeWithoutSeconds = () => {
   return now.toISOString();
 };
 
+/**
+ * Отримати дату наступного колеса (через 30 днів)
+ * @param {string} lastWheelDate - дата останнього колеса
+ * @returns {string|null} дата у форматі YYYY-MM-DD або null
+ */
 export const getNextWheelDate = (lastWheelDate) => {
   if (!lastWheelDate) return null;
   const date = new Date(lastWheelDate);
@@ -123,34 +128,41 @@ export const getNextWheelDate = (lastWheelDate) => {
   return date.toISOString().split('T')[0];
 };
 
-// src/utils/helpers.js
+/**
+ * Парсинг payload з /start команди
+ * Приклади:
+ * - src_tilda__seg_burnout
+ * - src_tilda__seg_burnout__utm:fb|adset1|creativeA
+ * - trial7_from_tilda
+ * 
+ * @param {string} p - payload з команди /start
+ * @returns {Object} { source, segment, utm, raw }
+ */
 export function parseStartPayload(p) {
-  // приклади:
-  // ?start=src_tilda__seg_burnout
-  // ?start=src_tilda__seg_burnout__utm:fb|adset1|creativeA
   const raw = String(p || '').trim();
-
-  const res = { src: null, segment: null, utm: {} };
+  const res = { source: null, segment: null, utm: {}, raw };
+  
   if (!raw) return res;
 
-  // відріжемо префікс "start=" якщо передали весь query
+  // Видаляємо префікс "start=" якщо є
   const payload = raw.replace(/^start=/i, '');
 
-  // UTM частина після "__utm:"
+  // Розбираємо UTM частину після "__utm:"
   const [head, utmPart] = payload.split('__utm:');
+  
   if (utmPart) {
     const [source, medium, campaign, content, term] = utmPart.split('|');
     res.utm = { source, medium, campaign, content, term };
   }
 
-  // шукаємо джерело і сегмент у head, напр. "src_tilda__seg_burnout"
+  // Шукаємо джерело і сегмент у head
   const parts = head.split('__');
   for (const token of parts) {
-    if (token.startsWith('src_')) res.src = token.slice(4); // src_tilda → tilda
-    if (token.startsWith('seg_')) res.segment = token.slice(4); // seg_burnout → burnout
+    if (token.startsWith('src_')) res.source = token.slice(4);
+    if (token.startsWith('seg_')) res.segment = token.slice(4);
   }
+  
   return res;
 }
-
 
 console.log('✅ [utils/helpers] Завантажено хелпери');

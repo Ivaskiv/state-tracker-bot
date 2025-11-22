@@ -70,11 +70,11 @@ export const performanceMiddleware = (warningMs = 2000) => async (ctx, next) => 
 };
 
 // ========== ACTIVITY ==========
-export const activityMiddleware = async (ctx, next) => {
-  await next();
-  const tgId = ctx.from?.id;
-  if (tgId) updateUserActivity(tgId).catch(() => {});
-};
+// export const activityMiddleware = async (ctx, next) => {
+//   await next();
+//   const tgId = ctx.from?.id;
+//   if (tgId) updateUserActivity(tgId).catch(() => {});
+// };
 
 // ========== ERROR ==========
 export const errorMiddleware = async (ctx, next) => {
