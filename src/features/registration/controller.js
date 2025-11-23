@@ -153,6 +153,50 @@ export const start = async (ctx) => {
     const payload = parseStartPayload(rawPayload);
     logger.info('[start] 🎯 Payload:', { raw: rawPayload, parsed: payload });
 
+    // 🆕 ОБРОБКА FREE COURSE
+    if (rawPayload === 'free_course') {
+      const userData = await getRegistrationData(tgId);
+      
+      if (userData) {
+        logger.info('[start] 🎓 Free course → existing user');
+        
+        const cabinetUrl = await getMemberAreaUrl(tgId);
+        
+        await ctx.reply(
+          FREE_COURSE_WELCOME(firstName),
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🚀 ПЕРЕЙТИ', url: cabinetUrl }],
+                [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+              ]
+            }
+          }
+        );
+        return;
+      } else {
+        logger.info('[start] 🎓 Free course → new user → form');
+        
+        await ctx.reply(
+          FREE_COURSE_NEW_USER(firstName),
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ 
+                  text: '📝 Заповнити форму', 
+                  url: `https://tilda.cc/page/?pageid=97194656&projectid=13865415&tg_id=${tgId}`
+                }],
+                [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+              ]
+            }
+          }
+        );
+        return;
+      }
+    }
+
     // 1️⃣ Отримуємо дані користувача
     const userData = await getRegistrationData(tgId);
     
@@ -162,7 +206,6 @@ export const start = async (ctx) => {
       
       await createUser(tgId, firstName);
 
-      // Показуємо pitch якщо з Tilda
       if (shouldShowPitch(payload, { fields: {} })) {
         await ctx.reply(PITCH_TILDA);
       }
@@ -243,16 +286,17 @@ export const start = async (ctx) => {
     logger.info('[start] 🏠 Маршрутизація → General welcome back');
     await sendWelcomeBack(ctx, { fields: userData });
 
-} catch (err) {
-  logger.error('[start] ❌ ПОМИЛКА:', err.message);
-  logger.error('[start] Stack:', err.stack);
-  
-  await ctx.reply(
-    '❌ Виникла помилка при реєстрації.\n\n' +
-    'Спробуй ще раз: /start\n\n' +
-    'Якщо проблема повториться — напиши @vira_333'
-  );
-}};
+  } catch (err) {
+    logger.error('[start] ❌ ПОМИЛКА:', err.message);
+    logger.error('[start] Stack:', err.stack);
+    
+    await ctx.reply(
+      '❌ Виникла помилка при реєстрації.\n\n' +
+      'Спробуй ще раз: /start\n\n' +
+      'Якщо проблема повториться — напиши @vira_333'
+    );
+  }
+};
 
 // ═══════════════════════════════════════════════════════════
 // TEXT & CALLBACK HANDLERS
@@ -289,6 +333,7 @@ callbacks.on('use_telegram_name', (ctx) => {
 });
 
 callbacks.on('enter_custom_name', (ctx) => askCurrent(ctx));
+
 callbacks.on(CALLBACKS.SKIP_EMAIL, (ctx) => writeAnswerAndMove(ctx, '/skip'));
 callbacks.on(CALLBACKS.SKIP_PHONE, (ctx) => writeAnswerAndMove(ctx, '/skip'));
 callbacks.on(CALLBACKS.TRIAL, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.TRIAL));

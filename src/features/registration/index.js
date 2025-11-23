@@ -9,4 +9,5 @@ export default function initOnboarding(bot) {
   bot.action('skip_email', nameActions.skip_email);
   bot.action('skip_phone', nameActions.skip_phone);
   bot.on('text', textHandler);
+
 }

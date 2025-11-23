@@ -40,7 +40,6 @@ export const getUserByTgId = async (tgId, forceRefresh = false) => {
 
 export const createUser = async (tgId, firstName = '', overrides = {}) => {
   const now = new Date();
-  const isoDate = now.toISOString(); // ✅ Повний ISO формат
   
   const fields = {
     TG_id: String(tgId),
@@ -49,7 +48,7 @@ export const createUser = async (tgId, firstName = '', overrides = {}) => {
     UserRegistered: true,
     'Subscription Status': 'New',
     Answer_Step: ANSWER_STEPS.IDLE,
-    Last_Activity: isoDate, // ✅ Повний ISO
+    Last_Activity: now, 
     ...overrides,
   };
   
