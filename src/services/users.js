@@ -43,16 +43,17 @@ export const createUser = async (tgId, firstName = '', overrides = {}) => {
   
   const fields = {
     TG_id: String(tgId),
-    'User Name': firstName || 'Користувач',
-    Status: USER_STATUS.REGISTERED,
-    UserRegistered: true,
-    'Subscription Status': 'New',
-    Answer_Step: ANSWER_STEPS.IDLE,
-    Last_Activity: now, 
+    'User_Name': firstName || 'Користувач',
+    Status: USER_STATUS.NEW, // ✅ NEW для нових
+    User_Registered: false,   // ✅ false
+    Answer_Step: 'ob_name',  // ✅ Онбординг
+    'Subscription_Status': 'New',
+    Last_Activity: now.toISOString(),
+    Created_At: now.toISOString(),
     ...overrides,
   };
   
-  const records = await base(tables.USERS).create([{ fields }]);
+  const records = await base(tables.USERS).create([{ fields }], { typecast: true });
   const user = { 
     id: records[0].id, 
     recordId: records[0].id, 
@@ -62,10 +63,18 @@ export const createUser = async (tgId, firstName = '', overrides = {}) => {
   cache.set(cacheKey(tgId), user, CACHE_TTL);
   return user;
 };
+
 export const ensureUserExists = async (tgId, firstName = '') => {
   let user = await getUserByTgId(tgId);
   if (user) return user;
-  return createUser(tgId, firstName);
+  
+  // ✅ СТВОРЮЄМО МІНІМАЛЬНИЙ ПРОФІЛЬ (БЕЗ БЛОКУВАННЯ)
+  return createUser(tgId, firstName, {
+    Status: USER_STATUS.NEW, // ✅ NEW замість REGISTERED
+    User_Registered: false,   // ✅ false щоб показати реєстрацію
+    Answer_Step: 'ob_name',  // ✅ Перший крок онбордингу
+    'Subscription_Status': 'New',
+  });
 };
 
 export const updateUserFields = async (tgId, fields) => {
@@ -97,11 +106,11 @@ export const finalizeRegistration = async (tgId, data) => {
   const isoDate = now.toISOString(); // ✅ Повний ISO формат
   
   return updateUserFields(tgId, {
-    'User Name': data.name,
+    'User_Name': data.name,
     Email: data.email || null,
     Phone: data.phone || null,
     Time_Zone: data.timezone || CONFIG.DEFAULT_TIMEZONE,
-    UserRegistered: true,
+    User_Registered: true,
     Status: USER_STATUS.REGISTERED,
     Answer_Step: ANSWER_STEPS.COMPLETED,
     Last_Activity: isoDate, // ✅ Повний ISO
@@ -117,7 +126,7 @@ export const activateTrial = async (tgId, days = 7) => {
   
   return updateUserFields(tgId, {
     'Active_Subscription_Plan': '🧪 Пробний період — 0€',
-    'Subscription Status': 'Active',
+    'Subscription_Status': 'Active',
     Start_Date: start.toISOString().split('T')[0],
     End_Date: end.toISOString().split('T')[0],
   });
@@ -127,7 +136,7 @@ export const hasActiveAccess = (userOrFields) => {
   const fields = userOrFields?.fields || userOrFields || {};
   
   const plan = String(fields['Active_Subscription_Plan'] || '');
-  const status = String(fields['Subscription Status'] || '').trim().toLowerCase();
+  const status = String(fields['Subscription_Status'] || '').trim().toLowerCase();
   
   if (status === 'active' || /пробний/i.test(plan)) return true;
   
@@ -172,7 +181,7 @@ export const getActiveUsers = async () => {
     return await base(tables.USERS)
       .select({
         filterByFormula: `{Status} = "Active User"`,
-        fields: ['TG_id', 'User Name', 'Subscription Status', 'End_Date']
+        fields: ['TG_id', 'User_Name', 'Subscription_Status', 'End_Date']
       })
       .all();
   } catch (e) {
@@ -251,4 +260,4 @@ export const updateUser = async (recordId, fields) => {
 
 
 export const setUserName = (tgId, name) =>
-  updateUserFields(tgId, { 'User Name': name });
+  updateUserFields(tgId, { 'User_Name': name });

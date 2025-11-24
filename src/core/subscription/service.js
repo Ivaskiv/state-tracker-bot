@@ -3,7 +3,7 @@
 import { SUBSCRIPTION_PLANS } from '../../config/constants.js';
 import { tables, selectFromTable, createRows, updateRows } from '../../config/database.js';
 import { addDays, toISODate } from '../../utils/helpers.js';
-const USER_STATUS_FIELD = 'Subscription Status';
+const USER_STATUS_FIELD = 'Subscription_Status';
 const findActiveSubscription = async (tgId) => {
   try {
     const rows = await selectFromTable(tables.SUBSCRIPTIONS, {
@@ -45,7 +45,7 @@ export const createTrialSubscription = async (tgId, userName = 'Користув
       {
         fields: {
           TG_id: String(tgId),
-          'User Name': userName,
+          'User_Name': userName,
           Plan_Name: plan.name,
           Amount: 0,
           Start_Date: toISODate(start),
@@ -118,7 +118,7 @@ export const activatePaidSubscription = async (paymentData) => {
       {
         fields: {
           TG_id: String(tgId),
-          'User Name': userName,
+          'User_Name': userName,
           Plan_Name: plan.name,
           Amount: Number(amount) || 0,
           Start_Date: toISODate(start),

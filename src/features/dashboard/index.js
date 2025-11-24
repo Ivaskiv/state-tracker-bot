@@ -121,7 +121,7 @@ export const startWheelFromText = async (ctx) => {
       return;
     }
 
-    const userName = user.fields['User Name'] || ctx.from.first_name || 'Користувач';
+    const userName = user.fields['User_Name'] || ctx.from.first_name || 'Користувач';
     const res = await startWheelBalance(tgId, userName);
 
     await ctx.reply(res.message, res.keyboard || keyboards.mainMenuKeyboard());

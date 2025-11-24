@@ -31,7 +31,7 @@ export const scheduleMorningReminders = (bot) =>
           const tgId = user.fields.TG_id;
           if (!tgId) continue;
 
-          const userName = user.fields['User Name'] || 'Користувач';
+          const userName = user.fields['User_Name'] || 'Користувач';
 
           try {
             await bot.telegram.sendMessage(
@@ -68,7 +68,7 @@ export const scheduleEveningReminders = (bot) =>
           const tgId = user.fields.TG_id;
           if (!tgId) continue;
 
-          const userName = user.fields['User Name'] || 'Користувач';
+          const userName = user.fields['User_Name'] || 'Користувач';
 
           try {
             await bot.telegram.sendMessage(

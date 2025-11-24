@@ -30,7 +30,7 @@ export const handleStart = async (ctx) => {
   try {
     await ctx.answerCbQuery?.();
     const tgId = ctx.from.id;
-    const userName = ctx.state.user?.fields?.['User Name'] || ctx.from.first_name;
+    const userName = ctx.state.user?.fields?.['User_Name'] || ctx.from.first_name;
 
     const progress = await getProgressCached(tgId);
 

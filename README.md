@@ -1,4 +1,5 @@
 # state-tracker-bot
+
 # Telegram AI Mentor Bot
 
 AI-коуч для щоденної рефлексії та особистого зростання в Telegram.
@@ -30,11 +31,13 @@ OPENAI_API_KEY=your_openai_key_optional
 ### 3. Отримання токенів
 
 **Telegram Bot Token:**
+
 1. Напишіть @BotFather в Telegram
 2. Створіть новий бот командою `/newbot`
 3. Скопіюйте отриманий токен
 
 **Airtable API Key:**
+
 1. Перейдіть на https://airtable.com/create/tokens
 2. Створіть новий токен з правами на читання та запис
 3. Скопіюйте Base ID з URL вашої бази
@@ -107,6 +110,7 @@ src/
 ## 🗄️ Структура Airtable
 
 Бот працює з готовими таблицями:
+
 - **Users** - користувачі та їх підписки
 - **Subscriptions** - деталі підписок
 - **User Reflections** - рефлексії з AI аналізом
@@ -148,7 +152,7 @@ User: anna@example.com
 
 Bot: 💰 ОБЕРІТЬ ПЛАН ПІДПИСКИ:
 🔹 Тиждень фокусу — 7€
-🔹 Місяць дії — 30€  
+🔹 Місяць дії — 30€
 🔹 Рік трансформації — 300€
 
 [Кнопки вибору плану]
@@ -342,7 +346,9 @@ Email: nadyastarway@gmail.com
 
 # State Tracker Bot 🤖
 
-AI-powered Telegram bot for daily reflection, personal transformation, and goal tracking. The bot helps users build consistent habits through morning and evening reflections, provides AI-powered insights, and supports subscription-based access.
+AI-powered Telegram bot for daily reflection, personal transformation, and goal tracking. The bot
+helps users build consistent habits through morning and evening reflections, provides AI-powered
+insights, and supports subscription-based access.
 
 ## Features ✨
 
@@ -357,6 +363,7 @@ AI-powered Telegram bot for daily reflection, personal transformation, and goal 
 ## Quick Start 🚀
 
 ### 1. Clone the Repository
+
 ```bash
 git clone <your-repo-url>
 cd state-tracker-bot
@@ -364,11 +371,13 @@ npm install
 ```
 
 ### 2. Environment Setup
+
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env` file with your configuration:
+
 ```bash
 # Required
 BOT_TOKEN=your_telegram_bot_token
@@ -381,27 +390,30 @@ ADMIN_CHAT_ID=your_telegram_user_id
 ```
 
 ### 3. Airtable Setup
+
 Create an Airtable base with these tables:
 
 #### Users Table
-- `User Name` (Single line text)
+
+- `User_Name` (Single line text)
 - `TG_id` (Single line text)
 - `Email` (Email)
 - `Phone` (Phone number)
-- `UserRegistered` (Checkbox)
-- `DateUserRegistered` (Date)
+- `User_Registered` (Checkbox)
+- `DateUser_Registered` (Date)
 - `Status` (Single select: New User, Active User, Inactive User)
 - `Active_Subscription_Status` (Single select: Empty, Active, Expired, Cancelled)
 - `Active_Subscription_Plan` (Single line text)
 - `Start_Date` (Date)
 - `End_Date` (Date)
 - `Active_Subscription_Status` (Single line text)
-- `Question Type` (Single select: Morning, Evening)
+- `Question_Type` (Single select: Morning, Evening)
 - `Current_Activity` (Single line text)
 - `Time_Zone` (Single line text)
 
 #### Morning_Responses Table
-- `Reminder Key Morning` (Single line text)
+
+- `Reminder_Key Morning` (Single line text)
 - `user_id` (Single line text)
 - `user_name` (Single line text)
 - `date` (Date)
@@ -413,7 +425,8 @@ Create an Airtable base with these tables:
 - `question_6` (Long text)
 
 #### Evening_Responses Table
-- `Reminder Key Evening` (Single line text)
+
+- `Reminder_Key Evening` (Single line text)
 - `user_id` (Single line text)
 - `user_name` (Single line text)
 - `date` (Date)
@@ -424,6 +437,7 @@ Create an Airtable base with these tables:
 - `question_5` (Long text)
 
 #### Subscriptions Table
+
 - `TG_id` (Single line text)
 - `UserName` (Single line text)
 - `User_Email` (Email)
@@ -441,11 +455,13 @@ Create an Airtable base with these tables:
 - `Is_Active` (Single select: ✅ Активна, ❌ Неактивна)
 
 #### Affirmations Table
+
 - `Affirmation` (Long text)
 - `Category` (Single select: Особистий розвиток, Бізнес-зріст, Ясність цілей, Впевненість, Інше)
 - `Used` (Checkbox)
 
 ### 4. Run the Bot
+
 ```bash
 # Development
 npm run dev
@@ -494,22 +510,26 @@ state-tracker-bot/
 ## Key Features Explained 🔍
 
 ### Daily Reflections
+
 - **Morning Questions (08:00)**: Focus on identity, goals, and daily intentions
 - **Evening Questions (22:15)**: Analyze energy, programs, and victories
 - Responses are saved to Airtable with full tracking
 
 ### Subscription System
+
 - **Week Focus (7€)**: 7-day access for testing
 - **Month Action (30€)**: Full month access
 - **Year Transformation (300€)**: Annual plan with savings
 - Integration with WayForPay for secure payments
 
 ### AI Analytics
+
 - Weekly reports analyzing patterns in responses
 - Monthly deep-dive reports with personalized recommendations
 - Uses OpenAI GPT-4 for intelligent insights
 
 ### Automated Scheduling
+
 - Morning reminders at 08:00 (Europe/Kiev timezone)
 - Evening reminders at 22:15
 - Weekly reports on Sundays at 19:00
@@ -517,44 +537,56 @@ state-tracker-bot/
 
 ## Configuration Options ⚙️
 
-### Time Zones
+### Time_Zones
+
 Default timezone is `Europe/Kiev`. You can modify this in:
+
 - Environment variable: `DEFAULT_TIMEZONE`
 - Individual user timezone in Airtable
 
 ### Message Customization
+
 Edit messages in `src/utils/messages.js`:
+
 - Welcome messages
 - Question prompts
 - Error messages
 - Success confirmations
 
 ### Question Customization
+
 Modify questions in `src/services/reflectionService.js`:
+
 - `MORNING_QUESTIONS` array
 - `EVENING_QUESTIONS` array
 
 ## Deployment 🌐
 
 ### Development
+
 ```bash
 npm run dev
 ```
+
 Uses polling for Telegram updates.
 
 ### Production
+
 1. Set up webhooks:
+
 ```bash
 NODE_ENV=production
 WEBHOOK_URL=https://yourdomain.com
 ```
 
 2. Deploy to your server:
+
 ```bash
 npm start
 ```
 
 ### Heroku Deployment
+
 ```bash
 # Set environment variables
 heroku config:set BOT_TOKEN=your_token
@@ -568,10 +600,12 @@ git push heroku main
 ## API Endpoints 🌐
 
 ### Webhook Endpoints
+
 - `POST /webhook/payment` - WayForPay payment notifications
 - `POST /bot{BOT_TOKEN}` - Telegram webhook (production only)
 
 ### Health Check
+
 - `GET /health` - Service health status
 
 ## Troubleshooting 🔧
@@ -579,27 +613,33 @@ git push heroku main
 ### Common Issues
 
 **Bot doesn't respond**
+
 - Check `BOT_TOKEN` in `.env`
 - Verify bot is not already running elsewhere
 - Check network connectivity
 
 **Database errors**
+
 - Verify `AIRTABLE_API_KEY` and `AIRTABLE_BASE_ID`
 - Ensure table structure matches requirements
 - Check field names (case-sensitive)
 
 **Scheduler not working**
+
 - Verify timezone settings
 - Check cron expressions
 - Ensure server runs continuously
 
 **Payment issues**
+
 - Configure WayForPay credentials
 - Set up webhook endpoint
 - Test with WayForPay sandbox
 
 ### Logs
+
 Monitor logs for errors:
+
 ```bash
 # Show recent logs
 npm start 2>&1 | tee app.log
@@ -619,6 +659,7 @@ tail -f app.log
 ## Support 📞
 
 For technical support:
+
 - Create GitHub issues for bugs
 - Check documentation first
 - Provide error logs when reporting issues
@@ -629,4 +670,5 @@ MIT License - see LICENSE file for details.
 
 ---
 
-**Note**: This bot handles personal data and payments. Ensure compliance with GDPR, local data protection laws, and payment regulations in your jurisdiction.
+**Note**: This bot handles personal data and payments. Ensure compliance with GDPR, local data
+protection laws, and payment regulations in your jurisdiction.

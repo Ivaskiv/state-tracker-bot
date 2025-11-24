@@ -26,7 +26,7 @@ export const FIELD_KEYS = Object.freeze({
 
   // службові
   TG_id: 'TG_id',
-  User_Name: 'User Name',
+  User_Name: 'User_Name',
   Created_Date: 'Created_Date',
   Completed_Date: 'Completed_Date',
   Status: 'Status',

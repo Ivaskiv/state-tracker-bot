@@ -14,6 +14,7 @@
 # production
 /build
 
+ngrok
 # misc
 .DS_Store
 .env

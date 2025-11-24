@@ -39,7 +39,7 @@ export const getUserStats = async (tgId) => {
         filterByFormula: `{TG_id} = "${tgId}"`,
         maxRecords: 1,
         fields: [
-          'User Name',
+          'User_Name',
           'Status',
           'Active_Subscription_Plan',
           'Active_Subscription_Status',
@@ -187,7 +187,7 @@ export const getUserStats = async (tgId) => {
       (hasAccess ? '✅ Активна' : '❌ Немає активної підписки');
 
     return {
-      userName: userFields['User Name'] || '',
+      userName: userFields['User_Name'] || '',
       subscriptionStatus: hasAccess ? 'active' : 'inactive',
       subscriptionLabel,
 

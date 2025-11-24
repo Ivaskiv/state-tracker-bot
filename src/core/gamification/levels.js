@@ -283,7 +283,7 @@ export const getLeaderboard = async (limit = 10) => {
   try {
     const records = await base(tables.USERS)
       .select({
-        fields: ['TG_id', 'User Name', 'Total_Points', 'Current_Level'],
+        fields: ['TG_id', 'User_Name', 'Total_Points', 'Current_Level'],
         sort: [{ field: 'Total_Points', direction: 'desc' }],
         maxRecords: limit,
         filterByFormula: '{Total_Points} > 0'
@@ -293,7 +293,7 @@ export const getLeaderboard = async (limit = 10) => {
     return records.map((record, index) => ({
       rank: index + 1,
       tgId: record.fields.TG_id,
-      userName: record.fields['User Name'] || 'Користувач',
+      userName: record.fields['User_Name'] || 'Користувач',
       points: record.fields.Total_Points || 0,
       level: record.fields.Current_Level || 1
     }));

@@ -277,7 +277,7 @@ export const validateAnswer = (answer, question, config) => {
  *     { title: 'Email?', question: '...', hint: '...', emoji: '📧' }
  *   ],
  *   fieldMap: {
- *     0: 'User Name',
+ *     0: 'User_Name',
  *     1: 'Email',
  *     2: 'Phone'
  *   },

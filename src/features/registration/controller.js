@@ -2,57 +2,212 @@
 import * as QE from '../../services/questionEngine.js';
 import keyboards from '../../utils/keyboards.js';
 import { ONBOARDING_CONFIG } from './config.js';
-import { MESSAGES, CALLBACKS, PITCH_TILDA, shouldShowPitch } from './constants.js';
+import { 
+  MESSAGES, 
+  TILDA_URLS, 
+  TILDA_MESSAGES,
+  shouldShowPitch, 
+  PITCH_TILDA 
+} from './constants.js';
 import { getUserStats } from '../../services/stats.js';
 import { formatDate, getDaysWord, parseStartPayload } from '../../utils/helpers.js';
 import callbacks from '../../services/callbacks.js';
 import { 
   createUser, 
   getUserByTgId, 
-  updateUserFields, 
-  hasActiveAccess,
+  hasActiveAccess, 
   activateTrial 
 } from '../../services/users.js';
 import { getRegistrationData } from './service.js';
+import { getMemberAreaUrl } from '../../tilda/service.js';
 import logger from '../../utils/logger.js';
 
 const tgIdOf = (ctx) => String(ctx.from?.id || ctx.chat?.id);
 const cfgWithRecord = (recordId) => ({ ...ONBOARDING_CONFIG, recordId });
 
 // ═══════════════════════════════════════════════════════════
-// HELPERS
+// MAIN START HANDLER
 // ═══════════════════════════════════════════════════════════
 
-const buildWelcomeBackText = ({
-  userName,
-  wheelCompleted,
-  wheelCompletedDate,
-  nextWheelDate,
-  currentStreak,
-  lastSessionDate,
-  subscriptionLabel,
-}) => {
-  const wheelLine = wheelCompleted
-    ? (wheelCompletedDate
-        ? `✅ Заповнено ${formatDate(wheelCompletedDate)}${nextWheelDate ? `, наступне ${formatDate(nextWheelDate)}` : ''}`
-        : '✅ Заповнено')
-    : '❌ Ще ні';
+export const start = async (ctx) => {
+  try {
+    const tgId = tgIdOf(ctx);
+    const firstName = (ctx.from.first_name || '').trim();
+    const rawPayload = ctx.startPayload || ctx.message?.text?.split(' ')[1] || '';
+    
+    const payload = parseStartPayload(rawPayload);
+    
+    logger.info('═══════════════════════════════════════════════════════');
+    logger.info('🎯 [START] User:', tgId);
+    logger.info('🎯 [START] Name:', firstName);
+    logger.info('🎯 [START] Payload:', JSON.stringify(payload, null, 2));
+    logger.info('═══════════════════════════════════════════════════════');
 
-  const streakLine = currentStreak > 0 ? `${currentStreak} ${getDaysWord(currentStreak)} поспіль` : '—';
-  const lastStr = lastSessionDate ? formatDate(lastSessionDate) : 'немає даних';
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 1️⃣ ПЕРЕВІРКА КОРИСТУВАЧА В AIRTABLE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    const userData = await getRegistrationData(tgId);
+    const userExists = !!userData;
+    
+    logger.info('📊 [START] UserExists:', userExists);
+    if (userExists) {
+      logger.info('📊 [START] UserData:', {
+        registered: userData.User_Registered,
+        step: userData.Answer_Step,
+        status: userData.Status,
+        subscriptionStatus: userData['Subscription_Status']
+      });
+    }
 
-  return (
-    `👋 Рада вітати тебе знову, ${userName}!\n\n` +
-    `Ось коротко про твої справи:\n\n` +
-    `🎯 Колесо балансу — ${wheelLine}\n\n` +
-    `🔥 Активність — ${streakLine}\n\n` +
-    `📊 Остання сесія — ${lastStr}\n\n` +
-    `💰 Підписка — ${subscriptionLabel}\n\n` +
-    `🛞 Нагадую:\n` +
-    `Я — твій AI-ментор. Допомагаю тримати фокус і рухатись до балансу.\n\n` +
-    `Можеш обрати дію в меню нижче — або просто чекати на автоматичні нагадування.`
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 2️⃣ НОВИЙ КОРИСТУВАЧ → ФОРМА РЕЄСТРАЦІЇ
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    if (!userExists) {
+  logger.info('📝 [START] NEW_USER → Tilda Registration WebApp');
+
+  const registrationUrl = `${TILDA_URLS.REGISTRATION}?tg_id=${tgId}`;
+
+  await ctx.reply(
+    TILDA_MESSAGES.NEW_USER(firstName),
+    {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{
+            text: '📝 Заповнити форму реєстрації',
+            web_app: { url: registrationUrl }, // web_app: { url: 'https://tilda.cc/' },
+          }],
+          [{
+            text: 'ℹ️ Що може цей бот?',
+            callback_data: 'show_bot_info',
+          }],
+        ],
+      },
+    }
   );
+
+  return;
+}
+
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 3️⃣ КОРИСТУВАЧ ІСНУЄ → АНАЛІЗ СТАТУСУ
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    const step = userData.Answer_Step || 'idle';
+    const isOnboarding = /^ob_/i.test(step);
+    const isRegistered = userData.User_Registered === true;
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 3.1 — НЕЗАВЕРШЕНА РЕЄСТРАЦІЯ → ПРОДОВЖИТИ ОНБОРДИНГ
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    if (isOnboarding && !isRegistered) {
+      logger.info('📝 [START] Route: CONTINUE_ONBOARDING');
+      logger.info('📝 [START] Current step:', step);
+      
+      if (shouldShowPitch(payload, { fields: userData })) {
+        await ctx.reply(PITCH_TILDA);
+      }
+      
+      await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
+      return askCurrent(ctx);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 3.2 — РЕЄСТРАЦІЯ ЗАВЕРШЕНА → ПЕРЕВІРКА ПІДПИСКИ
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    const user = await getUserByTgId(tgId);
+    const hasAccess = hasActiveAccess(user);
+    
+    logger.info('🔐 [START] Access Status:', hasAccess);
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 3.2.1 — БЕЗ ПІДПИСКИ → АКТИВУВАТИ TRIAL
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    if (isRegistered && !hasAccess) {
+      logger.info('🧪 [START] Route: ACTIVATE_TRIAL');
+      
+      await activateTrial(tgId, 7);
+      
+      await ctx.reply(
+        '🎉 Активовано пробний період на 7 днів!\n\n' +
+        '✨ Тепер тобі доступні:\n' +
+        '• 🎯 Колесо балансу\n' +
+        '• 🤖 AI-наставник 24/7\n' +
+        '• 📊 Щоденні рефлексії\n' +
+        '• 📈 Звіти та статистика\n\n' +
+        'Почнемо з Колеса балансу? 👇',
+        keyboards.wheelCtaInline()
+      );
+      
+      return;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 3.2.2 — З ПІДПИСКОЮ → WELCOME BACK + CABINET
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    if (isRegistered && hasAccess) {
+      logger.info('🏠 [START] Route: WELCOME_BACK + CABINET');
+      
+      await sendWelcomeBack(ctx, { fields: userData });
+      
+      // Показуємо кнопку кабінету
+      const cabinetUrl = await getMemberAreaUrl(tgId);
+      
+      await ctx.reply(
+        '🗂️ **ТВІЙ ОСОБИСТИЙ КАБІНЕТ**\n\n' +
+        '📚 Тут зібрані всі твої матеріали:\n' +
+        '• Прогрес курсів\n' +
+        '• Статистика\n' +
+        '• Геймифікація (рівні, бейджі)\n' +
+        '• Виконані завдання\n\n' +
+        '👇 Відкрий кабінет:',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔗 Відкрити кабінет', url: cabinetUrl }],
+              [{ text: '🏠 До меню бота', callback_data: 'main_menu' }]
+            ]
+          }
+        }
+      );
+      
+      return;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 4️⃣ FALLBACK → ДЕФОЛТНЕ ВІТАННЯ
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    logger.warn('⚠️ [START] Route: FALLBACK → Default Welcome');
+    await ctx.reply(
+      `👋 Привіт, ${firstName}!\n\n` +
+      'Щось пішло не так. Спробуй ще раз або зверніться до підтримки @vira_333',
+      keyboards.mainMenuKeyboard()
+    );
+
+  } catch (err) {
+    logger.error('❌ [START] ERROR:', err.message);
+    logger.error('❌ [START] Stack:', err.stack);
+    
+    await ctx.reply(
+      '❌ Виникла помилка при запуску.\n\n' +
+      'Спробуй ще раз: /start\n\n' +
+      'Якщо проблема повториться — напиши @vira_333'
+    );
+  }
 };
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
 
 const askCurrent = async (ctx) => {
   const tgId = tgIdOf(ctx);
@@ -93,11 +248,10 @@ const writeAnswerAndMove = async (ctx, rawAnswer) => {
   const stepNext = QE.getNextStep(ONBOARDING_CONFIG, currentIndex);
   
   if (stepNext.isCompleted) {
-    // ✅ АКТИВУЄМО TRIAL ПІСЛЯ ЗАВЕРШЕННЯ РЕЄСТРАЦІЇ
     await activateTrial(tgId, 7);
     
     await ctx.reply(
-      stepNext.completionMessage || '✅ Реєстрація завершена!',
+      TILDA_MESSAGES.REGISTRATION_COMPLETE(ctx.from.first_name),
       keyboards.afterRegistrationKeyboard()
     );
     return true;
@@ -117,7 +271,7 @@ const sendWelcomeBack = async (ctx, user) => {
   } catch {}
   
   const text = buildWelcomeBackText({
-    userName: user.fields['User Name'] || ctx.from?.first_name,
+    userName: user.fields['User_Name'] || ctx.from?.first_name,
     wheelCompleted: !!stats?.wheelCompleted,
     wheelCompletedDate: stats?.wheelCompletedDate || null,
     nextWheelDate: stats?.nextWheelDate || null,
@@ -129,173 +283,45 @@ const sendWelcomeBack = async (ctx, user) => {
   await ctx.reply(text, keyboards.mainMenuKeyboard());
 
   if (!stats?.wheelCompleted) {
-    const oneLiner =
-      'Колесо балансу допомагає швидко оцінити 8 сфер життя і вибрати 2–3 пріоритети на місяць.';
-    await ctx.reply(`${oneLiner}\n\nГотова пройти зараз?`, keyboards.wheelCtaInline());
+    await ctx.reply(
+      '🎯 **РЕКОМЕНДАЦІЯ**\n\n' +
+      'Колесо балансу допомагає швидко оцінити 8 сфер життя і вибрати 2–3 пріоритети на місяць.\n\n' +
+      '⏱ Займе 5-10 хвилин\n\n' +
+      'Готова пройти зараз?',
+      keyboards.wheelCtaInline()
+    );
   }
   return true;
 };
 
-// ═══════════════════════════════════════════════════════════
-// MAIN START HANDLER
-// ═══════════════════════════════════════════════════════════
+const buildWelcomeBackText = ({
+  userName,
+  wheelCompleted,
+  wheelCompletedDate,
+  nextWheelDate,
+  currentStreak,
+  lastSessionDate,
+  subscriptionLabel,
+}) => {
+  const wheelLine = wheelCompleted
+    ? (wheelCompletedDate
+        ? `✅ Заповнено ${formatDate(wheelCompletedDate)}${nextWheelDate ? `, наступне ${formatDate(nextWheelDate)}` : ''}`
+        : '✅ Заповнено')
+    : '❌ Ще ні';
 
-export const start = async (ctx) => {
-  try {
-    const tgId = tgIdOf(ctx);
-    const firstName = (ctx.from.first_name || '').trim();
-    const rawPayload = 
-      ctx.startPayload || 
-      ctx.state?.rawPayload || 
-      ctx.message?.text?.split(' ')[1] || 
-      '';
-    
-    const payload = parseStartPayload(rawPayload);
-    logger.info('[start] 🎯 Payload:', { raw: rawPayload, parsed: payload });
+  const streakLine = currentStreak > 0 ? `${currentStreak} ${getDaysWord(currentStreak)} поспіль` : '—';
+  const lastStr = lastSessionDate ? formatDate(lastSessionDate) : 'немає даних';
 
-    // 🆕 ОБРОБКА FREE COURSE
-    if (rawPayload === 'free_course') {
-      const userData = await getRegistrationData(tgId);
-      
-      if (userData) {
-        logger.info('[start] 🎓 Free course → existing user');
-        
-        const cabinetUrl = await getMemberAreaUrl(tgId);
-        
-        await ctx.reply(
-          FREE_COURSE_WELCOME(firstName),
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🚀 ПЕРЕЙТИ', url: cabinetUrl }],
-                [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-              ]
-            }
-          }
-        );
-        return;
-      } else {
-        logger.info('[start] 🎓 Free course → new user → form');
-        
-        await ctx.reply(
-          FREE_COURSE_NEW_USER(firstName),
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ 
-                  text: '📝 Заповнити форму', 
-                  url: `https://tilda.cc/page/?pageid=97194656&projectid=13865415&tg_id=${tgId}`
-                }],
-                [{ text: '🏠 До меню', callback_data: 'main_menu' }]
-              ]
-            }
-          }
-        );
-        return;
-      }
-    }
-
-    // 1️⃣ Отримуємо дані користувача
-    const userData = await getRegistrationData(tgId);
-    
-    // 2️⃣ НОВИЙ КОРИСТУВАЧ
-    if (!userData) {
-      logger.info('[start] 📝 Новий користувач → створюємо профіль');
-      
-      await createUser(tgId, firstName);
-
-      if (shouldShowPitch(payload, { fields: {} })) {
-        await ctx.reply(PITCH_TILDA);
-      }
-
-      await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
-      return askCurrent(ctx);
-    }
-
-    // 3️⃣ КОРИСТУВАЧ ІСНУЄ — ПЕРЕВІРЯЄМО СТАТУС
-    const step = userData.Answer_Step || 'ob_name';
-    const isOnboarding = /^ob_/i.test(step);
-    const isRegistered = userData.UserRegistered === true;
-
-    // 3.1 — Незавершена реєстрація
-    if (isOnboarding && !isRegistered) {
-      logger.info('[start] 📝 Продовження онбордингу з кроку:', step);
-      
-      if (shouldShowPitch(payload, { fields: userData })) {
-        await ctx.reply(PITCH_TILDA);
-      }
-      
-      await ctx.reply(MESSAGES.WELCOME(firstName), keyboards.nameChoiceInline());
-      return askCurrent(ctx);
-    }
-
-    // 3.2 — Реєстрація завершена, але немає підписки
-    const user = await getUserByTgId(tgId);
-    const hasAccess = hasActiveAccess(user);
-    
-    if (isRegistered && !hasAccess) {
-      logger.info('[start] 🧪 Користувач без підписки → активуємо trial');
-      
-      await activateTrial(tgId, 7);
-      
-      await ctx.reply(
-        '🎉 Активовано пробний період на 7 днів!\n\n' +
-        'Почни з «Колеса балансу» 🎯',
-        keyboards.wheelCtaInline()
-      );
-      return;
-    }
-
-    // 3.3 — Спец-пейлоади з Tilda
-    if (payload.source === 'tilda' && payload.segment === 'burnout') {
-      logger.info('[start] 🎬 Маршрутизація → 5-video funnel');
-      
-      await ctx.reply(
-        `👋 Вітаю, ${firstName}!\n\n` +
-        `Це 5-денний курс «Поверни себе з вигорання».\n\n` +
-        `Готова почати? 👇`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🎬 Почати курс', callback_data: 'start_funnel' }],
-              [{ text: 'ℹ️ Дізнатись більше', url: 'https://yoursite.tilda.ws/free-course' }],
-            ]
-          }
-        }
-      );
-      return;
-    }
-
-    if (payload.raw.startsWith('trial7_from_tilda')) {
-      logger.info('[start] 🎁 Маршрутизація → 7-day trial + wheel');
-      
-      await activateTrial(tgId, 7);
-      
-      await ctx.reply(
-        `🎉 Активовано 7 днів з AI-наставником!\n\n` +
-        `Перший крок — заповнити «Колесо балансу».\n\n` +
-        `Готова? 👇`,
-        keyboards.wheelCtaInline()
-      );
-      return;
-    }
-
-    // 4️⃣ ПОВНІСТЮ ЗАРЕЄСТРОВАНИЙ — WELCOME BACK
-    logger.info('[start] 🏠 Маршрутизація → General welcome back');
-    await sendWelcomeBack(ctx, { fields: userData });
-
-  } catch (err) {
-    logger.error('[start] ❌ ПОМИЛКА:', err.message);
-    logger.error('[start] Stack:', err.stack);
-    
-    await ctx.reply(
-      '❌ Виникла помилка при реєстрації.\n\n' +
-      'Спробуй ще раз: /start\n\n' +
-      'Якщо проблема повториться — напиши @vira_333'
-    );
-  }
+  return (
+    `👋 Рада вітати тебе знову, ${userName}!\n\n` +
+    `Ось коротко про твої справи:\n\n` +
+    `🎯 Колесо балансу — ${wheelLine}\n\n` +
+    `🔥 Активність — ${streakLine}\n\n` +
+    `📊 Остання сесія — ${lastStr}\n\n` +
+    `💰 Підписка — ${subscriptionLabel}\n\n` +
+    `🤖 Я — твій AI-ментор. Допомагаю тримати фокус і рухатись до балансу.\n\n` +
+    `Обирай дію в меню нижче 👇`
+  );
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -322,8 +348,8 @@ export const onCallback = async () => true;
 // CALLBACK REGISTRATION
 // ═══════════════════════════════════════════════════════════
 
-callbacks.onPrefix(CALLBACKS.TZ_PREFIX, (ctx, data) => {
-  const slug = data.slice(CALLBACKS.TZ_PREFIX.length);
+callbacks.onPrefix('ob_tz_', (ctx, data) => {
+  const slug = data.slice('ob_tz_'.length);
   return writeAnswerAndMove(ctx, slug);
 });
 
@@ -333,14 +359,39 @@ callbacks.on('use_telegram_name', (ctx) => {
 });
 
 callbacks.on('enter_custom_name', (ctx) => askCurrent(ctx));
+callbacks.on('ob_skip_email', (ctx) => writeAnswerAndMove(ctx, '/skip'));
+callbacks.on('ob_skip_phone', (ctx) => writeAnswerAndMove(ctx, '/skip'));
+callbacks.on('ob_plan_trial', (ctx) => writeAnswerAndMove(ctx, 'TRIAL'));
+callbacks.on('ob_plan_week', (ctx) => writeAnswerAndMove(ctx, 'WEEK'));
+callbacks.on('ob_plan_month', (ctx) => writeAnswerAndMove(ctx, 'MONTH'));
+callbacks.on('ob_plan_year', (ctx) => writeAnswerAndMove(ctx, 'YEAR'));
+callbacks.on('ob_no_subscription', (ctx) => writeAnswerAndMove(ctx, 'NO_SUBSCRIPTION'));
 
-callbacks.on(CALLBACKS.SKIP_EMAIL, (ctx) => writeAnswerAndMove(ctx, '/skip'));
-callbacks.on(CALLBACKS.SKIP_PHONE, (ctx) => writeAnswerAndMove(ctx, '/skip'));
-callbacks.on(CALLBACKS.TRIAL, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.TRIAL));
-callbacks.on(CALLBACKS.WEEK, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.WEEK));
-callbacks.on(CALLBACKS.MONTH, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.MONTH));
-callbacks.on(CALLBACKS.YEAR, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.YEAR));
-callbacks.on(CALLBACKS.NO_SUBSCRIPTION, (ctx) => writeAnswerAndMove(ctx, CALLBACKS.NO_SUBSCRIPTION));
+callbacks.on('show_bot_info', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.reply(
+    '🤖 **AI МЕНТОР - ЩО Я ВМІЮ**\n\n' +
+    '🎯 **Колесо балансу**\n' +
+    'Оціни 8 сфер життя і отримай персоналізовані рекомендації\n\n' +
+    '🌞🌙 **Щоденні рефлексії**\n' +
+    'Ранкова настройка на день + вечірній аналіз\n\n' +
+    '🤖 **AI-наставник 24/7**\n' +
+    'Персональні поради та підтримка в будь-який момент\n\n' +
+    '📊 **Звіти та статистика**\n' +
+    'Відстежуй свій прогрес і досягнення\n\n' +
+    '🎮 **Геймифікація**\n' +
+    'Отримуй бейджі, рівні та нагороди\n\n' +
+    '💎 **Та багато іншого!**',
+    {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📝 Зареєструватись', url: `${TILDA_URLS.REGISTRATION}?tg_id=${ctx.from.id}` }]
+        ]
+      }
+    }
+  );
+});
 
 callbacks.on('start_wheel_now', async (ctx) => {
   const { startWheelFromText } = await import('../dashboard/index.js');
@@ -350,34 +401,10 @@ callbacks.on('start_wheel_now', async (ctx) => {
 callbacks.on('wheel_later', async (ctx) => {
   await ctx.answerCbQuery('✅ Добре!');
   await ctx.reply(
-    `✅ Без проблем!\n\n` +
-    `🎡 Колесо чекає на тебе в меню 📊`,
+    `✅ Без проблем!\n\n🎡 Колесо чекає на тебе в меню 📊`,
     keyboards.mainMenuKeyboard()
   );
   return true;
-});
-
-callbacks.on('wheel_info', async (ctx) => {
-  await ctx.answerCbQuery('ℹ️ Інформація...');
-  const { showWheelInfo } = await import('../dashboard/index.js');
-  return showWheelInfo(ctx);
-});
-
-callbacks.on('skip_first_wheel', async (ctx) => {
-  await ctx.answerCbQuery();
-  await ctx.reply(
-    `⚠️ Колесо балансу обов'язкове!\n\n` +
-    `Без нього пробний період не активується.\n\n` +
-    `Готова почати?`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🎯 Так, почати', callback_data: 'wheel_start' }],
-          [{ text: '📞 Підтримка', callback_data: 'contact_support' }]
-        ]
-      }
-    }
-  );
 });
 
 export default { start, onText, onCallback };

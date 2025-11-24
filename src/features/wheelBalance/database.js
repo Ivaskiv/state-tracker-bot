@@ -86,7 +86,7 @@ const createWheel = async (tgId, userName) => {
     const [record] = await base(tables.WHEEL_BALANCE).create([{
       fields: {
         TG_id: String(tgId),
-        'User Name': userName || 'Користувач',
+        'User_Name': userName || 'Користувач',
         Status: 'In Progress',
         Step: 1,
         Created_Date: todayISO()

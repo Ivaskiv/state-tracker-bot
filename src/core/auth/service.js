@@ -9,7 +9,7 @@ export const authenticateUser = async (tgId, firstName, source = 'telegram') => 
   if (!user) {
     user = await createUser(tgId, firstName, {
       Status: 'New User',
-      UserRegistered: false,
+      User_Registered: false,
       Answer_Step: 'registration_start',
       Attribution_Source: source
     });
@@ -27,10 +27,10 @@ export const authenticateUser = async (tgId, firstName, source = 'telegram') => 
 
 export const completeRegistration = async (tgId, data) => {
   const user = await updateUserFields(tgId, {
-    'User Name': data.name,
+    'User_Name': data.name,
     Email: data.email || null,
     Phone: data.phone || null,
-    UserRegistered: true,
+    User_Registered: true,
     Status: 'Registered User',
     Answer_Step: 'registration_completed',
     Registration_Completed_At: new Date().toISOString()
@@ -43,7 +43,7 @@ export const completeRegistration = async (tgId, data) => {
 };
 
 export const isRegistered = (user) => {
-  return user?.fields?.UserRegistered === true;
+  return user?.fields?.User_Registered === true;
 };
 
 export const getRegistrationStep = (user) => {

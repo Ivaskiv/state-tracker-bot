@@ -176,21 +176,6 @@ export const MENU = MENU_BUTTONS;
 
 // ───────────────────────────────────────────────────────────────────────────────
 export const CALLBACKS = Object.freeze({
-  // START_REGISTRATION: 'start_registration',
-  // SKIP_REGISTRATION: 'skip_registration',
-  // CONFIRM_NAME: 'confirm_name',
-  // CHANGE_NAME: 'change_name',
-  // SKIP_NAME: 'skip_name',
-  // SKIP_EMAIL: 'skip_email',
-  // BACK_EMAIL: 'back_email',
-  // SKIP_PHONE: 'skip_phone',
-  // BACK_PHONE: 'back_phone',
-  // TZ_PREFIX: 'tz_',
-  // TRIAL: 'trial',
-  // WEEK: 'week',
-  // MONTH: 'month',
-  // YEAR: 'year',
-  // NO_SUBSCRIPTION: 'no_subscription',
   TZ_PREFIX: 'ob_tz_',
   SKIP_EMAIL: 'ob_skip_email',
   SKIP_PHONE: 'ob_skip_phone',
@@ -292,7 +277,7 @@ export const USER_STATUS_MAP = Object.freeze({
 export const shouldShowPitch = (meta, user) => {
   const fromTilda = String(meta?.src || '').toLowerCase().includes('tilda');
   const status = String(user?.fields?.Status || '').toLowerCase();
-  const notRegistered = user?.fields?.UserRegistered !== true;
+  const notRegistered = user?.fields?.User_Registered !== true;
   const step = String(user?.fields?.Answer_Step || '');
   const inOnboarding = /^ob_/i.test(step);
 
@@ -328,3 +313,59 @@ export const FREE_COURSE_MESSAGES = Object.freeze({
     `Це займе лише хвилину! 📝`
 });
 
+
+export const TILDA_URLS = Object.freeze({
+  // REGISTRATION: 'https://star-way.pro/registration',
+  // CABINET: 'https://star-way.pro/cabinet',
+  // SITE: 'https://star-way.pro'
+
+  REGISTRATION: process.env.NGROK_URL 
+    ? `${process.env.NGROK_URL}/webapp/registration.html`
+    : 'https://star-way.pro/registration',
+
+    CABINET: process.env.NGROK_URL
+    ? `${process.env.NGROK_URL}/webapp/cabinet.html`
+    : 'https://star-way.pro/cabinet',
+  
+  SITE: 'https://star-way.pro'
+});
+
+export const TILDA_MESSAGES = Object.freeze({
+  NEW_USER: (firstName, registrationUrl) =>
+    `👋 Привіт, ${firstName}!\n\n` +
+    `Ти щойно зайшла у простір, який допоможе перестати жити на автопілоті — і нарешті відчути опору всередині\n\n` +
+    `Тут все побудовано так, щоб ти не вигоряла, не металась і не губилась у хаосі.
+Крок за кроком, без шуму, без “давай ще трошки старайся”.\n\n` +
+    `Що на тебе чекає всередині\n\n` +
+    `П’ятиденний відео-курс “5 Точок Внутрішньої Опори”
+Короткі, чіткі уроки, які повертають фокус на себе — на те, що керує твоїми рішеннями і діями щодня.
+Ти перестаєш рухатись інерцією й бачиш: “ага, ось де я гублю себе — і ось як це змінити”\n\n` +
+    `🎁 7 днів безкоштовного доступу до AI-наставника 24/7 \n` +
+    `Персональний AI-наставник, який тримає твій стан у фокусі: ранок, вечір, рішення, думки, пріоритети.
+Все просто: ти відповідаєш — він показує твої патерни й веде до ясності.\n\n` +
+    `Практикум “Стан — ключ до успіху”\n\n` +
+    `Практика, яка знімає хронічний внутрішній шум — той, що ниє підребер’ям “ти робиш недостатньо”.
+Тут ти вчишся не насилувати себе, а діяти з ресурсу.
+Коротко: це твоя внутрішня перезагрузка.\n\n` +
+    `Тренінг на 21 день\n\n` +
+    `Щоб закріпити стан, не злетіти назад у хаос і створити нову базову поведінку, яка тримає тебе.\n\n` +
+    `Наставництво\n\n` +
+    `Комбінація двох систем:
+“Стан — ключ до успіху” + “Сила свідомості”.
+Це там, де з’являється ясність, стійкість і тиша всередині.
+Не “перероби себе”, а “давай виростимо опору, яка вже є”.\n\n` +
+    `Щоб розпочати роботу з AI-ментором, заповни коротку форму реєстрації.\n\n` +
+
+    `Після цього в тебе відкриється твій особистий кабінет\n` +
+    `👇 Натисни кнопку нижче щоб почати:`,
+  
+  REGISTRATION_COMPLETE: (firstName) =>
+    `✅ Вітаю, ${firstName}!\n\n` +
+    `Реєстрацію завершено успішно.\n\n` +
+    `🎁 Активовано 7 днів пробного доступу!\n\n` +
+    `Тепер ти можеш:\n` +
+    `• 🎯 Пройти Колесо балансу\n` +
+    `• 🤖 Спілкуватись з AI-наставником\n` +
+    `• 📊 Відстежувати свій прогрес\n\n` +
+    `Почнемо? 👇`
+});

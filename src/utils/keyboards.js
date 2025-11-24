@@ -3,6 +3,7 @@
 import { TIMEZONES } from "../config/constants.js";
 
 const kbRow = (...btns) => btns.map((b) => ({ text: b.text, callback_data: b.callback_data }));
+const WEBAPP_URL = process.env.NGROK_URL || process.env.WEBAPP_URL || 'https://star-way.pro';
 
 // ═══════════════════════════════════════════════════════════
 // 📌 KEYBOARD КОНСТАНТИ (готові об'єкти - БЕЗ виклику!)
@@ -339,6 +340,10 @@ const keyboards = {
   }),
 
   // ОНБОРДИНГ
+  registrationButton: (url) =>
+  Markup.inlineKeyboard([
+    [Markup.button.url('📝 Зареєструватися', url)]
+  ]),
   nameChoiceInline: () => ({
     reply_markup: {
       inline_keyboard: [
@@ -428,7 +433,15 @@ keyboards.funnelSubscribe = (channelUrl) => ({
     ],
   },
 });
-
+keyboards.funnelStartKeyboard = () => ({
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: '🎬 Почати курс', callback_data: 'free5_start' }],
+      [{ text: 'ℹ️ Дізнатись більше', url: 'https://star-way.pro/main-ai-mentor' }],
+      [{ text: '🏠 До меню', callback_data: 'main_menu' }]
+    ]
+  }
+});
 // Дії під відео
 keyboards.trialExpiredKeyboard = () => ({
   reply_markup: {
@@ -593,6 +606,15 @@ keyboards.wheelCtaInline = () => ({
       [{ text: '🎡 Почати Колесо балансу', callback_data: 'wheel_start' }],
     ],
   },
+});
+
+keyboards.registrationOptionsInline = (registrationUrl) => ({
+  reply_markup: {
+    inline_keyboard: [
+[{ text: '📝 Форма реєстрації', web_app: { url: registrationUrl } }],
+      [{ text: 'ℹ️ Дізнатись більше', callback_data: 'show_bot_info' }]
+    ]
+  }
 });
 
 export default keyboards;

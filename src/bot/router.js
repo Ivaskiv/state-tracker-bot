@@ -12,9 +12,10 @@ import initGamification from '../core/gamification/index.js';
 import initFreeVideoFunnel from '../features/free5videos/index.js';
 import initTildaIntegration from '../tilda/index.js';
 import logger from '../utils/logger.js';
+import { checkUserRegistration } from './middleware.js';
 
 export const initRouter = (bot) => {
-  logger.info('🤖 [router] Підключення модулів…');
+  bot.use(checkUserRegistration);
 
   initOnboarding(bot);
   initDailySessions(bot);

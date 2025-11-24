@@ -45,7 +45,7 @@ export const getUserAccessLevel = async (tgId) => {
     
     const fields = user.fields;
     const plan = String(fields['Active_Subscription_Plan'] || '');
-    const status = String(fields['Subscription Status'] || '').toLowerCase();
+    const status = String(fields['Subscription_Status'] || '').toLowerCase();
     const endDate = fields.End_Date;
     
     if (endDate && new Date(endDate) < new Date()) {
@@ -77,7 +77,7 @@ export const getMemberAreaUrl = async (tgId) => {
       tgId,
       user.fields.Email,
       accessLevel,
-      user.fields['User Name']
+      user.fields['User_Name']
     );
     
     await updateUserFields(tgId, {
@@ -105,7 +105,7 @@ export const handleTildaFormSubmit = async (formData) => {
     
     const updates = { Tilda_Registered: true };
     if (Email) updates.Email = Email;
-    if (Name) updates['User Name'] = Name;
+    if (Name) updates['User_Name'] = Name;
     if (Phone) updates.Phone = Phone;
     
     await updateUserFields(TG_ID, updates);

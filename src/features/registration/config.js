@@ -62,7 +62,7 @@ export const ONBOARDING_CONFIG = {
   questions: QUESTIONS,
   questionType: 'registration',
   fieldMap: {
-    0: 'User Name',
+    0: 'User_Name',
     1: 'Email',
     2: 'Phone',
     3: 'Time_Zone',

@@ -38,7 +38,7 @@ export const syncFullProfile = async (tgId) => {
     
     const profileData = {
       tgId,
-      userName: user.fields['User Name'],
+      userName: user.fields['User_Name'],
       email: user.fields.Email,
       
       // Гейміфікація
@@ -69,7 +69,7 @@ export const syncFullProfile = async (tgId) => {
       },
       
       // Підписка
-      subscriptionStatus: user.fields['Subscription Status'],
+      subscriptionStatus: user.fields['Subscription_Status'],
       subscriptionPlan: user.fields['Active_Subscription_Plan'],
       subscriptionEndDate: user.fields.End_Date,
       
